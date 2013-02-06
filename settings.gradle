@@ -1,2 +1,2 @@
-rootProject.name='gradle-template-master'
-include 'template-client','template-server'
+rootProject.name='EVCache'
+include 'client'

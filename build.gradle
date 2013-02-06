@@ -27,22 +27,10 @@ subprojects {
     }
 }
 
-project(':template-client') {
+project(':client') {
     apply plugin: 'java'
     dependencies {
         compile 'org.slf4j:slf4j-api:1.6.3'
         compile 'com.sun.jersey:jersey-client:1.11'
     }
 }
-
-project(':template-server') {
-    apply plugin: 'war'
-    apply plugin: 'jetty'
-    dependencies {
-        compile 'com.sun.jersey:jersey-server:1.11'
-        compile 'com.sun.jersey:jersey-servlet:1.11'
-        compile project(':template-client')
-        provided 'javax.servlet:servlet-api:2.5'
-    }
-}
-
