@@ -28,7 +28,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
 	/*
 	 * The name of the client host
 	 */
-    private String hostName;
+    private String localHostName;
     
     /*
      * The name of the EVCache app. 
@@ -75,9 +75,9 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
 
     public EVCacheConnectionObserver(String appName, String zone, int id) {
     	try {
-			this.hostName = InetAddress.getLocalHost().getHostName();
+			this.localHostName = InetAddress.getLocalHost().getHostName();
 		} catch (UnknownHostException e) {
-			this.hostName = "NA";
+			this.localHostName = "NA";
 		}
         this.appName = appName;
         this.zone = zone;
@@ -99,7 +99,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         final String hostName = ((InetSocketAddress)sa).getHostName();
         evCacheActiveStringSet.put(hostName, Long.valueOf(System.currentTimeMillis()));
         evCacheInActiveStringSet.remove(hostName);
-        if(log.isInfoEnabled()) log.info(appName + ":CONNECTION ESTABLISHED : From " + hostName + " to " + address + " was established after " + reconnectCount + " retries");
+        if(log.isInfoEnabled()) log.info(appName + ":CONNECTION ESTABLISHED : From " + localHostName + " to " + address + " was established after " + reconnectCount + " retries");
     }
 
     /**
@@ -112,7 +112,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         final String hostName = ((InetSocketAddress)sa).getHostName();
         evCacheInActiveStringSet.put(hostName, Long.valueOf(System.currentTimeMillis()));
         evCacheActiveStringSet.remove(hostName);
-        if(log.isInfoEnabled()) log.info(appName + ":CONNECTION LOST : From " + hostName + " to " + address );
+        if(log.isInfoEnabled()) log.info(appName + ":CONNECTION LOST : From " + localHostName + " to " + address );
     }
 
     @Monitor(name="ActiveServerCount", type=DataSourceType.GAUGE)
@@ -167,7 +167,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
     }
 
     public String toString() {
-        return "EVCacheConnectionObserver [host=" + hostName
+        return "EVCacheConnectionObserver [host=" + localHostName
                 + ", appName=" + appName + ", zone=" + zone + ", id=" + id
                 + ", evCacheActiveSet=" + evCacheActiveSet
                 + ", evCacheInActiveSet=" + evCacheInActiveSet

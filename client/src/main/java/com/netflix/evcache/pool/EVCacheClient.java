@@ -171,4 +171,11 @@ public interface EVCacheClient {
 	 * @return the zone name if any else null
 	 */
 	int getId();
+	
+	/**
+	 * The timeout for all read operations
+	 * 
+	 * @return the timeout in milliseconds
+	 */
+	int getReadTimeout();
 }

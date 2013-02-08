@@ -39,7 +39,7 @@ public class ZoneBasedEVCacheTest  extends AbstractEVCacheTest {
 				for(int i = 0; i < 20; i++) {
 				    insert(i, gCache);
 				    get(i, gCache);
-				    getAndTouch(i, gCache);
+				    //getAndTouch(i, gCache);
 				    getBulk(0, i, gCache);
 				}
 			} catch (Exception e) {

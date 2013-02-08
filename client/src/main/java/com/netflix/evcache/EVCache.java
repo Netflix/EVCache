@@ -1,6 +1,5 @@
 package com.netflix.evcache;
 
-
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -30,20 +29,20 @@ import java.util.concurrent.Future;
  */
 public interface EVCache {
 
-	/**
-	 * Append to an existing data in the EVCACHE using the given EVCacheTranscoder.
-	 *
-	 * @param <T>
-	 * @param key the key to which the value will be appended
-	 * @param value the value that will be appended
-	 * @param tc the EVCacheTranscoder to serialize the data
-	 * @return a future indicating if the operation was success or not
-	 * @throws IllegalStateException in the rare circumstance where queue
-	 *         is too full to accept any more requests
-	 */
-	//<T> Future<Boolean>[] append(String key, T value, EVCacheTranscoder<T> tc) throws EVCacheException;
+    /**
+     * Append to an existing data in the EVCACHE using the given EVCacheTranscoder.
+     *
+     * @param <T>
+     * @param key the key to which the value will be appended
+     * @param value the value that will be appended
+     * @param tc the EVCacheTranscoder to serialize the data
+     * @return a future indicating if the operation was success or not
+     * @throws IllegalStateException in the rare circumstance where queue
+     *         is too full to accept any more requests
+     */
+    //<T> Future<Boolean>[] append(String key, T value, EVCacheTranscoder<T> tc) throws EVCacheException;
 
-	/**
+    /**
      * Set an object in the EVCACHE (using the default EVCacheTranscoder) regardless of any existing value.
      * 
      * The <code>timeToLive</code> value passed to memcached is as specified in the defaultTTL value for this cache

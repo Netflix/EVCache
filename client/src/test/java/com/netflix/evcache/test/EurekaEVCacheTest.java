@@ -39,13 +39,14 @@ public class EurekaEVCacheTest extends AbstractEVCacheTest {
     public static void initLibraries() {
 		try {
 			final Properties logProps = new Properties(); 
-			logProps.setProperty("log4j.rootLogger", "ERROR, CONSOLE");
+			logProps.setProperty("log4j.rootLogger", "ERROR");
 			logProps.setProperty("log4j.appender.CONSOLE","org.apache.log4j.ConsoleAppender");
 			logProps.setProperty("log4j.appender.CONSOLE.layout","org.apache.log4j.PatternLayout");
 			logProps.setProperty("log4j.appender.CONSOLE.layout.ConversionPattern", "%d [%t] %p %c:%L  - %m%n");
 			logProps.setProperty("log4j.logger.net.spy.memcached","WARN,CONSOLE");
 			logProps.setProperty("log4j.logger.com.netflix.evcache.client.EVCacheConnectionObserver", "INFO,CONSOLE");
 			logProps.setProperty("log4j.logger.com.netflix.evcache", "DEBUG,CONSOLE");
+			//System.setProperty("net.spy.log.LoggerImpl", "net.spy.memcached.compat.log.Log4JLogger");
 			PropertyConfigurator.configure(logProps);
 			log.info("Logger intialized");
 
@@ -53,8 +54,8 @@ public class EurekaEVCacheTest extends AbstractEVCacheTest {
 			props.setProperty("evcache.appsToInit", "EVCACHE");
 			props.setProperty("EVCACHE.EVCacheClientPool.zoneAffinity","true");
             props.setProperty("EVCACHE.EVCacheClientPool.poolSize", "1");
-            props.setProperty("EVCACHE.EVCacheClientPool.readTimeout", "1000");
-            props.setProperty("EVCACHE.us-east-1d.EVCacheClientPool.writeOnly", "true");
+            props.setProperty("EVCACHE.EVCacheClientPool.readTimeout", "10000");
+            props.setProperty("EVCACHE.us-east-1d.EVCacheClientPool.writeOnly", "false");
             props.setProperty("EVCACHE.us-east-1c.EVCacheClientPool.writeOnly", "true");
             props.setProperty("EVCACHE.ping.servers", "false");
 //            props.setProperty("EVCACHE.enable.throttling", "true");

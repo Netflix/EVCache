@@ -247,6 +247,10 @@ public abstract class AbstractEVCacheClientImpl implements EVCacheClient {
 	public EVCacheConnectionObserver getConnectionObserver() {
 		return null;
 	}
+	
+	public int getReadTimeout() {
+		return readTimeout.get();
+	}
 
 
 	public String toString() {

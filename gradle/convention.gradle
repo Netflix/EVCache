@@ -64,8 +64,8 @@ subprojects { project ->
     project.sourceSets {
         main.compileClasspath += project.configurations.provided
         main.runtimeClasspath -= project.configurations.provided
-        test.compileClasspath += project.configurations.provided
-        test.runtimeClasspath += project.configurations.provided
+        //test.compileClasspath += project.configurations.provided
+        //test.runtimeClasspath += project.configurations.provided
     }
 }
 

@@ -15,13 +15,16 @@ public class SimpleEVCacheTest extends AbstractEVCacheTest {
     @BeforeClass
     public static void initLibraries() {
 		try {
+			System.setProperty("net.spy.log.LoggerImpl", "net.spy.memcached.compat.log.Log4JLogger");
+			System.setProperty("log4j.rootLogger","ERROR");
 			BasicConfigurator.configure();
 			log.info("Logger intialized");
 
 			System.setProperty("evcache.pool.provider","com.netflix.evcache.pool.standalone.SimpleEVCacheClientPoolImpl");
-			System.setProperty("EVCACHE.EVCacheClientPool.hosts","ec2-50-19-134-160.compute-1.amazonaws.com:11211,ec2-50-19-134-160.compute-1.amazonaws.com:11212");
+			System.setProperty("EVCACHE.EVCacheClientPool.hosts","ec2-50-16-48-64.compute-1.amazonaws.com:11211");
 			log.info("initializing EVCache");
             EVCacheClientPoolManager.getInstance().initEVCache("EVCACHE");
+            Thread.sleep(2000);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
