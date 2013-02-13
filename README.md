@@ -1,3 +1,15 @@
+EVCache
+
+EVCache is a memcached & spymemcached based caching solution that is mainly used for AWS EC2 infrastructure for caching frequently used data. 
+
+EVCache is an abbreviation for:
+Ephemeral  - The data stored is for a short duration as specified by its TTL (Time To Live).
+Volatile  - The data can disappear any time (Evicted).
+Cache - An in-memory key-value store.
+
+
+=============
+
 This project represents a template for what a Netflix OSS project should look like. We're striving for a pure Gradle build, instead of taking a consolidated plugin approach, as we would internally. This will maintain each project's isolation and keep the build as transparent as possible to the outside world. While at the same time we want to be able to push out build updates in a predictable fashion. 
 
 There are three branches for which you should concern yourself with:

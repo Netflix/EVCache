@@ -34,8 +34,9 @@ project(':client') {
         compile     'com.netflix.eureka:eureka-core:1.1.73'
         compile     'com.netflix.archaius:archaius-core:0.5.4'
         compile     'com.netflix.servo:servo-core:'
-        compile     'org.slf4j:slf4j-log4j12:1.7.2'
+        compile     'org.slf4j:slf4j-log4j12:1.7.0'
         compile     'junit:junit:4.10'
+        compile     'log4j:log4j:1.2.17'
 
         compile     'org.slf4j:slf4j-api:1.7.2'
         compile     'com.sun.jersey:jersey-client:1.11'

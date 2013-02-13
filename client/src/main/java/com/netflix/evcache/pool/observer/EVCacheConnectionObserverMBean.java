@@ -5,12 +5,24 @@ import java.util.Set;
 
 
 public interface EVCacheConnectionObserverMBean {
-	
-	int getActiveServerCount();
-	
-	Set<SocketAddress> getActiveServerNames();
 
-	int getInActiveServerCount();
-	
-	Set<SocketAddress> getInActiveServerNames();
+    /**
+     * Returns the number of Active Servers associated with this Observer.
+     */
+    int getActiveServerCount();
+
+    /**
+     * Returns the Set of address of Active Servers associated with this Observer.
+     */
+    Set<SocketAddress> getActiveServerNames();
+
+    /**
+     * Returns the number of InActive Servers associated with this Observer.
+     */
+    int getInActiveServerCount();
+
+    /**
+     * Returns the Set of address of InActive Servers associated with this Observer.
+     */
+    Set<SocketAddress> getInActiveServerNames();
 }

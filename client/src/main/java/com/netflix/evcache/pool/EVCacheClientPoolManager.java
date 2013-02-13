@@ -14,28 +14,28 @@ import org.slf4j.LoggerFactory;
 import com.netflix.config.ConfigurationManager;
 
 /**
- * <p>A manager that holds pool of {@link EVCacheClient} instances for each EVCache app. When this class is initialized all the {@link EVCache} apps defined in the property 
- * evcache.appsToInit will be initialized and added to the pool.   
- * 
- *  <p>An {@link EVCache} app can also be initialized by calling
+ * <p>A manager that holds pool of {@link EVCacheClient} instances for each EVCache app. When this class is initialized
+ * all the {@link com.netflix.evcache.EVCache} apps defined in the property evcache.appsToInit will be initialized and added to the pool.
+ *
+ *  <p>An {@link com.netflix.evcache.EVCache} app can also be initialized by calling
  *  <p>{@code EVCacheClientPoolManager.getInstance().initEVCache(<app name>);}
- *      
- *  <p>This typically should be done in the client libraries that need to initialize an EVCache app. 
+ *
+ *  <p>This typically should be done in the client libraries that need to initialize an EVCache app.
  *  For Example ViewingHistoryLibrary in its initLibrary initializes EVCACHE_VIEW_HIST by calling
- *  
+ *
  *      <p>{@code EVCacheClientPoolManager.getInstance().initEVCache("EVCACHE_VIEW_HIST");}
  */
-
-public class EVCacheClientPoolManager {
+public final class EVCacheClientPoolManager {
     private static final Logger log = LoggerFactory.getLogger(EVCacheClientPoolManager.class);
     private static final EVCacheClientPoolManager instance = new EVCacheClientPoolManager();
     private final Map<String, EVCacheClientPool> poolMap = new ConcurrentHashMap<String, EVCacheClientPool>();
     private final ReentrantLock lock = new ReentrantLock();
     private final String evcachePoolProvider;
-    
+
     private EVCacheClientPoolManager() {
         try {
-        	evcachePoolProvider = ConfigurationManager.getConfigInstance().getString("evcache.pool.provider", "com.netflix.evcache.pool.eureka.EVCacheClientPoolImpl");
+            final String poolProvider = "com.netflix.evcache.pool.eureka.EVCacheClientPoolImpl";
+            evcachePoolProvider = ConfigurationManager.getConfigInstance().getString("evcache.pool.provider", poolProvider);
             init();
         } catch (ConfigurationException e) {
             log.error("Could not load the config file. Will not be able to init EVCaches!!!!", e);
@@ -49,48 +49,49 @@ public class EVCacheClientPoolManager {
     public static EVCacheClientPoolManager getInstance() {
         return instance;
     }
-    
+
     private void init() throws ConfigurationException, IOException {
         final String appsToInit = ConfigurationManager.getConfigInstance().getString("evcache.appsToInit");
-        if(appsToInit == null)  return;
+        if (appsToInit == null) return;
         final StringTokenizer apps = new StringTokenizer(appsToInit, ",");
-        while(apps.hasMoreTokens()) {
+        while (apps.hasMoreTokens()) {
             final String app = apps.nextToken().toUpperCase();
-            if(log.isInfoEnabled()) log.info("Initializing EVCache - " + app);
+            if (log.isInfoEnabled()) log.info("Initializing EVCache - " + app);
             initEVCache(app);
         }
     }
-    
+
     /**
-     * Will init the given EVCache app call. If one is already initialized for the given app method returns without doing anything.  
-     *  
-     * @param app - name of the evcache app
+     * Will init the given EVCache app call. If one is already initialized for the given app method returns without doing anything.
+     *
+     * @param appName - name of the evcache app
      */
     public void initEVCache(String appName) {
-        if(poolMap.containsKey(appName)) return;
+        if (poolMap.containsKey(appName)) return;
         lock.lock();
         try {
-            if(poolMap.containsKey(appName)) return;
-            final EVCacheClientPool pool = (EVCacheClientPool)(Class.forName(evcachePoolProvider).newInstance());
+            if (poolMap.containsKey(appName)) return;
+            final EVCacheClientPool pool = (EVCacheClientPool) (Class.forName(evcachePoolProvider).newInstance());
             pool.init(appName);
             poolMap.put(appName, pool);
         } catch (Exception ex) {
-        	log.error("Exception initialzing " + evcachePoolProvider + " for app " + appName, ex);
-		} finally {
+            log.error("Exception initialzing " + evcachePoolProvider + " for app " + appName, ex);
+        } finally {
             lock.unlock();
         }
     }
-    
+
     /**
-     * Given the appName get the EVCacheClientPool. If the app is already created then will return the existing instance. If not one will be created and returned.  
-     *  
+     * Given the appName get the EVCacheClientPool. If the app is already created then will return the existing instance.
+     * If not one will be created and returned.
+     *
      * @param app - name of the evcache app
      * @return the Pool for the give app.
      * @throws IOException
      */
     public EVCacheClientPool getEVCacheClientPool(String app) {
         final EVCacheClientPool evcacheClientPool = poolMap.get(app);
-        if(evcacheClientPool != null) return evcacheClientPool;
+        if (evcacheClientPool != null) return evcacheClientPool;
         initEVCache(app);
         return poolMap.get(app);
     }
@@ -99,8 +100,11 @@ public class EVCacheClientPoolManager {
         return Collections.unmodifiableMap(poolMap);
     }
 
+    /**
+     * Shutdown all the pools.
+     */
     public void shutdown() {
-        for(EVCacheClientPool pool : poolMap.values()) {
+        for (EVCacheClientPool pool : poolMap.values()) {
             pool.shutdown();
         }
     }
