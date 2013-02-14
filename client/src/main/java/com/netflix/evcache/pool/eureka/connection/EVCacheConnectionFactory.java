@@ -9,7 +9,7 @@ import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.NodeLocator;
 
 /**
- * ConnectionFactory for eureka based {@link 
+ * ConnectionFactory for eureka based implementation.
  *
  * <p>
  * This implementation creates connections where the operation queue is an
@@ -22,14 +22,23 @@ import net.spy.memcached.NodeLocator;
  */
 public class EVCacheConnectionFactory extends BinaryConnectionFactory {
 
-	private final String appName;
-	
-	public EVCacheConnectionFactory(String appName, int len) {
-		super(len, BinaryConnectionFactory.DEFAULT_READ_BUFFER_SIZE, HashAlgorithm.KETAMA_HASH);
-		this.appName = appName;
-	}
-	
-	public NodeLocator createLocator(List<MemcachedNode> list) {
-		return new KetamaNodeLocator(list, HashAlgorithm.KETAMA_HASH, new EVCacheKetamaNodeLocatorConfiguration(appName));
+    private final String appName;
+
+    /**
+     * Creates an instance of {@link ConnectionFactory} for the given appName, queue length and Ketama Hashing.
+     *
+     * @param appName - the name of the EVCache app
+     * @param len the length of the operation queue
+     */
+    public EVCacheConnectionFactory(String appName, int len) {
+        super(len, BinaryConnectionFactory.DEFAULT_READ_BUFFER_SIZE, HashAlgorithm.KETAMA_HASH);
+        this.appName = appName;
+    }
+
+    /**
+     * returns a instance of {@link KetamaNodeLocator}.
+     */
+    public NodeLocator createLocator(List<MemcachedNode> list) {
+        return new KetamaNodeLocator(list, HashAlgorithm.KETAMA_HASH, new EVCacheKetamaNodeLocatorConfiguration(appName));
     }
 }

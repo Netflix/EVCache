@@ -10,31 +10,40 @@ import com.netflix.discovery.shared.Application;
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.util.DefaultKetamaNodeLocatorConfiguration;
 
+/**
+ * A implementation of {@link KetamaNodeLocatorConfiguration} that can handle EC2 address translation when
+ * accessed outside EC2 environments.
+ * @author smadappa
+ */
 public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLocatorConfiguration {
 
-    private final String appId;
+    private final String appName;
 
-    public EVCacheKetamaNodeLocatorConfiguration(String appId) {
-        this.appId = appId;
+    /**
+     * Creates an instance of KetamaNodeLocatorConfiguration for the given appName.
+     * @param appName
+     */
+    public EVCacheKetamaNodeLocatorConfiguration(String appName) {
+        this.appName = appName;
     }
 
     /**
      * Returns the socket address of a given MemcachedNode.
      *
      * @param node - The MemcachedNode which we're interested in
-     * @return The socket address of the given node format is of the following 
+     * @return The socket address of the given node format is of the following
      *     format "publicHostname/privateIp:port" (ex - ec2-174-129-159-31.compute-1.amazonaws.com/10.125.47.114:11211)
      */
     @Override
     protected String getSocketAddressForNode(MemcachedNode node) {
-        String result=socketAddresses.get(node);
-        if(result == null) {
-            if(node.getSocketAddress() instanceof InetSocketAddress) {
-                final InetSocketAddress isa = (InetSocketAddress)node.getSocketAddress();
-                final Application app = DiscoveryManager.getInstance().getDiscoveryClient().getApplication(appId);
+        String result = socketAddresses.get(node);
+        if (result == null) {
+            if (node.getSocketAddress() instanceof InetSocketAddress) {
+                final InetSocketAddress isa = (InetSocketAddress) node.getSocketAddress();
+                final Application app = DiscoveryManager.getInstance().getDiscoveryClient().getApplication(appName);
                 final List<InstanceInfo> instances = app.getInstances();
-                for(InstanceInfo info : instances) {
-                    if(info.getHostName().equalsIgnoreCase(isa.getHostName())) {
+                for (InstanceInfo info : instances) {
+                    if (info.getHostName().equalsIgnoreCase(isa.getHostName())) {
                         final String hostName = info.getHostName();
                         final String ip = info.getIPAddr();
                         final String port = info.getMetadata().get("evcache.port");
@@ -42,7 +51,7 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
                     }
                 }
             } else {
-                result=String.valueOf(node.getSocketAddress());
+                result = String.valueOf(node.getSocketAddress());
                 if (result.startsWith("/")) {
                     result = result.substring(1);
                 }

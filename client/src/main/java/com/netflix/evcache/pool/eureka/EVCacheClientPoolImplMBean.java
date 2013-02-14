@@ -6,22 +6,59 @@ import javax.management.DescriptorKey;
 
 public interface EVCacheClientPoolImplMBean {
 
-	@DescriptorKey("The number of EVCache instances(hosts) in this pool")
+    /**
+     * Returns the number of {@link EVCache} instances in this pool.
+     */
+    @DescriptorKey("The number of EVCache instances(hosts) in this pool")
     int getInstanceCount();
-    
-	@DescriptorKey("The Map of instances by availablity zone, where the key is zone and value is the comma separed list of instances in that zone")
+
+    /**
+     * The Map of instances by availability zone, where the key is zone and value is the comma separated list of instances in that zone.
+     */
+    @DescriptorKey("The Map of instances by availability zone, where the key is zone and value is the comma separated list of instances in that zone")
     Map<String, String> getInstancesByZone();
-    
-	@DescriptorKey("The Map of instance count by availablity zone, where the key is zone and value is the number of instances in that zone")
+
+    /**
+     * The Map of instance count by availability zone, where the key is zone and value is the number of instances in that zone.
+     */
+    @DescriptorKey("The Map of instance count by availability zone, where the key is zone and value is the number of instances in that zone")
     Map<String, Integer> getInstanceCountByZone();
 
+    /**
+     * The Map of instance by availability zone that can perform Read operations, where the key is zone
+     * and value is the comma separated list of instances in that zone.
+     */
+    @DescriptorKey("The Map of instances by availability zone that can do read operations, where the key is zone and value is the comma"
+                + "separated list of instances in that zone")
     Map<String, String> getReadZones();
-    
+
+    /**
+     * The Map of instance count by availability zone that can perform Read operations, where the key is zone
+     * and value is the count of instances in that zone.
+     */
+    @DescriptorKey("The Map of instances count by availability zone that can do read operations, where the key is zone and value "
+            + "is the count of instances in that zone")
     Map<String, Integer> getReadInstanceCountByZone();
-    
+
+    /**
+     * The Map of instance by availability zone that can perform write operations, where the key is zone
+     * and value is the comma separated list of instances in that zone.
+     */
+    @DescriptorKey("The Map of instances by availability zone that can do write operations, where the key is zone and value is the comma"
+                + "separated list of instances in that zone")
     Map<String, String> getWriteZones();
-    
+
+    /**
+     * The Map of instance count by availability zone that can perform write operations, where the key is zone
+     * and value is the count of instances in that zone.
+     */
+    @DescriptorKey("The Map of instances count by availability zone that can do write operations, where the key is zone and value "
+            + "is the count of instances in that zone")
     Map<String, Integer> getWriteInstanceCountByZone();
-    
+
+    /**
+     * Force refresh on the pool.
+     */
+    @DescriptorKey("Force refresh on the pool")
     void refreshPool();
 }
