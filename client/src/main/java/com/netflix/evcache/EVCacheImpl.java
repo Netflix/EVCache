@@ -273,7 +273,7 @@ public final class EVCacheImpl implements EVCache {
                 }
             }
             if (log.isDebugEnabled()) {
-                log.debug("GETnTOUCH : key [" + key + "], Status [" + futures + "]");
+                log.debug("GETnTOUCH : key [" + key + "], Status [" + futures.length + "]");
             }
             T data = null;
             for (Future<CASValue<T>> dataFuture : futures) {
@@ -451,7 +451,7 @@ public final class EVCacheImpl implements EVCache {
                 futures[index++] = client.set(canonicalKey, tc, value, timeToLive);
             }
             if (log.isDebugEnabled()) {
-                log.debug("SET : key [" + key + "], Status [" + futures + "]");
+                log.debug("SET : key [" + key + "], Status [" + futures.length + "]");
             }
             return futures;
         } catch (Exception ex) {

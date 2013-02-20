@@ -12,7 +12,7 @@ import com.netflix.evcache.pool.eureka.connection.EVCacheConnectionFactory;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 
 /**
- * An implementation of {@link EVCacheClient} based on Eureka.
+ * An implementation of {@link com.netflix.evcache.pool.EVCacheClient} based on Eureka.
  * @author smadappa
  *
  */
@@ -21,9 +21,10 @@ public class EVCacheClientImpl  extends AbstractEVCacheClientImpl {
     private EVCacheConnectionObserver connectionObserver = null;
 
     /**
-     * Creates an instances of {@link EVCacheClient} for the given appName, zone, id, readTimeout and the list of memcached nodes.
-     * An instance of connection factory ({@link EVCacheConnectionFactory}) with the given maxQueueSize and appName.
-     * Additionally a connection observer ({@link EVCacheConnectionObserver}) for the given appName, zone and id is also created which monitors
+     * Creates an instances of {@link com.netflix.evcache.pool.EVCacheClient} for the given appName, zone, id,
+     * readTimeout and the list of memcached nodes. An instance of connection factory ({@link EVCacheConnectionFactory})
+     * with the given maxQueueSize and appName. Additionally a connection observer ({@link EVCacheConnectionObserver})
+     * for the given appName, zone and id is also created which monitors
      * the connection between client and the memcached server.
      *
      * @param appName - The name of the EVCache app.

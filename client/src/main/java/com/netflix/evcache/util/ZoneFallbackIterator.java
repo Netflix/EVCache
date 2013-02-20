@@ -68,7 +68,7 @@ public class ZoneFallbackIterator {
      *
      * @param <E>
      */
-    class Entry<E> {
+    static class Entry<E> {
         private E element;
         private Entry<E> next;
 
