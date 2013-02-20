@@ -17,21 +17,20 @@ public class ZoneFallbackIterator {
      */
     public ZoneFallbackIterator(Set<String> allZones) {
         if (allZones == null || allZones.size() == 0) return;
+        Entry<String> pEntry = null; 
         for (Iterator<String> itr = allZones.iterator(); itr.hasNext();) {
             final String zone = itr.next();
-            final Entry<String> newEntry = new Entry<String>(zone, entry);
+            final Entry<String> newEntry = new Entry<String>(zone, pEntry);
             if (entry == null) entry = newEntry;
+            pEntry = newEntry;
         }
-
+        
         /*
-         * Create the circular list by iterating over the entries and trying the last entry to the first entry.
+         * Connect the first and the last entry to form a circular list
          */
-        Entry<String> _entry = entry;
-        while (_entry.next != null) {
-            _entry = entry.next;
-            size++;
+        if(pEntry != null) {
+            pEntry.next = entry;
         }
-        _entry.next = entry;
     }
 
     /**
