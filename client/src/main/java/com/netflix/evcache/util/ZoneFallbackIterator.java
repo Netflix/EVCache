@@ -4,7 +4,8 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
- * A Zone Based fallback iterator. This ensures that during a fallback scenario the requests are spread out across all zones evenly.
+ * A Zone Based fallback circular iterator.
+ * This ensures that during a fallback scenario the requests are spread out across all zones evenly.
  * @author smadappa
  */
 public class ZoneFallbackIterator {
@@ -13,7 +14,7 @@ public class ZoneFallbackIterator {
 
     /**
      * Creates an instance of ZoneFallbackIterator given all the zones.
-     * @param allZones
+     * @param allZones Set of all available zones.
      */
     public ZoneFallbackIterator(Set<String> allZones) {
         if (allZones == null || allZones.size() == 0) return;
@@ -29,7 +30,7 @@ public class ZoneFallbackIterator {
          * Connect the first and the last entry to form a circular list
          */
         if(pEntry != null) {
-            pEntry.next = entry;
+            entry.next = pEntry;
         }
     }
 
