@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -156,11 +157,11 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
     }
 
     public Map<String, Long> getInActiveServerInfo() {
-        return evCacheInActiveStringSet;
+        return Collections.unmodifiableMap(evCacheInActiveStringSet);
     }
 
     public Map<String, Long> getActiveServerInfo() {
-        return evCacheActiveStringSet;
+        return Collections.unmodifiableMap(evCacheActiveStringSet);
     }
 
     private void setupMonitoring(boolean shutdown) {

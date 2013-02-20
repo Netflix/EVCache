@@ -45,7 +45,7 @@ public interface EVCacheClient {
      * @return Boolean wrapped in a future indicating if the operation was successful or not
      * @throws Exception that occurred while executing this call on the
      */
-    <T> Future<Boolean> touch(String key, int timeToLive) throws Exception;
+    <T> Future<Boolean> touch(String key, int timeToLive) throws Exception; //TODO <T> never used in method signature
 
     /**
      * Set an value in the EVCache. If a value already exits it will be overwritten

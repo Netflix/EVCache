@@ -11,7 +11,7 @@ import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.util.DefaultKetamaNodeLocatorConfiguration;
 
 /**
- * A implementation of {@link KetamaNodeLocatorConfiguration} that can handle EC2 address translation when
+ * A implementation of {@link net.spy.memcached.util.KetamaNodeLocatorConfiguration} that can handle EC2 address translation when
  * accessed outside EC2 environments.
  * @author smadappa
  */
@@ -21,7 +21,7 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
 
     /**
      * Creates an instance of KetamaNodeLocatorConfiguration for the given appName.
-     * @param appName
+     * @param appName The name of the registered application.
      */
     public EVCacheKetamaNodeLocatorConfiguration(String appName) {
         this.appName = appName;
@@ -41,13 +41,18 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
             if (node.getSocketAddress() instanceof InetSocketAddress) {
                 final InetSocketAddress isa = (InetSocketAddress) node.getSocketAddress();
                 final Application app = DiscoveryManager.getInstance().getDiscoveryClient().getApplication(appName);
+                if( null == app ) {
+                    throw new IllegalStateException("No instances found for registered application");
+                }
                 final List<InstanceInfo> instances = app.getInstances();
+                //TODO: Why a for loop - result added to socketAddresses outside for loop
                 for (InstanceInfo info : instances) {
                     if (info.getHostName().equalsIgnoreCase(isa.getHostName())) {
                         final String hostName = info.getHostName();
                         final String ip = info.getIPAddr();
                         final String port = info.getMetadata().get("evcache.port");
                         result = hostName + '/' + ip + ':' + ((port != null) ? port : "11211");
+                        //TODO break here
                     }
                 }
             } else {

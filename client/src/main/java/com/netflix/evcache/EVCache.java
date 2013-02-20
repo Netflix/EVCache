@@ -32,19 +32,6 @@ import java.util.concurrent.Future;
 public interface EVCache {
 
     /**
-     * Append to an existing data in the EVCACHE using the given {@link EVCacheTranscoder}.
-     *
-     * @param <T>
-     * @param key the key to which the value will be appended
-     * @param value the value that will be appended
-     * @param tc the {@link EVCacheTranscoder} to serialize the data
-     * @return a future indicating if the operation was success or not
-     * @throws IllegalStateException in the rare circumstance where queue
-     *         is too full to accept any more requests
-     */
-    //<T> Future<Boolean>[] append(String key, T value, EVCacheTranscoder<T> tc) throws EVCacheException;
-
-    /**
      * Set an object in the EVCACHE (using the default {@link EVCacheTranscoder}) regardless of any existing value.
      *
      * The <code>timeToLive</code> value passed to memcached is as specified in the defaultTTL value for this cache
@@ -66,7 +53,7 @@ public interface EVCache {
      *
      * <blockquote>
      * The actual value sent may either be
-     * Unix time aka EPOC time (number of seconds since January 1, 1970, as a 32-bit int
+     * Unix time aka EPOCH time (number of seconds since January 1, 1970, as a 32-bit int
      * value), or a number of seconds starting from current time. In the
      * latter case, this number of seconds may not exceed 60*60*24*30 (number
      * of seconds in 30 days); if the number sent by a client is larger than
@@ -304,6 +291,7 @@ public interface EVCache {
          * @return a reference to this object
          */
         public Builder setCacheName(String pCacheName) {
+            //TODO check for contains ":"
             this.cacheName = pCacheName;
             return this;
         }

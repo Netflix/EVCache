@@ -226,6 +226,7 @@ public final class EVCacheImpl implements EVCache {
             }
             return data;
         } catch (Exception ex) {
+            //TODO: Add counter for exception ?
             if (log.isDebugEnabled()) {
                 log.debug("Exception while getting data for key : " + key, ex);
             }
@@ -268,7 +269,7 @@ public final class EVCacheImpl implements EVCache {
             int index = 0, timeout = 0;
             for (EVCacheClient client : clients) {
                 futures[index++] = client.asyncGetAndTouch(canonicalKey, tc, timeToLive);
-                if (timeout == 0) {
+                if (timeout == 0) { //TODO QUESTION: Can there be individual timeouts per zone?
                     timeout = client.getReadTimeout();
                 }
             }
@@ -279,7 +280,7 @@ public final class EVCacheImpl implements EVCache {
             for (Future<CASValue<T>> dataFuture : futures) {
                 final T t = dataFuture.get(timeout, TimeUnit.MILLISECONDS).getValue();
                 if (data == null) {
-                    data = t;
+                    data = t; //TODO: Hmm - then why go through the for loop? Break out at first non null value?
                 }
             }
             if (log.isDebugEnabled()) {
@@ -383,9 +384,10 @@ public final class EVCacheImpl implements EVCache {
             final Map<String, T> decanonicalR = new HashMap<String, T>(retMap.size() * 2);
             for (Map.Entry<String, T> i : retMap.entrySet()) {
                 final String deCanKey = getKey(i.getKey());
+                //TODO: null check before a put? getKey returns null
                 decanonicalR.put(deCanKey, i.getValue());
             }
-            if (decanonicalR != null && !decanonicalR.isEmpty()) {
+            if (!decanonicalR.isEmpty()) {
                 BULK_HIT_COUNTER.increment();
             } else {
                 BULK_MISS_COUNTER.increment();
@@ -445,6 +447,7 @@ public final class EVCacheImpl implements EVCache {
 
         try {
             final Future<Boolean>[] futures = new Future[clients.length];
+            //TODO: Should we ensure that there is no colon ":" in the keys? Your javadoc mentions control chars
             final String canonicalKey = getCanonicalizedKey(key);
             int index = 0;
             for (EVCacheClient client : clients) {

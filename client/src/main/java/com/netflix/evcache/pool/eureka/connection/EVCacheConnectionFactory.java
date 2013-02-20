@@ -25,7 +25,7 @@ public class EVCacheConnectionFactory extends BinaryConnectionFactory {
     private final String appName;
 
     /**
-     * Creates an instance of {@link ConnectionFactory} for the given appName, queue length and Ketama Hashing.
+     * Creates an instance of {@link net.spy.memcached.ConnectionFactory} for the given appName, queue length and Ketama Hashing.
      *
      * @param appName - the name of the EVCache app
      * @param len the length of the operation queue

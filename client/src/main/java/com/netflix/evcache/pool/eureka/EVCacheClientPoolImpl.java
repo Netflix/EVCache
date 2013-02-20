@@ -74,7 +74,7 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
                     + ".EVCacheClientPool.writeOnly", false);
             put((String) zone, isZoneInWriteOnlyMode);
             return isZoneInWriteOnlyMode;
-        };
+        }
     };
 
     /**
@@ -121,10 +121,10 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
         if (memcachedReadInstancesByZone.isEmpty()) {
             return null;
         }
-
+        List<EVCacheClientImpl> clients;
         try {
             if (_zoneAffinity.get()) {
-                List<EVCacheClientImpl> clients = memcachedReadInstancesByZone.get(_zone);
+                clients = memcachedReadInstancesByZone.get(_zone);
                 if (clients == null) {
                     final String fallbackZone = memcachedFallbackReadInstances.next();
                     if (fallbackZone == null) {
@@ -133,31 +133,32 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
                     clients = memcachedReadInstancesByZone.get(fallbackZone);
                 }
 
-                if (clients == null) {
-                    return null;
-                }
-                if (clients.size() == 1) {
-                    return clients.get(0); //Frequently used scenario
-                }
-                final long currentVal = numberOfReadOps.incrementAndGet();
-                final int index = (int) currentVal % clients.size();
-                return clients.get(index);
             } else {
-                final List<EVCacheClientImpl> clients = memcachedReadInstancesByZone.get(GLOBAL);
+                clients = memcachedReadInstancesByZone.get(GLOBAL);
                 if (clients == null) {
                     return null;
                 }
-                if (clients.size() == 1) {
-                    return clients.get(0); //Frequently used scenario
-                }
-                final long currentVal = numberOfReadOps.incrementAndGet();
-                final int index = (int) currentVal % clients.size();
-                return clients.get(index);
             }
+
+            return selectClient(clients);
+
         } catch (Throwable t) {
+            //TODO: Counter?
             log.error("Exception trying to get an readable EVCache Instances for zone " + _zone, t);
             return null;
         }
+    }
+
+    private EVCacheClient selectClient(List<EVCacheClientImpl> clients) {
+        if (clients == null) {
+            return null;
+        }
+        if (clients.size() == 1) {
+            return clients.get(0); //Frequently used scenario
+        }
+        final long currentVal = numberOfReadOps.incrementAndGet();
+        final int index = (int) currentVal % clients.size();
+        return clients.get(index);
     }
 
     /**
@@ -176,18 +177,10 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
             if (_zoneAffinity.get()) {
                 String fallbackZone = memcachedFallbackReadInstances.next(zone);
                 if (fallbackZone == null || fallbackZone.equals(zone)) {
-                    return null;
+                    return null; //TODO: Are we penalizing every time here - why not do another next when zone is the excluded one?
                 }
                 final List<EVCacheClientImpl> clients = memcachedReadInstancesByZone.get(fallbackZone);
-                if (clients == null) {
-                    return null;
-                }
-                if (clients.size() == 1) {
-                    return clients.get(0); //Frequently used case
-                }
-                final long currentVal = numberOfReadOps.incrementAndGet();
-                final int index = (int) currentVal % clients.size();
-                return clients.get(index);
+                return selectClient(clients);
             }
             return null;
         } catch (Throwable t) {
@@ -208,6 +201,7 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
                 for (String zone : memcachedWriteInstancesByZone.keySet()) {
                     final List<EVCacheClientImpl> clients = memcachedWriteInstancesByZone.get(zone);
                     final long currentVal = numberOfReadOps.incrementAndGet();
+                    //TODO - why do the mod when we want to return all the clients?
                     final int index = (int) currentVal % clients.size();
                     clientArr[i++] = clients.get(index);
                 }
@@ -322,7 +316,7 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
             memcachedReadInstancesByZone.put(zone, newClients);
         }
         memcachedWriteInstancesByZone.put(zone, newClients);
-
+        //TODO - So, we want to put "null" newClients in the maps above?
         if (currentClients == null || currentClients.isEmpty()) {
             return;
         }
@@ -376,8 +370,7 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
         }
 
         if (memcachedReadInstancesByZone.size() != memcachedFallbackReadInstances.getSize()) {
-            final ZoneFallbackIterator _memcachedFallbackReadInstances = new ZoneFallbackIterator(memcachedReadInstancesByZone.keySet());
-            memcachedFallbackReadInstances = _memcachedFallbackReadInstances;
+            memcachedFallbackReadInstances = new ZoneFallbackIterator(memcachedReadInstancesByZone.keySet());
         }
     }
 
