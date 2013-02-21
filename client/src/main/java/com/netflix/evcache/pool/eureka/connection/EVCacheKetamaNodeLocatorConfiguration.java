@@ -45,14 +45,13 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
                     throw new IllegalStateException("No instances found for registered application");
                 }
                 final List<InstanceInfo> instances = app.getInstances();
-                //TODO: Why a for loop - result added to socketAddresses outside for loop
                 for (InstanceInfo info : instances) {
                     if (info.getHostName().equalsIgnoreCase(isa.getHostName())) {
                         final String hostName = info.getHostName();
                         final String ip = info.getIPAddr();
                         final String port = info.getMetadata().get("evcache.port");
                         result = hostName + '/' + ip + ':' + ((port != null) ? port : "11211");
-                        //TODO break here
+                        break;
                     }
                 }
             } else {

@@ -43,7 +43,8 @@ public class SimpleEVCacheClientPoolImpl extends AbstractEVCacheClientPoolImpl i
         super.init(appName);
         this._serverList = DynamicPropertyFactory.getInstance().getStringProperty(appName + ".EVCacheClientPool.hosts", "");
         _serverList.addCallback(this);
-        memcachedInstances = new ArrayList<EVCacheClient>(getPoolSize().get());
+        int size = getPoolSize().get() < 0 ? 1 : getPoolSize().get();
+        memcachedInstances = new ArrayList<EVCacheClient>(size);
 
         try {
             refresh();
@@ -180,7 +181,7 @@ public class SimpleEVCacheClientPoolImpl extends AbstractEVCacheClientPoolImpl i
      * {@inheritDoc}
      */
     public List<String> getInstances() {
-        final List<String> instanceList = new ArrayList<String>();
+        final List<String> instanceList = new ArrayList<String>(memcachedInstances.size());
         for (EVCacheClient client : memcachedInstances) {
             instanceList.add(client.toString());
         }

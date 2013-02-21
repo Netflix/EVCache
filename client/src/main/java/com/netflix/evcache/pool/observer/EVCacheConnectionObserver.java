@@ -1,26 +1,22 @@
 package com.netflix.evcache.pool.observer;
 
+import com.netflix.servo.annotations.DataSourceType;
+import com.netflix.servo.annotations.Monitor;
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
+import java.util.concurrent.ConcurrentHashMap;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
-
 import net.spy.memcached.ConnectionObserver;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.netflix.servo.annotations.DataSourceType;
-import com.netflix.servo.annotations.Monitor;
 
 /**
  * An implementation of {@link ConnectionObserver} which keeps track of Active and InActive servers.
@@ -63,12 +59,12 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
     /*
      * The EVCache hosts this client has an active connection and the time the connection was established
      */
-    private final HashMap<String, Long> evCacheActiveStringSet;
+    private final Map<String, Long> evCacheActiveStringSet;
 
     /*
      * The EVCache hosts this client has lost the connection to and the time the connection was lost
      */
-    private final HashMap<String, Long> evCacheInActiveStringSet;
+    private final Map<String, Long> evCacheInActiveStringSet;
 
     /**
      * Creates an instance of EVCacheConnectionObserver with the given appName, Zone as "GLOBAL" and id as 0.
@@ -103,8 +99,8 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         this.zone = zone;
         this.evCacheActiveSet = new HashSet<SocketAddress>();
         this.evCacheInActiveSet = new HashSet<SocketAddress>();
-        this.evCacheActiveStringSet = new HashMap<String, Long>();
-        this.evCacheInActiveStringSet = new HashMap<String, Long>();
+        this.evCacheActiveStringSet = new ConcurrentHashMap<String, Long>();
+        this.evCacheInActiveStringSet = new ConcurrentHashMap<String, Long>();
         this.id = id;
         setupMonitoring(false);
     }

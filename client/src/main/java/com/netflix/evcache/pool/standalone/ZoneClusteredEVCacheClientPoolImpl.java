@@ -1,5 +1,13 @@
 package com.netflix.evcache.pool.standalone;
 
+import com.netflix.config.ConfigurationManager;
+import com.netflix.config.DynamicBooleanProperty;
+import com.netflix.config.DynamicPropertyFactory;
+import com.netflix.config.DynamicStringProperty;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.util.ZoneFallbackIterator;
+import com.netflix.servo.annotations.DataSourceType;
+import com.netflix.servo.annotations.Monitor;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -12,18 +20,8 @@ import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.netflix.config.ConfigurationManager;
-import com.netflix.config.DynamicBooleanProperty;
-import com.netflix.config.DynamicPropertyFactory;
-import com.netflix.config.DynamicStringProperty;
-import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.evcache.util.ZoneFallbackIterator;
-import com.netflix.servo.annotations.DataSourceType;
-import com.netflix.servo.annotations.Monitor;
 
 /**
  * A Zone based EVCache Client pool given a list of memcached nodes and the availability zone.
@@ -57,7 +55,7 @@ public class ZoneClusteredEVCacheClientPoolImpl extends AbstractEVCacheClientPoo
                     + ".EVCacheClientPool.writeOnly", false);
             put((String) zone, isZoneInWriteOnlyMode);
             return isZoneInWriteOnlyMode;
-        };
+        }
     };
 
     /**
@@ -70,7 +68,7 @@ public class ZoneClusteredEVCacheClientPoolImpl extends AbstractEVCacheClientPoo
      */
     public void init(String appName) {
         super.init(appName);
-        final String ec2Zone = System.getenv("EC2_AVAILABILITY_ZONE");
+        final String ec2Zone = System.getenv("EC2_AVAILABILITY_ZONE"); //TODO: Why System
         this._zone = (ec2Zone == null) ? GLOBAL : ec2Zone;
         this._zoneList = DynamicPropertyFactory.getInstance().getStringProperty(appName + ".EVCacheClientPool.zones", "");
         _zoneList.addCallback(this);
@@ -173,7 +171,7 @@ public class ZoneClusteredEVCacheClientPoolImpl extends AbstractEVCacheClientPoo
         //1. if we have discovered instances in zone but not in our map then return immediately
         if (clients == null) return true;
 
-        //2. Do a quick check based on count (active, inacative and discovered)
+        //2. Do a quick check based on count (active, inactive and discovered)
         for (EVCacheClient client : clients) {
             final int actSrvCnt = client.getConnectionObserver().getActiveServerCount();
             final int inActSrvCnt = client.getConnectionObserver().getInActiveServerCount();
@@ -275,18 +273,19 @@ public class ZoneClusteredEVCacheClientPoolImpl extends AbstractEVCacheClientPoo
             final DynamicBooleanProperty isZoneInWriteOnlyMode = writeOnlyFastPropertyMap.get(zone);
             if (isZoneInWriteOnlyMode.get()) {
                 if (memcachedReadInstancesByZone.containsKey(zone)) {
+                    //TODO stats
                     memcachedReadInstancesByZone.remove(zone);
                 }
             } else {
                 if (!memcachedReadInstancesByZone.containsKey(zone)) {
+                    //TODO stats
                     memcachedReadInstancesByZone.put(zone, memcachedInstancesByZone.get(zone));
                 }
             }
         }
 
         if (memcachedReadInstancesByZone.size() != memcachedFallbackReadInstances.getSize()) {
-            final ZoneFallbackIterator _memcachedFallbackReadInstances = new ZoneFallbackIterator(memcachedReadInstancesByZone.keySet());
-            memcachedFallbackReadInstances = _memcachedFallbackReadInstances;
+            memcachedFallbackReadInstances = new ZoneFallbackIterator(memcachedReadInstancesByZone.keySet());
         }
     }
 
@@ -341,9 +340,9 @@ public class ZoneClusteredEVCacheClientPoolImpl extends AbstractEVCacheClientPoo
         DynamicStringProperty hostsInZone = hostsByZoneFPMap.get(zone);
         if (hostsInZone != null) return hostsInZone;
 
-        hostsInZone = DynamicPropertyFactory.getInstance().getStringProperty(getAppName() + "." + zone.toString() + ".EVCacheClientPool.hosts", "");
+        hostsInZone = DynamicPropertyFactory.getInstance().getStringProperty(getAppName() + "." + zone + ".EVCacheClientPool.hosts", "");
         hostsInZone.addCallback(this);
-        hostsByZoneFPMap.put((String) zone, hostsInZone);
+        hostsByZoneFPMap.put(zone, hostsInZone);
         return hostsInZone;
     }
 

@@ -56,7 +56,7 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
     private final AtomicLong numberOfReadOps = new AtomicLong(0);
 
     private boolean _shutdown = false;
-    private final Map<String, List<EVCacheClientImpl>> memcachedInstancesByZone = new HashMap<String, List<EVCacheClientImpl>>();
+    private final Map<String, List<EVCacheClientImpl>> memcachedInstancesByZone = new ConcurrentHashMap<String, List<EVCacheClientImpl>>();
     private final Map<String, List<EVCacheClientImpl>> memcachedReadInstancesByZone = new ConcurrentHashMap<String, List<EVCacheClientImpl>>();
     private final Map<String, List<EVCacheClientImpl>> memcachedWriteInstancesByZone = new ConcurrentHashMap<String, List<EVCacheClientImpl>>();
     private ZoneFallbackIterator memcachedFallbackReadInstances = new ZoneFallbackIterator(Collections.<String>emptySet());
@@ -360,10 +360,12 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
             final DynamicBooleanProperty isZoneInWriteOnlyMode = writeOnlyFastPropertyMap.get(zone);
             if (isZoneInWriteOnlyMode.get()) {
                 if (memcachedReadInstancesByZone.containsKey(zone)) {
+                    //TODO add stats
                     memcachedReadInstancesByZone.remove(zone);
                 }
             } else {
                 if (!memcachedReadInstancesByZone.containsKey(zone)) {
+                    //TODO add stats
                     memcachedReadInstancesByZone.put(zone, memcachedInstancesByZone.get(zone));
                 }
             }

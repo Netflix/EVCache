@@ -7,7 +7,7 @@ import javax.management.DescriptorKey;
 public interface ZoneClusteredEVCacheClientPoolImplMBean {
 
     /**
-     * Returns the number of {@link EVCache} instances in this pool.
+     * Returns the number of {@link com.netflix.evcache.EVCache} instances in this pool.
      */
     @DescriptorKey("The number of EVCache instances(hosts) in this pool")
     int getInstanceCount();

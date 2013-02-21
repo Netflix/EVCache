@@ -10,7 +10,7 @@ import com.netflix.config.DynamicIntProperty;
 import com.netflix.evcache.pool.AbstractEVCacheClientImpl;
 
 /**
- * A Zone based implementation {@link EVCacheClient} which performs operation on the given list of memcached servers int the given zone configuration.
+ * A Zone based implementation {@link com.netflix.evcache.pool.EVCacheClient} which performs operation on the given list of memcached servers int the given zone configuration.
  * In this scenario all the servers are in the given availability zone.
  *
  * @author smadappa
@@ -18,7 +18,7 @@ import com.netflix.evcache.pool.AbstractEVCacheClientImpl;
 public class ZoneClusteredEVCacheClientImpl  extends AbstractEVCacheClientImpl {
 
     /**
-     * Creates an instance of {@link EVCacheClient} for the given app, zone, id, queue size, timeout and list of servers.
+     * Creates an instance of {@link com.netflix.evcache.pool.EVCacheClient} for the given app, zone, id, queue size, timeout and list of servers.
      *
      * @param appName - The name of the EVCache app.
      * @param zone - The zone this client belongs to.
