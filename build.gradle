@@ -25,7 +25,7 @@ subprojects {
     }
 }
 
-project(':client') {
+project(':evcache-client') {
     apply plugin: 'java'
     dependencies {
     	compile     'com.google.code.simple-spring-memcached:spymemcached:2.7.3'
