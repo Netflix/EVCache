@@ -19,7 +19,7 @@ apply from: file('gradle/license.gradle')
 apply from: file('gradle/release.gradle')
 
 subprojects {
-    group = "com.netflix.${githubProjectName}" // TEMPLATE: Set to organization of project
+    group = "com.netflix.evcache"
 
     dependencies {
     }
