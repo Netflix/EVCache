@@ -20,6 +20,7 @@ public class ZoneFallbackIterator {
         if (allZones == null || allZones.size() == 0) return;
         Entry<String> pEntry = null; 
         for (Iterator<String> itr = allZones.iterator(); itr.hasNext();) {
+            size++;
             final String zone = itr.next();
             final Entry<String> newEntry = new Entry<String>(zone, pEntry);
             if (entry == null) entry = newEntry;
