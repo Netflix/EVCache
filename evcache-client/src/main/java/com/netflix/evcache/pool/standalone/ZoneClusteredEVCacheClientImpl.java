@@ -1,3 +1,19 @@
+/**
+ * Copyright 2013 Netflix, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.netflix.evcache.pool.standalone;
 
 import java.io.IOException;
@@ -10,7 +26,8 @@ import com.netflix.config.DynamicIntProperty;
 import com.netflix.evcache.pool.AbstractEVCacheClientImpl;
 
 /**
- * A Zone based implementation {@link com.netflix.evcache.pool.EVCacheClient} which performs operation on the given list of memcached servers int the given zone configuration.
+ * A Zone based implementation {@link com.netflix.evcache.pool.EVCacheClient} which performs operation on the given
+ * list of memcached servers int the given zone configuration.
  * In this scenario all the servers are in the given availability zone.
  *
  * @author smadappa

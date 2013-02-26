@@ -1,3 +1,19 @@
+/**
+ * Copyright 2013 Netflix, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.netflix.evcache;
 
 import java.util.ArrayList;
@@ -170,10 +186,10 @@ public final class EVCacheImpl implements EVCache {
         if (!_pool.supportsFallback()) {
             return false;
         }
-        if (_zoneFallback) {
+        if (_zoneFallbackFP.get()) {
             return true;
         }
-        return _zoneFallbackFP.get();
+        return _zoneFallback;
     }
 
     /**
@@ -269,7 +285,7 @@ public final class EVCacheImpl implements EVCache {
             int index = 0, timeout = 0;
             for (EVCacheClient client : clients) {
                 futures[index++] = client.asyncGetAndTouch(canonicalKey, tc, timeToLive);
-                if (timeout == 0) { //TODO QUESTION: Can there be individual timeouts per zone?
+                if (timeout == 0) {
                     timeout = client.getReadTimeout();
                 }
             }
@@ -280,7 +296,8 @@ public final class EVCacheImpl implements EVCache {
             for (Future<CASValue<T>> dataFuture : futures) {
                 final T t = dataFuture.get(timeout, TimeUnit.MILLISECONDS).getValue();
                 if (data == null) {
-                    data = t; //TODO: Hmm - then why go through the for loop? Break out at first non null value?
+                    data = t;
+                    break;
                 }
             }
             if (log.isDebugEnabled()) {
@@ -384,8 +401,7 @@ public final class EVCacheImpl implements EVCache {
             final Map<String, T> decanonicalR = new HashMap<String, T>(retMap.size() * 2);
             for (Map.Entry<String, T> i : retMap.entrySet()) {
                 final String deCanKey = getKey(i.getKey());
-                //TODO: null check before a put? getKey returns null
-                decanonicalR.put(deCanKey, i.getValue());
+                if (deCanKey != null) decanonicalR.put(deCanKey, i.getValue());
             }
             if (!decanonicalR.isEmpty()) {
                 BULK_HIT_COUNTER.increment();
@@ -447,7 +463,6 @@ public final class EVCacheImpl implements EVCache {
 
         try {
             final Future<Boolean>[] futures = new Future[clients.length];
-            //TODO: Should we ensure that there is no colon ":" in the keys? Your javadoc mentions control chars
             final String canonicalKey = getCanonicalizedKey(key);
             int index = 0;
             for (EVCacheClient client : clients) {

@@ -1,3 +1,19 @@
+/**
+ * Copyright 2013 Netflix, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.netflix.evcache;
 
 import java.util.Collection;
@@ -279,7 +295,7 @@ public interface EVCache {
          * @return a reference to this object
          */
         public Builder setAppName(String pAppName) {
-            if (pAppName == null) { throw new IllegalArgumentException("param appName cannot be null."); }
+            if (pAppName == null) { throw new IllegalArgumentException("param pAppName cannot be null."); }
             this.appName = pAppName.toUpperCase();
             return this;
         }
@@ -287,11 +303,17 @@ public interface EVCache {
         /**
          *  Sets the cacheName.
          * @param pCacheName the name of the cache. This value is prepended to the key so as to avoid any key collision.
-         *                      This is optional and can be null in which case the key is left as is.
+         *        This is optional and can be null in which case the key is left as is. Cache Name cannot contain space or colon character
          * @return a reference to this object
          */
         public Builder setCacheName(String pCacheName) {
-            //TODO check for contains ":"
+            if (pCacheName != null) {
+                if (pCacheName.indexOf(':') != -1)  throw new IllegalArgumentException("param pCacheName cannot contain ':' character");
+                for (char ch : pCacheName.toCharArray()) {
+                    if (Character.isWhitespace(ch))
+                        throw new IllegalArgumentException("param pCacheName cannot contain an illegal character '" + ch + "'");
+                }
+            }
             this.cacheName = pCacheName;
             return this;
         }
