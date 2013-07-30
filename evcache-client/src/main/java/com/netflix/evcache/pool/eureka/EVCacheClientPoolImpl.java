@@ -239,7 +239,7 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
     private void refresh() throws IOException {
         refresh(false);
     }
-
+    
 
     private boolean haveInstancesInZoneChanged(String zone, List<String> discoveredHostsInZone) {
         final List<EVCacheClientImpl> clients = memcachedInstancesByZone.get(zone);
@@ -284,6 +284,22 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
             }
         }
         return false;
+    }
+
+    private void verifyZonesChanges(Map<String, List<String>> instances) {
+        //make sure all the zones in the current list are present in the discovered list
+        for (String zone : memcachedInstancesByZone.keySet()) {
+            if (!instances.containsKey(zone)) {
+                shutdownInstancesInZone(zone);
+            }
+        }
+    }
+
+    private void shutdownInstancesInZone(String zone) {
+        memcachedReadInstancesByZone.remove(zone);
+        memcachedWriteInstancesByZone.remove(zone);
+        final List<EVCacheClientImpl> currentInstancesInZone = memcachedInstancesByZone.get(zone);
+        shutdownClientsInZone(currentInstancesInZone);
     }
 
     private List<InetSocketAddress> getMemcachedSocketAddressList(final List<String> discoveredHostsInZone) {
@@ -390,7 +406,6 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
         }
     }
 
-
     private synchronized void refresh(boolean force) throws IOException {
         try {
             final Map<String, List<String>> instances = discoverInstances();
@@ -398,7 +413,8 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
             if (instances == null || instances.isEmpty()) {
                 return;
             }
-
+            verifyZonesChanges(instances);
+            
             for (Entry<String, List<String>> zoneEntry : instances.entrySet()) {
                 final String zone = zoneEntry.getKey();
                 final List<String> discoverdInstanceInZone = zoneEntry.getValue();
