@@ -82,7 +82,8 @@ public final class EVCacheClientPoolManager {
      *
      * @param appName - name of the evcache app
      */
-    public void initEVCache(String appName) {
+    public void initEVCache(String _appName) {
+        final String appName = _appName.toUpperCase();
         if (poolMap.containsKey(appName)) return;
         lock.lock();
         try {

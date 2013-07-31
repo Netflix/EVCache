@@ -298,7 +298,7 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
     private void shutdownInstancesInZone(String zone) {
         memcachedReadInstancesByZone.remove(zone);
         memcachedWriteInstancesByZone.remove(zone);
-        final List<EVCacheClientImpl> currentInstancesInZone = memcachedInstancesByZone.get(zone);
+        final List<EVCacheClientImpl> currentInstancesInZone = memcachedInstancesByZone.remove(zone);
         shutdownClientsInZone(currentInstancesInZone);
     }
 
