@@ -28,7 +28,7 @@ subprojects {
 project(':evcache-client') {
     apply plugin: 'java'
     dependencies {
-    	compile     'com.google.code.simple-spring-memcached:spymemcached:2.7.3'
+    	compile     'net.spy:spymemcached:2.9.1'
         compile     'com.netflix.governator:governator:1.0.4'
         compile     'com.netflix.eureka:eureka-client:1.1.73'
         compile     'com.netflix.eureka:eureka-core:1.1.73'

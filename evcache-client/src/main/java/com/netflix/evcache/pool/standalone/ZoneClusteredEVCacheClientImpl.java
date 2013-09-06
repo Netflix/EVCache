@@ -50,8 +50,6 @@ public class ZoneClusteredEVCacheClientImpl  extends AbstractEVCacheClientImpl {
         super(appName, zone, id, maxQueueSize, readTimeout);
 
         this.client = new MemcachedClient(connectionFactory, memcachedNodesInZone);
-        this.client.setName(appName + "-" + zone + "-" + id);
-
     }
 
     /**

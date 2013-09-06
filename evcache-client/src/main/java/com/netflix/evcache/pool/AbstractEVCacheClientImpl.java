@@ -26,6 +26,7 @@ import net.spy.memcached.BinaryConnectionFactory;
 import net.spy.memcached.CASValue;
 import net.spy.memcached.ConnectionFactory;
 import net.spy.memcached.DefaultConnectionFactory;
+import net.spy.memcached.DefaultHashAlgorithm;
 import net.spy.memcached.HashAlgorithm;
 import net.spy.memcached.MemcachedClient;
 import net.spy.memcached.transcoders.Transcoder;
@@ -89,7 +90,7 @@ public abstract class AbstractEVCacheClientImpl implements EVCacheClient {
      */
     protected AbstractEVCacheClientImpl(String appName, String zone, int id, int maxQueueSize, DynamicIntProperty readTimeout) {
         this(appName, zone, id, readTimeout,
-                new BinaryConnectionFactory(maxQueueSize, DefaultConnectionFactory.DEFAULT_READ_BUFFER_SIZE, HashAlgorithm.KETAMA_HASH));
+                new BinaryConnectionFactory(maxQueueSize, DefaultConnectionFactory.DEFAULT_READ_BUFFER_SIZE, DefaultHashAlgorithm.KETAMA_HASH));
     }
 
     /**

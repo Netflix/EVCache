@@ -54,10 +54,9 @@ public class EVCacheClientImpl  extends AbstractEVCacheClientImpl {
      */
     EVCacheClientImpl(String appName, String zone, int id, int maxQueueSize, DynamicIntProperty readTimeout,
             List<InetSocketAddress> memcachedNodesInZone) throws IOException {
-        super(appName, zone, id, readTimeout, new EVCacheConnectionFactory(appName, maxQueueSize));
+        super(appName, zone, id, readTimeout, new EVCacheConnectionFactory(appName, zone, id, maxQueueSize));
 
         this.client = new MemcachedClient(connectionFactory, memcachedNodesInZone);
-        this.client.setName(appName + "-" + zone + "-" + id);
         this.connectionObserver = new EVCacheConnectionObserver(appName, zone, id);
         this.client.addObserver(connectionObserver);
     }

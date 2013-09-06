@@ -16,11 +16,15 @@
 
 package com.netflix.evcache.pool.eureka.connection;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.List;
 
 import net.spy.memcached.BinaryConnectionFactory;
+import net.spy.memcached.DefaultHashAlgorithm;
 import net.spy.memcached.HashAlgorithm;
 import net.spy.memcached.KetamaNodeLocator;
+import net.spy.memcached.MemcachedConnection;
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.NodeLocator;
 
@@ -39,6 +43,8 @@ import net.spy.memcached.NodeLocator;
 public class EVCacheConnectionFactory extends BinaryConnectionFactory {
 
     private final String appName;
+    private final String zone;
+    private final int id;
 
     /**
      * Creates an instance of {@link net.spy.memcached.ConnectionFactory} for the given appName, queue length and Ketama Hashing.
@@ -46,15 +52,25 @@ public class EVCacheConnectionFactory extends BinaryConnectionFactory {
      * @param appName - the name of the EVCache app
      * @param len the length of the operation queue
      */
-    public EVCacheConnectionFactory(String appName, int len) {
-        super(len, BinaryConnectionFactory.DEFAULT_READ_BUFFER_SIZE, HashAlgorithm.KETAMA_HASH);
+    public EVCacheConnectionFactory(String appName, String zone, int id, int len) {
+        super(len, BinaryConnectionFactory.DEFAULT_READ_BUFFER_SIZE, DefaultHashAlgorithm.KETAMA_HASH);
         this.appName = appName;
+        this.zone = zone;
+        this.id = id;
     }
 
     /**
      * returns a instance of {@link KetamaNodeLocator}.
      */
     public NodeLocator createLocator(List<MemcachedNode> list) {
-        return new KetamaNodeLocator(list, HashAlgorithm.KETAMA_HASH, new EVCacheKetamaNodeLocatorConfiguration(appName));
+        return new KetamaNodeLocator(list, DefaultHashAlgorithm.KETAMA_HASH, new EVCacheKetamaNodeLocatorConfiguration(appName));
+    }
+    
+    
+    public MemcachedConnection createConnection(List<InetSocketAddress> addrs)
+            throws IOException {
+        final MemcachedConnection connection = new MemcachedConnection(getReadBufSize(), this, addrs, getInitialObservers(), getFailureMode(), getOperationFactory());
+        connection.setName(appName + "-" + zone + "-" + id);
+        return connection;
     }
 }
