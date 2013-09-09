@@ -28,6 +28,7 @@ subprojects {
 project(':evcache-client') {
     apply plugin: 'java'
     apply plugin: 'maven'
+    apply plugin: 'eclipse'
     dependencies {
     	compile     'net.spy:spymemcached:2.9.1'
         compile     'com.netflix.governator:governator:1.0.4'
