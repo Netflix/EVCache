@@ -27,7 +27,6 @@ import net.spy.memcached.CASValue;
 import net.spy.memcached.ConnectionFactory;
 import net.spy.memcached.DefaultConnectionFactory;
 import net.spy.memcached.DefaultHashAlgorithm;
-import net.spy.memcached.HashAlgorithm;
 import net.spy.memcached.MemcachedClient;
 import net.spy.memcached.transcoders.Transcoder;
 
@@ -119,6 +118,13 @@ public abstract class AbstractEVCacheClientImpl implements EVCacheClient {
         return client.shutdown(timeout, unit);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    public void shutdown() {
+        shutdown = true;
+        client.shutdown();
+    }
 
     /**
      * {@inheritDoc}
@@ -247,6 +253,12 @@ public abstract class AbstractEVCacheClientImpl implements EVCacheClient {
         return client.getStats(cmd);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    public Map<SocketAddress, Map<String, String>> getStats() {
+        return client.getStats();
+    }
 
     /**
      * {@inheritDoc}
@@ -275,6 +287,26 @@ public abstract class AbstractEVCacheClientImpl implements EVCacheClient {
         return readTimeout.get();
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    public Future<Boolean> flush() {
+        return client.flush();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public Collection<SocketAddress> getAvailableServers() {
+        return client.getAvailableServers();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public Collection<SocketAddress> getUnavailableServers() {
+        return client.getUnavailableServers();
+    }
 
     /**
      * The String representation of this instance.

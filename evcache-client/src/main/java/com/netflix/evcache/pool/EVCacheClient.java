@@ -147,6 +147,10 @@ public interface EVCacheClient {
      */
     boolean shutdown(long timeout, TimeUnit unit);
 
+    /**
+     * Shut down immediately.
+     */
+    public void shutdown();
 
     /**
      * returns true if the Client has been shut down else false.
@@ -161,6 +165,14 @@ public interface EVCacheClient {
      * @return A Map of EVCache server SocketAddress to the stats command output. The value is a Map of key value pairs
      */
     Map<SocketAddress, Map<String, String>> getStats(String cmd);
+
+    /**
+     * Retrieves all stats across all the EVCache servers in the cluster and returns its value.
+     * This is mainly used for admin purpose
+     *
+     * @return A Map of EVCache server SocketAddress to the stats command output. The value is a Map of key value pairs
+     */
+    Map<SocketAddress, Map<String, String>> getStats();
 
     /**
      * Returns the Memcachec version running on the EVCache Server.
@@ -194,4 +206,41 @@ public interface EVCacheClient {
      * @return the timeout in milliseconds
      */
     int getReadTimeout();
+
+    /**
+     * Flush all caches from all servers immediately.
+     *
+     * @return whether or not the operation was performed
+     * @throws IllegalStateException in the rare circumstance where queue is too
+     *           full to accept any more requests
+     */
+    Future<Boolean> flush();
+
+    /**
+     * Get the addresses of available servers.
+     * This is mainly used for admin purposes.
+     *
+     * <p>
+     * This is based on a snapshot in time so shouldn't be considered completely
+     * accurate, but is a useful for getting a feel for what's working and what's
+     * not working.
+     * </p>
+     *
+     * @return point-in-time view of currently available servers for this client
+     */
+    Collection<SocketAddress> getAvailableServers();
+
+    /**
+     * Get the addresses of unavailable servers.
+     * This is mainly used for admin purposes.
+     *
+     * <p>
+     * This is based on a snapshot in time so shouldn't be considered completely
+     * accurate, but is a useful for getting a feel for what's working and what's
+     * not working.
+     * </p>
+     *
+     * @return point-in-time view of currently available servers for this client
+     */
+    Collection<SocketAddress> getUnavailableServers();
 }
