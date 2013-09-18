@@ -41,6 +41,8 @@ import com.netflix.servo.annotations.Monitor;
  *
  */
 public class SimpleEVCacheClientPoolImpl extends AbstractEVCacheClientPoolImpl implements SimpleEVCacheClientPoolImplMBean {
+    private static final String GLOBAL = "GLOBAL";
+
     private static Logger log = LoggerFactory.getLogger(SimpleEVCacheClientPoolImpl.class);
 
     private DynamicStringProperty _serverList; //List of servers
@@ -254,6 +256,13 @@ public class SimpleEVCacheClientPoolImpl extends AbstractEVCacheClientPoolImpl i
      */
     public int getClusterSize() {
         return 1;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public String getLocalZone() {
+        return GLOBAL;
     }
 
     /**
