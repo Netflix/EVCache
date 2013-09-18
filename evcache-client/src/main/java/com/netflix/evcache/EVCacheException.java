@@ -21,7 +21,7 @@ package com.netflix.evcache;
  * Base exception class for any error conditions that occur while using an EVCache client
  * to make service calls to EVCache Server.
  */
-public class EVCacheException extends Exception {
+public class EVCacheException extends RuntimeException {
 
     private static final long serialVersionUID = -3885811159646046383L;
 
