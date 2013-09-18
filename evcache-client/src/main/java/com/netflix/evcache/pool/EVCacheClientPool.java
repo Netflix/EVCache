@@ -91,4 +91,13 @@ public interface EVCacheClientPool {
      * @return true if the pool supports request fallback else false.
      */
     boolean supportsFallback();
+
+    /**
+     * Retrieves the local zone where this instance is located.
+     * If this instance is deployed on EC2, it will return the EC2 availabilty zone string
+     * for the local zone. Otherwise, it will return "GLOBAL".
+     *
+     * @return The local zone identifier.
+     */
+    String getLocalZone();
 }

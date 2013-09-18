@@ -537,6 +537,13 @@ public class ZoneClusteredEVCacheClientPoolImpl extends AbstractEVCacheClientPoo
     }
 
     /**
+     * {@inheritDoc}
+     */
+    public String getLocalZone() {
+        return _zone;
+    }
+
+    /**
      * String representation of this instance.
      */
     public String toString() {
