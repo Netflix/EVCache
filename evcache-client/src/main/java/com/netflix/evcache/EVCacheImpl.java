@@ -16,6 +16,7 @@
 
 package com.netflix.evcache;
 
+import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -32,8 +33,8 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicPropertyFactory;
-import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.servo.monitor.Counter;
 import com.netflix.servo.monitor.Monitors;
@@ -104,6 +105,8 @@ public final class EVCacheImpl implements EVCache {
 
     private final Counter HIT_COUNTER, MISS_COUNTER, BULK_HIT_COUNTER, BULK_MISS_COUNTER;
     private final Counter NULL_CLIENT_COUNTER, FALLBACK_HIT_COUNTER, FALLBACK_MISS_COUNTER;
+    private final Counter UNAVAILABLE_LOCAL_CLIENT_COUNTER;
+
 
     /**
      * Creates an EVCache instance which performs all the operations on the store.
@@ -136,7 +139,7 @@ public final class EVCacheImpl implements EVCache {
         MISS_COUNTER = Monitors.newCounter(_metricName  + ":MISS");
         BULK_HIT_COUNTER = Monitors.newCounter(_metricName  + ":BULK:HIT");
         BULK_MISS_COUNTER = Monitors.newCounter(_metricName  + "BULK::MISS");
-
+        UNAVAILABLE_LOCAL_CLIENT_COUNTER = Monitors.newCounter(_metricName  + ":UNAVAILABLE_LOCAL_CLIENT");
 
         this._pool = EVCacheClientPoolManager.getInstance().getEVCacheClientPool(appName);
         _throwException = DynamicPropertyFactory.getInstance().getBooleanProperty(_metricName + ".throw.exception", false);
@@ -540,6 +543,43 @@ public final class EVCacheImpl implements EVCache {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    public Future<Boolean>[] flushAll() throws EVCacheException {
+        final EVCacheClient[] clients = _pool.getAllEVCacheClients();
+        if (clients == null || clients.length == 0) {
+            NULL_CLIENT_COUNTER.increment();
+            if (_throwException.get()) {
+                throw new EVCacheException("Could not find a client to flush data.");
+            }
+            return null;  // Fast failure
+        }
+
+        int i = -1;
+        try {
+            final Future<Boolean>[] futures = new Future[clients.length];
+            for (i = 0; i < clients.length; i++) {
+                futures[i] = clients[i].flush();
+            }
+            return futures;
+        } catch (Exception ex) {
+            if (log.isDebugEnabled()) {
+                log.debug("Exception while flushing data for client: " + clients[i].toString(), ex);
+            }
+            if (!_throwException.get()) {
+                return null;
+            } throw new EVCacheException("Exception while flushing data for client: " + clients[i].toString(), ex);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public void shutdown() {
+        EVCacheClientPoolManager.getInstance().destroy(this._appName);
+    }
+
+    /**
      * The default TTL that will be used if one is not passed.
      *
      * @return the default TTL
@@ -577,5 +617,94 @@ public final class EVCacheImpl implements EVCache {
                 + getDefaultTTL() + ", EVCache Pool=" + _pool + ", throw Exception="
                 + _throwException.get()
                 + "]";
+    }
+
+    @Override
+    public EVCacheTranscoder<?> getTranscoder() {
+        return this._defaultTranscoder;
+    }
+
+    @Override
+    public Collection<SocketAddress> getLocalUnavailableServers() throws EVCacheException {
+        final EVCacheClient client = _pool.getEVCacheClient();
+        if (client == null || !_pool.getLocalZone().equals(client.getZone())) {
+            if (client == null) {
+                NULL_CLIENT_COUNTER.increment();
+            } else {
+                UNAVAILABLE_LOCAL_CLIENT_COUNTER.increment();
+            }
+            if (_throwException.get()) {
+                throw new EVCacheException("Could not find a local EVCache client to retrieve unavailable servers.");
+            }
+            return null;  // Fast failure
+        }
+
+        try {
+            return client.getUnavailableServers();
+        } catch (Exception ex) {
+            if (log.isDebugEnabled()) {
+                log.debug("Exception while getting unavailable servers on local zone: " + client.getZone() + " from client " + client.toString(), ex);
+            }
+            if (!_throwException.get()) {
+                return null;
+            }
+            throw new EVCacheException("Exception while getting unavailable servers on local zone: " + client.getZone() + " from client "  + client.toString(), ex);
+        }
+    }
+
+    @Override
+    public Collection<SocketAddress> getLocalAvailableServers() throws EVCacheException {
+        final EVCacheClient client = _pool.getEVCacheClient();
+        if (client == null || !_pool.getLocalZone().equals(client.getZone())) {
+            if (client == null) {
+                NULL_CLIENT_COUNTER.increment();
+            } else {
+                UNAVAILABLE_LOCAL_CLIENT_COUNTER.increment();
+            }
+            if (_throwException.get()) {
+                throw new EVCacheException("Could not find a local EVCache client to retrieve available servers.");
+            }
+            return null;  // Fast failure
+        }
+
+        try {
+            return client.getAvailableServers();
+        } catch (Exception ex) {
+            if (log.isDebugEnabled()) {
+                log.debug("Exception while getting available servers on local zone: " + client.getZone() + " from client " + client.toString(), ex);
+            }
+            if (!_throwException.get()) {
+                return null;
+            }
+            throw new EVCacheException("Exception while getting available servers on local zone: " + client.getZone() + " from client " + client.toString(), ex);
+        }
+    }
+
+    @Override
+    public Map<SocketAddress, Map<String, String>> getLocalStats() throws EVCacheException {
+        final EVCacheClient client = _pool.getEVCacheClient();
+        if (client == null || !_pool.getLocalZone().equals(client.getZone())) {
+            if (client == null) {
+                NULL_CLIENT_COUNTER.increment();
+            } else {
+                UNAVAILABLE_LOCAL_CLIENT_COUNTER.increment();
+            }
+            if (_throwException.get()) {
+                throw new EVCacheException("Could not find a local EVCache client to retrieve statistics.");
+            }
+            return null;  // Fast failure
+        }
+
+        try {
+            return client.getStats();
+        } catch (Exception ex) {
+            if (log.isDebugEnabled()) {
+                log.debug("Exception while getting statistics on local zone: " + client.getZone() + " from client "  + client.toString(), ex);
+            }
+            if (!_throwException.get()) {
+                return null;
+            }
+            throw new EVCacheException("Exception while getting statistics  on local zone: " + client.getZone() + " from client "  + client.toString(), ex);
+        }
     }
 }
