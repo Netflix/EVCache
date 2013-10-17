@@ -10,7 +10,7 @@ rootProject {
         if (awsDep != null) {
             def version = awsDep.version
             deps.remove(awsDep)
-            project.dependencies.add('compile', "net.spy:spymemcached:${version}_11")
+            project.dependencies.add('compile', "2.7.3_11")
         }
     }
 }
