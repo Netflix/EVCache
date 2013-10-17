@@ -6,7 +6,7 @@ rootProject {
             return
         }
         def deps = compileConf.dependencies
-        def awsDep = deps.find { it.group == 'com.google.code.simple-spring-memcached' && it.name == 'spymemcached' }
+        def awsDep = deps.find { it.group == 'net.spy' && it.name == 'spymemcached' }
         if (awsDep != null) {
             def version = awsDep.version
             deps.remove(awsDep)
