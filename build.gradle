@@ -2,16 +2,21 @@
 ext.githubProjectName = rootProject.name // Change if github project name is not the same as the root project's name
 
 buildscript {
-    repositories { mavenCentral() }
+    repositories {
+        mavenLocal()
+        mavenCentral() // maven { url 'http://jcenter.bintray.com' }
+    }
     apply from: file('gradle/buildscript.gradle'), to: buildscript 
 }
 
 allprojects {
-    repositories { mavenCentral() }
+    repositories { 
+        mavenLocal()
+        mavenCentral() // maven { url: 'http://jcenter.bintray.com' }
+    }
 }
 
 apply plugin: 'eclipse'
-
 apply from: file('gradle/convention.gradle')
 apply from: file('gradle/maven.gradle')
 apply from: file('gradle/check.gradle')
@@ -30,7 +35,7 @@ project(':evcache-client') {
     apply plugin: 'maven'
     apply plugin: 'eclipse'
     dependencies {
-    	compile     'net.spy:spymemcached:2.9.1'
+        compile     'net.spy:spymemcached:2.9.1'
         compile     'com.netflix.governator:governator:1.0.4'
         compile     'com.netflix.eureka:eureka-client:1.1.73'
         compile     'com.netflix.eureka:eureka-core:1.1.73'
