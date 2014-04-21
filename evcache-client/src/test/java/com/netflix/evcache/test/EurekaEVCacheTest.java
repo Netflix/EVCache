@@ -57,8 +57,8 @@ public class EurekaEVCacheTest extends AbstractEVCacheTest {
             //
 
             props.setProperty("eureka.datacenter", "cloud");
-            props.setProperty("eureka.awsAccessId", "AKIAJCK2WUHJ2653GNBQ");
-            props.setProperty("eureka.awsSecretKey", "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");
+            props.setProperty("eureka.awsAccessId", "<aws access id>");
+            props.setProperty("eureka.awsSecretKey", "<aws secret key>");
             props.setProperty("netflix.appinfo.validateInstanceId", "false");
 
             props.setProperty("netflix.discovery.us-east-1.availabilityZones", "us-east-1c,us-east-1d,us-east-1e");
