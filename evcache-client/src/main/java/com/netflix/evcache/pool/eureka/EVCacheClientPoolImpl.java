@@ -683,4 +683,11 @@ public class EVCacheClientPoolImpl implements Runnable, EVCacheClientPoolImplMBe
     public int getClusterSize() {
         return memcachedInstancesByZone.size();
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    public String getLocalZone() {
+        return _zone;
+    }
 }

@@ -125,4 +125,25 @@ public final class EVCacheClientPoolManager {
             pool.shutdown();
         }
     }
+
+    /**
+     * Will shutdown the given EVCache app pool and remove
+     * it from the list of pools of this manager.
+     *
+     * @param appName - name of the evcache app
+     */
+    public void destroy(String _appName) {
+        final String appName = _appName.toUpperCase();
+        if (!poolMap.containsKey(appName)) return;
+        lock.lock();
+        try {
+            if (!poolMap.containsKey(appName)) return;
+            final EVCacheClientPool pool = poolMap.remove(appName);
+            pool.shutdown();
+        } catch (Exception ex) {
+            log.error("Exception initialzing " + evcachePoolProvider + " for app " + appName, ex);
+        } finally {
+            lock.unlock();
+        }
+    }
 }

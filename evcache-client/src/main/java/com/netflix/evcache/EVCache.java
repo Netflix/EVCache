@@ -16,6 +16,7 @@
 
 package com.netflix.evcache;
 
+import java.net.SocketAddress;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -359,4 +360,65 @@ public interface EVCache {
             return cache;
         }
     }
+
+    /**
+     * Flush all caches from all servers from all zones immediately.
+     *
+     * @return whether or not the operation was performed
+     * @throws EVCacheException if no client is found or in the
+     * rare circumstance where queue is too full to accept any more requests
+     */
+    Future<Boolean>[] flushAll() throws EVCacheException;
+
+    /**
+     * Shuts down this EVCache instance by shutting down all clients from all zones.
+     *
+     * @return whether or not the operation was performed
+     */
+    void shutdown();
+
+    /**
+     * Get the default transcoder that's in use.
+     *
+     * @return this instance's Transcoder
+     */
+    EVCacheTranscoder<?> getTranscoder();
+
+    /**
+     * Get the addresses of available servers in the local zone (or the global zone, if it is not zone-based).
+     *
+     * <p>
+     * This is based on a snapshot in time so shouldn't be considered completely
+     * accurate, but is a useful for getting a feel for what's working and what's
+     * not working.
+     * </p>
+     *
+     * @return point-in-time view of currently available servers in the local zone
+     * @throws EVCacheException if there are no available local clients or
+     *          in the rare circumstance where queue is too full to accept any more requests
+     */
+    Collection<SocketAddress> getLocalAvailableServers() throws EVCacheException;
+
+    /**
+     * Get the addresses of unavailable servers in the local zone (or the global zone, if it is not zone-based).
+     *
+     * <p>
+     * This is based on a snapshot in time so shouldn't be considered completely
+     * accurate, but is a useful for getting a feel for what's working and what's
+     * not working.
+     * </p>
+     *
+     * @return point-in-time view of currently unavailable servers in the local zone
+     * @throws EVCacheException if there are no available local clients or
+     *          in the rare circumstance where queue is too full to accept any more requests
+     */
+    Collection<SocketAddress> getLocalUnavailableServers()  throws EVCacheException;
+
+    /**
+     * Get all of the stats from all of the connections in the local zone.
+     * @return a Map of a Map of stats replies by SocketAddress of the local zone
+     * @throws EVCacheException if there are no available local clients or
+     *          in the rare circumstance where queue is too full to accept any more requests
+     */
+    public Map<SocketAddress, Map<String, String>> getLocalStats()  throws EVCacheException;
 }
