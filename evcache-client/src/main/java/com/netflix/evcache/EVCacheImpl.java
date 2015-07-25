@@ -135,7 +135,7 @@ public final class EVCacheImpl implements EVCache {
         HIT_COUNTER = Monitors.newCounter(_metricName  + ":HIT");
         MISS_COUNTER = Monitors.newCounter(_metricName  + ":MISS");
         BULK_HIT_COUNTER = Monitors.newCounter(_metricName  + ":BULK:HIT");
-        BULK_MISS_COUNTER = Monitors.newCounter(_metricName  + "BULK::MISS");
+        BULK_MISS_COUNTER = Monitors.newCounter(_metricName  + ":BULK:MISS");
 
 
         this._pool = EVCacheClientPoolManager.getInstance().getEVCacheClientPool(appName);
