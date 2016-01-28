@@ -1,216 +1,186 @@
-/**
- * Copyright 2013 Netflix, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.netflix.evcache.pool.observer;
 
-import com.netflix.servo.annotations.DataSourceType;
-import com.netflix.servo.annotations.Monitor;
 import java.lang.management.ManagementFactory;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.net.UnknownHostException;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
-import net.spy.memcached.ConnectionObserver;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * An implementation of {@link ConnectionObserver} which keeps track of Active and InActive servers.
- *
- */
+import com.netflix.appinfo.ApplicationInfoManager;
+import com.netflix.appinfo.InstanceInfo;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.servo.monitor.Counter;
+import com.netflix.servo.monitor.Monitors;
+import com.netflix.servo.tag.BasicTagList;
+import com.netflix.servo.tag.TagList;
+
+import net.spy.memcached.ConnectionObserver;
+
+
 public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheConnectionObserverMBean {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheConnectionObserver.class);
-
-    /*
-     * The name of the client host
-     */
-    private String localHostName;
-
-    /*
-     * The name of the EVCache app.
-     */
+    private final InstanceInfo instanceInfo;
     private final String appName;
-
-    /*
-     * The zone of the client host
-     */
-    private final String zone;
-
-    /*
-     * The id of the client
-     */
+    private final ServerGroup serverGroup;
     private final int id;
+    private long lostCount = 0;
+    private long connectCount = 0;
+    private final Set<SocketAddress> evCacheActiveSet;
+    private final Set<SocketAddress> evCacheInActiveSet;
+    private final Map<InetSocketAddress, Long> evCacheActiveStringSet;
+    private final Map<InetSocketAddress, Long> evCacheInActiveStringSet;
+    private final Counter connect, lost;
 
-    /*
-     * The EVCache hosts that this clients has an active connection
-     */
-    private final HashSet<SocketAddress> evCacheActiveSet;
+    private final String monitorName;
 
-    /*
-     * The EVCache hosts that this clients has lost the connection
-     */
-    private final HashSet<SocketAddress> evCacheInActiveSet;
-
-    /*
-     * The EVCache hosts this client has an active connection and the time the connection was established
-     */
-    private final Map<String, Long> evCacheActiveStringSet;
-
-    /*
-     * The EVCache hosts this client has lost the connection to and the time the connection was lost
-     */
-    private final Map<String, Long> evCacheInActiveStringSet;
-
-    /**
-     * Creates an instance of EVCacheConnectionObserver with the given appName, Zone as "GLOBAL" and id as 0.
-     * @param appName - the name of EVCache App
-     */
-    public EVCacheConnectionObserver(String appName) {
-        this(appName, 0);
-    }
-
-    /**
-     * Creates an instance of EVCacheConnectionObserver with the given appName, id and Zone as "GLOBAL".
-     * @param appName - the name of EVCache app
-     * @param id - the given id.
-     */
-    public EVCacheConnectionObserver(String appName, int id) {
-        this(appName, "GLOBAL", id);
-    }
-
-    /**
-     * Creates an instance of EVCacheConnectionObserver with the given appName, id and Zone.
-     * @param appName - the name of EVCache app
-     * @param zone - the availability zone
-     * @param id - the given id.
-     */
-    public EVCacheConnectionObserver(String appName, String zone, int id) {
-        try {
-            this.localHostName = InetAddress.getLocalHost().getHostName();
-        } catch (UnknownHostException e) {
-            this.localHostName = "NA";
-        }
+    @SuppressWarnings("deprecation")
+    public EVCacheConnectionObserver(String appName, ServerGroup serverGroup, int id) {
+        this.instanceInfo = ApplicationInfoManager.getInstance().getInfo();
         this.appName = appName;
-        this.zone = zone;
-        this.evCacheActiveSet = new HashSet<SocketAddress>();
-        this.evCacheInActiveSet = new HashSet<SocketAddress>();
-        this.evCacheActiveStringSet = new ConcurrentHashMap<String, Long>();
-        this.evCacheInActiveStringSet = new ConcurrentHashMap<String, Long>();
+        this.serverGroup = serverGroup;
+        this.evCacheActiveSet = Collections.newSetFromMap(new ConcurrentHashMap<SocketAddress, Boolean>());
+        this.evCacheInActiveSet = Collections.newSetFromMap(new ConcurrentHashMap<SocketAddress, Boolean>());
+        this.evCacheActiveStringSet = new ConcurrentHashMap<InetSocketAddress, Long>();
+        this.evCacheInActiveStringSet = new ConcurrentHashMap<InetSocketAddress, Long>();
         this.id = id;
+        monitorName = appName + "_" + serverGroup.getName()  + "_" + id + "_connections";
+
+        final TagList tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "AppName", appName);
+        this.connect = EVCacheMetricsFactory.getCounter("EVCacheConnectionObserver_CONNECT", tags);
+        this.lost = EVCacheMetricsFactory.getCounter("EVCacheConnectionObserver_LOST", tags);
+
         setupMonitoring(false);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public void connectionEstablished(SocketAddress sa, int reconnectCount) {
+    public void connectionEstablished(SocketAddress sa, int reconnectCount) {		
         final String address = sa.toString();
         evCacheActiveSet.add(sa);
         evCacheInActiveSet.remove(sa);
-        final String hostName = ((InetSocketAddress) sa).getHostName();
-        evCacheActiveStringSet.put(hostName, Long.valueOf(System.currentTimeMillis()));
-        evCacheInActiveStringSet.remove(hostName);
-        if (log.isInfoEnabled()) log.info(appName + ":CONNECTION ESTABLISHED : From " + localHostName + " to " + address
-                + " was established after " + reconnectCount + " retries");
+        final InetSocketAddress inetAdd = (InetSocketAddress) sa;
+        evCacheActiveStringSet.put(inetAdd, Long.valueOf(System.currentTimeMillis()));
+        evCacheInActiveStringSet.remove(inetAdd);
+        if(instanceInfo != null) {
+	        if(log.isDebugEnabled()) log.debug(appName + ":CONNECTION ESTABLISHED : From " + instanceInfo.getHostName() + " to " + address + " was established after " + reconnectCount + " retries");
+        }
+        connect.increment();
+        connectCount++;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public void connectionLost(SocketAddress sa) {
         final String address = sa.toString();
         evCacheInActiveSet.add(sa);
         evCacheActiveSet.remove(sa);
-        final String hostName = ((InetSocketAddress) sa).getHostName();
-        evCacheInActiveStringSet.put(hostName, Long.valueOf(System.currentTimeMillis()));
-        evCacheActiveStringSet.remove(hostName);
-        if (log.isInfoEnabled()) log.info(appName + ":CONNECTION LOST : From " + localHostName + " to " + address);
+        final InetSocketAddress inetAdd = (InetSocketAddress) sa;
+        evCacheInActiveStringSet.put(inetAdd, Long.valueOf(System.currentTimeMillis()));
+        evCacheActiveStringSet.remove(inetAdd);
+        if(instanceInfo != null) {
+	        if(log.isDebugEnabled()) log.debug(appName + ":CONNECTION LOST : From " + instanceInfo.getHostName() + " to " + address );
+        }
+        lost.increment();
+        lostCount++;
     }
 
-    @Monitor(name = "ActiveServerCount", type = DataSourceType.GAUGE)
     public int getActiveServerCount() {
         return evCacheActiveSet.size();
     }
 
-    @Monitor(name = "ActiveServerNames", type = DataSourceType.INFORMATIONAL)
     public Set<SocketAddress> getActiveServerNames() {
         return evCacheActiveSet;
     }
 
-    @Monitor(name = "InActiveServerCount", type = DataSourceType.GAUGE)
     public int getInActiveServerCount() {
         return evCacheInActiveSet.size();
     }
 
-    @Monitor(name = "InActiveServerNames", type = DataSourceType.INFORMATIONAL)
     public Set<SocketAddress> getInActiveServerNames() {
         return evCacheInActiveSet;
     }
 
-    public Map<String, Long> getInActiveServerInfo() {
-        return Collections.unmodifiableMap(evCacheInActiveStringSet);
+    public long getLostCount() {
+        return lostCount;
     }
 
-    public Map<String, Long> getActiveServerInfo() {
-        return Collections.unmodifiableMap(evCacheActiveStringSet);
+    public long getConnectCount() {
+        return connectCount;
+    }
+
+    public Map<InetSocketAddress, Long> getInActiveServers() {
+        return evCacheInActiveStringSet;
+    }
+
+    public Map<InetSocketAddress, Long> getActiveServers() {
+        return evCacheActiveStringSet;
     }
 
     private void setupMonitoring(boolean shutdown) {
         try {
-            final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + appName
-                    + ",SubGroup=pool,SubSubGroup=" + zone + ",SubSubSubGroup=" + id);
+            final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group="+ appName + ",SubGroup=pool,SubSubGroup="+serverGroup.getName() + ",SubSubSubGroup="+id);
             final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-            if (mbeanServer.isRegistered(mBeanName)) {
-                if (log.isInfoEnabled()) log.info("MBEAN with name " + mBeanName
-                        + " has been registered. Will unregister the previous instance and register a new one.");
+            if(mbeanServer.isRegistered(mBeanName)) {
+                if(log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanName + " has been registered. Will unregister the previous instance and register a new one.");
                 mbeanServer.unregisterMBean(mBeanName);
             }
-            if (!shutdown) {
+            if(!shutdown) {
                 mbeanServer.registerMBean(this, mBeanName);
+                Monitors.registerObject(this);
+            } else {
+                Monitors.unregisterObject(this);
             }
         } catch (Exception e) {
-            if (log.isWarnEnabled()) log.warn("Issue while trying to setup monitoring", e);
+            if(log.isWarnEnabled()) log.warn(e.getMessage(), e);
         }
     }
 
-    /**
-     * Shutdown this connection observer. This will also remove the monitoring.
-     */
+	private void unRegisterInActiveNodes() {
+        try {
+            for(SocketAddress sa : evCacheInActiveSet) {
+                final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group="+ appName + ",SubGroup=pool" + ",SubSubGroup=" + serverGroup.getName() + ",SubSubSubGroup=" + id + ",SubSubSubSubGroup=" + ((InetSocketAddress)sa).getHostName());
+                final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+                if(mbeanServer.isRegistered(mBeanName)) {
+                    if(log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanName + " has been registered. Will unregister the previous instance and register a new one.");
+                    mbeanServer.unregisterMBean(mBeanName);
+                }
+            }
+        } catch (Exception e) {
+            if (log.isWarnEnabled()) log.warn(e.getMessage(), e);
+        }
+    }
+
     public void shutdown() {
+        unRegisterInActiveNodes();
         setupMonitoring(true);
     }
 
-    /**
-     * String representation of this instance.
-     */
     public String toString() {
-        return "EVCacheConnectionObserver [host=" + localHostName
-                + ", appName=" + appName + ", zone=" + zone + ", id=" + id
+        return "EVCacheConnectionObserver [instanceInfo=" + instanceInfo
+                + ", appName=" + appName + ", ServerGroup=" + serverGroup.toString() + ", id=" + id
                 + ", evCacheActiveSet=" + evCacheActiveSet
                 + ", evCacheInActiveSet=" + evCacheInActiveSet
                 + ", evCacheActiveStringSet=" + evCacheActiveStringSet
                 + ", evCacheInActiveStringSet=" + evCacheInActiveStringSet
-                + "]";
+                + ", monitorName=" + monitorName + "]";
     }
+
+    public String getAppName() {
+        return appName;
+    }
+
+    public String getServerGroup() {
+        return serverGroup.toString();
+    }
+
+    public int getId() {
+        return id;
+    }
+
 }

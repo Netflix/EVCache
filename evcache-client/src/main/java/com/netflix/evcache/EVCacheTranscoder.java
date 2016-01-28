@@ -1,26 +1,39 @@
-/**
- * Copyright 2013 Netflix, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.netflix.evcache;
 
-import net.spy.memcached.transcoders.Transcoder;
+import com.netflix.config.ConfigurationManager;
 
-/**
- * An interface for classes that manages the conversion of Java Objects to their serialized form.
- */
-public interface EVCacheTranscoder<T> extends Transcoder<T> {
+import net.spy.memcached.CachedData;
+import net.spy.memcached.transcoders.SerializingTranscoder;
+
+public class EVCacheTranscoder extends SerializingTranscoder {
+
+    public EVCacheTranscoder() {
+        this(CachedData.MAX_SIZE);
+    }
+
+    public EVCacheTranscoder(int max) {
+        this(max, ConfigurationManager.getConfigInstance().getInt("default.evcache.compression.threshold", 120));
+    }
+
+    public EVCacheTranscoder(int max, int compressionThreshold) {
+        super(max);
+        setCompressionThreshold(compressionThreshold);
+    }
+    
+    @Override
+    public boolean asyncDecode(CachedData d) {
+        return super.asyncDecode(d);
+    }
+
+    @Override
+    public Object decode(CachedData d) {
+        return super.decode(d);
+    }
+
+    @Override
+    public CachedData encode(Object o) {
+        if(o != null && o instanceof CachedData) return (CachedData)o;
+        return super.encode(o);
+    }
 
 }
