@@ -1,5 +1,5 @@
 plugins {
-  id 'nebula.netflixoss' version '3.0.3'
+  id 'nebula.netflixoss' version '3.0.0'
 }
 
 subprojects {
