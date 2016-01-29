@@ -10,8 +10,6 @@ repositories {
         mavenCentral() // maven { url 'http://jcenter.bintray.com' }
 }
 
-sourceCompatibility = '1.8'
-
 test {
     useTestNG()
     testLogging.showStandardStreams = true
