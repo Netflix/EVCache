@@ -14,7 +14,8 @@ import net.spy.memcached.internal.OperationCompletionListener;
 import net.spy.memcached.internal.OperationFuture;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "DE_MIGHT_IGNORE", "EI_EXPOSE_REP2" })
-public class EVCacheFutures implements ListenableFuture<Boolean, OperationCompletionListener>, OperationCompletionListener {
+public class EVCacheFutures implements ListenableFuture<Boolean, OperationCompletionListener>,
+        OperationCompletionListener {
 
     private final OperationFuture<Boolean>[] futures;
     private final String app;
@@ -23,14 +24,15 @@ public class EVCacheFutures implements ListenableFuture<Boolean, OperationComple
     private final AtomicInteger completionCounter;
     private final EVCacheLatch latch;
 
-    public EVCacheFutures(OperationFuture<Boolean>[] futures, String key, String app, ServerGroup serverGroup, EVCacheLatch latch) {
+    public EVCacheFutures(OperationFuture<Boolean>[] futures, String key, String app, ServerGroup serverGroup,
+            EVCacheLatch latch) {
         this.futures = futures;
         this.app = app;
         this.serverGroup = serverGroup;
         this.key = key;
         this.latch = latch;
         this.completionCounter = new AtomicInteger(futures.length);
-        if (latch != null && latch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl)latch).addFuture(this);
+        if (latch != null && latch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) latch).addFuture(this);
         for (int i = 0; i < futures.length; i++) {
             final OperationFuture<Boolean> of = futures[i];
             if (of.isDone()) {
@@ -115,7 +117,8 @@ public class EVCacheFutures implements ListenableFuture<Boolean, OperationComple
     public void onComplete(OperationFuture<?> future) throws Exception {
         int val = completionCounter.decrementAndGet();
         if (val == 0) {
-            if (latch != null) latch.onComplete(future);// Pass the last future to get completed
+            if (latch != null) latch.onComplete(future);// Pass the last future
+                                                        // to get completed
         }
     }
 

@@ -8,9 +8,12 @@ public class ConnectionModule extends AbstractModule {
     public ConnectionModule() {
     }
 
-
     @Override
     protected void configure() {
-        bind(IConnectionFactoryProvider.class).toProvider(DefaultFactoryProvider.class); //Make sure this is done
+        bind(IConnectionFactoryProvider.class).toProvider(DefaultFactoryProvider.class); // Make
+                                                                                         // sure
+                                                                                         // this
+                                                                                         // is
+                                                                                         // done
     }
 }

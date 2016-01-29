@@ -25,7 +25,6 @@ import com.netflix.servo.tag.TagList;
 
 import net.spy.memcached.ConnectionObserver;
 
-
 public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheConnectionObserverMBean {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheConnectionObserver.class);
@@ -53,7 +52,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         this.evCacheActiveStringSet = new ConcurrentHashMap<InetSocketAddress, Long>();
         this.evCacheInActiveStringSet = new ConcurrentHashMap<InetSocketAddress, Long>();
         this.id = id;
-        monitorName = appName + "_" + serverGroup.getName()  + "_" + id + "_connections";
+        monitorName = appName + "_" + serverGroup.getName() + "_" + id + "_connections";
 
         final TagList tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "AppName", appName);
         this.connect = EVCacheMetricsFactory.getCounter("EVCacheConnectionObserver_CONNECT", tags);
@@ -62,15 +61,16 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         setupMonitoring(false);
     }
 
-    public void connectionEstablished(SocketAddress sa, int reconnectCount) {		
+    public void connectionEstablished(SocketAddress sa, int reconnectCount) {
         final String address = sa.toString();
         evCacheActiveSet.add(sa);
         evCacheInActiveSet.remove(sa);
         final InetSocketAddress inetAdd = (InetSocketAddress) sa;
         evCacheActiveStringSet.put(inetAdd, Long.valueOf(System.currentTimeMillis()));
         evCacheInActiveStringSet.remove(inetAdd);
-        if(instanceInfo != null) {
-	        if(log.isDebugEnabled()) log.debug(appName + ":CONNECTION ESTABLISHED : From " + instanceInfo.getHostName() + " to " + address + " was established after " + reconnectCount + " retries");
+        if (instanceInfo != null) {
+            if (log.isDebugEnabled()) log.debug(appName + ":CONNECTION ESTABLISHED : From " + instanceInfo.getHostName()
+                    + " to " + address + " was established after " + reconnectCount + " retries");
         }
         connect.increment();
         connectCount++;
@@ -83,8 +83,9 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         final InetSocketAddress inetAdd = (InetSocketAddress) sa;
         evCacheInActiveStringSet.put(inetAdd, Long.valueOf(System.currentTimeMillis()));
         evCacheActiveStringSet.remove(inetAdd);
-        if(instanceInfo != null) {
-	        if(log.isDebugEnabled()) log.debug(appName + ":CONNECTION LOST : From " + instanceInfo.getHostName() + " to " + address );
+        if (instanceInfo != null) {
+            if (log.isDebugEnabled()) log.debug(appName + ":CONNECTION LOST : From " + instanceInfo.getHostName()
+                    + " to " + address);
         }
         lost.increment();
         lostCount++;
@@ -124,30 +125,35 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
 
     private void setupMonitoring(boolean shutdown) {
         try {
-            final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group="+ appName + ",SubGroup=pool,SubSubGroup="+serverGroup.getName() + ",SubSubSubGroup="+id);
+            final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + appName
+                    + ",SubGroup=pool,SubSubGroup=" + serverGroup.getName() + ",SubSubSubGroup=" + id);
             final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-            if(mbeanServer.isRegistered(mBeanName)) {
-                if(log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanName + " has been registered. Will unregister the previous instance and register a new one.");
+            if (mbeanServer.isRegistered(mBeanName)) {
+                if (log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanName
+                        + " has been registered. Will unregister the previous instance and register a new one.");
                 mbeanServer.unregisterMBean(mBeanName);
             }
-            if(!shutdown) {
+            if (!shutdown) {
                 mbeanServer.registerMBean(this, mBeanName);
                 Monitors.registerObject(this);
             } else {
                 Monitors.unregisterObject(this);
             }
         } catch (Exception e) {
-            if(log.isWarnEnabled()) log.warn(e.getMessage(), e);
+            if (log.isWarnEnabled()) log.warn(e.getMessage(), e);
         }
     }
 
-	private void unRegisterInActiveNodes() {
+    private void unRegisterInActiveNodes() {
         try {
-            for(SocketAddress sa : evCacheInActiveSet) {
-                final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group="+ appName + ",SubGroup=pool" + ",SubSubGroup=" + serverGroup.getName() + ",SubSubSubGroup=" + id + ",SubSubSubSubGroup=" + ((InetSocketAddress)sa).getHostName());
+            for (SocketAddress sa : evCacheInActiveSet) {
+                final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + appName
+                        + ",SubGroup=pool" + ",SubSubGroup=" + serverGroup.getName() + ",SubSubSubGroup=" + id
+                        + ",SubSubSubSubGroup=" + ((InetSocketAddress) sa).getHostName());
                 final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-                if(mbeanServer.isRegistered(mBeanName)) {
-                    if(log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanName + " has been registered. Will unregister the previous instance and register a new one.");
+                if (mbeanServer.isRegistered(mBeanName)) {
+                    if (log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanName
+                            + " has been registered. Will unregister the previous instance and register a new one.");
                     mbeanServer.unregisterMBean(mBeanName);
                 }
             }

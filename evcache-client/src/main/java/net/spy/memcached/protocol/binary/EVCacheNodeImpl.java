@@ -34,8 +34,9 @@ import net.spy.memcached.ops.Operation;
 import sun.misc.Cleaner;
 import sun.nio.ch.DirectBuffer;
 
-@edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "FCBL_FIELD_COULD_BE_LOCAL", "EXS_EXCEPTION_SOFTENING_NO_CHECKED", "REC_CATCH_EXCEPTION",
-"SCII_SPOILED_CHILD_INTERFACE_IMPLEMENTATOR" })
+@edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "FCBL_FIELD_COULD_BE_LOCAL", "EXS_EXCEPTION_SOFTENING_NO_CHECKED",
+        "REC_CATCH_EXCEPTION",
+        "SCII_SPOILED_CHILD_INTERFACE_IMPLEMENTATOR" })
 public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheNodeImplMBean, CompositeMonitor<Long> {
     private static final Logger log = LoggerFactory.getLogger(EVCacheNodeImpl.class);
 
@@ -56,8 +57,10 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
 
     private long timeoutStartTime;
 
-    public EVCacheNodeImpl(SocketAddress sa, SocketChannel c, int bufSize, BlockingQueue<Operation> rq, BlockingQueue<Operation> wq, BlockingQueue<Operation> iq,
-            long opQueueMaxBlockTimeMillis, boolean waitForAuth, long dt, long at, ConnectionFactory fa, String appName, int id, ServerGroup serverGroup, long stTime) {
+    public EVCacheNodeImpl(SocketAddress sa, SocketChannel c, int bufSize, BlockingQueue<Operation> rq,
+            BlockingQueue<Operation> wq, BlockingQueue<Operation> iq,
+            long opQueueMaxBlockTimeMillis, boolean waitForAuth, long dt, long at, ConnectionFactory fa, String appName,
+            int id, ServerGroup serverGroup, long stTime) {
         super(sa, c, bufSize, rq, wq, iq, Long.valueOf(opQueueMaxBlockTimeMillis), waitForAuth, dt, at, fa);
 
         this.id = id;
@@ -66,7 +69,8 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         this.stTime = stTime;
         this.readQ = rq;
         this.inputQueue = iq;
-        this.sendMetrics = EVCacheConfig.getInstance().getDynamicBooleanProperty("EVCacheNodeImpl." + appName + ".sendMetrics", false);
+        this.sendMetrics = EVCacheConfig.getInstance().getDynamicBooleanProperty("EVCacheNodeImpl." + appName
+                + ".sendMetrics", false);
         this.tags = BasicTagList.of("ServerGroup", _serverGroup.getName(), "AppName", appName);
         this.hostName = ((InetSocketAddress) getSocketAddress()).getHostName();
         this.metricPrefix = "EVCacheNode";
@@ -76,7 +80,8 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     }
 
     private String getMonitorName() {
-        return "com.netflix.evcache:Group=" + _appName + ",SubGroup=pool" + ",SubSubGroup=" + _serverGroup.getName() + ",SubSubSubGroup=" + id + ",SubSubSubSubGroup=" + hostName
+        return "com.netflix.evcache:Group=" + _appName + ",SubGroup=pool" + ",SubSubGroup=" + _serverGroup.getName()
+                + ",SubSubSubGroup=" + id + ",SubSubSubSubGroup=" + hostName
                 + "_" + stTime;
     }
 
@@ -85,7 +90,8 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
             final ObjectName mBeanName = ObjectName.getInstance(getMonitorName());
             final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
             if (mbeanServer.isRegistered(mBeanName)) {
-                if (log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanName + " has been registered. Will unregister the previous instance and register a new one.");
+                if (log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanName
+                        + " has been registered. Will unregister the previous instance and register a new one.");
                 mbeanServer.unregisterMBean(mBeanName);
             }
             mbeanServer.registerMBean(this, mBeanName);
@@ -136,7 +142,8 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
             final ObjectName mBeanName = ObjectName.getInstance(getMonitorName());
             final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
             if (mbeanServer.isRegistered(mBeanName)) {
-                if (log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanName + " has been registered. Will unregister the previous instance and register a new one.");
+                if (log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanName
+                        + " has been registered. Will unregister the previous instance and register a new one.");
                 mbeanServer.unregisterMBean(mBeanName);
             }
         } catch (Exception e) {
@@ -150,15 +157,15 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         readQ.clear();
         inputQueue.clear();
         try {
-            //Cleanup the ByteBuffers only if they are sun.nio.ch.DirectBuffer
-            //If we don't cleanup then we will leak 16K of memory
-            if(getRbuf() instanceof DirectBuffer) { 
+            // Cleanup the ByteBuffers only if they are sun.nio.ch.DirectBuffer
+            // If we don't cleanup then we will leak 16K of memory
+            if (getRbuf() instanceof DirectBuffer) {
                 Cleaner cleaner = ((DirectBuffer) getRbuf()).cleaner();
                 if (cleaner != null) cleaner.clean();
                 cleaner = ((DirectBuffer) getWbuf()).cleaner();
                 if (cleaner != null) cleaner.clean();
             }
-        } catch(Throwable t) {
+        } catch (Throwable t) {
             getLogger().error("Exception cleaning ByteBuffer.", t);
         }
     }
@@ -183,17 +190,20 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         if (!sendMetrics.get()) return Collections.<Monitor<?>> emptyList();
         final List<Monitor<?>> metrics = new ArrayList<Monitor<?>>();
         try {
-            MonitorConfig monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_WriteQ", DataSourceType.GAUGE, baseTags);
+            MonitorConfig monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_WriteQ",
+                    DataSourceType.GAUGE, baseTags);
             final LongGauge wQueue = new LongGauge(monitorConfig);
             wQueue.set(Long.valueOf(writeQ.size()));
             metrics.add(wQueue);
 
-            monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_ReadQ", DataSourceType.GAUGE, baseTags);
+            monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_ReadQ", DataSourceType.GAUGE,
+                    baseTags);
             final LongGauge rQueue = new LongGauge(monitorConfig);
             rQueue.set(Long.valueOf(readQ.size()));
             metrics.add(rQueue);
 
-            monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_NumOfOps", DataSourceType.COUNTER, baseTags);
+            monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_NumOfOps",
+                    DataSourceType.COUNTER, baseTags);
             final BasicCounter counter = new BasicCounter(monitorConfig);
             counter.increment(opCount.get());
             metrics.add(counter);

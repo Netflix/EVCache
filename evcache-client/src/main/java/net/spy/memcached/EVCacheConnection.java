@@ -29,9 +29,9 @@ public class EVCacheConnection extends MemcachedConnection {
     @Override
     public void shutdown() throws IOException {
         super.shutdown();
-        for(MemcachedNode qa : getLocator().getAll()) {
-            if(qa instanceof EVCacheNodeImpl) {
-                ((EVCacheNodeImpl)qa).shutdown();
+        for (MemcachedNode qa : getLocator().getAll()) {
+            if (qa instanceof EVCacheNodeImpl) {
+                ((EVCacheNodeImpl) qa).shutdown();
             }
         }
     }
@@ -39,22 +39,23 @@ public class EVCacheConnection extends MemcachedConnection {
     public void run() {
         while (running) {
             try {
-              handleIO();
+                handleIO();
             } catch (IOException e) {
-              if(log.isDebugEnabled()) log.debug(e.getMessage(), e);
+                if (log.isDebugEnabled()) log.debug(e.getMessage(), e);
             } catch (CancelledKeyException e) {
-                if(log.isDebugEnabled()) log.debug(e.getMessage(), e);
+                if (log.isDebugEnabled()) log.debug(e.getMessage(), e);
             } catch (ClosedSelectorException e) {
-                if(log.isDebugEnabled()) log.debug(e.getMessage(), e);
+                if (log.isDebugEnabled()) log.debug(e.getMessage(), e);
             } catch (IllegalStateException e) {
-                if(log.isDebugEnabled()) log.debug(e.getMessage(), e);
+                if (log.isDebugEnabled()) log.debug(e.getMessage(), e);
             } catch (ConcurrentModificationException e) {
-                if(log.isDebugEnabled()) log.debug(e.getMessage(), e);
+                if (log.isDebugEnabled()) log.debug(e.getMessage(), e);
             } catch (Throwable e) {
-                log.error("SEVERE EVCACHE ISSUE.", e);//This ensures the thread doesn't die
+                log.error("SEVERE EVCACHE ISSUE.", e);// This ensures the thread
+                                                      // doesn't die
             }
-          }
-          if(log.isDebugEnabled()) log.debug(toString() + " : Shutdown");
+        }
+        if (log.isDebugEnabled()) log.debug(toString() + " : Shutdown");
     }
 
     public String toString() {
@@ -63,21 +64,21 @@ public class EVCacheConnection extends MemcachedConnection {
 
     protected void addOperation(final MemcachedNode node, final Operation o) {
         super.addOperation(node, o);
-        ((EVCacheNodeImpl)node).incrOps();
+        ((EVCacheNodeImpl) node).incrOps();
     }
 
     @Override
     public void addOperations(Map<MemcachedNode, Operation> ops) {
         super.addOperations(ops);
-        for(MemcachedNode node : ops.keySet()) {
-            ((EVCacheNodeImpl)node).incrOps();
+        for (MemcachedNode node : ops.keySet()) {
+            ((EVCacheNodeImpl) node).incrOps();
         }
     }
 
     @Override
     public CountDownLatch broadcastOperation(BroadcastOpFactory of, Collection<MemcachedNode> nodes) {
-        for(MemcachedNode node : nodes) {
-            ((EVCacheNodeImpl)node).incrOps();
+        for (MemcachedNode node : nodes) {
+            ((EVCacheNodeImpl) node).incrOps();
         }
         return super.broadcastOperation(of, nodes);
     }

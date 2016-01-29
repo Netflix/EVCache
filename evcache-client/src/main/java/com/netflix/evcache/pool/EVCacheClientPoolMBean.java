@@ -21,7 +21,7 @@ public interface EVCacheClientPoolMBean {
     String getFallbackServerGroup();
 
     Map<String, String> getReadServerGroupByZone();
-    
+
     String getLocalServerGroupCircularIterator();
 
     void refreshPool();

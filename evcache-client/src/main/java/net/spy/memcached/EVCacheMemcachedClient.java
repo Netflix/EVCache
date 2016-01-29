@@ -42,17 +42,19 @@ import net.spy.memcached.protocol.binary.BinaryOperationFactory;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.util.StringUtils;
 
-@edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "SIC_INNER_SHOULD_BE_STATIC_ANON" })
+@edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS",
+        "SIC_INNER_SHOULD_BE_STATIC_ANON" })
 public class EVCacheMemcachedClient extends MemcachedClient {
 
-	private static final Logger log = LoggerFactory.getLogger(EVCacheMemcachedClient.class);
+    private static final Logger log = LoggerFactory.getLogger(EVCacheMemcachedClient.class);
     private final int id;
     private final String appName;
     private final String zone;
     private final ChainedDynamicProperty.IntProperty readTimeout;
     private final ServerGroup serverGroup;
 
-    public EVCacheMemcachedClient(ConnectionFactory cf, List<InetSocketAddress> addrs, ChainedDynamicProperty.IntProperty readTimeout, String appName, String zone, int id,
+    public EVCacheMemcachedClient(ConnectionFactory cf, List<InetSocketAddress> addrs,
+            ChainedDynamicProperty.IntProperty readTimeout, String appName, String zone, int id,
             ServerGroup serverGroup) throws IOException {
         super(cf, addrs);
         this.id = id;
@@ -74,10 +76,12 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         throw new UnsupportedOperationException("asyncGet");
     }
 
-    public <T> EVCacheOperationFuture<T> asyncGet(final String key, final Transcoder<T> tc, EVCacheGetOperationListener<T> listener) {
+    public <T> EVCacheOperationFuture<T> asyncGet(final String key, final Transcoder<T> tc,
+            EVCacheGetOperationListener<T> listener) {
 
         final CountDownLatch latch = new CountDownLatch(1);
-        final EVCacheOperationFuture<T> rv = new EVCacheOperationFuture<T>(key, latch, new AtomicReference<T>(null), readTimeout.get().intValue(), executorService, appName, zone,
+        final EVCacheOperationFuture<T> rv = new EVCacheOperationFuture<T>(key, latch, new AtomicReference<T>(null),
+                readTimeout.get().intValue(), executorService, appName, zone,
                 serverGroup);
         Operation op = opFact.get(key, new GetOperation.Callback() {
             private Future<T> val = null;
@@ -127,7 +131,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return rv;
     }
 
-    public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys, final Transcoder<T> tc, EVCacheGetOperationListener<T> listener) {
+    public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys, final Transcoder<T> tc,
+            EVCacheGetOperationListener<T> listener) {
         final Map<String, Future<T>> m = new ConcurrentHashMap<String, Future<T>>();
 
         // Break the gets down into groups by key
@@ -191,9 +196,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return rv;
     }
 
-    public <T> EVCacheOperationFuture<CASValue<T>> asyncGetAndTouch(final String key, final int exp, final Transcoder<T> tc) {
+    public <T> EVCacheOperationFuture<CASValue<T>> asyncGetAndTouch(final String key, final int exp,
+            final Transcoder<T> tc) {
         final CountDownLatch latch = new CountDownLatch(1);
-        final EVCacheOperationFuture<CASValue<T>> rv = new EVCacheOperationFuture<CASValue<T>>(key, latch, new AtomicReference<CASValue<T>>(null), operationTimeout,
+        final EVCacheOperationFuture<CASValue<T>> rv = new EVCacheOperationFuture<CASValue<T>>(key, latch,
+                new AtomicReference<CASValue<T>>(null), operationTimeout,
                 executorService, appName, zone, serverGroup);
 
         Operation op = opFact.getAndTouch(key, exp, new GetAndTouchOperation.Callback() {
@@ -266,18 +273,20 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
         final DeleteOperation op = opFact.delete(key, callback);
         rv.setOperation(op);
-        if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl)evcacheLatch).addFuture(rv);
+        if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch)
+                .addFuture(rv);
         mconn.enqueueOperation(key, op);
         return rv;
     }
 
-    private <T> OperationFuture<Boolean> asyncStore(final StoreType storeType, final String key, int exp, T value, Transcoder<T> tc, EVCacheLatch evcacheLatch) {
+    private <T> OperationFuture<Boolean> asyncStore(final StoreType storeType, final String key, int exp, T value,
+            Transcoder<T> tc, EVCacheLatch evcacheLatch) {
         CachedData co;
-        if(value instanceof CachedData) {
-            co = (CachedData)value;
+        if (value instanceof CachedData) {
+            co = (CachedData) value;
         } else {
             co = tc.encode(value);
-        } 
+        }
         final CountDownLatch latch = new CountDownLatch(1);
         final String operationStr;
         if (storeType == StoreType.set) {
@@ -287,14 +296,16 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         } else {
             operationStr = "Replace";
         }
-        final OperationFuture<Boolean> rv = new EVCacheOperationFuture<Boolean>(key, latch, new AtomicReference<Boolean>(null), operationTimeout, executorService, appName,
+        final OperationFuture<Boolean> rv = new EVCacheOperationFuture<Boolean>(key, latch,
+                new AtomicReference<Boolean>(null), operationTimeout, executorService, appName,
                 serverGroup.getName(), serverGroup, "Latency" + operationStr);
         Operation op = opFact.store(storeType, key, co.getFlags(), exp, co.getData(), new StoreOperation.Callback() {
             private final long startTime = System.currentTimeMillis();
 
             @Override
             public void receivedStatus(OperationStatus val) {
-                if (log.isDebugEnabled()) log.debug("Storing Key : " + key + "; Status : " + val.getStatusCode().name() + "; Message : " + val.getMessage() + "; Elapsed Time - "
+                if (log.isDebugEnabled()) log.debug("Storing Key : " + key + "; Status : " + val.getStatusCode().name()
+                        + "; Message : " + val.getMessage() + "; Elapsed Time - "
                         + (System.currentTimeMillis() - startTime));
 
                 Tag tag = null;
@@ -304,9 +315,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 }
 
                 if (val.getStatusCode().equals(StatusCode.TIMEDOUT)) {
-                        EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-" + operationStr + "Call-TIMEDOUT", tag).increment();
+                    EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-" + operationStr
+                            + "Call-TIMEDOUT", tag).increment();
                 } else {
-                    EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-" + operationStr + "Call-" + val.getStatusCode().name(), tag).increment();
+                    EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-" + operationStr
+                            + "Call-" + val.getStatusCode().name(), tag).increment();
                 }
                 rv.set(val.isSuccess(), val);
             }
@@ -323,7 +336,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             }
         });
         rv.setOperation(op);
-        if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl)evcacheLatch).addFuture(rv);
+        if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch)
+                .addFuture(rv);
         mconn.enqueueOperation(key, op);
         return rv;
     }

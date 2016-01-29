@@ -19,7 +19,7 @@ public class EVCacheTranscoder extends SerializingTranscoder {
         super(max);
         setCompressionThreshold(compressionThreshold);
     }
-    
+
     @Override
     public boolean asyncDecode(CachedData d) {
         return super.asyncDecode(d);
@@ -32,7 +32,7 @@ public class EVCacheTranscoder extends SerializingTranscoder {
 
     @Override
     public CachedData encode(Object o) {
-        if(o != null && o instanceof CachedData) return (CachedData)o;
+        if (o != null && o instanceof CachedData) return (CachedData) o;
         return super.encode(o);
     }
 

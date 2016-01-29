@@ -11,14 +11,13 @@ import com.netflix.governator.annotations.Modules;
 
 @SuppressWarnings("deprecation")
 @Singleton
-@Modules(include={
+@Modules(include = {
         EurekaModule.class
 })
 public class EVCacheModule extends AbstractModule {
 
     public EVCacheModule() {
     }
-
 
     @Override
     protected void configure() {
@@ -29,7 +28,7 @@ public class EVCacheModule extends AbstractModule {
         }
         bind(EVCacheClientPoolManager.class).asEagerSingleton();
 
-        //Make sure connection factory provider is initialized
-        //bind(IConnectionFactoryProvider.class).toProvider(DefaultFactoryProvider.class); 
+        // Make sure connection factory provider is initialized
+        // bind(IConnectionFactoryProvider.class).toProvider(DefaultFactoryProvider.class);
     }
 }

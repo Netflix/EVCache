@@ -25,6 +25,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
     public SimpleNodeListProvider(String propertyName) {
         this.propertyName = propertyName;
     }
+
     /**
      * Pass a System Property of format
      * 
@@ -39,26 +40,26 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
         if (log.isDebugEnabled())
             log.debug("List of Nodes" + nodeListString);
 
-        if(nodeListString != null && nodeListString.length() > 0) {
+        if (nodeListString != null && nodeListString.length() > 0) {
             final Map<ServerGroup, Set<InetSocketAddress>> instancesSpecific = new HashMap<ServerGroup, Set<InetSocketAddress>>();
             final StringTokenizer setTokenizer = new StringTokenizer(nodeListString, ";");
-            while(setTokenizer.hasMoreTokens()) {
+            while (setTokenizer.hasMoreTokens()) {
                 final String token = setTokenizer.nextToken();
                 final StringTokenizer replicaSetTokenizer = new StringTokenizer(token, "=");
-                while(replicaSetTokenizer.hasMoreTokens()) {
+                while (replicaSetTokenizer.hasMoreTokens()) {
                     final String replicaSetToken = replicaSetTokenizer.nextToken();
                     final String instanceToken = replicaSetTokenizer.nextToken();
                     final StringTokenizer instanceTokenizer = new StringTokenizer(instanceToken, ",");
                     final Set<InetSocketAddress> instanceList = new HashSet<InetSocketAddress>();
                     final ServerGroup rSet = new ServerGroup(replicaSetToken, replicaSetToken);
-                    instancesSpecific.put(rSet,instanceList);
-                    while(instanceTokenizer.hasMoreTokens()) {
+                    instancesSpecific.put(rSet, instanceList);
+                    while (instanceTokenizer.hasMoreTokens()) {
                         final String instance = instanceTokenizer.nextToken();
                         int index = instance.indexOf(':');
-                        String host = instance.substring(0,index);
-                        String port = instance.substring(index+1);
+                        String host = instance.substring(0, index);
+                        String port = instance.substring(index + 1);
                         int ind = host.indexOf('/');
-                        if(ind == -1) {
+                        if (ind == -1) {
                             final InetAddress add = InetAddress.getByName(host);
                             instanceList.add(new InetSocketAddress(add, Integer.parseInt(port)));
                         } else {

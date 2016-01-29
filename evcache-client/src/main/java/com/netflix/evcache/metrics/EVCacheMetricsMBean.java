@@ -15,12 +15,12 @@ public interface EVCacheMetricsMBean {
     long getGetDuration();
 
     long getBulkDuration();
-    
+
     long getBulkHits();
-    
+
     long getBulkMiss();
-    
+
     double getHitRate();
-    
+
     double getBulkHitRate();
 }

@@ -10,7 +10,7 @@ class ChunkTranscoder implements Transcoder<CachedData> {
 
     public boolean asyncDecode(CachedData d) {
         return false;
-}
+    }
 
     public CachedData decode(CachedData d) {
         return d;

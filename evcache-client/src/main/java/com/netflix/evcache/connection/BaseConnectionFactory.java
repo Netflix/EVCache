@@ -38,7 +38,8 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     protected EVCacheNodeLocator locator;
     protected final long startTime;
 
-    BaseConnectionFactory(String appName, int len, long operationTimeout, long opMaxBlockTime, int id, ServerGroup serverGroup) {
+    BaseConnectionFactory(String appName, int len, long operationTimeout, long opMaxBlockTime, int id,
+            ServerGroup serverGroup) {
         super(len, BinaryConnectionFactory.DEFAULT_READ_BUFFER_SIZE, DefaultHashAlgorithm.KETAMA_HASH);
         this.appName = appName;
         this.operationTimeout = operationTimeout;
@@ -50,9 +51,11 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public NodeLocator createLocator(List<MemcachedNode> list) {
-        this.locator = new EVCacheNodeLocator(appName, serverGroup, list, DefaultHashAlgorithm.KETAMA_HASH, new EVCacheKetamaNodeLocatorConfiguration(appName, serverGroup));
+        this.locator = new EVCacheNodeLocator(appName, serverGroup, list, DefaultHashAlgorithm.KETAMA_HASH,
+                new EVCacheKetamaNodeLocatorConfiguration(appName, serverGroup));
         return locator;
     }
+
     public EVCacheNodeLocator getEVCacheNodeLocator() {
         return this.locator;
     }
@@ -74,19 +77,22 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public MemcachedConnection createConnection(List<InetSocketAddress> addrs) throws IOException {
-        return new EVCacheConnection(name, getReadBufSize(), this, addrs, getInitialObservers(), getFailureMode(), getOperationFactory());
+        return new EVCacheConnection(name, getReadBufSize(), this, addrs, getInitialObservers(), getFailureMode(),
+                getOperationFactory());
     }
 
     public MemcachedNode createMemcachedNode(SocketAddress sa, SocketChannel c, int bufSize) {
         boolean doAuth = false;
-        final EVCacheNodeImpl node = new EVCacheNodeImpl(sa, c, bufSize, createReadOperationQueue(), createWriteOperationQueue(), createOperationQueue(),
-                opMaxBlockTime, doAuth, getOperationTimeout(), getAuthWaitTime(), this, appName, id, serverGroup, startTime);
+        final EVCacheNodeImpl node = new EVCacheNodeImpl(sa, c, bufSize, createReadOperationQueue(),
+                createWriteOperationQueue(), createOperationQueue(),
+                opMaxBlockTime, doAuth, getOperationTimeout(), getAuthWaitTime(), this, appName, id, serverGroup,
+                startTime);
         return node;
     }
-    
+
     public long getOperationTimeout() {
         return operationTimeout;
-      }
+    }
 
     public BlockingQueue<Operation> createReadOperationQueue() {
         return super.createReadOperationQueue();

@@ -19,27 +19,31 @@ import com.netflix.servo.monitor.StepCounter;
 import com.netflix.servo.tag.Tag;
 
 /**
- * An In Memory cache that can be used to hold data for short duration. 
- * This is helpful when the same key is repeatedly requested from EVCache within a short duration.
- * This can be turned on dynamically and can relive pressure on EVCache Server instances. 
+ * An In Memory cache that can be used to hold data for short duration. This is
+ * helpful when the same key is repeatedly requested from EVCache within a short
+ * duration. This can be turned on dynamically and can relive pressure on
+ * EVCache Server instances.
  */
 public class EVCacheInMemoryCache<T> {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheInMemoryCache.class);
-    private final DynamicIntProperty _cacheDuration; //The key will be cached for this long
-    private final DynamicIntProperty _cacheSize; //This many items will be cached
+    private final DynamicIntProperty _cacheDuration; // The key will be cached
+                                                     // for this long
+    private final DynamicIntProperty _cacheSize; // This many items will be
+                                                 // cached
     private final String appName;
 
     private Cache<String, T> cache;
 
     public EVCacheInMemoryCache(String appName) {
         this.appName = appName;
-        this._cacheDuration = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.cache.duration.ms", 20);
+        this._cacheDuration = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.cache.duration.ms",
+                20);
         this._cacheDuration.addCallback(new Runnable() {
             public void run() {
                 setupCache();
             }
-        });	
+        });
 
         this._cacheSize = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.cache.size", 100);
         this._cacheSize.addCallback(new Runnable() {
@@ -52,12 +56,20 @@ public class EVCacheInMemoryCache<T> {
 
     private void register(Monitor<?> monitor) {
         final MonitorRegistry registry = DefaultMonitorRegistry.getInstance();
-        if(registry.isRegistered(monitor)) registry.unregister(monitor); //This will ensure old cache values are unregistered
+        if (registry.isRegistered(monitor)) registry.unregister(monitor); // This
+                                                                          // will
+                                                                          // ensure
+                                                                          // old
+                                                                          // cache
+                                                                          // values
+                                                                          // are
+                                                                          // unregistered
         registry.register(monitor);
     }
 
-    private MonitorConfig getMonitorConfig(String appName, String metric , Tag tag) {
-        final Builder builder = MonitorConfig.builder("EVCacheInMemoryCache" + "-" + appName + "-" + metric).withTag(tag);
+    private MonitorConfig getMonitorConfig(String appName, String metric, Tag tag) {
+        final Builder builder = MonitorConfig.builder("EVCacheInMemoryCache" + "-" + appName + "-" + metric).withTag(
+                tag);
         return builder.build();
     }
 
@@ -81,7 +93,7 @@ public class EVCacheInMemoryCache<T> {
         final StepCounter sizeCounter = new StepCounter(getMonitorConfig(appName, "size", DataSourceType.GAUGE)) {
             @Override
             public Number getValue() {
-                if(cache == null) return Long.valueOf(0);
+                if (cache == null) return Long.valueOf(0);
                 return Long.valueOf(cache.size());
             }
 
@@ -94,13 +106,14 @@ public class EVCacheInMemoryCache<T> {
 
         register(new Monitor<Number>() {
             final MonitorConfig config;
+
             {
                 config = getMonitorConfig(appName, "requests", DataSourceType.COUNTER);
             }
 
             @Override
             public Number getValue() {
-                if(cache == null) return Long.valueOf(0);
+                if (cache == null) return Long.valueOf(0);
                 return Long.valueOf(cache.stats().requestCount());
             }
 
@@ -112,13 +125,13 @@ public class EVCacheInMemoryCache<T> {
             @Override
             public MonitorConfig getConfig() {
                 return config;
-            }            
+            }
         });
 
         final StepCounter hitrateCounter = new StepCounter(getMonitorConfig(appName, "hitrate", DataSourceType.GAUGE)) {
             @Override
             public Number getValue() {
-                if(cache == null) return Long.valueOf(0);
+                if (cache == null) return Long.valueOf(0);
                 return Double.valueOf(cache.stats().hitRate());
             }
 
@@ -131,13 +144,14 @@ public class EVCacheInMemoryCache<T> {
 
         register(new Monitor<Number>() {
             final MonitorConfig config;
+
             {
                 config = getMonitorConfig(appName, "hits", DataSourceType.COUNTER);
             }
 
             @Override
             public Number getValue() {
-                if(cache == null) return Long.valueOf(0);
+                if (cache == null) return Long.valueOf(0);
                 return Double.valueOf(cache.stats().hitCount());
             }
 
@@ -149,18 +163,19 @@ public class EVCacheInMemoryCache<T> {
             @Override
             public MonitorConfig getConfig() {
                 return config;
-            }            
+            }
         });
 
         register(new Monitor<Number>() {
             final MonitorConfig config;
+
             {
                 config = getMonitorConfig(appName, "miss", DataSourceType.COUNTER);
             }
 
             @Override
             public Number getValue() {
-                if(cache == null) return Long.valueOf(0);
+                if (cache == null) return Long.valueOf(0);
                 return Double.valueOf(cache.stats().missCount());
             }
 
@@ -172,18 +187,19 @@ public class EVCacheInMemoryCache<T> {
             @Override
             public MonitorConfig getConfig() {
                 return config;
-            }            
+            }
         });
 
         register(new Monitor<Number>() {
             final MonitorConfig config;
+
             {
                 config = getMonitorConfig(appName, "evictions", DataSourceType.COUNTER);
             }
 
             @Override
             public Number getValue() {
-                if(cache == null) return Long.valueOf(0);
+                if (cache == null) return Long.valueOf(0);
                 return Double.valueOf(cache.stats().evictionCount());
             }
 
@@ -195,26 +211,26 @@ public class EVCacheInMemoryCache<T> {
             @Override
             public MonitorConfig getConfig() {
                 return config;
-            }            
+            }
         });
     }
 
     public T get(String key) {
-        if(cache == null) return null;
+        if (cache == null) return null;
         final T val = cache.getIfPresent(key);
-        if(log.isDebugEnabled()) log.debug("GET : appName : " + appName + "; Key : " + key + "; val : " + val);
-        return val; 
+        if (log.isDebugEnabled()) log.debug("GET : appName : " + appName + "; Key : " + key + "; val : " + val);
+        return val;
     }
 
     public void put(String key, T value) {
-        if(cache == null) return;
+        if (cache == null) return;
         cache.put(key, value);
-        if(log.isDebugEnabled()) log.debug("PUT : appName : " + appName + "; Key : " + key + "; val : " + value);
+        if (log.isDebugEnabled()) log.debug("PUT : appName : " + appName + "; Key : " + key + "; val : " + value);
     }
 
     public void delete(String key) {
-        if(cache == null) return;
+        if (cache == null) return;
         cache.invalidate(key);
-        if(log.isDebugEnabled()) log.debug("DEL : appName : " + appName + "; Key : " + key );
+        if (log.isDebugEnabled()) log.debug("DEL : appName : " + appName + "; Key : " + key);
     }
 }

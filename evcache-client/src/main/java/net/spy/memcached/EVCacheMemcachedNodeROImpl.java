@@ -10,13 +10,13 @@ import java.util.Collection;
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.ops.Operation;
 
-
 public class EVCacheMemcachedNodeROImpl implements MemcachedNode {
 
     private final MemcachedNode root;
+
     public EVCacheMemcachedNodeROImpl(MemcachedNode n) {
         super();
-        root=n;
+        root = n;
     }
 
     public String toString() {
@@ -164,7 +164,7 @@ public class EVCacheMemcachedNodeROImpl implements MemcachedNode {
     }
 
     public void completedRead() {
-        throw new UnsupportedOperationException();        
+        throw new UnsupportedOperationException();
     }
 
     public MemcachedConnection getConnection() {
@@ -172,7 +172,7 @@ public class EVCacheMemcachedNodeROImpl implements MemcachedNode {
     }
 
     public void setConnection(MemcachedConnection connection) {
-        throw new UnsupportedOperationException();        
+        throw new UnsupportedOperationException();
     }
 
 }

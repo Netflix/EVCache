@@ -25,7 +25,8 @@ public class EVCacheConfig {
     private final Map<String, MonitorConfig> monitorConfigMap = new HashMap<String, MonitorConfig>();
     private EVCacheClientPoolManager _poolManager;
 
-    private EVCacheConfig() {}
+    private EVCacheConfig() {
+    }
 
     public static EVCacheConfig getInstance() {
         return INSTANCE;
@@ -37,7 +38,7 @@ public class EVCacheConfig {
 
     public DynamicIntProperty getDynamicIntProperty(String name, int defaultValue) {
         DynamicIntProperty prop = (DynamicIntProperty) fastPropMap.get(name);
-        if(prop != null) return prop;
+        if (prop != null) return prop;
 
         prop = DynamicPropertyFactory.getInstance().getIntProperty(name, defaultValue);
         fastPropMap.put(name, prop);
@@ -55,39 +56,44 @@ public class EVCacheConfig {
 
     public DynamicBooleanProperty getDynamicBooleanProperty(String name, Boolean defaultValue) {
         DynamicBooleanProperty prop = (DynamicBooleanProperty) fastPropMap.get(name);
-        if(prop != null) return prop;
+        if (prop != null) return prop;
 
         prop = DynamicPropertyFactory.getInstance().getBooleanProperty(name, defaultValue);
         fastPropMap.put(name, prop);
         return prop;
     }
 
-    public ChainedDynamicProperty.BooleanProperty getChainedBooleanProperty(String overrideKey, String primaryKey, Boolean defaultValue) {
+    public ChainedDynamicProperty.BooleanProperty getChainedBooleanProperty(String overrideKey, String primaryKey,
+            Boolean defaultValue) {
         final String mapKey = overrideKey + primaryKey;
         ChainedDynamicProperty.BooleanProperty prop = (ChainedDynamicProperty.BooleanProperty) fastPropMap.get(mapKey);
-        if(prop != null) return prop;
+        if (prop != null) return prop;
 
-        prop = new ChainedDynamicProperty.BooleanProperty( overrideKey,  new ChainedDynamicProperty.DynamicBooleanPropertyThatSupportsNull(primaryKey, defaultValue));
+        prop = new ChainedDynamicProperty.BooleanProperty(overrideKey,
+                new ChainedDynamicProperty.DynamicBooleanPropertyThatSupportsNull(primaryKey, defaultValue));
         fastPropMap.put(mapKey, prop);
         return prop;
     }
 
-    public ChainedDynamicProperty.IntProperty getChainedIntProperty(String overrideKey, String primaryKey, int defaultValue) {
+    public ChainedDynamicProperty.IntProperty getChainedIntProperty(String overrideKey, String primaryKey,
+            int defaultValue) {
         final String mapKey = overrideKey + primaryKey;
         ChainedDynamicProperty.IntProperty prop = (ChainedDynamicProperty.IntProperty) fastPropMap.get(mapKey);
-        if(prop != null) return prop;
+        if (prop != null) return prop;
 
-        prop = new ChainedDynamicProperty.IntProperty( overrideKey,  new DynamicIntProperty(primaryKey, defaultValue));
+        prop = new ChainedDynamicProperty.IntProperty(overrideKey, new DynamicIntProperty(primaryKey, defaultValue));
         fastPropMap.put(mapKey, prop);
         return prop;
     }
 
-    public ChainedDynamicProperty.StringProperty getChainedStringProperty(String overrideKey, String primaryKey, String defaultValue) {
+    public ChainedDynamicProperty.StringProperty getChainedStringProperty(String overrideKey, String primaryKey,
+            String defaultValue) {
         final String mapKey = overrideKey + primaryKey;
         ChainedDynamicProperty.StringProperty prop = (ChainedDynamicProperty.StringProperty) fastPropMap.get(mapKey);
-        if(prop != null) return prop;
+        if (prop != null) return prop;
 
-        prop = new ChainedDynamicProperty.StringProperty( overrideKey,  new DynamicStringProperty(primaryKey, defaultValue));
+        prop = new ChainedDynamicProperty.StringProperty(overrideKey, new DynamicStringProperty(primaryKey,
+                defaultValue));
         fastPropMap.put(mapKey, prop);
         return prop;
     }

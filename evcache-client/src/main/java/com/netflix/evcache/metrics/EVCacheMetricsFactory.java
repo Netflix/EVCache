@@ -27,13 +27,15 @@ import com.netflix.servo.tag.BasicTagList;
 import com.netflix.servo.tag.Tag;
 import com.netflix.servo.tag.TagList;
 
-@edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = {"NF_LOCAL_FAST_PROPERTY", "PMB_POSSIBLE_MEMORY_BLOAT"}, justification = "Creates only when needed")
+@edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = { "NF_LOCAL_FAST_PROPERTY",
+        "PMB_POSSIBLE_MEMORY_BLOAT" }, justification = "Creates only when needed")
 public final class EVCacheMetricsFactory {
     private static final Map<String, Stats> statsMap = new ConcurrentHashMap<String, Stats>();
     private static final Map<String, Monitor<?>> monitorMap = new ConcurrentHashMap<String, Monitor<?>>();
     private static final Lock writeLock = (new ReentrantReadWriteLock()).writeLock();
     private static final Map<String, Timer> timerMap = new HashMap<String, Timer>();
-    private static final DynamicIntProperty sampleSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCache.metrics.sample.size", 100);
+    private static final DynamicIntProperty sampleSize = EVCacheConfig.getInstance().getDynamicIntProperty(
+            "EVCache.metrics.sample.size", 100);
 
     public static Operation getOperation(String name) {
         return getOperation(name, null, null, Operation.TYPE.MILLI);
@@ -50,9 +52,9 @@ public final class EVCacheMetricsFactory {
     }
 
     public static Stats getStats(String appName, String cacheName) {
-        final String key =  (cacheName == null) ? appName + ":NA" : appName + ":" + cacheName;
+        final String key = (cacheName == null) ? appName + ":NA" : appName + ":" + cacheName;
         Stats metrics = statsMap.get(key);
-        if(metrics != null) return metrics;
+        if (metrics != null) return metrics;
         writeLock.lock();
         try {
             if (statsMap.containsKey(key)) {
@@ -65,7 +67,6 @@ public final class EVCacheMetricsFactory {
         }
         return metrics;
     }
-
 
     public static Map<String, Stats> getAllMetrics() {
         return statsMap;
@@ -115,10 +116,10 @@ public final class EVCacheMetricsFactory {
     }
 
     public static Counter getCounter(String cName, Tag tag) {
-        if(tag == null) return getCounter(cName);
+        if (tag == null) return getCounter(cName);
         final String name = cName + tag.tagString();
         Counter counter = (Counter) monitorMap.get(name);
-        if(counter == null) {
+        if (counter == null) {
             writeLock.lock();
             try {
                 if (monitorMap.containsKey(name)) {
@@ -201,7 +202,8 @@ public final class EVCacheMetricsFactory {
         if (counter != null) return counter;
         writeLock.lock();
         try {
-            if (monitorMap.containsKey(name))  return (StepCounter) monitorMap.get(name);
+            if (monitorMap.containsKey(name))
+                return (StepCounter) monitorMap.get(name);
             else {
                 final StepCounter _counter = new StepCounter(getMonitorConfig(name, appName, cacheName, metric));
                 monitorMap.put(name, _counter);
@@ -221,11 +223,14 @@ public final class EVCacheMetricsFactory {
 
         writeLock.lock();
         try {
-            if (monitorMap.containsKey(name)) return (StatsTimer)monitorMap.get(name);
+            if (monitorMap.containsKey(name))
+                return (StatsTimer) monitorMap.get(name);
             else {
-                final StatsConfig statsConfig = new StatsConfig.Builder().withPercentiles(new double[] { 95, 99 }).withPublishMax(true).withPublishMin(true)
+                final StatsConfig statsConfig = new StatsConfig.Builder().withPercentiles(new double[] { 95, 99 })
+                        .withPublishMax(true).withPublishMin(true)
                         .withPublishMean(true).withPublishCount(true).withSampleSize(sampleSize.get()).build();
-                final StatsTimer _duration = new StatsTimer(getMonitorConfig(name, appName, cacheName, metric), statsConfig, TimeUnit.MILLISECONDS);
+                final StatsTimer _duration = new StatsTimer(getMonitorConfig(name, appName, cacheName, metric),
+                        statsConfig, TimeUnit.MILLISECONDS);
                 monitorMap.put(name, _duration);
                 DefaultMonitorRegistry.getInstance().register(_duration);
                 return _duration;
@@ -243,11 +248,14 @@ public final class EVCacheMetricsFactory {
 
         writeLock.lock();
         try {
-            if (monitorMap.containsKey(name)) return (StatsTimer)monitorMap.get(name);
+            if (monitorMap.containsKey(name))
+                return (StatsTimer) monitorMap.get(name);
             else {
-                final StatsConfig statsConfig = new StatsConfig.Builder().withPercentiles(new double[] { 95, 99 }).withPublishMax(true).withPublishMin(true)
+                final StatsConfig statsConfig = new StatsConfig.Builder().withPercentiles(new double[] { 95, 99 })
+                        .withPublishMax(true).withPublishMin(true)
                         .withPublishMean(true).withPublishCount(true).withSampleSize(sampleSize.get()).build();
-                final StatsTimer _duration = new StatsTimer(getMonitorConfig(name, appName, null, serverGroupName, metric), statsConfig, TimeUnit.MILLISECONDS);
+                final StatsTimer _duration = new StatsTimer(getMonitorConfig(name, appName, null, serverGroupName,
+                        metric), statsConfig, TimeUnit.MILLISECONDS);
                 monitorMap.put(name, _duration);
                 DefaultMonitorRegistry.getInstance().register(_duration);
                 return _duration;
@@ -258,9 +266,8 @@ public final class EVCacheMetricsFactory {
     }
 
     public static String getMetricName(String appName, String cacheName, String metric) {
-        return appName + (cacheName == null ? "-" : "-"+cacheName+"-") + metric;
+        return appName + (cacheName == null ? "-" : "-" + cacheName + "-") + metric;
     }
-
 
     public static MonitorConfig getMonitorConfig(String appName, String cacheName, String metric) {
         return getMonitorConfig(getMetricName(appName, cacheName, metric), appName, cacheName, metric);
@@ -274,7 +281,8 @@ public final class EVCacheMetricsFactory {
         return builder.build();
     }
 
-    public static MonitorConfig getMonitorConfig(String name, String appName, String cacheName, String serverGroup, String metric) {
+    public static MonitorConfig getMonitorConfig(String name, String appName, String cacheName, String serverGroup,
+            String metric) {
         Builder builder = MonitorConfig.builder(name).withTag("APP", appName).withTag("METRIC", metric);
         if (cacheName != null && cacheName.length() > 0) {
             builder = builder.withTag("CACHE", cacheName);
@@ -293,7 +301,8 @@ public final class EVCacheMetricsFactory {
             if (timerMap.containsKey(name)) {
                 return timerMap.get(name);
             } else {
-                final StatsConfig statsConfig = new StatsConfig.Builder().withPercentiles(new double[] { 95, 99 }).withPublishMax(true).withPublishMin(true).withPublishMean(true)
+                final StatsConfig statsConfig = new StatsConfig.Builder().withPercentiles(new double[] { 95, 99 })
+                        .withPublishMax(true).withPublishMin(true).withPublishMean(true)
                         .withPublishCount(true).withSampleSize(sampleSize.get()).build();
                 final MonitorConfig monitorConfig = MonitorConfig.builder(name).build();
                 timer = new StatsTimer(monitorConfig, statsConfig, TimeUnit.MILLISECONDS);

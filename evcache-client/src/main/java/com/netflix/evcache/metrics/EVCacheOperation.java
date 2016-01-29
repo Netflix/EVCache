@@ -7,7 +7,7 @@ public class EVCacheOperation implements Operation {
     private final Stats stats;
     private long startTime;
     private final String name;
-    private long duration; 
+    private long duration;
     private final Operation.TYPE type;
 
     public EVCacheOperation(String name) {
@@ -22,8 +22,8 @@ public class EVCacheOperation implements Operation {
         this.stats = stats;
         startTime = System.nanoTime();
         this.type = type;
-        this.name = (op == null) ? name : name + ":"+op.name();
-        
+        this.name = (op == null) ? name : name + ":" + op.name();
+
     }
 
     public void setName(String name) {
@@ -32,21 +32,21 @@ public class EVCacheOperation implements Operation {
     public void start() {
         startTime = System.nanoTime();
     }
-    
+
     public long getStartTime() {
         return startTime;
     }
 
     public void stop() {
         duration = System.nanoTime() - startTime;
-        if(op != null && stats != null) stats.operationCompleted(op, getDuration());
+        if (op != null && stats != null) stats.operationCompleted(op, getDuration());
     }
 
     public long getDuration() {
-        if(type == Operation.TYPE.MILLI) {
-            return duration/1000000;
-        } else if(type == Operation.TYPE.MICRO) {
-            return duration/1000;
+        if (type == Operation.TYPE.MILLI) {
+            return duration / 1000000;
+        } else if (type == Operation.TYPE.MICRO) {
+            return duration / 1000;
         } else {
             return duration;
         }

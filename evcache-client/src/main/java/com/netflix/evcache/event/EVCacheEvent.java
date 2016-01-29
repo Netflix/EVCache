@@ -11,15 +11,15 @@ import com.netflix.evcache.pool.EVCacheClient;
 import net.spy.memcached.CachedData;
 
 public class EVCacheEvent {
-    
+
     public static final String CLIENTS = "clients";
 
     private final Call call;
     private final String appName;
     private final String cacheName;
 
-    private Collection<EVCacheClient> clients = null; 
-    private Collection<String> keys = null; 
+    private Collection<EVCacheClient> clients = null;
+    private Collection<String> keys = null;
     private Collection<String> canonicalKeys = null;
     private int ttl = 0;
     private EVCacheLatch latch = null;
@@ -37,7 +37,7 @@ public class EVCacheEvent {
     public Call getCall() {
         return call;
     }
-    
+
     public String getAppName() {
         return appName;
     }
@@ -95,12 +95,12 @@ public class EVCacheEvent {
     }
 
     public void setAttribute(Object key, Object value) {
-        if(data == null) data = new HashMap<Object, Object>();
+        if (data == null) data = new HashMap<Object, Object>();
         data.put(key, value);
     }
 
     public Object getAttribute(Object key) {
-        if(data == null) return null;
+        if (data == null) return null;
         return data.get(key);
     }
 

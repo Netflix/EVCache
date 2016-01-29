@@ -16,7 +16,7 @@ import net.spy.memcached.internal.OperationCompletionListener;
 import net.spy.memcached.internal.OperationFuture;
 
 public class EVCacheLatchImpl implements EVCacheLatch {
-	private static final Logger log = LoggerFactory.getLogger(EVCacheLatchImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(EVCacheLatchImpl.class);
 
     private final int count;
     private final CountDownLatch latch;
@@ -32,13 +32,15 @@ public class EVCacheLatchImpl implements EVCacheLatch {
         this.count = policyToCount(policy, _count);
         this.latch = new CountDownLatch(count);
 
-        if (log.isDebugEnabled()) log.debug("Number of Futures = " + _count + "; Number of Futures that need to completed for Latch to be released = " + this.count);
+        if (log.isDebugEnabled()) log.debug("Number of Futures = " + _count
+                + "; Number of Futures that need to completed for Latch to be released = " + this.count);
     }
 
     /*
      * (non-Javadoc)
      * 
-     * @see com.netflix.evcache.operation.EVCacheLatchI#await(long, java.util.concurrent.TimeUnit)
+     * @see com.netflix.evcache.operation.EVCacheLatchI#await(long,
+     * java.util.concurrent.TimeUnit)
      */
     @Override
     public boolean await(long timeout, TimeUnit unit) throws InterruptedException {
@@ -49,7 +51,9 @@ public class EVCacheLatchImpl implements EVCacheLatch {
     /*
      * (non-Javadoc)
      * 
-     * @see com.netflix.evcache.operation.EVCacheLatchI#addFuture(net.spy.memcached.internal.ListenableFuture)
+     * @see
+     * com.netflix.evcache.operation.EVCacheLatchI#addFuture(net.spy.memcached.
+     * internal.ListenableFuture)
      */
     public void addFuture(ListenableFuture<Boolean, OperationCompletionListener> future) {
         future.addListener(this);
@@ -148,13 +152,19 @@ public class EVCacheLatchImpl implements EVCacheLatch {
         case ONE:
             return 1;
         case QUORUM:
-            if (count == 0) return 0;
-            else if (count <= 2) return 1;
-            else return (futures.size() / 2) + 1;
+            if (count == 0)
+                return 0;
+            else if (count <= 2)
+                return 1;
+            else
+                return (futures.size() / 2) + 1;
         case ALL_MINUS_1:
-            if (count == 0) return 0;
-            else if (count <= 2) return 1;
-            else return count - 1;
+            if (count == 0)
+                return 0;
+            else if (count <= 2)
+                return 1;
+            else
+                return count - 1;
         default:
             return count;
         }
@@ -163,7 +173,9 @@ public class EVCacheLatchImpl implements EVCacheLatch {
     /*
      * (non-Javadoc)
      * 
-     * @see com.netflix.evcache.operation.EVCacheLatchI#onComplete(net.spy.memcached.internal.OperationFuture)
+     * @see
+     * com.netflix.evcache.operation.EVCacheLatchI#onComplete(net.spy.memcached.
+     * internal.OperationFuture)
      */
     @Override
     public void onComplete(OperationFuture<?> future) throws Exception {
@@ -194,7 +206,8 @@ public class EVCacheLatchImpl implements EVCacheLatch {
     /*
      * (non-Javadoc)
      * 
-     * @see com.netflix.evcache.operation.EVCacheLatchI#getExpectedSuccessCount()
+     * @see
+     * com.netflix.evcache.operation.EVCacheLatchI#getExpectedSuccessCount()
      */
     @Override
     public int getExpectedSuccessCount() {
@@ -215,7 +228,7 @@ public class EVCacheLatchImpl implements EVCacheLatch {
                     success++;
                 }
             } catch (Exception e) {
-            	log.error(e.getMessage(), e);
+                log.error(e.getMessage(), e);
             }
         }
         return success;

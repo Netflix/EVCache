@@ -6,8 +6,9 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
- * A circular iterator for ReplicaSets.
- * This ensures that all ReplicaSets are equal number of requests.
+ * A circular iterator for ReplicaSets. This ensures that all ReplicaSets are
+ * equal number of requests.
+ * 
  * @author smadappa
  */
 public class ServerGroupCircularIterator {
@@ -16,11 +17,13 @@ public class ServerGroupCircularIterator {
 
     /**
      * Creates an instance of ReplicaSetCircularIterator across all ReplicaSets.
-     * @param allReplicaSets Set of all available ReplicaSets.
+     * 
+     * @param allReplicaSets
+     *            Set of all available ReplicaSets.
      */
     public ServerGroupCircularIterator(Set<ServerGroup> allReplicaSets) {
         if (allReplicaSets == null || allReplicaSets.isEmpty()) return;
-        Entry<ServerGroup> pEntry = null; 
+        Entry<ServerGroup> pEntry = null;
         for (Iterator<ServerGroup> itr = allReplicaSets.iterator(); itr.hasNext();) {
             size++;
             final ServerGroup rSet = itr.next();
@@ -28,18 +31,20 @@ public class ServerGroupCircularIterator {
             if (entry == null) entry = newEntry;
             pEntry = newEntry;
         }
-        
+
         /*
          * Connect the first and the last entry to form a circular list
          */
-        if(pEntry != null) {
+        if (pEntry != null) {
             entry.next = pEntry;
         }
     }
 
     /**
      * Returns the next ReplicaSet which should get the request.
-     * @return - the next ReplicaSetCircularIterator in the iterator. If there are none then null is returned.
+     * 
+     * @return - the next ReplicaSetCircularIterator in the iterator. If there
+     *         are none then null is returned.
      */
     public ServerGroup next() {
         if (entry == null) return null;
@@ -48,8 +53,11 @@ public class ServerGroupCircularIterator {
     }
 
     /**
-     * Returns the next ReplicaSet excluding the given ReplicaSet which should get the request.
-     * @return - the next ReplicaSet in the iterator. If there are none then null is returned.
+     * Returns the next ReplicaSet excluding the given ReplicaSet which should
+     * get the request.
+     * 
+     * @return - the next ReplicaSet in the iterator. If there are none then
+     *         null is returned.
      */
     public ServerGroup next(ServerGroup ignoreReplicaSet) {
         if (entry == null) return null;
@@ -66,7 +74,9 @@ public class ServerGroupCircularIterator {
     }
 
     /**
-     * The Entry keeps track of the current element and next element in the list.
+     * The Entry keeps track of the current element and next element in the
+     * list.
+     * 
      * @author smadappa
      *
      * @param <E>
@@ -83,18 +93,18 @@ public class ServerGroupCircularIterator {
             this.next = next;
         }
     }
-    
+
     public String toString() {
         final StringBuilder current = new StringBuilder();
-        if (entry != null)  {
+        if (entry != null) {
             Entry<ServerGroup> startEntry = entry;
             current.append(startEntry.element);
-            while(!entry.next.equals(startEntry)) {
+            while (!entry.next.equals(startEntry)) {
                 current.append(",").append(entry.next.element);
                 entry = entry.next;
             }
         }
-        return "Server Group Iterator : { size="+ getSize() + "; Server Group=" + current.toString() +"}";
+        return "Server Group Iterator : { size=" + getSize() + "; Server Group=" + current.toString() + "}";
     }
 
 }

@@ -13,12 +13,14 @@ public class EVCacheFuture implements Future<Boolean> {
     private final String app;
     private final ServerGroup serverGroup;
     private final String key;
+
     public EVCacheFuture(Future<Boolean> future, String key, String app, ServerGroup serverGroup) {
         this.future = future;
         this.app = app;
         this.serverGroup = serverGroup;
         this.key = key;
     }
+
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
         return future.cancel(mayInterruptIfRunning);
@@ -33,7 +35,7 @@ public class EVCacheFuture implements Future<Boolean> {
     public boolean isDone() {
         return future.isDone();
     }
-    
+
     @Override
     public Boolean get() throws InterruptedException, ExecutionException {
         return future.get();
@@ -44,7 +46,7 @@ public class EVCacheFuture implements Future<Boolean> {
             throws InterruptedException, ExecutionException, TimeoutException {
         return future.get(timeout, unit);
     }
-    
+
     public String getKey() {
         return key;
     }
@@ -66,5 +68,5 @@ public class EVCacheFuture implements Future<Boolean> {
         return "EVCacheFuture [future=" + future + ", app=" + app + ", ServerGroup="
                 + serverGroup + "]";
     }
-    
+
 }

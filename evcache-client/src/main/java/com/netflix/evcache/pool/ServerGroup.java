@@ -33,7 +33,7 @@ public class ServerGroup implements Comparable<ServerGroup> {
             return true;
         if (obj == null)
             return false;
-        if(!(obj instanceof ServerGroup)) return false;
+        if (!(obj instanceof ServerGroup)) return false;
         ServerGroup other = (ServerGroup) obj;
         if (name == null) {
             if (other.name != null)
@@ -48,15 +48,14 @@ public class ServerGroup implements Comparable<ServerGroup> {
         return true;
     }
 
-
     @Override
-	public String toString() {
+    public String toString() {
         return "Server Group [zone=" + zone + (name.equals(zone) ? "" : ", name=" + name) + "]";
     }
 
-	@Override
-	public int compareTo(ServerGroup o) {
-		return toString().compareTo(o.toString());
-	}
+    @Override
+    public int compareTo(ServerGroup o) {
+        return toString().compareTo(o.toString());
+    }
 
 }
