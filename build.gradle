@@ -3,13 +3,13 @@ plugins {
     id 'nebula.provided-base' version '3.0.3'
 }
 
+
 subprojects {
     apply plugin: 'nebula.netflixoss'
     apply plugin: 'nebula.provided-base'
     apply plugin: 'java'
 
     sourceCompatibility = 1.8
-    targetCompatibility = 1.8
 
     group = "com.netflix.evcache"
 
