@@ -1,5 +1,11 @@
+buildscript {
+  repositories {
+    jcenter()
+  }
+}
+
 plugins {
-    id 'nebula.netflixoss' version '2.2.9'
+    id 'nebula.netflixoss' version '3.1.2'
 }
 
 subprojects {
@@ -14,4 +20,8 @@ subprojects {
     repositories {
         jcenter()
     }
+}
+
+task wrapper(type: Wrapper) {
+   gradleVersion = '2.10'
 }
