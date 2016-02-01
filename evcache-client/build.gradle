@@ -11,13 +11,10 @@ repositories {
 }
 
 test {
-    useTestNG()
-    testLogging.showStandardStreams = true
 }
 
-
 dependencies {
-        compile group:"net.spy",                      name:"spymemcached",                     version:"latest.release"
+        compile group:"net.spy",                      name:"spymemcached",                     version:"2.11.4"
         compile group:"com.google.code.findbugs",     name:"annotations",                      version:"latest.release"
         compile group:"com.netflix.archaius",         name:"archaius2-core",                   version:"latest.release"
         compile group:"com.netflix.governator",       name:"governator",                       version:"latest.release"
@@ -28,4 +25,8 @@ dependencies {
         compile group:"com.netflix.spectator",        name:"spectator-nflx-plugin",            version:"latest.release"
         compile group:"org.slf4j",                    name:"slf4j-log4j12",                    version:"latest.release"
         compile group:"org.testng",                   name:"testng",                           version:"latest.release"
+}
+
+javadoc {
+    failOnError = false
 }
