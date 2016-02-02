@@ -131,35 +131,49 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             final String region = (zone != null) ? zone.substring(0, zone.length() - 1) : null;
             final String host = amznInfo.get(AmazonInfo.MetaDataKey.publicHostname);
             if (log.isDebugEnabled()) log.debug("myZone - " + myZone + "; zone : " + zone + "; myRegion : " + myRegion + "; region : " + region + "; host : " + host);
-            if ((myRegion == null || region == null || !myRegion.equals(region)) && host != null) {
-                // Hack so tests can work on desktop and in jenkins
-                final InetAddress inetAddress = InetAddress.getByName(host);
-                address = new InetSocketAddress(inetAddress, evcachePort);
-                if (log.isDebugEnabled()) log.debug("myZone - " + myZone + ". host : " + host
-                        + "; inetAddress : " + inetAddress + "; address - " + address + "; App Name : " + _appName
-                        + "; Zone : " + zone
-                        + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
-            } else if (host == null || (useLocalIp.get().booleanValue() || amznInfo.get(AmazonInfo.MetaDataKey.vpcId) != null)) {
-                final String localIp = amznInfo.get(AmazonInfo.MetaDataKey.localIpv4);
-                final InetAddress add = InetAddresses.forString(localIp);
-                final InetAddress inetAddress = InetAddress.getByAddress(localIp, add.getAddress());
-                address = new InetSocketAddress(inetAddress, evcachePort);
-
-                if (log.isDebugEnabled()) log.debug("VPC : localIp - " + localIp + ". host : " + host + "; add : " + add
-                        + "; inetAddress : " + inetAddress + "; address - " + address + "; App Name : " + _appName
-                        + "; Zone : " + zone + "; myZone - " + myZone
-                        + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
+            if(host != null) {
+                if (myRegion == null || region == null || !myRegion.equals(region)) {
+                    // Hack so tests can work on desktop and in jenkins
+                    final InetAddress inetAddress = InetAddress.getByName(host);
+                    address = new InetSocketAddress(inetAddress, evcachePort);
+                    if (log.isDebugEnabled()) log.debug("myZone - " + myZone + ". host : " + host
+                            + "; inetAddress : " + inetAddress + "; address - " + address + "; App Name : " + _appName
+                            + "; Zone : " + zone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
+                } else {
+                    final String localIp = (isInCloud) ? amznInfo.get(AmazonInfo.MetaDataKey.localIpv4)
+                            : amznInfo.get(AmazonInfo.MetaDataKey.publicIpv4);
+                    final InetAddress add = InetAddresses.forString(localIp);
+                    final InetAddress inetAddress = InetAddress.getByAddress(host, add.getAddress());
+                    address = new InetSocketAddress(inetAddress, evcachePort);
+                    if (log.isDebugEnabled()) log.debug("CLASSIC : localIp - " + localIp + ". host : " + host + "; add : "
+                            + add + "; inetAddress : " + inetAddress + "; address - " + address + "; App Name : " + _appName
+                            + "; Zone : " + zone + "; myZone - " + myZone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
+                }
             } else {
-                final String localIp = (isInCloud) ? amznInfo.get(AmazonInfo.MetaDataKey.localIpv4)
-                        : amznInfo.get(AmazonInfo.MetaDataKey.publicIpv4);
-                final InetAddress add = InetAddresses.forString(localIp);
-                final InetAddress inetAddress = InetAddress.getByAddress(host, add.getAddress());
-                address = new InetSocketAddress(inetAddress, evcachePort);
-                if (log.isDebugEnabled()) log.debug("CLASSIC : localIp - " + localIp + ". host : " + host + "; add : "
-                        + add
-                        + "; inetAddress : " + inetAddress + "; address - " + address + "; App Name : " + _appName
-                        + "; Zone : " + zone + "; myZone - " + myZone
-                        + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
+                if (useLocalIp.get().booleanValue() || amznInfo.get(AmazonInfo.MetaDataKey.vpcId) != null) {
+                    final String localIp = amznInfo.get(AmazonInfo.MetaDataKey.localIpv4);
+                    final String localHostname = amznInfo.get(AmazonInfo.MetaDataKey.localHostname);
+
+                    final InetAddress add = InetAddresses.forString(localIp);
+                    final InetAddress inetAddress = InetAddress.getByAddress(localHostname, add.getAddress());
+                    address = new InetSocketAddress(inetAddress, evcachePort);
+    
+                    if (log.isDebugEnabled()) log.debug("VPC : localIp - " + localIp + ". localHostname : " + localHostname + "; add : " + add
+                            + "; inetAddress : " + inetAddress + "; address - " + address + "; App Name : " + _appName
+                            + "; Zone : " + zone + "; myZone - " + myZone
+                            + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
+                } else {
+                    final String localIp = (isInCloud) ? amznInfo.get(AmazonInfo.MetaDataKey.localIpv4)
+                            : amznInfo.get(AmazonInfo.MetaDataKey.publicIpv4);
+                    String localHostname = amznInfo.get(AmazonInfo.MetaDataKey.localHostname);
+                    if(localHostname == null) localHostname = localIp;
+                    final InetAddress add = InetAddresses.forString(localIp);
+                    final InetAddress inetAddress = InetAddress.getByAddress(localHostname, add.getAddress());
+                    address = new InetSocketAddress(inetAddress, evcachePort);
+                    if (log.isDebugEnabled()) log.debug("CLASSIC : localIp - " + localIp + ". localHostname : " + localHostname + "; add : "
+                            + add + "; inetAddress : " + inetAddress + "; address - " + address + "; App Name : " + _appName
+                            + "; Zone : " + zone + "; myZone - " + myZone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
+                }
             }
 
             final Set<InetSocketAddress> instancesInZone = instancesSpecific.get(rSet);

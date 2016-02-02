@@ -37,10 +37,6 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
 
     protected Properties getProps() {
         Properties props = super.getProps();
-        props.setProperty("log4j.logger.com.netflix.evcache.test.GenericEVCacheTestDI", "DEBUG");
-        props.setProperty("log4j.logger.com.netflix.evcache.replication", "DEBUG");
-        props.setProperty("log4j.logger.com.netflix.evcache.pool.DiscoveryNodeListProvider", "DEBUG");
-        props.setProperty("log4j.logger.com.netflix.evcache.pool", "DEBUG");
         props.setProperty("EVCACHE.us-east-1d.EVCacheClientPool.writeOnly", "false");
         props.setProperty("EVCACHE.EVCacheClientPool.poolSize", "1");
         props.setProperty("EVCACHE.ping.servers", "false");

@@ -28,6 +28,8 @@ import java.util.Properties;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.log4j.BasicConfigurator;
+import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterClass;
@@ -58,32 +60,6 @@ public abstract class Base  {
         props.setProperty("eureka.environment", "test");
         props.setProperty("eureka.region", "us-east-1");
         props.setProperty("eureka.appid", "clatency");
-        
-        props.setProperty("net.spy.log.LoggerImpl", "net.spy.memcached.compat.log.Log4JLogger");
-        props.setProperty("log4j.additivity.net.spy.memcached.internal.BulkGetFuture", "false");
-
-        props.setProperty("log4j.appender.CONSOLE.layout.ConversionPattern", "%d [%t] %p %c:%L  - %m%n");
-        props.setProperty("log4j.rootLogger", "ERROR,CONSOLE");
-
-        props.setProperty("log4j.logger.net.spy", "ERROR");
-        props.setProperty("log4j.logger.net.spy.compat.log.AbstractLogger", "ERROR");
-        props.setProperty("log4j.logger.com.netflix.discovery.DiscoveryClient", "FATAL");
-        props.setProperty("log4j.logger.net.spy.memcached", "ERROR");
-        props.setProperty("log4j.logger.net.spy.memcached.MemcachedConnection", "ERROR");
-        props.setProperty("log4j.logger.net.spy.memcached.MemcachedClient", "ERROR");
-        props.setProperty("log4j.logger.net.spy.memcached.protocol", "ERROR");
-        props.setProperty("log4j.logger.net.spy.memcached.EVCacheConnection", "ERROR");
-
-        props.setProperty("log4j.logger.com.netflix.evcache.test", "DEBUG");
-        props.setProperty("log4j.logger.com.netflix.evcache.pool.DiscoveryNodeListProvider", "DEBUG");
-        props.setProperty("log4j.logger.com.netflix.evcache.test.Base", "DEBUG");
-        props.setProperty("log4j.logger.com.netflix.evcache.test.EVCacheTestSetup", "DEBUG");
-        props.setProperty("log4j.logger.com.netflix.evcache.EVCacheImpl", "DEBUG");
-        props.setProperty("log4j.logger.com.netflix.evcache.pool", "ERROR");
-        props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheNodeLocator", "ERROR");
-        props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheClientPool", "DEBUG");
-        props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheClient", "ERROR");
-        
         return props;
     }
 
@@ -95,6 +71,7 @@ public abstract class Base  {
         Properties props = getProps();
 
         try {
+            //BasicConfigurator.configure();
             ConfigurationManager.loadProperties(props);
 
             LifecycleInjectorBuilder builder = LifecycleInjector.builder();
