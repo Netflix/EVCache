@@ -126,34 +126,23 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                     }
                 }
             }
-            final String myZone = ((AmazonInfo) myInfo.getDataCenterInfo()).get(
-                    AmazonInfo.MetaDataKey.availabilityZone);
+            final String myZone = ((AmazonInfo) myInfo.getDataCenterInfo()).get(AmazonInfo.MetaDataKey.availabilityZone);
             final String myRegion = (myZone != null) ? myZone.substring(0, myZone.length() - 1) : null;
             final String region = (zone != null) ? zone.substring(0, zone.length() - 1) : null;
-            if (log.isDebugEnabled()) log.debug("myZone - " + myZone + "; zone : " + zone + "; myRegion : " + myRegion
-                    + "; region : " + region);
-            if (myRegion == null || region == null || !myRegion.equals(region)) { // Hack
-                                                                                  // so
-                                                                                  // tests
-                                                                                  // can
-                                                                                  // work
-                                                                                  // on
-                                                                                  // desktop
-                                                                                  // and
-                                                                                  // in
-                                                                                  // jenkins
-                final String host = amznInfo.get(AmazonInfo.MetaDataKey.publicHostname);
+            final String host = amznInfo.get(AmazonInfo.MetaDataKey.publicHostname);
+            if (log.isDebugEnabled()) log.debug("myZone - " + myZone + "; zone : " + zone + "; myRegion : " + myRegion + "; region : " + region + "; host : " + host);
+            if ((myRegion == null || region == null || !myRegion.equals(region)) && host != null) {
+                // Hack so tests can work on desktop and in jenkins
                 final InetAddress inetAddress = InetAddress.getByName(host);
                 address = new InetSocketAddress(inetAddress, evcachePort);
                 if (log.isDebugEnabled()) log.debug("myZone - " + myZone + ". host : " + host
                         + "; inetAddress : " + inetAddress + "; address - " + address + "; App Name : " + _appName
                         + "; Zone : " + zone
                         + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
-            } else if (useLocalIp.get().booleanValue() || amznInfo.get(AmazonInfo.MetaDataKey.vpcId) != null) {
+            } else if (host == null || (useLocalIp.get().booleanValue() || amznInfo.get(AmazonInfo.MetaDataKey.vpcId) != null)) {
                 final String localIp = amznInfo.get(AmazonInfo.MetaDataKey.localIpv4);
-                final String host = localIp;
                 final InetAddress add = InetAddresses.forString(localIp);
-                final InetAddress inetAddress = InetAddress.getByAddress(host, add.getAddress());
+                final InetAddress inetAddress = InetAddress.getByAddress(localIp, add.getAddress());
                 address = new InetSocketAddress(inetAddress, evcachePort);
 
                 if (log.isDebugEnabled()) log.debug("VPC : localIp - " + localIp + ". host : " + host + "; add : " + add
@@ -161,7 +150,6 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                         + "; Zone : " + zone + "; myZone - " + myZone
                         + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
             } else {
-                final String host = amznInfo.get(AmazonInfo.MetaDataKey.publicHostname);
                 final String localIp = (isInCloud) ? amznInfo.get(AmazonInfo.MetaDataKey.localIpv4)
                         : amznInfo.get(AmazonInfo.MetaDataKey.publicIpv4);
                 final InetAddress add = InetAddresses.forString(localIp);
