@@ -197,7 +197,8 @@ public final class EVCacheMetricsFactory {
     }
 
     public static StepCounter getStepCounter(String appName, String cacheName, String metric) {
-        final String name = getMetricName(appName, cacheName, metric) + "type=StepCounter";
+        final String metricName = getMetricName(appName, cacheName, metric);
+        final String name = metricName + "type=StepCounter";
         final StepCounter counter = (StepCounter) monitorMap.get(name);
         if (counter != null) return counter;
         writeLock.lock();
@@ -205,7 +206,7 @@ public final class EVCacheMetricsFactory {
             if (monitorMap.containsKey(name))
                 return (StepCounter) monitorMap.get(name);
             else {
-                final StepCounter _counter = new StepCounter(getMonitorConfig(name, appName, cacheName, metric));
+                final StepCounter _counter = new StepCounter(getMonitorConfig(metricName, appName, cacheName, metric));
                 monitorMap.put(name, _counter);
                 DefaultMonitorRegistry.getInstance().register(_counter);
                 return _counter;
@@ -217,7 +218,8 @@ public final class EVCacheMetricsFactory {
     }
 
     public static StatsTimer getStatsTimer(String appName, String cacheName, String metric) {
-        final String name = getMetricName(appName, cacheName, metric) + "type=StatsTimer";
+        final String metricName = getMetricName(appName, cacheName, metric);
+        final String name = metricName + "type=StatsTimer";
         final StatsTimer duration = (StatsTimer) monitorMap.get(name);
         if (duration != null) return duration;
 
@@ -229,7 +231,7 @@ public final class EVCacheMetricsFactory {
                 final StatsConfig statsConfig = new StatsConfig.Builder().withPercentiles(new double[] { 95, 99 })
                         .withPublishMax(true).withPublishMin(true)
                         .withPublishMean(true).withPublishCount(true).withSampleSize(sampleSize.get()).build();
-                final StatsTimer _duration = new StatsTimer(getMonitorConfig(name, appName, cacheName, metric),
+                final StatsTimer _duration = new StatsTimer(getMonitorConfig(metricName, appName, cacheName, metric),
                         statsConfig, TimeUnit.MILLISECONDS);
                 monitorMap.put(name, _duration);
                 DefaultMonitorRegistry.getInstance().register(_duration);
@@ -242,7 +244,8 @@ public final class EVCacheMetricsFactory {
 
     public static StatsTimer getStatsTimer(String appName, ServerGroup serverGroup, String metric) {
         final String serverGroupName = (serverGroup != null ? serverGroup.getName() : "");
-        final String name = getMetricName(appName, serverGroupName, metric) + "type=StatsTimer";
+        final String metricName = getMetricName(appName, serverGroupName, metric);
+        final String name = metricName + "type=StatsTimer";
         final StatsTimer duration = (StatsTimer) monitorMap.get(name);
         if (duration != null) return duration;
 
@@ -254,7 +257,7 @@ public final class EVCacheMetricsFactory {
                 final StatsConfig statsConfig = new StatsConfig.Builder().withPercentiles(new double[] { 95, 99 })
                         .withPublishMax(true).withPublishMin(true)
                         .withPublishMean(true).withPublishCount(true).withSampleSize(sampleSize.get()).build();
-                final StatsTimer _duration = new StatsTimer(getMonitorConfig(name, appName, null, serverGroupName,
+                final StatsTimer _duration = new StatsTimer(getMonitorConfig(metricName, appName, null, serverGroupName,
                         metric), statsConfig, TimeUnit.MILLISECONDS);
                 monitorMap.put(name, _duration);
                 DefaultMonitorRegistry.getInstance().register(_duration);

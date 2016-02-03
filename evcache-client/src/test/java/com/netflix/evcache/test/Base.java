@@ -76,6 +76,7 @@ public abstract class Base  {
 
             LifecycleInjectorBuilder builder = LifecycleInjector.builder();
             builder.withModules(
+                    new EurekaModule(), 
                     new EVCacheModule(), 
                     new ConnectionModule(),
                     new SpectatorModule()

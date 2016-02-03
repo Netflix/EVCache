@@ -5,15 +5,10 @@ import java.io.IOException;
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
 import com.netflix.config.ConfigurationManager;
-import com.netflix.discovery.guice.EurekaModule;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
-import com.netflix.governator.annotations.Modules;
 
 @SuppressWarnings("deprecation")
 @Singleton
-@Modules(include = {
-        EurekaModule.class
-})
 public class EVCacheModule extends AbstractModule {
 
     public EVCacheModule() {

@@ -314,7 +314,10 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
                 }
 
-                if (val.getStatusCode().equals(StatusCode.TIMEDOUT)) {
+                if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
+                    EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-" + operationStr
+                            + "Call-SUCCESS").increment();
+                } else if (val.getStatusCode().equals(StatusCode.TIMEDOUT)) {
                     EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-" + operationStr
                             + "Call-TIMEDOUT", tag).increment();
                 } else {
