@@ -9,11 +9,19 @@ public class ConnectionModule extends AbstractModule {
     }
 
     @Override
+    // Make sure this is done
     protected void configure() {
-        bind(IConnectionFactoryProvider.class).toProvider(DefaultFactoryProvider.class); // Make
-                                                                                         // sure
-                                                                                         // this
-                                                                                         // is
-                                                                                         // done
+        bind(IConnectionFactoryProvider.class).toProvider(DefaultFactoryProvider.class); 
     }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
+ 
+    @Override
+    public boolean equals(Object obj) {
+        return (obj != null) && (obj.getClass() == getClass());
+    }
+    
 }
