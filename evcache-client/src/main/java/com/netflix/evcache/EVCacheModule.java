@@ -7,7 +7,6 @@ import com.google.inject.Singleton;
 import com.netflix.config.ConfigurationManager;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 
-@SuppressWarnings("deprecation")
 @Singleton
 public class EVCacheModule extends AbstractModule {
 

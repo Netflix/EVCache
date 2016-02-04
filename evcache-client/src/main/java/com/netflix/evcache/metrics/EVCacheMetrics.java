@@ -20,8 +20,7 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     private static final Logger log = LoggerFactory.getLogger(EVCacheMetrics.class);
 
     private final String monitorName, appName, cacheName;
-    private StepCounter getCallsCounter, bulkCallsCounter, bulkHitsCounter, getHitsCounter, setCallsCounter,
-            delCallsCounter;
+    private StepCounter getCallsCounter, bulkCallsCounter, bulkHitsCounter, getHitsCounter, setCallsCounter, replaceCallCounter, delCallsCounter;
     private StepCounter bulkMissCounter, getMissCounter;
     private StatsTimer getDuration, bulkDuration;
 
@@ -45,8 +44,10 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
             getGetCallDuration().record(duration);
         } else if (op == Call.SET) {
             getSetCallCounter().increment();
+        } else if (op == Call.REPLACE) {
+            getReplaceCallCounter().increment();
         } else if (op == Call.DELETE) {
-            getDelelteCallCounter().increment();
+            getDeleteCallCounter().increment();
         } else if (op == Call.BULK) {
             getBulkCounter().increment();
             getBulkCallDuration().record(duration);
@@ -139,7 +140,14 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
         return setCallsCounter;
     }
 
-    private StepCounter getDelelteCallCounter() {
+    private StepCounter getReplaceCallCounter() {
+        if (this.replaceCallCounter != null) return this.replaceCallCounter;
+
+        this.replaceCallCounter = EVCacheMetricsFactory.getStepCounter(appName, cacheName, "ReplaceCall");
+        return replaceCallCounter;
+    }
+
+    private StepCounter getDeleteCallCounter() {
         if (this.delCallsCounter != null) return this.delCallsCounter;
 
         this.delCallsCounter = EVCacheMetricsFactory.getStepCounter(appName, cacheName, "DeleteCall");
@@ -210,9 +218,9 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     public String toString() {
         return "EVCacheMetrics [ Name=" + monitorName + ", getCalls=" + getCallCounter() + ", bulkCalls="
                 + getBulkCounter() + ", setCalls=" + getSetCallCounter() + ", cacheHits="
-                + getHitCounter() + ", bulkHits=" + getBulkHitCounter() + ", deleteCalls=" + getDelelteCallCounter()
+                + getHitCounter() + ", bulkHits=" + getBulkHitCounter() + ", deleteCalls=" + getDeleteCallCounter()
                 + ", getDuration=" + getGetCallDuration() + ", bulkDuration="
-                + getBulkCallDuration() + "]";
+                + getBulkCallDuration() + ", replaceCalls=" + getReplaceCallCounter() + "]";
     }
 
     public double getHitRate() {

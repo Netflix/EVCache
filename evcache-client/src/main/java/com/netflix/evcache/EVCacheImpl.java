@@ -218,6 +218,7 @@ final public class EVCacheImpl implements EVCache {
         try {
             final boolean hasZF = hasZoneFallback();
             final boolean throwEx = hasZF ? false : throwExc;
+            if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
             client.get(canonicalKey, tc, throwEx, hasZF, listener);
             if (log.isDebugEnabled() && shouldLog()) log.debug("GETL : APP " + _appName + ", key [" + canonicalKey
                     + "], " + ", zone : " + client.getZone());
@@ -336,6 +337,7 @@ final public class EVCacheImpl implements EVCache {
             boolean hasZF) throws Exception {
         if (client == null) return null;
         try {
+            if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
             return client.get(canonicalKey, tc, throwException, hasZF);
         } catch (EVCacheReadQueueException ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheReadQueueException while getting data for APP "
@@ -359,6 +361,7 @@ final public class EVCacheImpl implements EVCache {
     private <T> T getAndTouchData(EVCacheClient client, String canonicalKey, Transcoder<T> tc, boolean throwException,
             boolean hasZF, int timeToLive) throws Exception {
         try {
+            if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
             return client.getAndTouch(canonicalKey, tc, timeToLive, throwException, hasZF);
         } catch (EVCacheReadQueueException ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug(
@@ -514,8 +517,11 @@ final public class EVCacheImpl implements EVCache {
                 final Future<Boolean> future = client.touch(canonicalKey, timeToLive);
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
             }
-            if (touchCounter == null) this.touchCounter = EVCacheMetricsFactory.getCounter(_appName, _cacheName,
-                    _metricPrefix + "-TouchCall", DataSourceType.COUNTER);
+
+            if (ttlSummary == null) this.ttlSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-TouchData-TTL");
+            if (ttlSummary != null) ttlSummary.record(timeToLive);
+
+            if (touchCounter == null) this.touchCounter = EVCacheMetricsFactory.getCounter(_appName, _cacheName, _metricPrefix + "-TouchCall", DataSourceType.COUNTER);
             if (touchCounter != null) touchCounter.increment();
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
@@ -567,6 +573,7 @@ final public class EVCacheImpl implements EVCache {
                 Operation.TYPE.MILLI);
         try {
             final String canonicalKey = getCanonicalizedKey(key);
+            if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
             r = client.asyncGet(canonicalKey, tc, throwExc, false);
             if (event != null) endEvent(event);
         } catch (Exception ex) {
@@ -585,6 +592,7 @@ final public class EVCacheImpl implements EVCache {
     private <T> Map<String, T> getBulkData(EVCacheClient client, Collection<String> canonicalKeys, Transcoder<T> tc,
             boolean throwException, boolean hasZF) throws Exception {
         try {
+            if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
             return client.getBulk(canonicalKeys, tc, throwException, hasZF);
         } catch (Exception ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception while getBulk data for APP " + _appName
@@ -813,8 +821,19 @@ final public class EVCacheImpl implements EVCache {
         return eFutures;
     }
 
-    public <T> EVCacheLatch set(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy)
-            throws EVCacheException {
+    public <T> EVCacheLatch set(String key, T value, Policy policy) throws EVCacheException {
+        return set(key, value, (Transcoder<T>)_transcoder, _timeToLive, policy);
+    }
+
+    public <T> EVCacheLatch set(String key, T value, int timeToLive, Policy policy) throws EVCacheException {
+        return set(key, value, (Transcoder<T>)_transcoder, timeToLive, policy);
+    }
+
+    public <T> EVCacheLatch set(String key, T value, Transcoder<T> tc, EVCacheLatch.Policy policy) throws EVCacheException {
+        return set(key, value, tc, _timeToLive, policy);
+    }
+
+    public <T> EVCacheLatch set(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
 
         final boolean throwExc = doThrowException();
@@ -845,6 +864,8 @@ final public class EVCacheImpl implements EVCache {
                 if (cd == null) {
                     if (tc != null) {
                         cd = tc.encode(value);
+                    } else if ( _transcoder != null) { 
+                        cd = ((Transcoder<Object>)_transcoder).encode(value);
                     } else {
                         cd = client.getTranscoder().encode(value);
                     }
@@ -922,13 +943,20 @@ final public class EVCacheImpl implements EVCache {
                 if (cd == null) {
                     if (tc != null) {
                         cd = tc.encode(value);
+                    } else if ( _transcoder != null) { 
+                        cd = ((Transcoder<Object>)_transcoder).encode(value);
                     } else {
                         cd = client.getTranscoder().encode(value);
                     }
                 }
                 final Future<Boolean> future = client.append(canonicalKey, cd);
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
-
+                
+                if (cd != null) {
+                    if (dataSizeSummary == null) this.dataSizeSummary = EVCacheConfig.getInstance()
+                            .getDistributionSummary(_appName + "-AppendData-Size");
+                    if (dataSizeSummary != null) this.dataSizeSummary.record(cd.getData().length);
+                }
             }
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
@@ -1246,6 +1274,10 @@ final public class EVCacheImpl implements EVCache {
         return replace(key, value, (Transcoder<T>) _transcoder, _timeToLive, policy);
     }
 
+    public <T> EVCacheLatch replace(String key, T value,  int timeToLive, Policy policy) throws EVCacheException {
+        return replace(key, value, (Transcoder<T>)_transcoder, timeToLive, policy);
+    }
+
     @Override
     public <T> EVCacheLatch replace(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy)
             throws EVCacheException {
@@ -1282,16 +1314,18 @@ final public class EVCacheImpl implements EVCache {
                 if (cd == null) {
                     if (tc != null) {
                         cd = tc.encode(value);
+                    } else if ( _transcoder != null) { 
+                        cd = ((Transcoder<Object>)_transcoder).encode(value);
                     } else {
                         cd = client.getTranscoder().encode(value);
                     }
 
                     if (ttlSummary == null) this.ttlSummary = EVCacheConfig.getInstance().getDistributionSummary(
-                            _appName + "-Data-TTL");
+                            _appName + "-SetData-TTL");
                     if (ttlSummary != null) ttlSummary.record(timeToLive);
                     if (cd != null) {
                         if (dataSizeSummary == null) this.dataSizeSummary = EVCacheConfig.getInstance()
-                                .getDistributionSummary(_appName + "-Data-Size");
+                                .getDistributionSummary(_appName + "-SetData-Size");
                         if (dataSizeSummary != null) this.dataSizeSummary.record(cd.getData().length);
                     }
                 }

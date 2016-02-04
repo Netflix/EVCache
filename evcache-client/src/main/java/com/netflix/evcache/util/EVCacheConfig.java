@@ -17,6 +17,7 @@ import com.netflix.servo.tag.Tag;
 import com.netflix.servo.tag.TagList;
 import com.netflix.spectator.api.DistributionSummary;
 import com.netflix.spectator.api.Registry;
+import com.netflix.spectator.api.Spectator;
 
 public class EVCacheConfig {
 
@@ -116,7 +117,7 @@ public class EVCacheConfig {
 
     public DistributionSummary getDistributionSummary(String name) {
         if (_poolManager == null) return null;
-        final Registry registry = _poolManager.getRegistry();
+        final Registry registry = Spectator.globalRegistry(); //_poolManager.getRegistry();
         if (registry != null) {
             final DistributionSummary ds = registry.distributionSummary(name);
             if (!Monitors.isObjectRegistered(ds)) Monitors.registerObject(ds);

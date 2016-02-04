@@ -155,6 +155,70 @@ public interface EVCache {
      */
     <T> Future<Boolean>[] set(String key, T value, Transcoder<T> tc) throws EVCacheException;
 
+
+
+    /**
+     * Set an object in the EVCACHE using the given Transcoder regardless of any existing value using the default TTL and Transcoder.
+     * 
+     * The <code>timeToLive</code> value is passed to memcached exactly as given, and will be processed per the memcached protocol specification:
+     *
+     * <blockquote> The actual value sent may either be Unix time aka EPOC time (number of seconds since January 1, 1970, as a 32-bit int value), or a number of seconds starting from current time. In the latter case, this number of seconds may not exceed 60*60*24*30 (number of seconds in 30 days); if the number sent by a client is larger than that, the server will consider it to be real Unix time value rather than an offset from current time. </blockquote>
+     *
+     * @param key
+     *            the key under which this object should be added. Ensure the key is properly encoded and does not contain whitespace or control characters.
+     * @param T
+     *            the object to store
+     * @param policy
+     *            The Latch will be returned based on the Policy. The Latch can then be used to await until the count down has reached to 0 or the specified time has elapsed.
+     * @return Array of futures representing the processing of this operation across all the replicas
+     * @throws EVCacheException
+     *             in the rare circumstance where queue is too full to accept any more requests or issues Serializing the value or any IO Related issues
+     */
+    <T> EVCacheLatch set(String key, T value, EVCacheLatch.Policy policy) throws EVCacheException;
+
+
+    /**
+     * Set an object in the EVCACHE using the given Transcoder regardless of any existing value with the given TTL.
+     * 
+     * The <code>timeToLive</code> value is passed to memcached exactly as given, and will be processed per the memcached protocol specification:
+     *
+     * <blockquote> The actual value sent may either be Unix time aka EPOC time (number of seconds since January 1, 1970, as a 32-bit int value), or a number of seconds starting from current time. In the latter case, this number of seconds may not exceed 60*60*24*30 (number of seconds in 30 days); if the number sent by a client is larger than that, the server will consider it to be real Unix time value rather than an offset from current time. </blockquote>
+     *
+     * @param key
+     *            the key under which this object should be added. Ensure the key is properly encoded and does not contain whitespace or control characters.
+     * @param T
+     *            the object to store
+     * @param timeToLive
+     *            the expiration of this object i.e. less than 30 days in seconds or the exact expiry time as UNIX time
+     * @param policy
+     *            The Latch will be returned based on the Policy. The Latch can then be used to await until the count down has reached to 0 or the specified time has elapsed.
+     * @return Array of futures representing the processing of this operation across all the replicas
+     * @throws EVCacheException
+     *             in the rare circumstance where queue is too full to accept any more requests or issues Serializing the value or any IO Related issues
+     */
+    <T> EVCacheLatch set(String key, T value, int timeToLive, EVCacheLatch.Policy policy) throws EVCacheException;
+
+    /**
+     * Set an object in the EVCACHE using the given Transcoder regardless of any existing value using the given Transcoder.
+     * 
+     * The <code>timeToLive</code> value is passed to memcached exactly as given, and will be processed per the memcached protocol specification:
+     *
+     * <blockquote> The actual value sent may either be Unix time aka EPOC time (number of seconds since January 1, 1970, as a 32-bit int value), or a number of seconds starting from current time. In the latter case, this number of seconds may not exceed 60*60*24*30 (number of seconds in 30 days); if the number sent by a client is larger than that, the server will consider it to be real Unix time value rather than an offset from current time. </blockquote>
+     *
+     * @param key
+     *            the key under which this object should be added. Ensure the key is properly encoded and does not contain whitespace or control characters.
+     * @param T
+     *            the object to store
+     * @param tc
+     *            the Transcoder to serialize the data
+     * @param policy
+     *            The Latch will be returned based on the Policy. The Latch can then be used to await until the count down has reached to 0 or the specified time has elapsed.
+     * @return Array of futures representing the processing of this operation across all the replicas
+     * @throws EVCacheException
+     *             in the rare circumstance where queue is too full to accept any more requests or issues Serializing the value or any IO Related issues
+     */
+    <T> EVCacheLatch set(String key, T value, Transcoder<T> tc, EVCacheLatch.Policy policy) throws EVCacheException;
+
     /**
      * Set an object in the EVCACHE using the given Transcoder regardless of any
      * existing value.
