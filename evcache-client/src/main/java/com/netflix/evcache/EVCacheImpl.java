@@ -871,11 +871,11 @@ final public class EVCacheImpl implements EVCache {
                     }
 
                     if (ttlSummary == null) this.ttlSummary = EVCacheConfig.getInstance().getDistributionSummary(
-                            _appName + "-Data-TTL");
+                            _appName + "-SetData-TTL");
                     if (ttlSummary != null) ttlSummary.record(timeToLive);
                     if (cd != null) {
                         if (dataSizeSummary == null) this.dataSizeSummary = EVCacheConfig.getInstance()
-                                .getDistributionSummary(_appName + "-Data-Size");
+                                .getDistributionSummary(_appName + "-SetData-Size");
                         if (dataSizeSummary != null) this.dataSizeSummary.record(cd.getData().length);
                     }
                 }
