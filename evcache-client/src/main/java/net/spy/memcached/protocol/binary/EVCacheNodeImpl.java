@@ -187,30 +187,41 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
 
     @Override
     public List<Monitor<?>> getMonitors() {
-        if (!sendMetrics.get()) return Collections.<Monitor<?>> emptyList();
-        final List<Monitor<?>> metrics = new ArrayList<Monitor<?>>();
+        if (!sendMetrics.get() && getContinuousTimeout() == 0) return Collections.<Monitor<?>> emptyList();
+
         try {
-            MonitorConfig monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_WriteQ",
-                    DataSourceType.GAUGE, baseTags);
-            final LongGauge wQueue = new LongGauge(monitorConfig);
-            wQueue.set(Long.valueOf(writeQ.size()));
-            metrics.add(wQueue);
+            final List<Monitor<?>> metrics = new ArrayList<Monitor<?>>();
+            if(getContinuousTimeout() > 0) {
+                MonitorConfig monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_ContinuousTimeout",
+                        DataSourceType.GAUGE, baseTags);
+                final LongGauge cTimeouts = new LongGauge(monitorConfig);
+                cTimeouts.set(Long.valueOf(getContinuousTimeout()));
+                metrics.add(cTimeouts);
+            }
 
-            monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_ReadQ", DataSourceType.GAUGE,
-                    baseTags);
-            final LongGauge rQueue = new LongGauge(monitorConfig);
-            rQueue.set(Long.valueOf(readQ.size()));
-            metrics.add(rQueue);
-
-            monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_NumOfOps",
-                    DataSourceType.COUNTER, baseTags);
-            final BasicCounter counter = new BasicCounter(monitorConfig);
-            counter.increment(opCount.get());
-            metrics.add(counter);
+            if (sendMetrics.get()) {
+                MonitorConfig monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_WriteQ",
+                        DataSourceType.GAUGE, baseTags);
+                final LongGauge wQueue = new LongGauge(monitorConfig);
+                wQueue.set(Long.valueOf(writeQ.size()));
+                metrics.add(wQueue);
+    
+                monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_ReadQ", DataSourceType.GAUGE,
+                        baseTags);
+                final LongGauge rQueue = new LongGauge(monitorConfig);
+                rQueue.set(Long.valueOf(readQ.size()));
+                metrics.add(rQueue);
+    
+                monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_NumOfOps",
+                        DataSourceType.COUNTER, baseTags);
+                final BasicCounter counter = new BasicCounter(monitorConfig);
+                counter.increment(opCount.get());
+                metrics.add(counter);
+            }
+            return metrics;
         } catch (Exception e) {
             log.error(e.getMessage(), e);
         }
-
-        return metrics;
+        return Collections.<Monitor<?>> emptyList();
     }
 }
