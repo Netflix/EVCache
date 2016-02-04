@@ -31,7 +31,6 @@ import com.netflix.evcache.connection.DefaultFactoryProvider;
 import com.netflix.evcache.connection.IConnectionFactoryProvider;
 import com.netflix.evcache.event.EVCacheEventListener;
 import com.netflix.evcache.util.EVCacheConfig;
-import com.netflix.spectator.api.Registry;
 
 /**
  * A manager that holds Pools for each EVCache app. When this class is
@@ -82,17 +81,15 @@ public class EVCacheClientPoolManager {
     private final ScheduledThreadPoolExecutor _scheduler;
     private final DiscoveryClient discoveryClient;
     private final ApplicationInfoManager applicationInfoManager;
-    private final Registry registry;
     private final List<EVCacheEventListener> evcacheEventListenerList;
     private final Provider<IConnectionFactoryProvider> connectionFactoryprovider;
 
     @Inject
     public EVCacheClientPoolManager(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient,
-            Registry registry, Provider<IConnectionFactoryProvider> connectionFactoryprovider) {
+            Provider<IConnectionFactoryProvider> connectionFactoryprovider) {
         instance = this;
         this.applicationInfoManager = applicationInfoManager;
         this.discoveryClient = discoveryClient;
-        this.registry = registry;
         this.connectionFactoryprovider = connectionFactoryprovider;
         this.evcacheEventListenerList = new ArrayList<EVCacheEventListener>();
         final int poolSize = ConfigurationManager.getConfigInstance().getInt("default.refresher.poolsize", 1);
@@ -100,7 +97,6 @@ public class EVCacheClientPoolManager {
         final ThreadFactory factory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat(
                 "EVCacheClientPoolManager_refresher-%d").build();
         _scheduler = new ScheduledThreadPoolExecutor(poolSize, factory);
-        EVCacheConfig.getInstance().setEVCacheClientPoolManager(this);
         defaultRefreshInterval.addCallback(new Runnable() {
             public void run() {
                 refreshScheduler();
@@ -144,7 +140,7 @@ public class EVCacheClientPoolManager {
     @Deprecated
     public static EVCacheClientPoolManager getInstance() {
         if (instance == null) {
-            new EVCacheClientPoolManager(null, null, null, new DefaultFactoryProvider());
+            new EVCacheClientPoolManager(null, null, new DefaultFactoryProvider());
             log.warn(
                     "Please make sure EVCacheClientPoolManager is injected first. This is not the appropriate way to init EVCacheClientPoolManager",
                     new Exception());
@@ -245,10 +241,6 @@ public class EVCacheClientPoolManager {
 
     public static DynamicIntProperty getDefaultReadTimeout() {
         return defaultReadTimeout;
-    }
-
-    public Registry getRegistry() {
-        return this.registry;
     }
 
     private String getAppName(String _app) {

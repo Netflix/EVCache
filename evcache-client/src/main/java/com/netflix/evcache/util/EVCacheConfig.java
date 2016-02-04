@@ -10,7 +10,6 @@ import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicPropertyFactory;
 import com.netflix.config.DynamicStringProperty;
 import com.netflix.config.Property;
-import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.servo.monitor.MonitorConfig;
 import com.netflix.servo.monitor.Monitors;
 import com.netflix.servo.tag.Tag;
@@ -24,17 +23,12 @@ public class EVCacheConfig {
     private static final EVCacheConfig INSTANCE = new EVCacheConfig();
     private final Map<String, Property<?>> fastPropMap = new ConcurrentHashMap<String, Property<?>>();
     private final Map<String, MonitorConfig> monitorConfigMap = new HashMap<String, MonitorConfig>();
-    private EVCacheClientPoolManager _poolManager;
 
     private EVCacheConfig() {
     }
 
     public static EVCacheConfig getInstance() {
         return INSTANCE;
-    }
-
-    public void setEVCacheClientPoolManager(EVCacheClientPoolManager poolManager) {
-        this._poolManager = poolManager;
     }
 
     public DynamicIntProperty getDynamicIntProperty(String name, int defaultValue) {
@@ -116,7 +110,6 @@ public class EVCacheConfig {
     }
 
     public DistributionSummary getDistributionSummary(String name) {
-        if (_poolManager == null) return null;
         final Registry registry = Spectator.globalRegistry(); //_poolManager.getRegistry();
         if (registry != null) {
             final DistributionSummary ds = registry.distributionSummary(name);
