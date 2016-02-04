@@ -75,7 +75,7 @@ final public class EVCacheImpl implements EVCache {
     private EVCacheInMemoryCache<?> cache;
 
     private final EVCacheClientPoolManager _poolManager;
-    private DistributionSummary ttlSummary, dataSizeSummary;
+    private DistributionSummary setTTLSummary, replaceTTLSummary, touchTTLSummary, setDataSizeSummary, replaceDataSizeSummary, appendDataSizeSummary;
     private Counter touchCounter, observeGetCounter;
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
@@ -518,8 +518,8 @@ final public class EVCacheImpl implements EVCache {
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
             }
 
-            if (ttlSummary == null) this.ttlSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-TouchData-TTL");
-            if (ttlSummary != null) ttlSummary.record(timeToLive);
+            if (touchTTLSummary == null) this.touchTTLSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-TouchData-TTL");
+            if (touchTTLSummary != null) touchTTLSummary.record(timeToLive);
 
             if (touchCounter == null) this.touchCounter = EVCacheMetricsFactory.getCounter(_appName, _cacheName, _metricPrefix + "-TouchCall", DataSourceType.COUNTER);
             if (touchCounter != null) touchCounter.increment();
@@ -870,13 +870,13 @@ final public class EVCacheImpl implements EVCache {
                         cd = client.getTranscoder().encode(value);
                     }
 
-                    if (ttlSummary == null) this.ttlSummary = EVCacheConfig.getInstance().getDistributionSummary(
+                    if (setTTLSummary == null) this.setTTLSummary = EVCacheConfig.getInstance().getDistributionSummary(
                             _appName + "-SetData-TTL");
-                    if (ttlSummary != null) ttlSummary.record(timeToLive);
+                    if (setTTLSummary != null) setTTLSummary.record(timeToLive);
                     if (cd != null) {
-                        if (dataSizeSummary == null) this.dataSizeSummary = EVCacheConfig.getInstance()
+                        if (setDataSizeSummary == null) this.setDataSizeSummary = EVCacheConfig.getInstance()
                                 .getDistributionSummary(_appName + "-SetData-Size");
-                        if (dataSizeSummary != null) this.dataSizeSummary.record(cd.getData().length);
+                        if (setDataSizeSummary != null) this.setDataSizeSummary.record(cd.getData().length);
                     }
                 }
                 final Future<Boolean> future = client.set(canonicalKey, cd, timeToLive, latch);
@@ -953,9 +953,9 @@ final public class EVCacheImpl implements EVCache {
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
                 
                 if (cd != null) {
-                    if (dataSizeSummary == null) this.dataSizeSummary = EVCacheConfig.getInstance()
+                    if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheConfig.getInstance()
                             .getDistributionSummary(_appName + "-AppendData-Size");
-                    if (dataSizeSummary != null) this.dataSizeSummary.record(cd.getData().length);
+                    if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
                 }
             }
             if (event != null) {
@@ -1320,13 +1320,13 @@ final public class EVCacheImpl implements EVCache {
                         cd = client.getTranscoder().encode(value);
                     }
 
-                    if (ttlSummary == null) this.ttlSummary = EVCacheConfig.getInstance().getDistributionSummary(
-                            _appName + "-SetData-TTL");
-                    if (ttlSummary != null) ttlSummary.record(timeToLive);
+                    if (replaceTTLSummary == null) this.replaceTTLSummary = EVCacheConfig.getInstance().getDistributionSummary(
+                            _appName + "-ReplaceData-TTL");
+                    if (replaceTTLSummary != null) replaceTTLSummary.record(timeToLive);
                     if (cd != null) {
-                        if (dataSizeSummary == null) this.dataSizeSummary = EVCacheConfig.getInstance()
-                                .getDistributionSummary(_appName + "-SetData-Size");
-                        if (dataSizeSummary != null) this.dataSizeSummary.record(cd.getData().length);
+                        if (replaceDataSizeSummary == null) this.replaceDataSizeSummary = EVCacheConfig.getInstance()
+                                .getDistributionSummary(_appName + "-ReplaceData-Size");
+                        if (replaceDataSizeSummary != null) this.replaceDataSizeSummary.record(cd.getData().length);
                     }
                 }
                 final Future<Boolean> future = client.replace(canonicalKey, cd, timeToLive, latch);
