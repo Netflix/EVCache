@@ -8,23 +8,23 @@ import com.netflix.appinfo.InstanceInfo;
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.discovery.DiscoveryClient;
-import com.netflix.discovery.DiscoveryManager;
 import com.netflix.discovery.shared.Application;
 
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.util.DefaultKetamaNodeLocatorConfiguration;
 
-@SuppressWarnings("deprecation")
 public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLocatorConfiguration {
 
     private final String appId;
     private final ServerGroup replicaSet;
+    private final EVCacheClientPoolManager poolManager;
 
     private final ChainedDynamicProperty.IntProperty bucketSize;
 
-    public EVCacheKetamaNodeLocatorConfiguration(String appId, ServerGroup serverGroup) {
+    public EVCacheKetamaNodeLocatorConfiguration(String appId, ServerGroup serverGroup, EVCacheClientPoolManager poolManager) {
         this.appId = appId;
         this.replicaSet = serverGroup;
+        this.poolManager = poolManager;
         bucketSize = new ChainedDynamicProperty.IntProperty(appId + "." + serverGroup.getName() + ".bucket.size",
                 new DynamicIntProperty(appId + ".bucket.size", super.getNodeRepetitions()));
     }
@@ -54,9 +54,8 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
             final SocketAddress socketAddress = node.getSocketAddress();
             if(socketAddress instanceof InetSocketAddress) {
                 final InetSocketAddress isa = (InetSocketAddress)socketAddress;
-                if(DiscoveryManager.getInstance() != null && DiscoveryManager.getInstance().getDiscoveryClient() != null ) {
-                    final DiscoveryClient mgr =
-                            DiscoveryManager.getInstance().getDiscoveryClient();
+                if(poolManager.getDiscoveryClient() != null ) {
+                    final DiscoveryClient mgr = poolManager.getDiscoveryClient();
                     final Application app = mgr.getApplication(appId);
                     final List<InstanceInfo> instances = app.getInstances();
                     for(InstanceInfo info : instances) {

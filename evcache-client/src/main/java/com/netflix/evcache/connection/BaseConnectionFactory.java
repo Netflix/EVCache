@@ -10,6 +10,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 import com.netflix.evcache.EVCacheTranscoder;
+import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheKetamaNodeLocatorConfiguration;
 import com.netflix.evcache.pool.EVCacheNodeLocator;
 import com.netflix.evcache.pool.ServerGroup;
@@ -37,22 +38,24 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     protected final ServerGroup serverGroup;
     protected EVCacheNodeLocator locator;
     protected final long startTime;
+    protected final EVCacheClientPoolManager poolManager;
 
     BaseConnectionFactory(String appName, int len, long operationTimeout, long opMaxBlockTime, int id,
-            ServerGroup serverGroup) {
+            ServerGroup serverGroup, EVCacheClientPoolManager poolManager) {
         super(len, BinaryConnectionFactory.DEFAULT_READ_BUFFER_SIZE, DefaultHashAlgorithm.KETAMA_HASH);
         this.appName = appName;
         this.operationTimeout = operationTimeout;
         this.opMaxBlockTime = opMaxBlockTime;
         this.id = id;
         this.serverGroup = serverGroup;
+        this.poolManager = poolManager;
         this.startTime = System.currentTimeMillis();
         this.name = appName + "-" + serverGroup.getName() + "-" + id;
     }
 
     public NodeLocator createLocator(List<MemcachedNode> list) {
         this.locator = new EVCacheNodeLocator(appName, serverGroup, list, DefaultHashAlgorithm.KETAMA_HASH,
-                new EVCacheKetamaNodeLocatorConfiguration(appName, serverGroup));
+                new EVCacheKetamaNodeLocatorConfiguration(appName, serverGroup, poolManager));
         return locator;
     }
 
@@ -140,5 +143,9 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
 
     public String toString() {
         return name;
+    }
+    
+    public EVCacheClientPoolManager getEVCacheClientPoolManager() {
+        return this.poolManager;
     }
 }
