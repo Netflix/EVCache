@@ -165,7 +165,6 @@ public class SimpleEVCacheTest extends Base {
     @Test(dependsOnMethods = { "testBulkAndTouch" })
     public void testReplace() throws Exception {
         for (int i = 0; i < 10; i++) {
-            // assertTrue(insert(i, evCache), "SET : Following Index failed - " + i + " for evcache - " + evCache);
             replace(i, evCache);
         }
     }

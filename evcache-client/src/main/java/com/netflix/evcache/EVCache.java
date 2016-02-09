@@ -35,14 +35,6 @@ import rx.Scheduler;
  * 
  * </blockquote>
  * 
- * <b>Classic Approach</b> <blockquote>
- * 
- * <pre>
- * EVCache myCache = new EVCache.Builder().setAppName("EVCACHE").setCachePrefix("Test").setDefaultTTL(3600).build();
- * </pre>
- * 
- * </blockquote>
- * 
  * Below is an example to set value="John Doe" for key="name" <blockquote>
  * 
  * <pre>
@@ -182,7 +174,7 @@ public interface EVCache {
      * 
      * The <code>timeToLive</code> value is passed to memcached exactly as given, and will be processed per the memcached protocol specification:
      *
-     * <blockquote> The actual value sent may either be Unix time aka EPOC time (number of seconds since January 1, 1970, as a 32-bit int value), or a number of seconds starting from current time. In the latter case, this number of seconds may not exceed 60*60*24*30 (number of seconds in 30 days); if the number sent by a client is larger than that, the server will consider it to be real Unix time value rather than an offset from current time. </blockquote>
+     * <blockquote> The actual value sent may either be Unix time a.k.a EPOC time (number of seconds since January 1, 1970, as a 32-bit int value), or a number of seconds starting from current time. In the latter case, this number of seconds may not exceed 60*60*24*30 (number of seconds in 30 days); if the number sent by a client is larger than that, the server will consider it to be real Unix time value rather than an offset from current time. </blockquote>
      *
      * @param key
      *            the key under which this object should be added. Ensure the key is properly encoded and does not contain whitespace or control characters.

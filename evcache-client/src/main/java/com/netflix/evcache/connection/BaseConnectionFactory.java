@@ -9,11 +9,13 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.evcache.EVCacheTranscoder;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheKetamaNodeLocatorConfiguration;
 import com.netflix.evcache.pool.EVCacheNodeLocator;
 import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.BinaryConnectionFactory;
 import net.spy.memcached.ConnectionObserver;
@@ -39,7 +41,8 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     protected EVCacheNodeLocator locator;
     protected final long startTime;
     protected final EVCacheClientPoolManager poolManager;
-
+    protected final ChainedDynamicProperty.StringProperty failureMode;
+    
     BaseConnectionFactory(String appName, int len, long operationTimeout, long opMaxBlockTime, int id,
             ServerGroup serverGroup, EVCacheClientPoolManager poolManager) {
         super(len, BinaryConnectionFactory.DEFAULT_READ_BUFFER_SIZE, DefaultHashAlgorithm.KETAMA_HASH);
@@ -50,6 +53,9 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
         this.serverGroup = serverGroup;
         this.poolManager = poolManager;
         this.startTime = System.currentTimeMillis();
+        this.failureMode = EVCacheConfig.getInstance().getChainedStringProperty(this.serverGroup.getName() + ".failure.mode",
+                appName + ".failure.mode", "Cancel");
+
         this.name = appName + "-" + serverGroup.getName() + "-" + id;
     }
 
@@ -110,7 +116,11 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public FailureMode getFailureMode() {
-        return FailureMode.Cancel;
+        try {
+            return FailureMode.valueOf(failureMode.get());
+        } catch (IllegalArgumentException ex) {
+            return FailureMode.Cancel;
+        }
     }
 
     public HashAlgorithm getHashAlg() {
