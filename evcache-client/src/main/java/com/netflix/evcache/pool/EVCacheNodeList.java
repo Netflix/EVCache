@@ -17,7 +17,7 @@ public interface EVCacheNodeList {
      * @throws IllegalStateException
      *             if an error occurred in the Discovery service
      *
-     *             TODO : Add a fallback to get the list say from FastProperties
+     *  TODO : Add a fallback to get the list say from PersistedProperties
      */
     public abstract Map<ServerGroup, Set<InetSocketAddress>> discoverInstances()
             throws IOException;

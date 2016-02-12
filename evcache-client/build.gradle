@@ -11,9 +11,7 @@ repositories {
 }
 
 test {
-        useTestNG() {
-            listeners << 'org.testng.reporters.EmailableReporter'
-        }
+        useTestNG() 
         options.suites('src/test/java/test-suite.xml')
         minHeapSize = '1024m'
         testLogging.displayGranularity = 2
@@ -31,6 +29,7 @@ dependencies {
         compile group:"com.netflix.spectator",        name:"spectator-api",                    version:"latest.release"
         compile group:"com.netflix.spectator",        name:"spectator-nflx-plugin",            version:"latest.release"
         compile group:"org.slf4j",                    name:"slf4j-log4j12",                    version:"latest.release"
+        compile group:"org.slf4j",                    name:"slf4j-api",                        version:"latest.release"
         compile group:"org.testng",                   name:"testng",                           version:"latest.release"
         compile group:"org.mockito",                  name:"mockito-all",                      version:"latest.release"
 }

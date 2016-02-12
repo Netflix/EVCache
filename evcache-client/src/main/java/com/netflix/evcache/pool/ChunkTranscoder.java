@@ -3,6 +3,12 @@ package com.netflix.evcache.pool;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.Transcoder;
 
+/**
+ * A local transocder used only by EVCache client to ensure we don't try to deserialize chunks
+ * 
+ * @author smadappa
+ *
+ */
 class ChunkTranscoder implements Transcoder<CachedData> {
 
     public ChunkTranscoder() {
