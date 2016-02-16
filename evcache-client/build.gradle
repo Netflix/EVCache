@@ -30,8 +30,8 @@ dependencies {
         compile group:"com.netflix.spectator",        name:"spectator-nflx-plugin",            version:"latest.release"
         compile group:"org.slf4j",                    name:"slf4j-log4j12",                    version:"latest.release"
         compile group:"org.slf4j",                    name:"slf4j-api",                        version:"latest.release"
-        compile group:"org.testng",                   name:"testng",                           version:"latest.release"
-        compile group:"org.mockito",                  name:"mockito-all",                      version:"latest.release"
+        testCompile group:"org.testng",                   name:"testng",                           version:"latest.release"
+        testCompile group:"org.mockito",                  name:"mockito-all",                      version:"latest.release"
 }
 
 javadoc {
