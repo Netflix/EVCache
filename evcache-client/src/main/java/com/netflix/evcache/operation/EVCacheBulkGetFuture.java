@@ -4,10 +4,12 @@ import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -25,6 +27,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.servo.monitor.Stopwatch;
 
 /**
  * Future for handling results from bulk gets.
@@ -40,14 +44,17 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
     private final Collection<Operation> ops;
     private final CountDownLatch latch;
     private final String appName;
+    private final ServerGroup serverGroup;
+    private final Stopwatch operationDuration;
 
-    public EVCacheBulkGetFuture(String appName, Map<String, Future<T>> m, Collection<Operation> getOps,
-            CountDownLatch l, ExecutorService service) {
+    public EVCacheBulkGetFuture(String appName, Map<String, Future<T>> m, Collection<Operation> getOps, CountDownLatch l, ExecutorService service, ServerGroup serverGroup) {
         super(m, getOps, l, service);
         this.appName = appName;
         rvMap = m;
         ops = getOps;
         latch = l;
+        this.serverGroup = serverGroup;
+        this.operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "LatencyBulk").start();
     }
 
     public Map<String, T> getSome(long to, TimeUnit unit, boolean throwException, boolean hasZF)
@@ -128,4 +135,26 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         }
         return m;
     }
+    
+    public String getZone() {
+        return (serverGroup == null ? "NA" : serverGroup.getZone());
+    }
+
+    public ServerGroup getServerGroup() {
+        return serverGroup;
+    }
+
+    public String getApp() {
+        return appName;
+    }
+
+    public Set<String> getKeys() {
+        return Collections.unmodifiableSet(rvMap.keySet());
+    }
+
+    public void signalComplete() {
+        if (operationDuration != null) operationDuration.stop();
+        super.signalComplete();
+    }
+
 }

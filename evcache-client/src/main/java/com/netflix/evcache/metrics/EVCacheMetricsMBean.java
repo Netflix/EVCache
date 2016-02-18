@@ -12,10 +12,6 @@ public interface EVCacheMetricsMBean {
 
     long getCacheMiss();
 
-    long getGetDuration();
-
-    long getBulkDuration();
-
     long getBulkHits();
 
     long getBulkMiss();

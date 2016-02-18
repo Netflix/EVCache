@@ -52,27 +52,21 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     private final AtomicReference<T> objRef;
     private Operation op;
     private final String appName;
-    private final String zone;
     private final ServerGroup serverGroup;
     private final String key;
     private final Stopwatch operationDuration;
 
-    public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout,
-            ExecutorService service, String appName, String zone,
-            ServerGroup serverGroup) {
-        this(k, l, oref, opTimeout, service, appName, zone, serverGroup, null);
+    public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout, ExecutorService service, String appName, ServerGroup serverGroup) {
+        this(k, l, oref, opTimeout, service, appName, serverGroup, null);
     }
 
-    public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout,
-            ExecutorService service, String appName, String zone,
-            ServerGroup serverGroup, String metricName) {
+    public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout, ExecutorService service, String appName, ServerGroup serverGroup, String metricName) {
         super(k, l, oref, opTimeout, service);
 
         this.latch = l;
         this.objRef = oref;
         this.appName = appName;
         this.serverGroup = serverGroup;
-        this.zone = zone;
         this.key = k;
 
         if (metricName != null)
@@ -99,7 +93,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     }
 
     public String getZone() {
-        return zone;
+        return (serverGroup == null ? "NA" : serverGroup.getZone());
     }
 
     public ServerGroup getServerGroup() {

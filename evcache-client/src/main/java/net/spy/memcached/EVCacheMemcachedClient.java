@@ -80,9 +80,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             EVCacheGetOperationListener<T> listener) {
 
         final CountDownLatch latch = new CountDownLatch(1);
-        final EVCacheOperationFuture<T> rv = new EVCacheOperationFuture<T>(key, latch, new AtomicReference<T>(null),
-                readTimeout.get().intValue(), executorService, appName, zone,
-                serverGroup);
+        final EVCacheOperationFuture<T> rv = new EVCacheOperationFuture<T>(key, latch, new AtomicReference<T>(null), readTimeout.get().intValue(), executorService, appName, serverGroup, "LatencyGet");
         Operation op = opFact.get(key, new GetOperation.Callback() {
             private Future<T> val = null;
 
@@ -158,7 +156,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         int initialLatchCount = chunks.isEmpty() ? 0 : 1;
         final CountDownLatch latch = new CountDownLatch(initialLatchCount);
         final Collection<Operation> ops = new ArrayList<Operation>(chunks.size());
-        final EVCacheBulkGetFuture<T> rv = new EVCacheBulkGetFuture<T>(appName, m, ops, latch, executorService);
+        final EVCacheBulkGetFuture<T> rv = new EVCacheBulkGetFuture<T>(appName, m, ops, latch, executorService, serverGroup);
 
         GetOperation.Callback cb = new GetOperation.Callback() {
             @Override
@@ -199,10 +197,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     public <T> EVCacheOperationFuture<CASValue<T>> asyncGetAndTouch(final String key, final int exp,
             final Transcoder<T> tc) {
         final CountDownLatch latch = new CountDownLatch(1);
-        final EVCacheOperationFuture<CASValue<T>> rv = new EVCacheOperationFuture<CASValue<T>>(key, latch,
-                new AtomicReference<CASValue<T>>(null), operationTimeout,
-                executorService, appName, zone, serverGroup);
-
+        final EVCacheOperationFuture<CASValue<T>> rv = new EVCacheOperationFuture<CASValue<T>>(key, latch, new AtomicReference<CASValue<T>>(null), operationTimeout, executorService, appName, serverGroup);
         Operation op = opFact.getAndTouch(key, exp, new GetAndTouchOperation.Callback() {
             private CASValue<T> val = null;
 
@@ -296,9 +291,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         } else {
             operationStr = "Replace";
         }
-        final OperationFuture<Boolean> rv = new EVCacheOperationFuture<Boolean>(key, latch,
-                new AtomicReference<Boolean>(null), operationTimeout, executorService, appName,
-                serverGroup.getName(), serverGroup, "Latency" + operationStr);
+        final OperationFuture<Boolean> rv = new EVCacheOperationFuture<Boolean>(key, latch, new AtomicReference<Boolean>(null), operationTimeout, executorService, appName, serverGroup, "Latency" + operationStr);
         Operation op = opFact.store(storeType, key, co.getFlags(), exp, co.getData(), new StoreOperation.Callback() {
             private final long startTime = System.currentTimeMillis();
 

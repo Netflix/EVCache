@@ -76,11 +76,8 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                 continue;
             }
 
-            final AmazonInfo amznInfo = (AmazonInfo) dcInfo; // We checked above
-                                                             // if this instance
-                                                             // is Amazon so no
-                                                             // need to do a
-                                                             // instanceof check
+            final AmazonInfo amznInfo = (AmazonInfo) dcInfo; 
+            // We checked above if this instance is Amazon so no need to do a instanceof check
             final String zone = amznInfo.get(AmazonInfo.MetaDataKey.availabilityZone);
             final String rSetName = iInfo.getASGName();
             final ServerGroup rSet = new ServerGroup(zone, rSetName);

@@ -26,6 +26,7 @@ import com.netflix.servo.stats.StatsConfig;
 import com.netflix.servo.tag.BasicTagList;
 import com.netflix.servo.tag.Tag;
 import com.netflix.servo.tag.TagList;
+import com.netflix.servo.tag.BasicTag;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = { "NF_LOCAL_FAST_PROPERTY",
         "PMB_POSSIBLE_MEMORY_BLOAT" }, justification = "Creates only when needed")
@@ -166,19 +167,29 @@ public final class EVCacheMetricsFactory {
     }
 
     public static void increment(String appName, String cacheName, String metricName) {
-        final Counter counter = getCounter(appName, cacheName, metricName, DataSourceType.COUNTER);
+        final Counter counter = getCounter(appName, cacheName, null, metricName, DataSourceType.COUNTER);
+        counter.increment();
+    }
+
+    public static void increment(String appName, String cacheName, String serverGroupName, String metricName) {
+        final Counter counter = getCounter(appName, cacheName, metricName, serverGroupName, DataSourceType.COUNTER);
         counter.increment();
     }
 
     public static Counter getCounter(String appName, String cacheName, String metricName, Tag tag) {
-        final String name = appName + (cacheName != null ? cacheName : "") + metricName + tag.tagString();
+        return getCounter(appName, cacheName, null, metricName, DataSourceType.COUNTER);
+    }
+    
+    public static Counter getCounter(String appName, String cacheName, String serverGroupName, String metricName, Tag tag) {
+        final String name = appName + (cacheName != null ? cacheName : "") + (serverGroupName != null ? serverGroupName : "") + metricName + tag.tagString();
         Counter counter = (Counter) monitorMap.get(name);
         if (counter == null) {
-            final TagList tags;
+            TagList tags = BasicTagList.of("APP", appName, tag.getKey(), tag.getValue());
             if (cacheName != null && cacheName.length() > 0) {
-                tags = BasicTagList.of("APP", appName, "CACHE", cacheName, tag.getKey(), tag.getValue());
-            } else {
-                tags = BasicTagList.of("APP", appName, tag.getKey(), tag.getValue());
+                tags = BasicTagList.concat(tags, new BasicTag("CACHE", cacheName));
+            }
+            if(serverGroupName != null && serverGroupName.length() > 0) {
+                tags = BasicTagList.concat(tags, new BasicTag("ServerGroup", serverGroupName));
             }
             writeLock.lock();
             try {

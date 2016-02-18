@@ -80,6 +80,7 @@ public class EVCacheClient {
     private final SerializingTranscoder decodingTranscoder = new SerializingTranscoder(Integer.MAX_VALUE);
     private final EVCacheClientPool pool;
     private Counter addCounter = null;
+    
 
     EVCacheClient(String appName, String zone, int id, ServerGroup serverGroup,
             List<InetSocketAddress> memcachedNodesInZone, int maxQueueSize, DynamicIntProperty maxReadQueueSize,
@@ -820,6 +821,10 @@ public class EVCacheClient {
         return serverGroup;
     }
 
+    public String getServerGroupName() {
+        return (serverGroup == null ? "NA" : serverGroup.getName());
+    }
+
     public boolean isShutdown() {
         return this.shutdown;
     }
@@ -943,7 +948,7 @@ public class EVCacheClient {
         return addCounter;
     }
 
-    static class ChunkDetails<T> {
+   static class ChunkDetails<T> {
 
         final List<String> chunkKeys;
         final ChunkInfo chunkInfo;

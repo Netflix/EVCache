@@ -811,7 +811,7 @@ public interface EVCache {
         private String _cachePrefix = null;
         private int _ttl = 900;
         private Transcoder<?> _transcoder = null;
-        private boolean _serverGroupRetry = false;
+        private boolean _serverGroupRetry = true;
         private boolean _enableExceptionThrowing = false;
 
         @Inject

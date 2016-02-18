@@ -293,7 +293,7 @@ final public class EVCacheImpl implements EVCache {
                             break;
                         }
                     }
-                    EVCacheMetricsFactory.increment(_appName, _cacheName, _metricPrefix + "-RETRY_" + ((data == null)
+                    EVCacheMetricsFactory.increment(_appName, _cacheName, client.getServerGroupName(), _metricPrefix + "-RETRY_" + ((data == null)
                             ? "MISS" : "HIT"));
                 }
             }
@@ -438,7 +438,7 @@ final public class EVCacheImpl implements EVCache {
                         break;
                     }
                 }
-                EVCacheMetricsFactory.increment(_appName, _cacheName, _metricPrefix + "-RETRY_" + ((data == null)
+                EVCacheMetricsFactory.increment(_appName, _cacheName, client.getServerGroupName(), _metricPrefix + "-RETRY_" + ((data == null)
                         ? "MISS" : "HIT"));
             }
 
@@ -645,7 +645,7 @@ final public class EVCacheImpl implements EVCache {
         try {
             final boolean hasZF = hasZoneFallbackForBulk();
             final boolean throwEx = hasZF ? false : throwExc;
-            EVCacheMetricsFactory.increment(_appName, _cacheName, _metricPrefix + "-BULK_GET");
+            EVCacheMetricsFactory.increment(_appName, _cacheName, client.getServerGroupName(), _metricPrefix + "-BULK_GET");
             Map<String, T> retMap = getBulkData(client, canonicalKeys, tc, throwEx, hasZF);
             List<EVCacheClient> fbClients = null;
             if (hasZF) {
@@ -659,7 +659,7 @@ final public class EVCacheImpl implements EVCache {
                                     + ", zone : " + fbClient.getZone());
                             if (retMap != null && !retMap.isEmpty()) break;
                         }
-                        EVCacheMetricsFactory.increment(_appName, _cacheName, _metricName + "-BULK_GET-FULL_RETRY-"
+                        EVCacheMetricsFactory.increment(_appName, _cacheName, client.getServerGroupName(), _metricName + "-BULK_GET-FULL_RETRY-"
                                 + ((retMap == null || retMap.isEmpty()) ? "MISS" : "HIT"));
                     }
                 }
@@ -699,7 +699,7 @@ final public class EVCacheImpl implements EVCache {
                                 }
                             }
                         }
-                        if (retMap.size() > initRetMapSize) EVCacheMetricsFactory.increment(_appName, _cacheName,
+                        if (retMap.size() > initRetMapSize) EVCacheMetricsFactory.increment(_appName, _cacheName, client.getServerGroupName(), 
                                 _metricName + "-BULK_GET-PARTIAL_RETRY-" + (retMap.isEmpty()
                                         ? "MISS" : "HIT"));
                     }
@@ -720,7 +720,7 @@ final public class EVCacheImpl implements EVCache {
                     }
                 }
                 /* If both Retry and first request fail Exit Immediately. */
-                EVCacheMetricsFactory.increment(_appName, _cacheName, _metricPrefix + "-BULK_MISS");
+                EVCacheMetricsFactory.increment(_appName, _cacheName, client.getServerGroupName(), _metricPrefix + "-BULK_MISS");
                 if (event != null) endEvent(event);
                 return retMap;
             }
@@ -734,26 +734,22 @@ final public class EVCacheImpl implements EVCache {
                 if (value != null) {
                     decanonicalR.put(deCanKey, value);
                     if (touch) touch(deCanKey, ttl);
-                } else if (fbClients != null && fbClients.size() > 0) { // this
-                                                                        // ensures
-                                                                        // the
-                                                                        // fallback
-                                                                        // was
-                                                                        // tried
+                } else if (fbClients != null && fbClients.size() > 0) {
+                    // this ensures the fallback was tried
                     decanonicalR.put(deCanKey, null);
                 }
             }
             if (!decanonicalR.isEmpty()) {
                 if (decanonicalR.size() == keys.size()) {
                     stats.cacheHit(Call.BULK);
-                    EVCacheMetricsFactory.increment(_appName, _cacheName, _metricPrefix + "-BULK_HIT");
+                    EVCacheMetricsFactory.increment(_appName, _cacheName, client.getServerGroupName(), _metricPrefix + "-BULK_HIT");
                     if (event != null) event.setAttribute("status", "BHIT");
                 } else {
                     if (event != null) {
                         event.setAttribute("status", "BHIT_PARTIAL");
                         event.setAttribute("BHIT_PARTIAL_KEYS", decanonicalR);
                     }
-                    EVCacheMetricsFactory.increment(_appName, _cacheName, _metricPrefix + "-BULK_HIT_PARTIAL");
+                    EVCacheMetricsFactory.increment(_appName, _cacheName, client.getServerGroupName(), _metricPrefix + "-BULK_HIT_PARTIAL");
                     if (log.isInfoEnabled() && shouldLog()) log.info("BULK_HIT_PARTIAL for APP " + _appName
                             + ", keys in cache [" + decanonicalR + "], all keys ["
                             + keys + "]");

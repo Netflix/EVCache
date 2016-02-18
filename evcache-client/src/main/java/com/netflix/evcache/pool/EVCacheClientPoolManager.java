@@ -155,9 +155,7 @@ public class EVCacheClientPoolManager {
     public DiscoveryClient getDiscoveryClient() {
         DiscoveryClient client = discoveryClient;
         if (client == null) client = DiscoveryManager.getInstance().getDiscoveryClient();
-        if (client != null) return client;
-        throw new RuntimeException(
-                "DiscoveryClient is null. Please make sure Platform (Eureka a.k.a Discovery) is initialized prior to this.");
+        return client;
     }
 
     public void initAtStartup() {
