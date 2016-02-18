@@ -197,7 +197,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     public <T> EVCacheOperationFuture<CASValue<T>> asyncGetAndTouch(final String key, final int exp,
             final Transcoder<T> tc) {
         final CountDownLatch latch = new CountDownLatch(1);
-        final EVCacheOperationFuture<CASValue<T>> rv = new EVCacheOperationFuture<CASValue<T>>(key, latch, new AtomicReference<CASValue<T>>(null), operationTimeout, executorService, appName, serverGroup);
+        final EVCacheOperationFuture<CASValue<T>> rv = new EVCacheOperationFuture<CASValue<T>>(key, latch, new AtomicReference<CASValue<T>>(null), operationTimeout, executorService, appName, serverGroup, "LatencyGet");
         Operation op = opFact.getAndTouch(key, exp, new GetAndTouchOperation.Callback() {
             private CASValue<T> val = null;
 
