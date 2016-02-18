@@ -47,14 +47,14 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
     private final ServerGroup serverGroup;
     private final Stopwatch operationDuration;
 
-    public EVCacheBulkGetFuture(String appName, Map<String, Future<T>> m, Collection<Operation> getOps, CountDownLatch l, ExecutorService service, ServerGroup serverGroup) {
+    public EVCacheBulkGetFuture(String appName, Map<String, Future<T>> m, Collection<Operation> getOps, CountDownLatch l, ExecutorService service, ServerGroup serverGroup, String metricName) {
         super(m, getOps, l, service);
         this.appName = appName;
         rvMap = m;
         ops = getOps;
         latch = l;
         this.serverGroup = serverGroup;
-        this.operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "LatencyBulk").start();
+        this.operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, metricName).start();
     }
 
     public Map<String, T> getSome(long to, TimeUnit unit, boolean throwException, boolean hasZF)

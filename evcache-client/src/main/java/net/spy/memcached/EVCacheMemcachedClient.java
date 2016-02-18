@@ -127,8 +127,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return rv;
     }
 
-    public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys, final Transcoder<T> tc,
-            EVCacheGetOperationListener<T> listener) {
+    public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys, final Transcoder<T> tc, EVCacheGetOperationListener<T> listener, String metricName) {
         final Map<String, Future<T>> m = new ConcurrentHashMap<String, Future<T>>();
 
         // Break the gets down into groups by key
@@ -154,7 +153,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         int initialLatchCount = chunks.isEmpty() ? 0 : 1;
         final CountDownLatch latch = new CountDownLatch(initialLatchCount);
         final Collection<Operation> ops = new ArrayList<Operation>(chunks.size());
-        final EVCacheBulkGetFuture<T> rv = new EVCacheBulkGetFuture<T>(appName, m, ops, latch, executorService, serverGroup);
+        final EVCacheBulkGetFuture<T> rv = new EVCacheBulkGetFuture<T>(appName, m, ops, latch, executorService, serverGroup, metricName);
 
         GetOperation.Callback cb = new GetOperation.Callback() {
             @Override

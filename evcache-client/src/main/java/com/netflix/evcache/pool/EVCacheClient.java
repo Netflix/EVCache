@@ -203,9 +203,8 @@ public class EVCacheClient {
         final String firstKey = key + "_00";
         firstKeys.add(firstKey);
         try {
-            final Map<String, CachedData> metadataMap = evcacheMemcachedClient.asyncGetBulk(firstKeys,
-                    chunkingTranscoder, null).getSome(readTimeout.get().intValue(), TimeUnit.MILLISECONDS, false,
-                            false);
+            final Map<String, CachedData> metadataMap = evcacheMemcachedClient.asyncGetBulk(firstKeys, chunkingTranscoder, null, "LatencyGet")
+                    .getSome(readTimeout.get().intValue(), TimeUnit.MILLISECONDS, false, false);
             if (metadataMap.containsKey(key)) {
                 return new ChunkDetails(null, null, false, metadataMap.get(key));
             } else if (metadataMap.containsKey(firstKey)) {
@@ -241,8 +240,8 @@ public class EVCacheClient {
                 final List<String> keys = cd.getChunkKeys();
                 final ChunkInfo ci = cd.getChunkInfo();
 
-                final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(keys, chunkingTranscoder,
-                        null).getSome(readTimeout.get().intValue(), TimeUnit.MILLISECONDS, false,
+                final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(keys, chunkingTranscoder, null, "LatencyGet")
+                        .getSome(readTimeout.get().intValue(), TimeUnit.MILLISECONDS, false,
                                 false);
 
                 if (dataMap.size() != ci.getChunks() - 1) {
@@ -348,9 +347,8 @@ public class EVCacheClient {
             firstKeys.add(key + "_00");
         }
         try {
-            final Map<String, CachedData> metadataMap = evcacheMemcachedClient.asyncGetBulk(firstKeys,
-                    chunkingTranscoder, null).getSome(bulkReadTimeout.get().intValue(), TimeUnit.MILLISECONDS,
-                            false, false);
+            final Map<String, CachedData> metadataMap = evcacheMemcachedClient.asyncGetBulk(firstKeys, chunkingTranscoder, null, "LatencyGet")
+                    .getSome(bulkReadTimeout.get().intValue(), TimeUnit.MILLISECONDS, false, false);
             if (metadataMap == null) return null;
 
             final Map<String, T> returnMap = new HashMap<String, T>(keyList.size() * 2);
@@ -383,9 +381,8 @@ public class EVCacheClient {
                 }
             }
 
-            final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(allKeys, chunkingTranscoder,
-                    null).getSome(bulkReadTimeout.get().intValue(), TimeUnit.MILLISECONDS, false,
-                            false);
+            final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(allKeys, chunkingTranscoder, null, "LatencyGet")
+                    .getSome(bulkReadTimeout.get().intValue(), TimeUnit.MILLISECONDS, false, false);
 
             for (Entry<ChunkInfo, Pair<List<String>, byte[]>> entry : responseMap.entrySet()) {
                 final ChunkInfo ci = entry.getKey();
@@ -530,9 +527,8 @@ public class EVCacheClient {
                 return rv;
             } else {
                 final List<String> keys = cd.getChunkKeys();
-                final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(keys, chunkingTranscoder,
-                        null).getSome(readTimeout.get().intValue(), TimeUnit.MILLISECONDS, false,
-                                false);
+                final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(keys, chunkingTranscoder, null, "LatencyGet")
+                        .getSome(readTimeout.get().intValue(), TimeUnit.MILLISECONDS, false, false);
                 return dataMap;
             }
         } catch (Exception e) {
@@ -584,8 +580,8 @@ public class EVCacheClient {
             if (enableChunking.get()) {
                 returnVal = assembleChunks(_canonicalKeys, tc, hasZF);
             } else {
-                returnVal = (Map<String, T>) evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null).getSome(
-                        bulkReadTimeout.get().intValue(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+                returnVal = (Map<String, T>) evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null, "LatencyBulk")
+                        .getSome(bulkReadTimeout.get().intValue(), TimeUnit.MILLISECONDS, _throwException, hasZF);
             }
         } catch (Exception e) {
             if (_throwException) throw e;
