@@ -751,24 +751,8 @@ public class EVCacheClient {
         if (enableChunking.get()) {
             final ChunkDetails<?> cd = getChunkDetails(key);
             if (cd == null) {
-                return evcacheMemcachedClient.delete(key + "_00", latch);// Paranoid
-                                                                         // delete
-                                                                         // :
-                                                                         // cases
-                                                                         // where
-                                                                         // get
-                                                                         // fails
-                                                                         // and
-                                                                         // we
-                                                                         // ensure
-                                                                         // the
-                                                                         // first
-                                                                         // key
-                                                                         // is
-                                                                         // deleted
-                                                                         // just
-                                                                         // in
-                                                                         // case
+             // Paranoid delete : cases where get fails and we ensure the first key is deleted just in case
+                return evcacheMemcachedClient.delete(key + "_00", latch);
             }
             if (!cd.isChunked()) {
                 return evcacheMemcachedClient.delete(key, latch);

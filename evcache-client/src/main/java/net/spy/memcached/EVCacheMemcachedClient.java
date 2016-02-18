@@ -76,9 +76,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         throw new UnsupportedOperationException("asyncGet");
     }
 
-    public <T> EVCacheOperationFuture<T> asyncGet(final String key, final Transcoder<T> tc,
-            EVCacheGetOperationListener<T> listener) {
-
+    public <T> EVCacheOperationFuture<T> asyncGet(final String key, final Transcoder<T> tc, EVCacheGetOperationListener<T> listener) {
         final CountDownLatch latch = new CountDownLatch(1);
         final EVCacheOperationFuture<T> rv = new EVCacheOperationFuture<T>(key, latch, new AtomicReference<T>(null), readTimeout.get().intValue(), executorService, appName, serverGroup, "LatencyGet");
         Operation op = opFact.get(key, new GetOperation.Callback() {
@@ -194,8 +192,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return rv;
     }
 
-    public <T> EVCacheOperationFuture<CASValue<T>> asyncGetAndTouch(final String key, final int exp,
-            final Transcoder<T> tc) {
+    public <T> EVCacheOperationFuture<CASValue<T>> asyncGetAndTouch(final String key, final int exp, final Transcoder<T> tc) {
         final CountDownLatch latch = new CountDownLatch(1);
         final EVCacheOperationFuture<CASValue<T>> rv = new EVCacheOperationFuture<CASValue<T>>(key, latch, new AtomicReference<CASValue<T>>(null), operationTimeout, executorService, appName, serverGroup, "LatencyGet");
         Operation op = opFact.getAndTouch(key, exp, new GetAndTouchOperation.Callback() {

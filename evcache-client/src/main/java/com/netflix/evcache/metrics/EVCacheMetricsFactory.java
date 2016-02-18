@@ -255,8 +255,8 @@ public final class EVCacheMetricsFactory {
 
     public static StatsTimer getStatsTimer(String appName, ServerGroup serverGroup, String metric) {
         final String serverGroupName = (serverGroup != null ? serverGroup.getName() : "");
-        final String metricName = getMetricName(appName, serverGroupName, metric);
-        final String name = metricName + "type=StatsTimer";
+        final String metricName = getMetricName(appName, null, metric);
+        final String name = metricName + serverGroupName + "type=StatsTimer";
         final StatsTimer duration = (StatsTimer) monitorMap.get(name);
         if (duration != null) return duration;
 
