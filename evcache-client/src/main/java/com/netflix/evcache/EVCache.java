@@ -429,6 +429,10 @@ public interface EVCache {
      *             value from the zone local to the client. If we cannot find
      *             this value then null is returned. This is transparent to the
      *             users.
+     *             
+     * @deprecated This is a sub-optimal operation does not support Retries, Fast Failures, FIT, GC Detection, etc.
+     *             Will be removed in a subsequent release 
+*
      */
     <T> void get(String key, EVCacheGetOperationListener<T> listener) throws EVCacheException;
 
@@ -454,7 +458,11 @@ public interface EVCache {
      *             value from the zone local to the client. If we cannot find
      *             this value then null is returned. This is transparent to the
      *             users.
+     *             
+     * @deprecated This is a sub-optimal operation does not support Retries, Fast Failures, FIT, GC Detection, etc.
+     *             Will be removed in a subsequent release 
      */
+    @Deprecated
     <T> void get(String key, Transcoder<T> tc, EVCacheGetOperationListener<T> listener) throws EVCacheException;
 
     /**
@@ -473,7 +481,11 @@ public interface EVCache {
      *             in the rare circumstance where queue is too full to accept
      *             any more requests or issues during deserialization or any IO
      *             Related issues
+     *             
+     * @deprecated This is a sub-optimal operation does not support Retries, Fast Failures, FIT, GC Detection, etc.
+     *             Will be removed in a subsequent release 
      */
+    @Deprecated
     <T> Observable<T> observeGet(String key, Scheduler scheduler) throws EVCacheException;
 
     /**
@@ -490,10 +502,12 @@ public interface EVCache {
      *             in the rare circumstance where queue is too full to accept
      *             any more requests or issues during deserialization or any IO
      *             Related issues
+     *             
+     * @deprecated This is a sub-optimal operation does not support Retries, Fast Failures, FIT, GC Detection, etc.
+     *             Will be removed in a subsequent release 
      */
+    @Deprecated
     <T> Observable<T> observeGet(String key) throws EVCacheException;
-
-    <T> Observable<T> get(String key, Map<String, Object> requestProperties) throws EVCacheException;
 
     /**
      * Retrieve the value for the given key.
@@ -681,6 +695,9 @@ public interface EVCache {
      *             in the circumstance where queue is too full to accept any
      *             more requests or issues during deserialization or timeout
      *             retrieving the value or any IO Related issues
+     *             
+     * @deprecated This is a sub-optimal operation does not support Retries, Fast Failures, FIT, GC Detection, etc.
+     *             Will be removed in a subsequent release 
      */
     <T> Future<T> getAsynchronous(String key) throws EVCacheException;
 
@@ -699,6 +716,9 @@ public interface EVCache {
      *             in the circumstance where queue is too full to accept any
      *             more requests or issues during deserialization or timeout
      *             retrieving the value or any IO Related issues
+     *             
+     * @deprecated This is a sub-optimal operation does not support Retries, Fast Failures, FIT, GC Detection, etc.
+     *             Will be removed in a subsequent release 
      */
     <T> Future<T> getAsynchronous(String key, Transcoder<T> tc) throws EVCacheException;
 

@@ -1186,10 +1186,6 @@ final public class EVCacheImpl implements EVCache {
         }
     }
 
-    public <T> Observable<T> get(String key, Map<String, Object> requestProperties) throws EVCacheException {
-        return observeGet(key, Schedulers.computation());
-    }
-
     public <T> Observable<T> observeGet(final String key) throws EVCacheException {
         return observeGet(key, Schedulers.computation());
     }

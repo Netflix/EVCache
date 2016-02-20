@@ -34,6 +34,7 @@ import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.servo.monitor.Counter;
+import com.netflix.servo.monitor.Stopwatch;
 
 import net.spy.memcached.CASValue;
 import net.spy.memcached.CachedData;
@@ -228,7 +229,9 @@ public class EVCacheClient {
     }
 
     private <T> T assembleChunks(String key, boolean touch, int ttl, Transcoder<T> tc, boolean hasZF) {
+        final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "LatencyChunk").start();
         try {
+            
             final ChunkDetails<T> cd = getChunkDetails(key);
             if (cd == null) return null;
             if (!cd.isChunked()) {
@@ -260,9 +263,8 @@ public class EVCacheClient {
 
                     final byte[] val = _cd.getData();
 
-                    if (val == null) return null; // If we expect a chunk to be
-                                                  // present and it is null then
-                                                  // return null immediately.
+                    // If we expect a chunk to be present and it is null then return null immediately.
+                    if (val == null) return null; 
                     final int len = (i == keys.size() - 1) ? ((ci.getLastChunk() == 0 || ci.getLastChunk() > ci
                             .getChunkSize()) ? ci.getChunkSize() : ci.getLastChunk())
                             : val.length;
@@ -302,6 +304,8 @@ public class EVCacheClient {
             }
         } catch (Exception e) {
             log.error(e.getMessage(), e);
+        } finally {
+            if(operationDuration != null) operationDuration.stop();
         }
         return null;
     }
@@ -346,6 +350,7 @@ public class EVCacheClient {
             firstKeys.add(key);
             firstKeys.add(key + "_00");
         }
+        final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "LatencyChunk").start();
         try {
             final Map<String, CachedData> metadataMap = evcacheMemcachedClient.asyncGetBulk(firstKeys, chunkingTranscoder, null, "LatencyGet")
                     .getSome(bulkReadTimeout.get().intValue(), TimeUnit.MILLISECONDS, false, false);
@@ -432,6 +437,8 @@ public class EVCacheClient {
             return returnMap;
         } catch (Exception e) {
             log.error(e.getMessage(), e);
+        } finally {
+            if(operationDuration != null) operationDuration.stop();
         }
         return null;
     }
@@ -444,9 +451,7 @@ public class EVCacheClient {
         final int len = cd.getData().length;
 
         /* the format of headers in memcached */
-        // Key size + 1 + Header( Flags (Characters Number) + Key (Characters
-        // Numbers) + 2 bytes ( \r\n ) + 4 bytes (2 spaces and 1 \r)) + Chunk
-        // Size + CAS Size
+        // Key size + 1 + Header( Flags (Characters Number) + Key (Characters Numbers) + 2 bytes ( \r\n ) + 4 bytes (2 spaces and 1 \r)) + Chunk Size + CAS Size
         // final int overheadSize = key.length() // Key Size
         // + 1 // Space
         // + 4 // Flags (Characters Number)
@@ -455,12 +460,8 @@ public class EVCacheClient {
         // + 4 // 2 spaces and 1 \r
         // + 48 // Header Size
         // + 8; // CAS
-
-        final int overheadSize = key.length() + 71 + 3; // 3 because we will
-                                                        // suffix _00, _01 ...
-                                                        // _99; 68 is the size
-                                                        // of the memcached
-                                                        // header
+        final int overheadSize = key.length() + 71 + 3; 
+        // 3 because we will suffix _00, _01 ... _99; 68 is the size of the memcached header
         final int actualChunkSize = cSize - overheadSize;
         int lastChunkSize = len % actualChunkSize;
         final int numOfChunks = len / actualChunkSize + ((lastChunkSize > 0) ? 1 : 0) + 1;
