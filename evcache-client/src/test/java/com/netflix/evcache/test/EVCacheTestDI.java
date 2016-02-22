@@ -167,7 +167,7 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
         for (int i = 0; i < loops; i++) {
             String key = "key_" + i;
             if (log.isDebugEnabled()) log.debug("testGetObservable : " + "key = " + key);
-            Observable<String> obs = evCache.<String> get(key, new HashMap<String, Object>());
+            Observable<String> obs = evCache.<String> observeGet(key);
             obs.doOnNext(new OnNextHandler(key)).doOnError(new OnErrorHandler(key)).subscribe();
         }
     }
