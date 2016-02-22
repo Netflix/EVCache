@@ -172,7 +172,7 @@ public final class EVCacheMetricsFactory {
     }
 
     public static void increment(String appName, String cacheName, String serverGroupName, String metricName) {
-        final Counter counter = getCounter(appName, cacheName, metricName, serverGroupName, DataSourceType.COUNTER);
+        final Counter counter = getCounter(appName, cacheName, serverGroupName, metricName, DataSourceType.COUNTER);
         counter.increment();
     }
 
