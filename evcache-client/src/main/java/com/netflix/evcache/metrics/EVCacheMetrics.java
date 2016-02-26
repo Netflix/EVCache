@@ -12,6 +12,7 @@ import com.netflix.evcache.EVCache.Call;
 import com.netflix.servo.DefaultMonitorRegistry;
 import com.netflix.servo.MonitorRegistry;
 import com.netflix.servo.monitor.Monitor;
+import com.netflix.servo.monitor.StatsTimer;
 import com.netflix.servo.monitor.StepCounter;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings("REC_CATCH_EXCEPTION")
@@ -21,6 +22,7 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     private final String monitorName, appName, cacheName;
     private StepCounter getCallsCounter, bulkCallsCounter, bulkHitsCounter, getHitsCounter, setCallsCounter, replaceCallCounter, delCallsCounter;
     private StepCounter bulkMissCounter, getMissCounter;
+    private StatsTimer getDuration, bulkDuration;
 
     EVCacheMetrics(final String appName, String _cacheName) {
         this.appName = appName;
@@ -39,6 +41,7 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     public void operationCompleted(Call op, long duration) {
         if (op == Call.GET || op == Call.GET_AND_TOUCH) {
             getCallCounter().increment();
+            getGetCallDuration().record(duration);
         } else if (op == Call.SET) {
             getSetCallCounter().increment();
         } else if (op == Call.REPLACE) {
@@ -47,6 +50,7 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
             getDeleteCallCounter().increment();
         } else if (op == Call.BULK) {
             getBulkCounter().increment();
+            getBulkCallDuration().record(duration);
         }
     }
 
@@ -150,6 +154,20 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
         return delCallsCounter;
     }
 
+    private StatsTimer getGetCallDuration() {
+        if (getDuration != null) return getDuration;
+
+        this.getDuration = EVCacheMetricsFactory.getStatsTimer(appName, cacheName, "LatencyGet");
+        return getDuration;
+    }
+
+    private StatsTimer getBulkCallDuration() {
+        if (bulkDuration != null) return bulkDuration;
+
+        this.bulkDuration = EVCacheMetricsFactory.getStatsTimer(appName, cacheName, "LatencyBulk");
+        return bulkDuration;
+    }
+
     public long getGetCalls() {
         return getCallCounter().getValue().longValue();
     }
@@ -189,11 +207,20 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     public void cacheMiss(Call call) {
     }
 
+    public long getGetDuration() {
+        return getGetCallDuration().getValue().longValue();
+    }
+
+    public long getBulkDuration() {
+        return getBulkCallDuration().getValue().longValue();
+    }
+
     public String toString() {
         return "EVCacheMetrics [ Name=" + monitorName + ", getCalls=" + getCallCounter() + ", bulkCalls="
                 + getBulkCounter() + ", setCalls=" + getSetCallCounter() + ", cacheHits="
                 + getHitCounter() + ", bulkHits=" + getBulkHitCounter() + ", deleteCalls=" + getDeleteCallCounter()
-                + ", replaceCalls=" + getReplaceCallCounter() + "]";
+                + ", getDuration=" + getGetCallDuration() + ", bulkDuration="
+                + getBulkCallDuration() + ", replaceCalls=" + getReplaceCallCounter() + "]";
     }
 
     public double getHitRate() {

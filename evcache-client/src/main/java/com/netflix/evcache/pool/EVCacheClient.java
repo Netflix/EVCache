@@ -187,7 +187,7 @@ public class EVCacheClient {
                 if (log.isDebugEnabled()) log.debug("Read Queue Full for Node : " + node + "; app : " + appName
                         + "; zone : " + zone + "; Current Size : " + size + "; Max Size : "
                         + maxReadQueueSize.get());
-                if (_throwException) throw new EVCacheException("Read Queue Full for Node : " + node + "; app : "
+                if (_throwException) throw new EVCacheReadQueueException("Read Queue Full for Node : " + node + "; app : "
                         + appName + "; zone : " + zone + "; Current Size : " + size
                         + "; Max Size : " + maxReadQueueSize.get());
                 return false;
@@ -204,7 +204,7 @@ public class EVCacheClient {
         final String firstKey = key + "_00";
         firstKeys.add(firstKey);
         try {
-            final Map<String, CachedData> metadataMap = evcacheMemcachedClient.asyncGetBulk(firstKeys, chunkingTranscoder, null, "LatencyGet")
+            final Map<String, CachedData> metadataMap = evcacheMemcachedClient.asyncGetBulk(firstKeys, chunkingTranscoder, null, "GetChunkMetadataOperation")
                     .getSome(readTimeout.get().intValue(), TimeUnit.MILLISECONDS, false, false);
             if (metadataMap.containsKey(key)) {
                 return new ChunkDetails(null, null, false, metadataMap.get(key));
@@ -243,9 +243,8 @@ public class EVCacheClient {
                 final List<String> keys = cd.getChunkKeys();
                 final ChunkInfo ci = cd.getChunkInfo();
 
-                final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(keys, chunkingTranscoder, null, "LatencyGet")
-                        .getSome(readTimeout.get().intValue(), TimeUnit.MILLISECONDS, false,
-                                false);
+                final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(keys, chunkingTranscoder, null, "GetChunksOperation")
+                        .getSome(readTimeout.get().intValue(), TimeUnit.MILLISECONDS, false, false);
 
                 if (dataMap.size() != ci.getChunks() - 1) {
                     EVCacheMetricsFactory.increment(appName + "-INCORRECT_NUM_CHUNKS");
@@ -352,7 +351,7 @@ public class EVCacheClient {
         }
         final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "LatencyChunk").start();
         try {
-            final Map<String, CachedData> metadataMap = evcacheMemcachedClient.asyncGetBulk(firstKeys, chunkingTranscoder, null, "LatencyGet")
+            final Map<String, CachedData> metadataMap = evcacheMemcachedClient.asyncGetBulk(firstKeys, chunkingTranscoder, null, "GetChunkMetadataOperation")
                     .getSome(bulkReadTimeout.get().intValue(), TimeUnit.MILLISECONDS, false, false);
             if (metadataMap == null) return null;
 
@@ -386,7 +385,7 @@ public class EVCacheClient {
                 }
             }
 
-            final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(allKeys, chunkingTranscoder, null, "LatencyGet")
+            final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(allKeys, chunkingTranscoder, null, "GetChunksOperation")
                     .getSome(bulkReadTimeout.get().intValue(), TimeUnit.MILLISECONDS, false, false);
 
             for (Entry<ChunkInfo, Pair<List<String>, byte[]>> entry : responseMap.entrySet()) {
@@ -507,9 +506,7 @@ public class EVCacheClient {
         return evcacheMemcachedClient.decr(key, by, defaultVal, timeToLive);
     }
 
-    public <T> void get(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF,
-            EVCacheGetOperationListener<T> listener) throws EVCacheReadQueueException,
-                    EVCacheException, Exception {
+    public <T> void get(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF, EVCacheGetOperationListener<T> listener) throws EVCacheReadQueueException, EVCacheException {
         if (enableChunking.get()) {
             throw new EVCacheException("This operation is not supported as chunking is enabled on this EVCacheClient.");
         } else {
@@ -528,7 +525,7 @@ public class EVCacheClient {
                 return rv;
             } else {
                 final List<String> keys = cd.getChunkKeys();
-                final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(keys, chunkingTranscoder, null, "LatencyGet")
+                final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(keys, chunkingTranscoder, null, "GetAllChunksOperation")
                         .getSome(readTimeout.get().intValue(), TimeUnit.MILLISECONDS, false, false);
                 return dataMap;
             }

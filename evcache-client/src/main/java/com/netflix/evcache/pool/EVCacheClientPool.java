@@ -82,6 +82,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                                                        // operation
     private final DynamicIntProperty _maxReadQueueSize;
     private final DynamicIntProperty reconcileInterval;
+    private final DynamicIntProperty _maxRetries;
 
     private final DynamicBooleanProperty _pingServers;
     /* Experimental Properties - End */
@@ -177,6 +178,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         });
         this._maxReadQueueSize = config.getDynamicIntProperty(appName + ".max.read.queue.length", 5);
         this._retryAcrossAllReplicas = config.getDynamicBooleanProperty(_appName + ".retry.all.copies", Boolean.FALSE);
+        this._maxRetries = config.getDynamicIntProperty(_appName + ".max.retry.count", 1);
 
         this.logOperations = config.getDynamicIntProperty(appName + ".log.operation", 0);
         this.reconcileInterval = config.getDynamicIntProperty(appName + ".reconcile.interval", 600000);
@@ -262,8 +264,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             return Collections.<EVCacheClient> emptyList();
         try {
             if (_retryAcrossAllReplicas.get()) {
-                List<EVCacheClient> clients = new ArrayList<EVCacheClient>(memcachedReadInstancesByServerGroup.size()
-                        - 1);
+                List<EVCacheClient> clients = new ArrayList<EVCacheClient>(memcachedReadInstancesByServerGroup.size() - 1);
                 for (Iterator<ServerGroup> itr = memcachedReadInstancesByServerGroup.keySet().iterator(); itr
                         .hasNext();) {
                     final ServerGroup serverGroup = itr.next();
@@ -275,8 +276,23 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 }
                 return clients;
             } else {
-                final EVCacheClient client = getEVCacheClientForReadExclude(serverGroupToExclude);
-                if (client != null) return Collections.singletonList(client);
+                if(_maxRetries.get() == 1) {
+                    final EVCacheClient client = getEVCacheClientForReadExclude(serverGroupToExclude);
+                    if (client != null) return Collections.singletonList(client);
+                } else {
+                    List<EVCacheClient> clients = new ArrayList<EVCacheClient>(memcachedReadInstancesByServerGroup.size() - 1);
+                    for (Iterator<ServerGroup> itr = memcachedReadInstancesByServerGroup.keySet().iterator(); itr .hasNext();) {
+                        if(clients.size() == _maxRetries.get()) break;
+
+                        final ServerGroup serverGroup = itr.next();
+                        if (serverGroup.equals(serverGroupToExclude)) continue;
+
+                        final List<EVCacheClient> clientList = memcachedReadInstancesByServerGroup.get(serverGroup);
+                        final EVCacheClient client = selectClient(clientList);
+                        if (client != null) clients.add(client);
+                    }
+                    return clients;
+                }
             }
         } catch (Throwable t) {
             log.error("Exception trying to get an readable EVCache Instances for zone " + serverGroupToExclude, t);

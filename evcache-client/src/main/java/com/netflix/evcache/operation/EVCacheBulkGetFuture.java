@@ -45,7 +45,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
     private final CountDownLatch latch;
     private final String appName;
     private final ServerGroup serverGroup;
-    private final Stopwatch operationDuration;
+    private final String metricName;
 
     public EVCacheBulkGetFuture(String appName, Map<String, Future<T>> m, Collection<Operation> getOps, CountDownLatch l, ExecutorService service, ServerGroup serverGroup, String metricName) {
         super(m, getOps, l, service);
@@ -54,13 +54,14 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         ops = getOps;
         latch = l;
         this.serverGroup = serverGroup;
-        this.operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, metricName).start();
+        this.metricName = metricName;
     }
 
     public Map<String, T> getSome(long to, TimeUnit unit, boolean throwException, boolean hasZF)
             throws InterruptedException, ExecutionException {
         final Collection<Operation> timedoutOps = new HashSet<Operation>();
 
+        final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, metricName).start();
         final long startTime = System.currentTimeMillis();
         boolean status = latch.await(to, unit);
 
@@ -133,9 +134,10 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         for (Map.Entry<String, Future<T>> me : rvMap.entrySet()) {
             m.put(me.getKey(), me.getValue().get());
         }
+        operationDuration.stop();
         return m;
     }
-    
+
     public String getZone() {
         return (serverGroup == null ? "NA" : serverGroup.getZone());
     }
@@ -153,7 +155,6 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
     }
 
     public void signalComplete() {
-        if (operationDuration != null) operationDuration.stop();
         super.signalComplete();
     }
 

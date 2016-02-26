@@ -202,8 +202,7 @@ final public class EVCacheImpl implements EVCache {
             return; // Fast failure
         }
 
-        final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key),
-                Call.GETL);
+        final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key), Call.GETL);
         if (event != null) {
             if (shouldThrottle(event)) {
                 EVCacheMetricsFactory.increment(_appName, _cacheName, _metricPrefix + "-THROTTLED");
@@ -219,25 +218,49 @@ final public class EVCacheImpl implements EVCache {
             final boolean hasZF = hasZoneFallback();
             final boolean throwEx = hasZF ? false : throwExc;
             if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
-            client.get(canonicalKey, tc, throwEx, hasZF, listener);
-            if (log.isDebugEnabled() && shouldLog()) log.debug("GETL : APP " + _appName + ", key [" + canonicalKey
-                    + "], " + ", zone : " + client.getZone());
+            getUsingListener(client, canonicalKey, tc, throwEx, hasZF, listener);
+            if (log.isDebugEnabled() && shouldLog()) log.debug("GETL : APP " + _appName + ", key [" + canonicalKey + "], " + ", zone : " + client.getZone());
             if (event != null) endEvent(event);
             return;
-        } catch (net.spy.memcached.internal.CheckedOperationTimeoutException ex) {
-            if (event != null) eventError(event, ex);
-            if (throwExc) throw new EVCacheException("CheckedOperationTimeoutException getting data for APP " + _appName
-                    + ", key = " + canonicalKey
-                    + ".\nYou can set the following property to increase the timeout " + _appName
-                    + ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex);
         } catch (Exception ex) {
             if (event != null) eventError(event, ex);
-            if (throwExc) throw new EVCacheException("Exception getting data for APP " + _appName + ", key = "
-                    + canonicalKey, ex);
+            if (throwExc) throw new EVCacheException("Exception getting data for APP " + _appName + ", key = " + canonicalKey, ex);
         } finally {
             op.stop();
-            if (log.isDebugEnabled() && shouldLog()) log.debug("GETL : APP " + _appName + ", Took " + op.getDuration()
-                    + " milliSec.");
+            if (log.isDebugEnabled() && shouldLog()) log.debug("GETL : APP " + _appName + ", Took " + op.getDuration() + " milliSec.");
+        }
+    }
+    
+    private <T> void getUsingListener(EVCacheClient client, String canonicalKey, Transcoder<T> tc, boolean throwEx, boolean hasZF,  EVCacheGetOperationListener<T> listener) throws Exception {
+        final EVCacheGetOperationProxy<T> proxy = new EVCacheGetOperationProxy<T>(listener, tc, hasZF);
+        client.get(canonicalKey, tc, throwEx, hasZF, proxy);
+        
+    }
+
+    class EVCacheGetOperationProxy<T> implements EVCacheGetOperationListener<T> {
+
+        private EVCacheGetOperationListener<T> listener;
+        private Transcoder<T> tc;
+        private boolean hasZF;
+        EVCacheGetOperationProxy(EVCacheGetOperationListener<T> listener, Transcoder<T> tc, boolean hasZF) {
+            this.listener = listener;
+            this.tc = tc;
+            this.hasZF = hasZF;
+        }
+
+        @Override
+        public void onComplete(EVCacheOperationFuture<T> future) throws Exception {
+            T value = future.get();
+            if(value == null && hasZF) {
+                final EVCacheClient fbClient = _pool.getEVCacheClientForReadExclude(future.getServerGroup());
+                final boolean throwExc = doThrowException();
+                final String key = future.getKey();
+                final EVCacheGetOperationListener<T> proxy = new EVCacheGetOperationProxy<T>(listener, tc, false);
+                fbClient.get(key, tc, throwExc, hasZF, proxy);
+                if (log.isDebugEnabled() && shouldLog()) log.debug("Retry for APP " + _appName + ", key [" + key + "], Listener [" + proxy + "]" + ", ServerGroup : " + fbClient.getServerGroup());
+            } else {
+                listener.onComplete(future);
+            }
         }
     }
 
@@ -333,8 +356,7 @@ final public class EVCacheImpl implements EVCache {
         }
     }
 
-    private <T> T getData(EVCacheClient client, String canonicalKey, Transcoder<T> tc, boolean throwException,
-            boolean hasZF) throws Exception {
+    private <T> T getData(EVCacheClient client, String canonicalKey, Transcoder<T> tc, boolean throwException, boolean hasZF) throws Exception {
         if (client == null) return null;
         try {
             if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
@@ -1200,6 +1222,7 @@ final public class EVCacheImpl implements EVCache {
                 @Override
                 public void call(final Subscriber<? super T> subscriber) {
                     try {
+                        
                         get(key, (Transcoder<T>) _transcoder, new EVCacheGetOperationListener<T>() {
                             @Override
                             public void onComplete(final EVCacheOperationFuture<T> future) throws Exception {

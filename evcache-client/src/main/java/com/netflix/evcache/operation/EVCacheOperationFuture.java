@@ -54,7 +54,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     private final String appName;
     private final ServerGroup serverGroup;
     private final String key;
-    private final Stopwatch operationDuration;
+    private final String metricName;
 
     public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout, ExecutorService service, String appName, ServerGroup serverGroup) {
         this(k, l, oref, opTimeout, service, appName, serverGroup, null);
@@ -62,17 +62,12 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
 
     public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout, ExecutorService service, String appName, ServerGroup serverGroup, String metricName) {
         super(k, l, oref, opTimeout, service);
-
         this.latch = l;
         this.objRef = oref;
         this.appName = appName;
         this.serverGroup = serverGroup;
         this.key = k;
-
-        if (metricName != null)
-            operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, metricName).start();
-        else
-            operationDuration = null;
+        this.metricName = metricName;
     }
 
     public Operation getOperation() {
@@ -134,10 +129,9 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
      * @throws TimeoutException
      * @throws ExecutionException
      */
-    public T get(long duration, TimeUnit units, boolean throwException, boolean hasZF) throws InterruptedException,
-            TimeoutException, ExecutionException {
-
+    public T get(long duration, TimeUnit units, boolean throwException, boolean hasZF) throws InterruptedException, TimeoutException, ExecutionException {
         final long startTime = System.currentTimeMillis();
+        final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, (metricName == null) ? "LatencyGet" : metricName).start();;
         boolean status = latch.await(duration, units);
         if (!status) {
             boolean gcPause = false;
@@ -168,8 +162,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                 final long gcDuration = System.currentTimeMillis() - startTime;
                 gcPause = (gcDuration > units.toMillis(duration) + 10);
                 if (gcPause) {
-                    EVCacheMetricsFactory.getLongGauge(appName + "-DelayProbablyDueToGCPause").set(Long.valueOf(
-                            gcDuration));
+                    EVCacheMetricsFactory.getLongGauge(appName + "-DelayProbablyDueToGCPause").set(Long.valueOf(gcDuration));
                 } else {
                     EVCacheMetricsFactory.getLongGauge(appName + "-DelayProbablyDueToGCPause").set(Long.valueOf(0));
                 }
@@ -188,8 +181,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         }
 
         if (!status) {
-            // whenever timeout occurs, continuous timeout counter will increase
-            // by 1.
+            // whenever timeout occurs, continuous timeout counter will increase by 1.
             MemcachedConnection.opTimedOut(op);
             if (op != null) op.timeOut();
             if (!hasZF) EVCacheMetricsFactory.increment(appName + "-get-CheckedOperationTimeout");
@@ -217,11 +209,11 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                 throw new ExecutionException(new CheckedOperationTimeoutException("Operation timed out.", op));
             }
         }
+        operationDuration.stop();
         return objRef.get();
     }
 
     public void signalComplete() {
-        if (operationDuration != null) operationDuration.stop();
         super.signalComplete();
     }
 
