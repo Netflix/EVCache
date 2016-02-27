@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.Stopwatch;
 
 /**
@@ -83,7 +84,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                     if (gcStartTime > startTime) {
                         gcPause = true;
                         final long gcDuration = lastGcInfo.getDuration();
-                        EVCacheMetricsFactory.getCounter(appName + "-DelayDueToGCPause").increment(gcDuration);
+                        EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DelayDueToGCPause", DataSourceType.COUNTER).increment(gcDuration);
                         if (log.isDebugEnabled()) log.debug("Total duration due to gc event = " + gcDuration
                                 + " msec.");
                         break;
@@ -92,17 +93,16 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
             }
             if (!gcPause) {
                 long gcDuration = System.currentTimeMillis() - startTime;
-                EVCacheMetricsFactory.getLongGauge(appName + "-DelayProbablyDueToGCPause").set(Long.valueOf(
-                        gcDuration));
+                EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DelayProbablyDueToGCPause", DataSourceType.COUNTER).increment(gcDuration);
             }
             // redo the same op once more since there was a chance of gc pause
             if (gcPause) {
                 status = latch.await(to, unit);
                 if (log.isDebugEnabled()) log.debug("Retry status : " + status);
                 if (status) {
-                    EVCacheMetricsFactory.increment(appName + "-DelayDueToGCPause-Success");
+                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DelayDueToGCPause-Success", DataSourceType.COUNTER).increment();
                 } else {
-                    EVCacheMetricsFactory.increment(appName + "-DelayDueToGCPause-Fail");
+                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DelayDueToGCPause-Fail", DataSourceType.COUNTER).increment();
                 }
             }
             if (log.isDebugEnabled()) log.debug("Total duration due to gc event = " + (System.currentTimeMillis()
@@ -122,12 +122,13 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
             }
         }
 
-        if (!status && !hasZF && timedoutOps.size() > 0) EVCacheMetricsFactory.increment(appName
-                + "-getSome-CheckedOperationTimeout");
+        if (!status && !hasZF && timedoutOps.size() > 0) EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-getSome-CheckedOperationTimeout", DataSourceType.COUNTER).increment();
 
         for (Operation op : ops) {
-            if (op.isCancelled() && throwException) throw new ExecutionException(new CancellationException(
-                    "Cancelled"));
+            if(op.isCancelled()) {
+                if (hasZF) EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-getSome-Cancelled", DataSourceType.COUNTER).increment();
+                if (throwException) throw new ExecutionException(new CancellationException("Cancelled"));
+            }
             if (op.hasErrored() && throwException) throw new ExecutionException(op.getException());
         }
         Map<String, T> m = new HashMap<String, T>();

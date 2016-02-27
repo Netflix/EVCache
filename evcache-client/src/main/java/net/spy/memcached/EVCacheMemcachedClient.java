@@ -25,6 +25,7 @@ import com.netflix.evcache.operation.EVCacheBulkGetFuture;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.servo.monitor.Stopwatch;
 import com.netflix.servo.tag.BasicTag;
 import com.netflix.servo.tag.Tag;
 
@@ -289,13 +290,13 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         }
         final OperationFuture<Boolean> rv = new EVCacheOperationFuture<Boolean>(key, latch, new AtomicReference<Boolean>(null), operationTimeout, executorService, appName, serverGroup, "Latency" + operationStr);
         Operation op = opFact.store(storeType, key, co.getFlags(), exp, co.getData(), new StoreOperation.Callback() {
-            private final long startTime = System.currentTimeMillis();
+            final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "Latency" + operationStr).start();
 
             @Override
             public void receivedStatus(OperationStatus val) {
+                operationDuration.stop();
                 if (log.isDebugEnabled()) log.debug("Storing Key : " + key + "; Status : " + val.getStatusCode().name()
-                        + "; Message : " + val.getMessage() + "; Elapsed Time - "
-                        + (System.currentTimeMillis() - startTime));
+                        + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration()));
 
                 Tag tag = null;
                 final MemcachedNode node = getEVCacheNode(key);

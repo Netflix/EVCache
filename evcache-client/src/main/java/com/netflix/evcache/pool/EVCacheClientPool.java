@@ -280,14 +280,14 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     final EVCacheClient client = getEVCacheClientForReadExclude(serverGroupToExclude);
                     if (client != null) return Collections.singletonList(client);
                 } else {
-                    List<EVCacheClient> clients = new ArrayList<EVCacheClient>(memcachedReadInstancesByServerGroup.size() - 1);
-                    for (Iterator<ServerGroup> itr = memcachedReadInstancesByServerGroup.keySet().iterator(); itr .hasNext();) {
-                        if(clients.size() == _maxRetries.get()) break;
+                    final List<EVCacheClient> clients = new ArrayList<EVCacheClient>(_maxRetries.get());
+                    for(int i = 0; i < _maxRetries.get(); i++) {
+                        ServerGroup fallbackServerGroup = memcachedFallbackReadInstances.next(serverGroupToExclude);
+                        if (fallbackServerGroup == null ) {
+                            return clients;
+                        }
 
-                        final ServerGroup serverGroup = itr.next();
-                        if (serverGroup.equals(serverGroupToExclude)) continue;
-
-                        final List<EVCacheClient> clientList = memcachedReadInstancesByServerGroup.get(serverGroup);
+                        final List<EVCacheClient> clientList = memcachedReadInstancesByServerGroup.get(fallbackServerGroup);
                         final EVCacheClient client = selectClient(clientList);
                         if (client != null) clients.add(client);
                     }

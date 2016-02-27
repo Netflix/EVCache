@@ -578,7 +578,7 @@ public class EVCacheClient {
             if (enableChunking.get()) {
                 returnVal = assembleChunks(_canonicalKeys, tc, hasZF);
             } else {
-                returnVal = (Map<String, T>) evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null, "LatencyBulk")
+                returnVal = (Map<String, T>) evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null, "BulkOperation")
                         .getSome(bulkReadTimeout.get().intValue(), TimeUnit.MILLISECONDS, _throwException, hasZF);
             }
         } catch (Exception e) {
