@@ -24,9 +24,10 @@ import com.sun.management.GcInfo;
 
 import net.spy.memcached.MemcachedConnection;
 import net.spy.memcached.internal.CheckedOperationTimeoutException;
-import net.spy.memcached.internal.GenericCompletionListener;
 import net.spy.memcached.internal.OperationFuture;
 import net.spy.memcached.ops.Operation;
+import rx.Scheduler;
+import rx.Single;
 
 /**
  * Managed future for operations.
@@ -97,12 +98,12 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     }
 
     public EVCacheOperationFuture<T> addListener(EVCacheGetOperationListener<T> listener) {
-        super.addToListeners((GenericCompletionListener<EVCacheOperationFuture<T>>) listener);
+        super.addToListeners(listener);
         return this;
     }
 
     public EVCacheOperationFuture<T> removeListener(EVCacheGetOperationListener<T> listener) {
-        super.removeFromListeners((GenericCompletionListener<EVCacheOperationFuture<T>>) listener);
+        super.removeFromListeners(listener);
         return this;
     }
 
@@ -210,6 +211,38 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         }
         operationDuration.stop();
         return objRef.get();
+    }
+
+    public Single<T> observe() {
+        return Single.create(subscriber ->
+            addListener((EVCacheGetOperationListener<T>) future -> {
+                try {
+                    subscriber.onSuccess(get());
+                } catch (Throwable e) {
+                    subscriber.onError(e);
+                }
+            })
+        );
+    }
+
+    public Single<T> get(long duration, TimeUnit units, boolean throwException, boolean hasZF, Scheduler scheduler) {
+        final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, (metricName == null) ? "LatencyGet" : metricName).start();;
+        return observe().timeout(duration, units, Single.create(subscriber -> {
+            // whenever timeout occurs, continuous timeout counter will increase by 1.
+            MemcachedConnection.opTimedOut(op);
+            if (op != null) op.timeOut();
+            if (!hasZF) EVCacheMetricsFactory.increment(appName + "-get-CheckedOperationTimeout");
+            if (throwException) {
+                subscriber.onError(new CheckedOperationTimeoutException("Timed out waiting for operation", op));
+            } else {
+                if (isCancelled()) {
+                    if (hasZF) EVCacheMetricsFactory.increment(appName + "-Cancelled");
+                }
+                subscriber.onSuccess(objRef.get());
+            }
+        }), scheduler).doAfterTerminate(() ->
+            operationDuration.stop()
+        );
     }
 
     public void signalComplete() {

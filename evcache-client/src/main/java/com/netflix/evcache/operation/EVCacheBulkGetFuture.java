@@ -30,6 +30,8 @@ import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.Stopwatch;
+import rx.Scheduler;
+import rx.Single;
 
 /**
  * Future for handling results from bulk gets.
@@ -139,6 +141,53 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         return m;
     }
 
+    public Single<Map<String, T>> observe() {
+        return Single.create(subscriber ->
+            addListener(future -> {
+                try {
+                    subscriber.onSuccess(get());
+                } catch (Throwable e) {
+                    subscriber.onError(e);
+                }
+            })
+        );
+    }
+
+    public Single<Map<String, T>> getSome(long to, TimeUnit units, boolean throwException, boolean hasZF, Scheduler scheduler) {
+        final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, metricName).start();
+        return observe().timeout(to, units, Single.create(subscriber -> {
+            try {
+                final Collection<Operation> timedoutOps = new HashSet<Operation>();
+                for (Operation op : ops) {
+                    if (op.getState() != OperationState.COMPLETE) {
+                        MemcachedConnection.opTimedOut(op);
+                        timedoutOps.add(op);
+                    } else {
+                        MemcachedConnection.opSucceeded(op);
+                    }
+                }
+
+                if (!hasZF && timedoutOps.size() > 0) EVCacheMetricsFactory.increment(appName
+                    + "-getSome-CheckedOperationTimeout");
+
+                for (Operation op : ops) {
+                    if (op.isCancelled() && throwException) throw new ExecutionException(new CancellationException(
+                        "Cancelled"));
+                    if (op.hasErrored() && throwException) throw new ExecutionException(op.getException());
+                }
+                Map<String, T> m = new HashMap<String, T>();
+                for (Map.Entry<String, Future<T>> me : rvMap.entrySet()) {
+                    m.put(me.getKey(), me.getValue().get());
+                }
+                subscriber.onSuccess(m);
+            } catch (Throwable e) {
+                subscriber.onError(e);
+            }
+        }), scheduler).doAfterTerminate(() ->
+            operationDuration.stop()
+        );
+    }
+    
     public String getZone() {
         return (serverGroup == null ? "NA" : serverGroup.getZone());
     }

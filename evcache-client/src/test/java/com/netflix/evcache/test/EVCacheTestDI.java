@@ -17,7 +17,9 @@ import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 
 import rx.Observable;
+import rx.Single;
 import rx.functions.Action1;
+import rx.schedulers.Schedulers;
 
 public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<String> {
     private static final Logger log = LoggerFactory.getLogger(EVCacheTestDI.class);
@@ -154,21 +156,12 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
         }
     }
 
-    @Test(dependsOnMethods = { "testBulkAndTouch" })
-    public void testGetListener() throws Exception {
-        for (int i = 0; i < loops; i++) {
-            String key = "key_" + i;
-            evCache.<String> get(key, this);
-        }
-    }
-
-    @Test(dependsOnMethods = { "testGetListener" })
+    @Test(dependsOnMethods = { "testInsert" })
     public void testGetObservable() throws Exception {
         for (int i = 0; i < loops; i++) {
-            String key = "key_" + i;
-            if (log.isDebugEnabled()) log.debug("testGetObservable : " + "key = " + key);
-            Observable<String> obs = evCache.<String> observeGet(key);
-            obs.doOnNext(new OnNextHandler(key)).doOnError(new OnErrorHandler(key)).subscribe();
+            final String val = getObservable(i, evCache, Schedulers.computation());
+            assertNotNull(val);
+            assertTrue(val.equals("val_" + i));
         }
     }
 
@@ -207,7 +200,6 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
                     testBulk();
                     testBulkAndTouch();
                     testGetObservable();
-                    testGetListener();
                     waitForCallbacks();
                     testDelete();
                     Thread.sleep(1000);
@@ -225,32 +217,4 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
     public void onComplete(EVCacheOperationFuture<String> future) throws Exception {
         if (log.isDebugEnabled()) log.debug("getl : key : " + future.getKey() + ", val = " + future.get());
     }
-
-    static class OnErrorHandler implements Action1<Throwable> {
-        private final String key;
-
-        public OnErrorHandler(String key) {
-            this.key = key;
-        }
-
-        @Override
-        public void call(Throwable t1) {
-            if (log.isDebugEnabled()) log.debug("Could not get value for key: " + key + "; Exception is ", t1);
-        }
-    }
-
-    static class OnNextHandler implements Action1<String> {
-        private final String key;
-
-        public OnNextHandler(String key) {
-            this.key = key;
-        }
-
-        @Override
-        public void call(String val) {
-            if (log.isDebugEnabled()) log.debug("Observable : key " + key + "; val = " + val);
-        }
-
-    }
-
 }

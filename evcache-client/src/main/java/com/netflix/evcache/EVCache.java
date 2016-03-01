@@ -15,6 +15,7 @@ import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import net.spy.memcached.transcoders.Transcoder;
 import rx.Observable;
 import rx.Scheduler;
+import rx.Single;
 
 /**
  * An abstract interface for interacting with an Ephemeral Volatile Cache.
@@ -415,119 +416,32 @@ public interface EVCache {
      * @param key
      *            key to get. Ensure the key is properly encoded and does not
      *            contain whitespace or control characters.
-     * @param listener
-     *            Listener that will be notified when the operation is
-     *            completed.
      * @return the Value for the given key from the cache (null if there is
      *         none).
      * @throws EVCacheException
      *             in the rare circumstance where queue is too full to accept
      *             any more requests or issues during deserialization or any IO
      *             Related issues
-     * 
-     *             Note: If the data is replicated by zone, then we can the
-     *             value from the zone local to the client. If we cannot find
-     *             this value then null is returned. This is transparent to the
-     *             users.
-     *             
-     * @deprecated This is a sub-optimal operation does not support Retries, Fast Failures, FIT, GC Detection, etc.
-     *             Will be removed in a subsequent release 
-*
-     */
-    <T> void get(String key, EVCacheGetOperationListener<T> listener) throws EVCacheException;
-
-    /**
-     * Retrieve the value for the given key.
      *
-     * @param key
-     *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters.
-     * @param tc
-     *            the Transcoder to deserialize the data
-     * @param listener
-     *            Listener that will be notified when the operation is
-     *            completed.
-     * @return the Value for the given key from the cache (null if there is
-     *         none).
-     * @throws EVCacheException
-     *             in the rare circumstance where queue is too full to accept
-     *             any more requests or issues during deserialization or any IO
-     *             Related issues
-     * 
-     *             Note: If the data is replicated by zone, then we can the
-     *             value from the zone local to the client. If we cannot find
-     *             this value then null is returned. This is transparent to the
-     *             users.
-     *             
-     * @deprecated This is a sub-optimal operation does not support Retries, Fast Failures, FIT, GC Detection, etc.
-     *             Will be removed in a subsequent release 
-     */
-    @Deprecated
-    <T> void get(String key, Transcoder<T> tc, EVCacheGetOperationListener<T> listener) throws EVCacheException;
-
-    /**
-     * Retrieve the value for the given key and return the {@link rx.Observable}
-     * . {@link rx.Subscriber}'s of the {@link rx.Observable} will be notified
-     * when the data is obtained from the remote cache.
-     *
-     * @param key
-     *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters.
-     * @param requestProperties
-     *            Additional properties that are part of the request.
-     * @return the {@link rx.Observable} that will be notified when the data is
-     *         fetched.
-     * @throws EVCacheException
-     *             in the rare circumstance where queue is too full to accept
-     *             any more requests or issues during deserialization or any IO
-     *             Related issues
-     *             
-     * @deprecated This is a sub-optimal operation does not support Retries, Fast Failures, FIT, GC Detection, etc.
-     *             Will be removed in a subsequent release 
-     */
-    @Deprecated
-    <T> Observable<T> observeGet(String key, Scheduler scheduler) throws EVCacheException;
-
-    /**
-     * Retrieve the value for the given key and return the {@link rx.Observable}
-     * . {@link rx.Subscriber}'s of the {@link rx.Observable} will be notified
-     * when the data is obtained from the remote cache.
-     *
-     * @param key
-     *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters.
-     * @return the {@link rx.Observable} that will be notified when the data is
-     *         fetched.
-     * @throws EVCacheException
-     *             in the rare circumstance where queue is too full to accept
-     *             any more requests or issues during deserialization or any IO
-     *             Related issues
-     *             
-     * @deprecated This is a sub-optimal operation does not support Retries, Fast Failures, FIT, GC Detection, etc.
-     *             Will be removed in a subsequent release 
-     */
-    @Deprecated
-    <T> Observable<T> observeGet(String key) throws EVCacheException;
-
-    /**
-     * Retrieve the value for the given key.
-     *
-     * @param key
-     *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters.
-     * @return the Value for the given key from the cache (null if there is
-     *         none).
-     * @throws EVCacheException
-     *             in the rare circumstance where queue is too full to accept
-     *             any more requests or issues during deserialization or any IO
-     *             Related issues
-     * 
      *             Note: If the data is replicated by zone, then we can the
      *             value from the zone local to the client. If we cannot find
      *             this value then null is returned. This is transparent to the
      *             users.
      */
     <T> T get(String key) throws EVCacheException;
+
+    /**
+     * Retrieve the value for the given key.
+     *
+     * @param key
+     *            key to get. Ensure the key is properly encoded and does not
+     *            contain whitespace or control characters.
+     * @param scheduler
+     *            the {@link Scheduler} to perform subscription actions on
+     * @return the Value for the given key from the cache (null if there is
+     *         none).
+     */
+    <T> Single<T> get(String key, Scheduler scheduler);
 
     /**
      * Retrieve the value for the given a key using the specified Transcoder for
@@ -544,13 +458,29 @@ public interface EVCache {
      *             in the rare circumstance where queue is too full to accept
      *             any more requests or issues during deserialization or any IO
      *             Related issues
-     * 
+     *
      *             Note: If the data is replicated by zone, then we can the
      *             value from the zone local to the client. If we cannot find
      *             this value then null is returned. This is transparent to the
      *             users.
      */
     <T> T get(String key, Transcoder<T> tc) throws EVCacheException;
+
+    /**
+     * Retrieve the value for the given a key using the specified Transcoder for
+     * deserialization.
+     *
+     * @param key
+     *            key to get. Ensure the key is properly encoded and does not
+     *            contain whitespace or control characters.
+     * @param tc
+     *            the Transcoder to deserialize the data
+     * @param scheduler
+     *            the {@link Scheduler} to perform subscription actions on
+     * @return the Value for the given key from the cache (null if there is
+     *         none).
+     */
+    <T> Single<T> get(String key, Transcoder<T> tc, Scheduler scheduler);
 
     /**
      * Get with a single key and reset its expiration.
