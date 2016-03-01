@@ -1,11 +1,8 @@
 package com.netflix.evcache.test;
 
 
-import com.google.inject.AbstractModule;
 import com.google.inject.Injector;
 import com.netflix.appinfo.ApplicationInfoManager;
-import com.netflix.appinfo.EurekaInstanceConfig;
-import com.netflix.appinfo.MyDataCenterInstanceConfig;
 import com.netflix.config.ConfigurationManager;
 import com.netflix.discovery.guice.EurekaModule;
 import com.netflix.evcache.EVCache;
@@ -13,7 +10,6 @@ import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheModule;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.connection.ConnectionModule;
-import com.netflix.evcache.connection.IConnectionFactoryProvider;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
@@ -28,13 +24,10 @@ import java.util.Properties;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.log4j.BasicConfigurator;
-import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
+import rx.Scheduler;
 
 @SuppressWarnings("unused")
 public abstract class Base  {
@@ -214,6 +207,13 @@ public abstract class Base  {
     public Map<String, String> getBulkAndTouch(String keys[], EVCache gCache, int ttl) throws Exception {
         final Map<String, String> value = gCache.<String>getBulkAndTouch(Arrays.asList(keys), null, ttl);
         if(log.isDebugEnabled()) log.debug("getBulk : keys : " + Arrays.toString(keys) + "; values = " + value);
+        return value;
+    }
+
+    public String getObservable(int i, EVCache gCache, Scheduler scheduler) throws Exception {
+        String key = "key_" + i;
+        String value = gCache.<String>get(key, scheduler).toBlocking().value();
+        if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
         return value;
     }
 
