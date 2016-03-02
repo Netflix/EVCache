@@ -86,10 +86,16 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             final int rendMemcachedPort = (metaInfo != null && metaInfo.containsKey("rend.memcached.port")) ? Integer.parseInt(metaInfo.get("evcache.port")) : 0;
             final int rendMementoPort = (metaInfo != null && metaInfo.containsKey("rend.memento.port")) ? Integer.parseInt(metaInfo.get("evcache.port")) : 0;
             final ServerGroup rSet = new ServerGroup(zone, rSetName);
-            final Set<InetSocketAddress> instances = new HashSet<InetSocketAddress>();
-            final EVCacheServerGroupConfig config = new EVCacheServerGroupConfig(rSet, instances, rendPort, rendMemcachedPort, rendMementoPort);
-
-            if (!instancesSpecific.containsKey(rSet)) instancesSpecific.put(rSet, config);
+            final Set<InetSocketAddress> instances;
+            final EVCacheServerGroupConfig config;
+            if (instancesSpecific.containsKey(rSet)) {
+                config = instancesSpecific.get(rSet);
+                instances = config.getInetSocketAddress();
+            } else {
+                instances = new HashSet<InetSocketAddress>();
+                config = new EVCacheServerGroupConfig(rSet, instances, rendPort, rendMemcachedPort, rendMementoPort);
+                instancesSpecific.put(rSet, config);
+            }
 
             /* Don't try to use downed instances */
             final InstanceStatus status = iInfo.getStatus();

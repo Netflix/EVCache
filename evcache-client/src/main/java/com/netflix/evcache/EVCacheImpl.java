@@ -304,8 +304,7 @@ final public class EVCacheImpl implements EVCache {
         final String canonicalKey = getCanonicalizedKey(key);
         if (_useInMemoryCache.get()) {
             T value = (T) getInMemoryCache().get(canonicalKey);
-            if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName
-                + ", key : " + canonicalKey + "; value : " + value);
+            if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + canonicalKey + "; value : " + value);
             if (value != null) return Single.just(value);
         }
 
@@ -316,12 +315,11 @@ final public class EVCacheImpl implements EVCache {
             if (data == null && hasZF) {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
                 if (fbClients != null && !fbClients.isEmpty()) {
-                    return Observable.concat(Observable.from(fbClients).map(fbClient ->
-                        getData(fbClient, canonicalKey, tc, throwExc, false, scheduler).doOnSuccess(fbData ->
-                            EVCacheMetricsFactory.increment(_appName, _cacheName, fbClient.getServerGroupName(), _metricPrefix + "-RETRY_" + ((fbData == null)
-                                ? "MISS" : "HIT"))
-                        ).toObservable()
-                    )).firstOrDefault(null, fbData -> (fbData != null)).toSingle();
+                    return Observable.concat(Observable.from(fbClients).map(
+                            fbClient -> getData(fbClient, canonicalKey, tc, throwExc, false, scheduler)
+                            .doOnSuccess(fbData -> EVCacheMetricsFactory.increment(_appName, _cacheName, fbClient.getServerGroupName(), _metricPrefix + "-RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
+                            .toObservable()))
+                            .firstOrDefault(null, fbData -> (fbData != null)).toSingle();
                 }
             }
             return Single.just(data);
@@ -331,18 +329,14 @@ final public class EVCacheImpl implements EVCache {
                 if (event != null) event.setAttribute("status", "GHIT");
                 if (_useInMemoryCache.get()) {
                     getInMemoryCache().put(canonicalKey, data);
-                    if (log.isDebugEnabled() && shouldLog()) log.debug("Value added to inmemory cache for APP "
-                        + _appName + ", key : " + canonicalKey);
+                    if (log.isDebugEnabled() && shouldLog()) log.debug("Value added to inmemory cache for APP " + _appName + ", key : " + canonicalKey);
                 }
             } else {
                 if (event != null) event.setAttribute("status", "GMISS");
                 if (log.isInfoEnabled() && shouldLog())
-                    log.info("GET : APP " + _appName + " ; cache miss for key : "
-                        + canonicalKey);
+                    log.info("GET : APP " + _appName + " ; cache miss for key : " + canonicalKey);
             }
-            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : APP " + _appName + ", key [" + canonicalKey
-                + "], Value [" + data + "]" + ", ServerGroup : " + client
-                .getServerGroup());
+            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : APP " + _appName + ", key [" + canonicalKey + "], Value [" + data + "]" + ", ServerGroup : " + client .getServerGroup());
             if (event != null) endEvent(event);
             return data;
         }).onErrorReturn(ex -> {
@@ -360,8 +354,7 @@ final public class EVCacheImpl implements EVCache {
             }
         }).doAfterTerminate(() -> {
             op.stop();
-            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : APP " + _appName + ", Took " + op.getDuration()
-                + " milliSec.");
+            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : APP " + _appName + ", Took " + op.getDuration() + " milliSec.");
         });
     }
 
