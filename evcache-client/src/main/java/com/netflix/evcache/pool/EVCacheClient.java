@@ -703,6 +703,35 @@ public class EVCacheClient {
         return chunkData;
     }
 
+    /** 
+     * Retrieves all the chunks as is. This is mainly used for debugging. 
+     * 
+     * @param key
+     * @return Returns all the chunks retrieved. 
+     * @throws EVCacheReadQueueException
+     * @throws EVCacheException
+     * @throws Exception
+     */
+    public Map<String, CachedData> getAllChunks(String key) throws EVCacheReadQueueException, EVCacheException, Exception {
+        try {
+            final ChunkDetails<Object> cd = getChunkDetails(key);
+            if (cd == null) return null;
+            if (!cd.isChunked()) {
+                Map<String, CachedData> rv = new HashMap<String, CachedData>();
+                rv.put(key, (CachedData) cd.getData());
+                return rv;
+            } else {
+                final List<String> keys = cd.getChunkKeys();
+                final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(keys, chunkingTranscoder, null, "GetAllChunksOperation")
+                        .getSome(readTimeout.get().intValue(), TimeUnit.MILLISECONDS, false, false);
+                return dataMap;
+            }
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+        }
+        return null;
+    }
+
     public long incr(String key, long by, long defaultVal, int timeToLive) throws EVCacheException {
         return evcacheMemcachedClient.incr(key, by, defaultVal, timeToLive);
     }

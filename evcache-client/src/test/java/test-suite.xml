@@ -5,8 +5,8 @@
       <class name="com.netflix.evcache.test.MockEVCacheTest" />
     </classes>
   </test>
-  <!-- Uncomment this if EVCacheServer based Tests need to be run. Needs Eureka and EVCache clusters 
-  <test name="MockTests">
+  <!-- Uncomment this if EVCacheServer based Tests need to be run. Needs Eureka and EVCache clusters
+  <test name="EurekaTests">
     <classes>
       <class name="com.netflix.evcache.test.EVCacheTestDI" />
     </classes>
