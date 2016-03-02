@@ -3,7 +3,6 @@ package com.netflix.evcache.test;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Future;
@@ -16,9 +15,6 @@ import com.netflix.evcache.EVCache;
 import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 
-import rx.Observable;
-import rx.Single;
-import rx.functions.Action1;
 import rx.schedulers.Schedulers;
 
 public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<String> {
@@ -151,7 +147,7 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
             if (val == null) {
                 if (log.isDebugEnabled()) log.debug("key " + key + " returned null");
             } else {
-                assertTrue(val.equals("val_" + i));
+                assertTrue(val.equals("val_replaced_" + i));
             }
         }
     }

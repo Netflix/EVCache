@@ -35,13 +35,13 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
      * 
      */
     @Override
-    public Map<ServerGroup, Set<InetSocketAddress>> discoverInstances() throws IOException {
+    public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances() throws IOException {
         final String nodeListString = System.getProperty(propertyName);
         if (log.isDebugEnabled())
             log.debug("List of Nodes" + nodeListString);
 
         if (nodeListString != null && nodeListString.length() > 0) {
-            final Map<ServerGroup, Set<InetSocketAddress>> instancesSpecific = new HashMap<ServerGroup, Set<InetSocketAddress>>();
+            final Map<ServerGroup, EVCacheServerGroupConfig> instancesSpecific = new HashMap<ServerGroup,EVCacheServerGroupConfig>();
             final StringTokenizer setTokenizer = new StringTokenizer(nodeListString, ";");
             while (setTokenizer.hasMoreTokens()) {
                 final String token = setTokenizer.nextToken();
@@ -52,7 +52,8 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
                     final StringTokenizer instanceTokenizer = new StringTokenizer(instanceToken, ",");
                     final Set<InetSocketAddress> instanceList = new HashSet<InetSocketAddress>();
                     final ServerGroup rSet = new ServerGroup(replicaSetToken, replicaSetToken);
-                    instancesSpecific.put(rSet, instanceList);
+                    final EVCacheServerGroupConfig config = new EVCacheServerGroupConfig(rSet, instanceList, 0, 0, 0);
+                    instancesSpecific.put(rSet, config);
                     while (instanceTokenizer.hasMoreTokens()) {
                         final String instance = instanceTokenizer.nextToken();
                         int index = instance.indexOf(':');
@@ -78,7 +79,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
             return instancesSpecific;
         }
 
-        return Collections.<ServerGroup, Set<InetSocketAddress>> emptyMap();
+        return Collections.<ServerGroup, EVCacheServerGroupConfig> emptyMap();
     }
 
     @Override

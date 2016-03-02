@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 
 import net.spy.memcached.transcoders.Transcoder;
-import rx.Observable;
 import rx.Scheduler;
 import rx.Single;
 

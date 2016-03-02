@@ -23,6 +23,9 @@ import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 
+import rx.schedulers.Schedulers;
+
+@SuppressWarnings({"deprecation", "unused"})
 public class SimpleEVCacheTest extends Base {
     private static final Logger log = LogManager.getLogger(SimpleEVCacheTest.class);
 
@@ -30,7 +33,8 @@ public class SimpleEVCacheTest extends Base {
 
     public static void main(String args[]) {
         SimpleEVCacheTest test = new SimpleEVCacheTest();
-        System.setProperty("EVCACHE-NODES",args[0]);
+        //System.setProperty("EVCACHE-NODES",args[0]);
+        System.setProperty("EVCACHE-NODES","evcache_cineps-useast1d-v005=ec2-54-167-247-180.compute-1.amazonaws.com:11211;evcache_cineps-useast1d-v006=ec2-54-80-177-139.compute-1.amazonaws.com:11211");
         test.setProps();
         test.testAll();
     }
@@ -60,8 +64,8 @@ public class SimpleEVCacheTest extends Base {
     }
 
     @BeforeSuite(dependsOnMethods = { "setProps" })
-    public void setupClusterDetailss() {
-        System.setProperty("EVCACHE-NODES","evcache-useast1d-v000=ec2-54-196-79-213.compute-1.amazonaws.com/54.196.79.213:11211");
+    public void setupClusterDetails() {
+        System.setProperty("EVCACHE-NODES","evcache-useast1d-v000=100.66.36.72:11211");
         manager = EVCacheClientPoolManager.getInstance();
     }
     
@@ -74,8 +78,9 @@ public class SimpleEVCacheTest extends Base {
             while (flag) {
                 try {
                     testInsert();
-                    testAppend();
+//                    testAppend();
                     testGet();
+                    testGetObservable();
                     testGetAndTouch();
                     testBulk();
                     testBulkAndTouch();
@@ -220,6 +225,15 @@ public class SimpleEVCacheTest extends Base {
             deleteLatch(i, "EVCACHE");
         }
     }
+    
+    public void testGetObservable() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            final String val = getObservable(i, evCache, Schedulers.computation());
+//            Observable<String> obs = evCache.<String> observeGet(key);
+//            obs.doOnNext(new OnNextHandler(key)).doOnError(new OnErrorHandler(key)).subscribe();
+        }
+    }
+    
 
     class StatusChecker implements Runnable {
         Future<Boolean>[] status;

@@ -7,7 +7,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.Weigher;
 import com.netflix.config.DynamicIntProperty;
+import com.netflix.config.DynamicLongProperty;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.servo.DefaultMonitorRegistry;
 import com.netflix.servo.MonitorRegistry;
@@ -18,6 +20,8 @@ import com.netflix.servo.monitor.MonitorConfig.Builder;
 import com.netflix.servo.monitor.StepCounter;
 import com.netflix.servo.tag.Tag;
 
+import net.spy.memcached.transcoders.Transcoder;
+
 /**
  * An In Memory cache that can be used to hold data for short duration. This is
  * helpful when the same key is repeatedly requested from EVCache within a short
@@ -27,10 +31,9 @@ import com.netflix.servo.tag.Tag;
 public class EVCacheInMemoryCache<T> {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheInMemoryCache.class);
-    private final DynamicIntProperty _cacheDuration; // The key will be cached
-                                                     // for this long
-    private final DynamicIntProperty _cacheSize; // This many items will be
-                                                 // cached
+    private final DynamicIntProperty _cacheDuration; // The key will be cached for this long
+    private final DynamicIntProperty _cacheSize; // This many items will be cached
+//    private final DynamicLongProperty _cacheWeight; // This is the max size in bytes 
     private final String appName;
 
     private Cache<String, T> cache;
@@ -46,6 +49,7 @@ public class EVCacheInMemoryCache<T> {
         });
 
         this._cacheSize = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.cache.size", 100);
+//        this._cacheWeight = EVCacheConfig.getInstance().getDynamicLongProperty(appName + ".inmemory.cache.weight", 0); //
         this._cacheSize.addCallback(new Runnable() {
             public void run() {
                 setupCache();
@@ -56,34 +60,35 @@ public class EVCacheInMemoryCache<T> {
 
     private void register(Monitor<?> monitor) {
         final MonitorRegistry registry = DefaultMonitorRegistry.getInstance();
-        if (registry.isRegistered(monitor)) registry.unregister(monitor); // This
-                                                                          // will
-                                                                          // ensure
-                                                                          // old
-                                                                          // cache
-                                                                          // values
-                                                                          // are
-                                                                          // unregistered
+        if (registry.isRegistered(monitor)) registry.unregister(monitor);
+        // This will ensure old cache values are unregistered
         registry.register(monitor);
     }
 
     private MonitorConfig getMonitorConfig(String appName, String metric, Tag tag) {
-        final Builder builder = MonitorConfig.builder("EVCacheInMemoryCache" + "-" + appName + "-" + metric).withTag(
-                tag);
+        final Builder builder = MonitorConfig.builder("EVCacheInMemoryCache" + "-" + appName + "-" + metric).withTag(tag);
         return builder.build();
     }
 
     private void setupCache() {
         try {
             final Cache<String, T> currentCache = this.cache;
-            this.cache = CacheBuilder.newBuilder()
-                    .maximumSize(_cacheSize.get())
-                    .expireAfterWrite(_cacheDuration.get(), TimeUnit.MILLISECONDS)
-                    .recordStats()
-                    .build();
+            CacheBuilder<Object, Object> builder = CacheBuilder.newBuilder().recordStats();
+            if(_cacheSize.get() > 0) {
+                builder = builder.maximumSize(_cacheSize.get());
+            }
+            if(_cacheDuration.get() > 0) {
+                builder = builder.expireAfterWrite(_cacheDuration.get(), TimeUnit.MILLISECONDS);
+            }
+//            if(_cacheWeight.get() > 0) {
+//                builder = builder.maximumWeight(_cacheWeight.get());
+//            }
             setupMonitoring(appName);
-            currentCache.invalidateAll();
-            currentCache.cleanUp();
+            this.cache = builder.build();
+            if(currentCache != null) {
+                currentCache.invalidateAll();
+                currentCache.cleanUp();
+            }
         } catch (Exception e) {
             log.error(e.getMessage(), e);
         }
@@ -232,5 +237,28 @@ public class EVCacheInMemoryCache<T> {
         if (cache == null) return;
         cache.invalidate(key);
         if (log.isDebugEnabled()) log.debug("DEL : appName : " + appName + "; Key : " + key);
+    }
+    
+    static class DataWeigher implements Weigher<Object, Object> {
+        
+        private Transcoder<?> transcoder;
+        
+        DataWeigher() {
+            
+        }
+
+        public Transcoder<?> getTranscoder() {
+            return transcoder;
+        }
+
+        public void setTranscoder(Transcoder<?> transcoder) {
+            this.transcoder = transcoder;
+        }
+
+        public int weigh(Object key, Object value) {
+            // TODO Auto-generated method stub
+            return 0;
+        }
+        
     }
 }

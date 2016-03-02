@@ -38,6 +38,7 @@ import net.spy.memcached.CASValue;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.ConnectionFactory;
 import net.spy.memcached.EVCacheMemcachedClient;
+import net.spy.memcached.MemcachedClient;
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.NodeLocator;
 import net.spy.memcached.internal.ListenableFuture;
@@ -49,7 +50,7 @@ import net.spy.memcached.transcoders.Transcoder;
 import rx.Scheduler;
 import rx.Single;
 
-@SuppressWarnings("unchecked")
+@SuppressWarnings({"rawtypes", "unchecked"})
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "REC_CATCH_EXCEPTION",
         "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE" })
 public class EVCacheClient {
@@ -70,6 +71,7 @@ public class EVCacheClient {
     private final String appName;
     private final String zone;
     private final ServerGroup serverGroup;
+    private final EVCacheServerGroupConfig config;
     private final int maxWriteQueueSize;
 
     private final ChainedDynamicProperty.IntProperty readTimeout;
@@ -83,7 +85,7 @@ public class EVCacheClient {
     private Counter addCounter = null;
     
 
-    EVCacheClient(String appName, String zone, int id, ServerGroup serverGroup,
+    EVCacheClient(String appName, String zone, int id, EVCacheServerGroupConfig config,
             List<InetSocketAddress> memcachedNodesInZone, int maxQueueSize, DynamicIntProperty maxReadQueueSize,
             ChainedDynamicProperty.IntProperty readTimeout, ChainedDynamicProperty.IntProperty bulkReadTimeout,
             DynamicIntProperty opQueueMaxBlockTime,
@@ -92,7 +94,8 @@ public class EVCacheClient {
         this.id = id;
         this.appName = appName;
         this.zone = zone;
-        this.serverGroup = serverGroup;
+        this.config = config;
+        this.serverGroup = config.getServerGroup();
         this.readTimeout = readTimeout;
         this.bulkReadTimeout = bulkReadTimeout;
         this.maxReadQueueSize = maxReadQueueSize;
@@ -106,8 +109,7 @@ public class EVCacheClient {
         this.chunkingTranscoder = new ChunkTranscoder();
         this.maxWriteQueueSize = maxQueueSize;
 
-        this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout,
-                appName, zone, id, serverGroup);
+        this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, appName, zone, id, serverGroup);
         this.connectionObserver = new EVCacheConnectionObserver(appName, serverGroup, id);
         this.evcacheMemcachedClient.addObserver(connectionObserver);
     }
@@ -198,7 +200,7 @@ public class EVCacheClient {
 
     private <T> ChunkDetails<T> getChunkDetails(String key) {
 
-        final List<String> firstKeys = new ArrayList<>(2);
+        final List<String> firstKeys = new ArrayList<String>(2);
         firstKeys.add(key);
         final String firstKey = key + "_00";
         firstKeys.add(firstKey);
@@ -1030,7 +1032,20 @@ public class EVCacheClient {
     }
 
     public Map<SocketAddress, Map<String, String>> getStats(String cmd) {
-        return evcacheMemcachedClient.getStats(cmd);
+        if(config.isRendInstance()) {
+            MemcachedClient mc = null;
+            try {
+                mc = new MemcachedClient(connectionFactory, memcachedNodesInZone);
+                return mc.getStats(cmd);
+            } catch(Exception ex) {
+                
+            } finally {
+                if(mc != null) mc.shutdown();
+            }
+            return Collections.<SocketAddress, Map<String, String>>emptyMap();
+        } else {
+            return evcacheMemcachedClient.getStats(cmd);
+        }
     }
 
     public Map<SocketAddress, String> getVersions() {

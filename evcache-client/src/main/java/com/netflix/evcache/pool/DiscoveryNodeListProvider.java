@@ -46,18 +46,18 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
      * @see com.netflix.evcache.pool.EVCacheNodeList#discoverInstances()
      */
     @Override
-    public Map<ServerGroup, Set<InetSocketAddress>> discoverInstances() throws IOException {
+    public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances() throws IOException {
 
         if ((applicationInfoManager.getInfo().getStatus() == InstanceStatus.DOWN)) {
-            return Collections.<ServerGroup, Set<InetSocketAddress>> emptyMap();
+            return Collections.<ServerGroup, EVCacheServerGroupConfig> emptyMap();
         }
 
         /* Get a list of EVCACHE instances from the DiscoveryManager */
         final Application app = _discoveryClient.getApplication(_appName);
-        if (app == null) return Collections.<ServerGroup, Set<InetSocketAddress>> emptyMap();
+        if (app == null) return Collections.<ServerGroup, EVCacheServerGroupConfig> emptyMap();
 
         final List<InstanceInfo> appInstances = app.getInstances();
-        final Map<ServerGroup, Set<InetSocketAddress>> instancesSpecific = new HashMap<ServerGroup, Set<InetSocketAddress>>();
+        final Map<ServerGroup, EVCacheServerGroupConfig> instancesSpecific = new HashMap<ServerGroup, EVCacheServerGroupConfig>();
 
         /* Iterate all the discovered instances to find usable ones */
         for (InstanceInfo iInfo : appInstances) {
@@ -80,9 +80,16 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             // We checked above if this instance is Amazon so no need to do a instanceof check
             final String zone = amznInfo.get(AmazonInfo.MetaDataKey.availabilityZone);
             final String rSetName = iInfo.getASGName();
+            final Map<String, String> metaInfo = iInfo.getMetadata();
+            final int evcachePort = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.port")) ? metaInfo.get("evcache.port") : DEFAULT_PORT);
+            final int rendPort = (metaInfo != null && metaInfo.containsKey("rend.port")) ? Integer.parseInt(metaInfo.get("evcache.port")) : 0;
+            final int rendMemcachedPort = (metaInfo != null && metaInfo.containsKey("rend.memcached.port")) ? Integer.parseInt(metaInfo.get("evcache.port")) : 0;
+            final int rendMementoPort = (metaInfo != null && metaInfo.containsKey("rend.memento.port")) ? Integer.parseInt(metaInfo.get("evcache.port")) : 0;
             final ServerGroup rSet = new ServerGroup(zone, rSetName);
+            final Set<InetSocketAddress> instances = new HashSet<InetSocketAddress>();
+            final EVCacheServerGroupConfig config = new EVCacheServerGroupConfig(rSet, instances, rendPort, rendMemcachedPort, rendMementoPort);
 
-            if (!instancesSpecific.containsKey(rSet)) instancesSpecific.put(rSet, new HashSet<InetSocketAddress>());
+            if (!instancesSpecific.containsKey(rSet)) instancesSpecific.put(rSet, config);
 
             /* Don't try to use downed instances */
             final InstanceStatus status = iInfo.getStatus();
@@ -93,9 +100,7 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                 continue;
             }
 
-            final Map<String, String> metaInfo = iInfo.getMetadata();
-            final int evcachePort = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.port"))
-                    ? metaInfo.get("evcache.port") : DEFAULT_PORT);
+            
             ChainedDynamicProperty.BooleanProperty useLocalIp = useLocalIpFPMap.get(rSet);
             InetSocketAddress address = null;
             if (useLocalIp == null) {
@@ -173,8 +178,7 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                 }
             }
 
-            final Set<InetSocketAddress> instancesInZone = instancesSpecific.get(rSet);
-            instancesInZone.add(address);
+            instances.add(address);
         }
         return instancesSpecific;
     }

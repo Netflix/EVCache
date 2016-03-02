@@ -75,7 +75,7 @@ final public class EVCacheImpl implements EVCache {
 
     private final EVCacheClientPoolManager _poolManager;
     private DistributionSummary setTTLSummary, replaceTTLSummary, touchTTLSummary, setDataSizeSummary, replaceDataSizeSummary, appendDataSizeSummary;
-    private Counter touchCounter, observeGetCounter;
+    private Counter touchCounter;
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
             boolean throwException,
@@ -292,8 +292,7 @@ final public class EVCacheImpl implements EVCache {
             return Single.error(new EVCacheException("Could not find a client to get the data APP " + _appName));
         }
 
-        final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key),
-            Call.GET);
+        final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key), Call.GET);
         if (event != null) {
             if (shouldThrottle(event)) {
                 EVCacheMetricsFactory.increment(_appName, _cacheName, _metricPrefix + "-THROTTLED");

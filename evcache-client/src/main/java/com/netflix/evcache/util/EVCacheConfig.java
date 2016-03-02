@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicIntProperty;
+import com.netflix.config.DynamicLongProperty;
 import com.netflix.config.DynamicPropertyFactory;
 import com.netflix.config.DynamicStringProperty;
 import com.netflix.config.Property;
@@ -36,6 +37,15 @@ public class EVCacheConfig {
         if (prop != null) return prop;
 
         prop = DynamicPropertyFactory.getInstance().getIntProperty(name, defaultValue);
+        fastPropMap.put(name, prop);
+        return prop;
+    }
+
+    public DynamicLongProperty getDynamicLongProperty(String name, int defaultValue) {
+        DynamicLongProperty prop = (DynamicLongProperty) fastPropMap.get(name);
+        if (prop != null) return prop;
+
+        prop = DynamicPropertyFactory.getInstance().getLongProperty(name, defaultValue);
         fastPropMap.put(name, prop);
         return prop;
     }

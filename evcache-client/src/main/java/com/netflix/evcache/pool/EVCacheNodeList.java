@@ -1,10 +1,8 @@
 package com.netflix.evcache.pool;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.UnknownServiceException;
 import java.util.Map;
-import java.util.Set;
 
 public interface EVCacheNodeList {
 
@@ -19,7 +17,6 @@ public interface EVCacheNodeList {
      *
      *  TODO : Add a fallback to get the list say from PersistedProperties
      */
-    public abstract Map<ServerGroup, Set<InetSocketAddress>> discoverInstances()
-            throws IOException;
+    public abstract Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances() throws IOException;
 
 }

@@ -672,7 +672,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         final Operation op = EVCacheMetricsFactory.getOperation("EVCacheClientPool-" + _appName + "-refresh");
         if (log.isDebugEnabled()) log.debug("refresh APP : " + _appName + "; force : " + force);
         try {
-            final Map<ServerGroup, Set<InetSocketAddress>> instances = provider.discoverInstances();
+            final Map<ServerGroup, EVCacheServerGroupConfig> instances = provider.discoverInstances();
             if (log.isDebugEnabled()) log.debug("instances : " + instances);
             // if no instances are found check to see if a clean up is needed
             // and bail immediately.
@@ -681,9 +681,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 return;
             }
 
-            for (Entry<ServerGroup, Set<InetSocketAddress>> serverGroupEntry : instances.entrySet()) {
+            for (Entry<ServerGroup, EVCacheServerGroupConfig> serverGroupEntry : instances.entrySet()) {
                 final ServerGroup rSet = serverGroupEntry.getKey();
-                final Set<InetSocketAddress> discoverdInstanceInServerGroup = serverGroupEntry.getValue();
+                final EVCacheServerGroupConfig config = serverGroupEntry.getValue();
+                final Set<InetSocketAddress> discoverdInstanceInServerGroup = config.getInetSocketAddress();
                 final String zone = rSet.getZone();
                 final Set<InetSocketAddress> discoveredHostsInServerGroup = (discoverdInstanceInServerGroup == null)
                         ? Collections.<InetSocketAddress> emptySet() : discoverdInstanceInServerGroup;
@@ -726,8 +727,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
                 // Let us create a list of SocketAddress from the discovered
                 // instaces in zone
-                final List<InetSocketAddress> memcachedSAInServerGroup = getMemcachedSocketAddressList(
-                        discoveredHostsInServerGroup);
+                final List<InetSocketAddress> memcachedSAInServerGroup = getMemcachedSocketAddressList(discoveredHostsInServerGroup);
 
                 if (memcachedSAInServerGroup.size() > 0) {
                     // now since there is a change with the instances in the
@@ -740,7 +740,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                                 + ".max.queue.length", 16384);
                         EVCacheClient client;
                         try {
-                            client = new EVCacheClient(_appName, zone, i, rSet, memcachedSAInServerGroup, maxQueueSize,
+                            client = new EVCacheClient(_appName, zone, i, config, memcachedSAInServerGroup, maxQueueSize,
                                     _maxReadQueueSize, _readTimeout, _bulkReadTimeout,
                                     _opQueueMaxBlockTime, _operationTimeout, this);
                             newClients.add(client);
