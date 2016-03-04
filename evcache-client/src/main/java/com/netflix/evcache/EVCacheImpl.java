@@ -323,7 +323,7 @@ final public class EVCacheImpl implements EVCache {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
                 if (fbClients != null && !fbClients.isEmpty()) {
                     return Observable.concat(Observable.from(fbClients).map(
-                            fbClient -> getData(fbClient, canonicalKey, tc, throwEx, false, scheduler) //TODO : for the last one make sure to pass throwExc
+                            fbClient -> getData(fbClients.indexOf(fbClient), fbClients.size(), fbClient, canonicalKey, tc, throwEx, throwExc, false, scheduler) //TODO : for the last one make sure to pass throwExc
                             .doOnSuccess(fbData -> increment(fbClient.getServerGroupName(), "RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
                             .toObservable()))
                             .firstOrDefault(null, fbData -> (fbData != null)).toSingle();
@@ -388,6 +388,11 @@ final public class EVCacheImpl implements EVCache {
             throw ex;
         }
     }
+    
+    private <T> Single<T> getData(int index, int size, EVCacheClient client, String canonicalKey, Transcoder<T> tc, boolean throwEx, boolean throwExc, boolean hasZF, Scheduler scheduler) {
+        if(index >= size -1) throwEx = throwExc; 
+        return getData(client, canonicalKey, tc, throwEx, hasZF, scheduler);
+    }
 
     private <T> Single<T> getData(EVCacheClient client, String canonicalKey, Transcoder<T> tc, boolean throwException, boolean hasZF, Scheduler scheduler) {
         if (client == null) return Single.error(new IllegalArgumentException("Client cannot be null"));
@@ -443,6 +448,98 @@ final public class EVCacheImpl implements EVCache {
         return this.getAndTouch(key, timeToLive, (Transcoder<T>) _transcoder);
     }
 
+
+    public <T> Single<T> getAndTouch(String key, int timeToLive, Scheduler scheduler) {
+        return this.getAndTouch(key, timeToLive, (Transcoder<T>) _transcoder, scheduler);
+    }
+
+    public <T> Single<T> getAndTouch(String key, int timeToLive, Transcoder<T> tc, Scheduler scheduler) {
+        if (null == key) return Single.error(new IllegalArgumentException("Key cannot be null"));
+
+        final boolean throwExc = doThrowException();
+        final EVCacheClient client = _pool.getEVCacheClientForRead();
+        if (client == null) {
+            increment("NULL_CLIENT");
+            return Single.error(new EVCacheException("Could not find a client to get and touch the data for APP " + _appName));
+        }
+
+        final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key), Call.GET_AND_TOUCH);
+        if (event != null) {
+            if (shouldThrottle(event)) {
+                increment("THROTTLED");
+                return Single.error(new EVCacheException("Request Throttled for app " + _appName + " & key " + key));
+            }
+            startEvent(event);
+        }
+
+        final String canonicalKey = getCanonicalizedKey(key);
+        if (_useInMemoryCache.get()) {
+            T value = (T) getInMemoryCache().get(canonicalKey);
+            if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + canonicalKey + "; value : " + value);
+            if (value != null) {
+                try {
+                    touch(key, timeToLive);
+                } catch (EVCacheException e) {
+                    throw sneakyThrow(new EVCacheException("Exception performing touch for APP " + _appName + ", key = " + canonicalKey, e));
+                }
+                return Single.just(value);
+            }
+        }
+
+        final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.GET_AND_TOUCH, stats, Operation.TYPE.MILLI);
+        final boolean hasZF = hasZoneFallback();
+        boolean throwEx = hasZF ? false : throwExc;
+        //anyway we have to touch all copies so let's just reuse getData instead of getAndTouch
+        return getData(client, canonicalKey, tc, throwEx, hasZF, scheduler).flatMap(data -> {
+            if (data == null && hasZF) {
+                final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
+                if (fbClients != null && !fbClients.isEmpty()) {
+                    return Observable.concat(Observable.from(fbClients).map(
+                            fbClient -> getData(fbClients.indexOf(fbClient), fbClients.size(), fbClient, canonicalKey, tc, throwEx, throwExc, false, scheduler) //TODO : for the last one make sure to pass throwExc
+                            .doOnSuccess(fbData -> increment(fbClient.getServerGroupName(), "RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
+                            .toObservable()))
+                            .firstOrDefault(null, fbData -> (fbData != null)).toSingle();
+                }
+            }
+            return Single.just(data);
+        }).map(data -> {
+            if (data != null) {
+                stats.cacheHit(Call.GET_AND_TOUCH);
+                if (event != null) event.setAttribute("status", "THIT");
+                if (_useInMemoryCache.get()) {
+                    getInMemoryCache().put(canonicalKey, data);
+                    if (log.isDebugEnabled() && shouldLog()) log.debug("Value added to inmemory cache for APP " + _appName + ", key : " + canonicalKey);
+                }
+                // touch all copies
+                try {
+                    touch(key, timeToLive);
+                } catch (EVCacheException e) {
+                    throw sneakyThrow(new EVCacheException("Exception performing touch for APP " + _appName + ", key = " + canonicalKey, e));
+                }
+                if (log.isDebugEnabled() && shouldLog()) log.debug("GET_AND_TOUCH : APP " + _appName + ", key [" + canonicalKey + "], Value [" + data + "]" + ", ServerGroup : " + client .getServerGroup());
+            } else {
+                if (event != null) event.setAttribute("status", "TMISS");
+                if (log.isInfoEnabled() && shouldLog()) log.info("GET_AND_TOUCH : APP " + _appName + " ; cache miss for key : " + canonicalKey);
+            }
+            if (event != null) endEvent(event);
+            return data;
+        }).onErrorReturn(ex -> {
+            if (ex instanceof net.spy.memcached.internal.CheckedOperationTimeoutException) {
+                if (event != null) eventError(event, ex);
+                if (!throwExc) return null;
+                throw sneakyThrow(new EVCacheException("CheckedOperationTimeoutException executing getAndTouch APP " + _appName + ", key = " + canonicalKey
+                + ".\nYou can set the following property to increase the timeout " + _appName + ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex));
+            } else {
+                if (event != null) eventError(event, ex);
+                if (!throwExc) return null;
+                throw sneakyThrow(new EVCacheException("Exception executing getAndTouch APP " + _appName + ", key = " + canonicalKey, ex));
+            }
+        }).doAfterTerminate(() -> {
+            op.stop();
+            if (log.isDebugEnabled() && shouldLog()) log.debug("GET_AND_TOUCH : APP " + _appName + ", Took " + op.getDuration() + " milliSec.");
+        });
+    }
+
     @Override
     public <T> T getAndTouch(String key, int timeToLive, Transcoder<T> tc) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException("Key cannot be null");
@@ -451,12 +548,11 @@ final public class EVCacheImpl implements EVCache {
         EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
             increment("NULL_CLIENT");
-            if (throwExc) throw new EVCacheException("Could not find a client to get and touch the data");
+            if (throwExc) throw new EVCacheException("Could not find a client to get and touch the data for App " + _appName);
             return null; // Fast failure
         }
 
-        final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key),
-                Call.GET_AND_TOUCH);
+        final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key), Call.GET_AND_TOUCH);
         if (event != null) {
             if (shouldThrottle(event)) {
                 increment("THROTTLED");
@@ -475,8 +571,7 @@ final public class EVCacheImpl implements EVCache {
             }
         }
 
-        final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.GET_AND_TOUCH, stats,
-                Operation.TYPE.MILLI);
+        final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.GET_AND_TOUCH, stats, Operation.TYPE.MILLI);
         try {
             final boolean hasZF = hasZoneFallback();
             boolean throwEx = hasZF ? false : throwExc;
@@ -486,7 +581,7 @@ final public class EVCacheImpl implements EVCache {
                 for (int i = 0; i < fbClients.size(); i++) {
                     final EVCacheClient fbClient = fbClients.get(i);
                     if(i >= fbClients.size() - 1) throwEx = throwExc;
-                    data = getData(fbClient, canonicalKey, tc, throwEx, false);
+                    data = getAndTouchData(fbClient, canonicalKey, tc, throwEx, false, timeToLive);
                     if (log.isDebugEnabled() && shouldLog()) log.debug("GetAndTouch Retry for APP " + _appName + ", key [" + canonicalKey + "], Value [" + data + "]" + ", ServerGroup : " + fbClient.getServerGroup());
                     if (data != null) {
                         client = fbClient;
@@ -501,32 +596,24 @@ final public class EVCacheImpl implements EVCache {
                 if (event != null) event.setAttribute("status", "THIT");
                 if (_useInMemoryCache.get()) {
                     getInMemoryCache().put(canonicalKey, data);
-                    if (log.isDebugEnabled() && shouldLog()) log.debug("Value added to inmemory cache for APP "
-                            + _appName + ", key : " + canonicalKey);
+                    if (log.isDebugEnabled() && shouldLog()) log.debug("Value added to inmemory cache for APP " + _appName + ", key : " + canonicalKey);
                 }
 
-                // touch all zones
+                // touch all copies
                 touch(key, timeToLive);
+                if (log.isDebugEnabled() && shouldLog()) log.debug("GET_AND_TOUCH : APP " + _appName + ", key [" + canonicalKey + "], Value [" + data + "]" + ", ServerGroup : " + client.getServerGroup());
             } else {
-                if (log.isInfoEnabled() && shouldLog()) log.info("GET_AND_TOUCH : APP " + _appName
-                        + " ; cache miss for key : " + canonicalKey);
+                if (log.isInfoEnabled() && shouldLog()) log.info("GET_AND_TOUCH : APP " + _appName + " ; cache miss for key : " + canonicalKey);
                 if (event != null) event.setAttribute("status", "TMISS");
             }
-            if (log.isDebugEnabled() && shouldLog()) log.debug("GET_AND_TOUCH : APP " + _appName + ", key ["
-                    + canonicalKey + "], Value [" + data + "]" + ", ServerGroup : "
-                    + client.getServerGroup());
             if (event != null) endEvent(event);
             return data;
         } catch (net.spy.memcached.internal.CheckedOperationTimeoutException ex) {
-            if (log.isDebugEnabled() && shouldLog()) log.debug(
-                    "CheckedOperationTimeoutException executing getAndTouch APP " + _appName + ", key : "
-                            + canonicalKey, ex);
+            if (log.isDebugEnabled() && shouldLog()) log.debug("CheckedOperationTimeoutException executing getAndTouch APP " + _appName + ", key : " + canonicalKey, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return null;
-            throw new EVCacheException("CheckedOperationTimeoutException executing getAndTouch APP " + _appName
-                    + ", key  = " + canonicalKey
-                    + ".\nYou can set the following property to increase the timeout " + _appName
-                    + ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex);
+            throw new EVCacheException("CheckedOperationTimeoutException executing getAndTouch APP " + _appName + ", key  = " + canonicalKey
+            + ".\nYou can set the following property to increase the timeout " + _appName+ ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex);
         } catch (Exception ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing getAndTouch APP " + _appName
                     + ", key = " + canonicalKey, ex);
@@ -536,8 +623,7 @@ final public class EVCacheImpl implements EVCache {
                     ex);
         } finally {
             op.stop();
-            if (log.isDebugEnabled() && shouldLog()) log.debug("Took " + op.getDuration()
-                    + " milliSec to get&Touch the value for APP " + _appName + ", key " + canonicalKey);
+            if (log.isDebugEnabled() && shouldLog()) log.debug("Took " + op.getDuration() + " milliSec to get&Touch the value for APP " + _appName + ", key " + canonicalKey);
         }
     }
 

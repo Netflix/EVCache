@@ -482,6 +482,44 @@ public interface EVCache {
     <T> Single<T> get(String key, Transcoder<T> tc, Scheduler scheduler);
 
     /**
+     * Retrieve the value for the given a key using the default Transcoder for
+     * deserialization and reset its expiration using the passed timeToLive.
+     *
+     * @param key
+     *            key to get. Ensure the key is properly encoded and does not
+     *            contain whitespace or control characters.
+     * @param timeToLive
+     *            the new expiration of this object i.e. less than 30 days in
+     *            seconds or the exact expiry time as UNIX time
+     * @param scheduler
+     *            the {@link Scheduler} to perform subscription actions on
+     * @return the Value for the given key from the cache (null if there is
+     *         none).
+     */
+    <T> Single<T> getAndTouch(String key, int timeToLive, Scheduler scheduler);
+    
+    /**
+     * Retrieve the value for the given a key using the default Transcoder for
+     * deserialization and reset its expiration using the passed timeToLive.
+     *
+     * @param key
+     *            key to get. Ensure the key is properly encoded and does not
+     *            contain whitespace or control characters.
+     * @param timeToLive
+     *            the new expiration of this object i.e. less than 30 days in
+     *            seconds or the exact expiry time as UNIX time
+     * @param tc
+     *            the Transcoder to deserialize the data
+     * @param scheduler
+     *            the {@link Scheduler} to perform subscription actions on
+     * @return the Value for the given key from the cache (null if there is
+     *         none).
+     */
+    <T> Single<T> getAndTouch(String key, int timeToLive, Transcoder<T> tc, Scheduler scheduler);
+    
+    
+    
+    /**
      * Get with a single key and reset its expiration.
      *
      * @param key

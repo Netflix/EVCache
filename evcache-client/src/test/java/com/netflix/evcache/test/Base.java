@@ -217,6 +217,13 @@ public abstract class Base  {
         return value;
     }
 
+    public String getAndTouchObservable(int i, EVCache gCache, Scheduler scheduler) throws Exception {
+        String key = "key_" + i;
+        String value = gCache.<String>getAndTouch(key, 24 * 60 * 60, scheduler).toBlocking().value();
+        if(log.isDebugEnabled()) log.debug("getAndTouch : key : " + key + " val = " + value);
+        return value;
+    }
+
     class RemoteCaller implements Runnable {
         EVCache gCache;
         public RemoteCaller(EVCache c) {

@@ -162,6 +162,15 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
     }
 
     @Test(dependsOnMethods = { "testGetObservable" })
+    public void testGetAndTouchObservable() throws Exception {
+        for (int i = 0; i < loops; i++) {
+            final String val = getAndTouchObservable(i, evCache, Schedulers.computation());
+            assertNotNull(val);
+            assertTrue(val.equals("val_" + i));
+        }
+    }
+
+    @Test(dependsOnMethods = { "testGetAndTouchObservable" })
     public void waitForCallbacks() throws Exception {
         Thread.sleep(500);
     }
@@ -196,6 +205,7 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
                     testBulk();
                     testBulkAndTouch();
                     testGetObservable();
+                    testGetAndTouchObservable();
                     waitForCallbacks();
                     testDelete();
                     Thread.sleep(1000);
