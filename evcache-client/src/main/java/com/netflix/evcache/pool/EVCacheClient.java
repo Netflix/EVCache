@@ -1062,9 +1062,14 @@ public class EVCacheClient {
 
     public Map<SocketAddress, Map<String, String>> getStats(String cmd) {
         if(config.isRendInstance()) {
+            List<InetSocketAddress> udsproxyInetSocketAddress = new ArrayList<InetSocketAddress>(memcachedNodesInZone.size());
+            for(InetSocketAddress address : memcachedNodesInZone) {
+                udsproxyInetSocketAddress.add(new InetSocketAddress(address.getHostName(), config.getUdsproxyMemcachedPort()));
+            }
+            
             MemcachedClient mc = null;
             try {
-                mc = new MemcachedClient(connectionFactory, memcachedNodesInZone);
+                mc = new MemcachedClient(connectionFactory, udsproxyInetSocketAddress);
                 return mc.getStats(cmd);
             } catch(Exception ex) {
                 

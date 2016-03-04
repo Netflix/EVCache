@@ -83,8 +83,8 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             final Map<String, String> metaInfo = iInfo.getMetadata();
             final int evcachePort = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.port")) ? metaInfo.get("evcache.port") : DEFAULT_PORT);
             final int rendPort = (metaInfo != null && metaInfo.containsKey("rend.port")) ? Integer.parseInt(metaInfo.get("evcache.port")) : 0;
-            final int rendMemcachedPort = (metaInfo != null && metaInfo.containsKey("rend.memcached.port")) ? Integer.parseInt(metaInfo.get("evcache.port")) : 0;
-            final int rendMementoPort = (metaInfo != null && metaInfo.containsKey("rend.memento.port")) ? Integer.parseInt(metaInfo.get("evcache.port")) : 0;
+            final int udsproxyMemcachedPort = (metaInfo != null && metaInfo.containsKey("udsproxy.memcached.port")) ? Integer.parseInt(metaInfo.get("udsproxy.memcached.port")) : 0;
+            final int udsproxyMementoPort = (metaInfo != null && metaInfo.containsKey("udsproxy.memento.port")) ? Integer.parseInt(metaInfo.get("udsproxy.memento.port")) : 0;
             final ServerGroup rSet = new ServerGroup(zone, rSetName);
             final Set<InetSocketAddress> instances;
             final EVCacheServerGroupConfig config;
@@ -93,7 +93,7 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                 instances = config.getInetSocketAddress();
             } else {
                 instances = new HashSet<InetSocketAddress>();
-                config = new EVCacheServerGroupConfig(rSet, instances, rendPort, rendMemcachedPort, rendMementoPort);
+                config = new EVCacheServerGroupConfig(rSet, instances, rendPort, udsproxyMemcachedPort, udsproxyMementoPort);
                 instancesSpecific.put(rSet, config);
             }
 

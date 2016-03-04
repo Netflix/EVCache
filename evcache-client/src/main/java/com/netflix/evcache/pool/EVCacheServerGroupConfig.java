@@ -8,15 +8,15 @@ public class EVCacheServerGroupConfig {
     private final ServerGroup serverGroup;
     private final Set<InetSocketAddress> inetSocketAddress;
     private final int rendPort;
-    private final int rendMemcachedPort;
-    private final int rendMememtoPort;
+    private final int udsproxyMemcachedPort;
+    private final int updsproxyMememtoPort;
     public EVCacheServerGroupConfig(ServerGroup serverGroup, Set<InetSocketAddress> inetSocketAddress, int rendPort, int rendMemcachedPort, int rendMememtoPort) {
         super();
         this.serverGroup = serverGroup;
         this.inetSocketAddress = inetSocketAddress;
         this.rendPort = rendPort;
-        this.rendMemcachedPort = rendMemcachedPort;
-        this.rendMememtoPort = rendMememtoPort;
+        this.udsproxyMemcachedPort = rendMemcachedPort;
+        this.updsproxyMememtoPort = rendMememtoPort;
     }
 
     public ServerGroup getServerGroup() {
@@ -31,12 +31,12 @@ public class EVCacheServerGroupConfig {
         return rendPort;
     }
 
-    public int getRendMemcachedPort() {
-        return rendMemcachedPort;
+    public int getUdsproxyMemcachedPort() {
+        return udsproxyMemcachedPort;
     }
 
-    public int getRendMememtoPort() {
-        return rendMememtoPort;
+    public int getUpdsproxyMememtoPort() {
+        return updsproxyMememtoPort;
     }
     
     public boolean isRendInstance() {
@@ -46,7 +46,7 @@ public class EVCacheServerGroupConfig {
     @Override
     public String toString() {
         return "EVCacheInstanceConfig [InetSocketAddress=" + inetSocketAddress + ", rendPort=" + rendPort
-                + ", rendMemcachedPort=" + rendMemcachedPort + ", rendMememtoPort=" + rendMememtoPort + "]";
+                + ", rendMemcachedPort=" + udsproxyMemcachedPort + ", rendMememtoPort=" + updsproxyMememtoPort + "]";
     }
 
 }

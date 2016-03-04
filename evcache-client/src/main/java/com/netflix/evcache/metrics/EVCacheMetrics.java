@@ -19,7 +19,7 @@ import com.netflix.servo.monitor.StepCounter;
 public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     private static final Logger log = LoggerFactory.getLogger(EVCacheMetrics.class);
 
-    private final String monitorName, appName, cacheName;
+    private final String appName, cacheName;
     private StepCounter getCallsCounter, bulkCallsCounter, bulkHitsCounter, getHitsCounter, setCallsCounter, replaceCallCounter, delCallsCounter;
     private StepCounter bulkMissCounter, getMissCounter;
     private StatsTimer getDuration, bulkDuration;
@@ -27,7 +27,6 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     EVCacheMetrics(final String appName, String _cacheName) {
         this.appName = appName;
         this.cacheName = (_cacheName == null) ? "" : _cacheName;
-        this.monitorName = appName + "_" + cacheName;
 
         setupMonitoring(appName, cacheName);
     }
@@ -216,7 +215,7 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     }
 
     public String toString() {
-        return "EVCacheMetrics [ Name=" + monitorName + ", getCalls=" + getCallCounter() + ", bulkCalls="
+        return "EVCacheMetrics [ AppName=" + appName + ",  CachePrefix=" + cacheName + ", getCalls=" + getCallCounter() + ", bulkCalls="
                 + getBulkCounter() + ", setCalls=" + getSetCallCounter() + ", cacheHits="
                 + getHitCounter() + ", bulkHits=" + getBulkHitCounter() + ", deleteCalls=" + getDeleteCallCounter()
                 + ", getDuration=" + getGetCallDuration() + ", bulkDuration="
