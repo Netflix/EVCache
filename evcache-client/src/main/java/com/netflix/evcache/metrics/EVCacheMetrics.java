@@ -9,9 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.netflix.evcache.EVCache.Call;
-import com.netflix.servo.DefaultMonitorRegistry;
-import com.netflix.servo.MonitorRegistry;
-import com.netflix.servo.monitor.Monitor;
 import com.netflix.servo.monitor.StatsTimer;
 import com.netflix.servo.monitor.StepCounter;
 
@@ -29,12 +26,6 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
         this.cacheName = (_cacheName == null) ? "" : _cacheName;
 
         setupMonitoring(appName, cacheName);
-    }
-
-    private void register(Monitor<?> monitor) {
-        final MonitorRegistry registry = DefaultMonitorRegistry.getInstance();
-        if (registry.isRegistered(monitor)) registry.unregister(monitor);
-        registry.register(monitor);
     }
 
     public void operationCompleted(Call op, long duration) {
@@ -86,23 +77,14 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
         if (this.getHitsCounter != null) return this.getHitsCounter;
 
         this.getHitsCounter = EVCacheMetricsFactory.getStepCounter(appName, cacheName, "GetHit");
-
-        if (getMissCounter == null) {
-            this.getMissCounter = new StepCounter(EVCacheMetricsFactory.getMonitorConfig(appName, cacheName,
-                    "GetMiss")) {
-                @Override
-                public Number getValue() {
-                    return Long.valueOf(getCacheMiss());
-                }
-
-                @Override
-                public Number getValue(int pollerIndex) {
-                    return getValue();
-                }
-            };
-            register(getMissCounter);
-        }
         return getHitsCounter;
+    }
+
+    private StepCounter getMissCounter() {
+        if (this.getMissCounter != null) return this.getMissCounter;
+
+        this.getMissCounter = EVCacheMetricsFactory.getStepCounter(appName, cacheName, "GetMiss");
+        return getMissCounter;
     }
 
     private StepCounter getBulkCounter() {
@@ -113,23 +95,17 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     }
 
     private StepCounter getBulkHitCounter() {
-        this.bulkHitsCounter = EVCacheMetricsFactory.getStepCounter(appName, cacheName, "BulkHit");
-        if (this.bulkMissCounter == null) {
-            this.bulkMissCounter = new StepCounter(EVCacheMetricsFactory.getMonitorConfig(appName, cacheName,
-                    "BulkMiss")) {
-                @Override
-                public Number getValue() {
-                    return Long.valueOf(getBulkMiss());
-                }
+        if(this.bulkHitsCounter != null) return this.bulkHitsCounter;
 
-                @Override
-                public Number getValue(int pollerIndex) {
-                    return getValue();
-                }
-            };
-            register(bulkMissCounter);
-        }
+        this.bulkHitsCounter = EVCacheMetricsFactory.getStepCounter(appName, cacheName, "BulkHit");
         return bulkHitsCounter;
+    }
+
+    private StepCounter getBulkMissCounter() {
+        if(this.bulkMissCounter != null) return this.bulkMissCounter;
+
+        this.bulkMissCounter = EVCacheMetricsFactory.getStepCounter(appName, cacheName, "BulkMiss");
+        return bulkMissCounter;
     }
 
     private StepCounter getSetCallCounter() {
@@ -176,7 +152,7 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     }
 
     public long getCacheMiss() {
-        return getGetCalls() - getCacheHits();
+        return getMissCounter().getValue().longValue();
     }
 
     public long getBulkCalls() {
@@ -188,7 +164,7 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     }
 
     public long getBulkMiss() {
-        return getBulkCalls() - getBulkHits();
+        return getBulkMissCounter().getValue().longValue();
     }
 
     public long getSetCalls() {
@@ -204,6 +180,11 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     }
 
     public void cacheMiss(Call call) {
+        if (call == Call.BULK) {
+            this.getBulkMissCounter().increment();
+        } else {
+            this.getMissCounter().increment();
+        }
     }
 
     public long getGetDuration() {
@@ -216,10 +197,9 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
 
     public String toString() {
         return "EVCacheMetrics [ AppName=" + appName + ",  CachePrefix=" + cacheName + ", getCalls=" + getCallCounter() + ", bulkCalls="
-                + getBulkCounter() + ", setCalls=" + getSetCallCounter() + ", cacheHits="
-                + getHitCounter() + ", bulkHits=" + getBulkHitCounter() + ", deleteCalls=" + getDeleteCallCounter()
-                + ", getDuration=" + getGetCallDuration() + ", bulkDuration="
-                + getBulkCallDuration() + ", replaceCalls=" + getReplaceCallCounter() + "]";
+                + getBulkCounter() + ", setCalls=" + getSetCallCounter() + ", cacheHits=" + getHitCounter() + ", cacheMiss=" + getMissCounter() 
+                + ", bulkHits=" + getBulkHitCounter() + ", bulkMiss=" + getBulkMissCounter() + ", deleteCalls=" + getDeleteCallCounter()
+                + ", getDuration=" + getGetCallDuration() + ", bulkDuration=" + getBulkCallDuration() + ", replaceCalls=" + getReplaceCallCounter() + "]";
     }
 
     public double getHitRate() {

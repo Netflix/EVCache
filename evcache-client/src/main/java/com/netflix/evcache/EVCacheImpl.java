@@ -254,17 +254,14 @@ final public class EVCacheImpl implements EVCache {
                 if (event != null) event.setAttribute("status", "GHIT");
                 if (_useInMemoryCache.get()) {
                     getInMemoryCache().put(canonicalKey, data);
-                    if (log.isDebugEnabled() && shouldLog()) log.debug("Value added to inmemory cache for APP "
-                            + _appName + ", key : " + canonicalKey);
+                    if (log.isDebugEnabled() && shouldLog()) log.debug("Value added to inmemory cache for APP " + _appName + ", key : " + canonicalKey);
                 }
             } else {
+                stats.cacheMiss(Call.GET);
                 if (event != null) event.setAttribute("status", "GMISS");
-                if (log.isInfoEnabled() && shouldLog()) log.info("GET : APP " + _appName + " ; cache miss for key : "
-                        + canonicalKey);
+                if (log.isInfoEnabled() && shouldLog()) log.info("GET : APP " + _appName + " ; cache miss for key : " + canonicalKey);
             }
-            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : APP " + _appName + ", key [" + canonicalKey
-                    + "], Value [" + data + "]" + ", ServerGroup : " + client
-                            .getServerGroup());
+            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : APP " + _appName + ", key [" + canonicalKey + "], Value [" + data + "]" + ", ServerGroup : " + client.getServerGroup());
             if (event != null) endEvent(event);
             return data;
         } catch (net.spy.memcached.internal.CheckedOperationTimeoutException ex) {
@@ -339,6 +336,7 @@ final public class EVCacheImpl implements EVCache {
                     if (log.isDebugEnabled() && shouldLog()) log.debug("Value added to inmemory cache for APP " + _appName + ", key : " + canonicalKey);
                 }
             } else {
+                stats.cacheMiss(Call.GET);
                 if (event != null) event.setAttribute("status", "GMISS");
                 if (log.isInfoEnabled() && shouldLog())
                     log.info("GET : APP " + _appName + " ; cache miss for key : " + canonicalKey);
@@ -518,6 +516,7 @@ final public class EVCacheImpl implements EVCache {
                 }
                 if (log.isDebugEnabled() && shouldLog()) log.debug("GET_AND_TOUCH : APP " + _appName + ", key [" + canonicalKey + "], Value [" + data + "]" + ", ServerGroup : " + client .getServerGroup());
             } else {
+                stats.cacheMiss(Call.GET_AND_TOUCH);
                 if (event != null) event.setAttribute("status", "TMISS");
                 if (log.isInfoEnabled() && shouldLog()) log.info("GET_AND_TOUCH : APP " + _appName + " ; cache miss for key : " + canonicalKey);
             }
@@ -603,6 +602,7 @@ final public class EVCacheImpl implements EVCache {
                 touch(key, timeToLive);
                 if (log.isDebugEnabled() && shouldLog()) log.debug("GET_AND_TOUCH : APP " + _appName + ", key [" + canonicalKey + "], Value [" + data + "]" + ", ServerGroup : " + client.getServerGroup());
             } else {
+                stats.cacheHit(Call.GET_AND_TOUCH);
                 if (log.isInfoEnabled() && shouldLog()) log.info("GET_AND_TOUCH : APP " + _appName + " ; cache miss for key : " + canonicalKey);
                 if (event != null) event.setAttribute("status", "TMISS");
             }
@@ -854,6 +854,7 @@ final public class EVCacheImpl implements EVCache {
                         retMap.put(k, null);
                     }
                 }
+                stats.cacheMiss(Call.BULK);
                 /* If both Retry and first request fail Exit Immediately. */
                 increment(client.getServerGroupName(), "BULK_MISS");
                 if (event != null) endEvent(event);
