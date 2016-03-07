@@ -602,7 +602,7 @@ final public class EVCacheImpl implements EVCache {
                 touch(key, timeToLive);
                 if (log.isDebugEnabled() && shouldLog()) log.debug("GET_AND_TOUCH : APP " + _appName + ", key [" + canonicalKey + "], Value [" + data + "]" + ", ServerGroup : " + client.getServerGroup());
             } else {
-                stats.cacheHit(Call.GET_AND_TOUCH);
+                stats.cacheMiss(Call.GET_AND_TOUCH);
                 if (log.isInfoEnabled() && shouldLog()) log.info("GET_AND_TOUCH : APP " + _appName + " ; cache miss for key : " + canonicalKey);
                 if (event != null) event.setAttribute("status", "TMISS");
             }
