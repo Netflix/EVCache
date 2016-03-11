@@ -47,14 +47,11 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     private void setupMonitoring(String _appName, String _cacheName) {
         try {
             String mBeanName = "com.netflix.evcache:Group=" + _appName + ",SubGroup=AtlasStats";
-            if (_cacheName != null) {
-                mBeanName = mBeanName + ",SubSubGroup=" + _cacheName;
-            }
+            if (_cacheName != null) mBeanName = mBeanName + ",SubSubGroup=" + _cacheName;
             final ObjectName mBeanObj = ObjectName.getInstance(mBeanName);
             final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
             if (mbeanServer.isRegistered(mBeanObj)) {
-                if (log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanObj
-                        + " has been registered. Will unregister the previous instance and register a new one.");
+                if (log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanObj + " has been registered. Will unregister the previous instance and register a new one.");
                 mbeanServer.unregisterMBean(mBeanObj);
             }
             mbeanServer.registerMBean(this, mBeanObj);

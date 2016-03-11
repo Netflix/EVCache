@@ -100,12 +100,9 @@ public class EVCacheClient {
         this.bulkReadTimeout = bulkReadTimeout;
         this.maxReadQueueSize = maxReadQueueSize;
         this.pool = pool;
-        this.connectionFactory = pool.getEVCacheClientPoolManager().getConnectionFactoryProvider().getConnectionFactory(
-                appName, id, serverGroup, pool.getEVCacheClientPoolManager());
-        this.enableChunking = EVCacheConfig.getInstance().getChainedBooleanProperty(this.serverGroup.getName()
-                + ".chunk.data", appName + ".chunk.data", Boolean.FALSE);
-        this.chunkSize = EVCacheConfig.getInstance().getChainedIntProperty(this.serverGroup.getName() + ".chunk.size",
-                appName + ".chunk.size", 1180);
+        this.connectionFactory = pool.getEVCacheClientPoolManager().getConnectionFactoryProvider().getConnectionFactory(appName, id, serverGroup, pool.getEVCacheClientPoolManager());
+        this.enableChunking = EVCacheConfig.getInstance().getChainedBooleanProperty(this.serverGroup.getName()+ ".chunk.data", appName + ".chunk.data", Boolean.FALSE);
+        this.chunkSize = EVCacheConfig.getInstance().getChainedIntProperty(this.serverGroup.getName() + ".chunk.size", appName + ".chunk.size", 1180);
         this.chunkingTranscoder = new ChunkTranscoder();
         this.maxWriteQueueSize = maxQueueSize;
 

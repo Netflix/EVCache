@@ -35,8 +35,7 @@ public final class EVCacheMetricsFactory {
     private static final Map<String, Monitor<?>> monitorMap = new ConcurrentHashMap<String, Monitor<?>>();
     private static final Lock writeLock = (new ReentrantReadWriteLock()).writeLock();
     private static final Map<String, Timer> timerMap = new HashMap<String, Timer>();
-    private static final DynamicIntProperty sampleSize = EVCacheConfig.getInstance().getDynamicIntProperty(
-            "EVCache.metrics.sample.size", 100);
+    private static final DynamicIntProperty sampleSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCache.metrics.sample.size", 100);
 
     public static Operation getOperation(String name) {
         return getOperation(name, null, null, Operation.TYPE.MILLI);

@@ -92,16 +92,12 @@ final public class EVCacheImpl implements EVCache {
         _metricPrefix = (_cacheName == null) ? _appName : _appName + "-" + _cacheName + "-";
         this._poolManager = poolManager;
         this._pool = poolManager.getEVCacheClientPool(_appName);
-        _throwExceptionFP = EVCacheConfig.getInstance().getChainedBooleanProperty(_metricName + ".throw.exception",
-                _appName + ".throw.exception", Boolean.FALSE);
-        _zoneFallbackFP = EVCacheConfig.getInstance().getChainedBooleanProperty(_metricName + ".fallback.zone", _appName
-                + ".fallback.zone", Boolean.TRUE);
-        _bulkZoneFallbackFP = EVCacheConfig.getInstance().getDynamicBooleanProperty(_appName + ".bulk.fallback.zone",
-                true);
-        _bulkPartialZoneFallbackFP = EVCacheConfig.getInstance().getDynamicBooleanProperty(_appName
-                + ".bulk.partial.fallback.zone", true);
-        _useInMemoryCache = EVCacheConfig.getInstance().getChainedBooleanProperty(_appName + ".use.inmemory.cache",
-                "evcache.use.inmemory.cache", Boolean.FALSE);
+        final EVCacheConfig config = EVCacheConfig.getInstance();
+        _throwExceptionFP = config.getChainedBooleanProperty(_metricName + ".throw.exception", _appName + ".throw.exception", Boolean.FALSE);
+        _zoneFallbackFP = config.getChainedBooleanProperty(_metricName + ".fallback.zone", _appName + ".fallback.zone", Boolean.TRUE);
+        _bulkZoneFallbackFP = config.getDynamicBooleanProperty(_appName + ".bulk.fallback.zone", true);
+        _bulkPartialZoneFallbackFP = config.getDynamicBooleanProperty(_appName+ ".bulk.partial.fallback.zone", true);
+        _useInMemoryCache = config.getChainedBooleanProperty(_appName + ".use.inmemory.cache", "evcache.use.inmemory.cache", Boolean.FALSE);
         _pool.pingServers();
     }
 
@@ -999,8 +995,7 @@ final public class EVCacheImpl implements EVCache {
                         cd = client.getTranscoder().encode(value);
                     }
 
-                    if (setTTLSummary == null) this.setTTLSummary = EVCacheConfig.getInstance().getDistributionSummary(
-                            _appName + "-SetData-TTL");
+                    if (setTTLSummary == null) this.setTTLSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-SetData-TTL");
                     if (setTTLSummary != null) setTTLSummary.record(timeToLive);
                     if (cd != null) {
                         if (setDataSizeSummary == null) this.setDataSizeSummary = EVCacheConfig.getInstance()
@@ -1082,8 +1077,7 @@ final public class EVCacheImpl implements EVCache {
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
                 
                 if (cd != null) {
-                    if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheConfig.getInstance()
-                            .getDistributionSummary(_appName + "-AppendData-Size");
+                    if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-AppendData-Size");
                     if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
                 }
             }
@@ -1375,12 +1369,10 @@ final public class EVCacheImpl implements EVCache {
                         cd = client.getTranscoder().encode(value);
                     }
 
-                    if (replaceTTLSummary == null) this.replaceTTLSummary = EVCacheConfig.getInstance().getDistributionSummary(
-                            _appName + "-ReplaceData-TTL");
+                    if (replaceTTLSummary == null) this.replaceTTLSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-ReplaceData-TTL");
                     if (replaceTTLSummary != null) replaceTTLSummary.record(timeToLive);
                     if (cd != null) {
-                        if (replaceDataSizeSummary == null) this.replaceDataSizeSummary = EVCacheConfig.getInstance()
-                                .getDistributionSummary(_appName + "-ReplaceData-Size");
+                        if (replaceDataSizeSummary == null) this.replaceDataSizeSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-ReplaceData-Size");
                         if (replaceDataSizeSummary != null) this.replaceDataSizeSummary.record(cd.getData().length);
                     }
                 }

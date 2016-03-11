@@ -9,7 +9,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;
 import com.netflix.config.DynamicIntProperty;
-import com.netflix.config.DynamicLongProperty;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.servo.DefaultMonitorRegistry;
 import com.netflix.servo.MonitorRegistry;
@@ -40,8 +39,7 @@ public class EVCacheInMemoryCache<T> {
 
     public EVCacheInMemoryCache(String appName) {
         this.appName = appName;
-        this._cacheDuration = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.cache.duration.ms",
-                20);
+        this._cacheDuration = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.cache.duration.ms", 20);
         this._cacheDuration.addCallback(new Runnable() {
             public void run() {
                 setupCache();

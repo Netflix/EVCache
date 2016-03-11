@@ -14,10 +14,8 @@ public class ConnectionFactoryProvider implements IConnectionFactoryProvider {
     public ConnectionFactory getConnectionFactory(String appName, int id, ServerGroup serverGroup, EVCacheClientPoolManager poolManager) {
 
         final int maxQueueSize = ConfigurationManager.getConfigInstance().getInt(appName + ".max.queue.length", 16384);
-        final int operationTimeout = ConfigurationManager.getConfigInstance().getInt(appName + ".operation.timeout",
-                2500);
-        final int opQueueMaxBlockTime = ConfigurationManager.getConfigInstance().getInt(appName
-                + ".operation.QueueMaxBlockTime", 10);
+        final int operationTimeout = ConfigurationManager.getConfigInstance().getInt(appName + ".operation.timeout", 2500);
+        final int opQueueMaxBlockTime = ConfigurationManager.getConfigInstance().getInt(appName + ".operation.QueueMaxBlockTime", 10);
 
         return new BaseConnectionFactory(appName, maxQueueSize, operationTimeout, opQueueMaxBlockTime, id, serverGroup, poolManager);
     }

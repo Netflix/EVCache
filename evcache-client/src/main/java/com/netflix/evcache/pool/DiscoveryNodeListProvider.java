@@ -110,8 +110,7 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             ChainedDynamicProperty.BooleanProperty useLocalIp = useLocalIpFPMap.get(rSet);
             InetSocketAddress address = null;
             if (useLocalIp == null) {
-                useLocalIp = EVCacheConfig.getInstance().getChainedBooleanProperty(_appName + "." + rSet.getName()
-                        + ".use.localip", _appName + ".use.localip", Boolean.FALSE);
+                useLocalIp = EVCacheConfig.getInstance().getChainedBooleanProperty(_appName + "." + rSet.getName()+ ".use.localip", _appName + ".use.localip", Boolean.FALSE);
                 useLocalIpFPMap.put(rSet, useLocalIp);
             }
 

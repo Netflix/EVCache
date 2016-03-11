@@ -182,8 +182,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
         this.logOperations = config.getDynamicIntProperty(appName + ".log.operation", 0);
         this.reconcileInterval = config.getDynamicIntProperty(appName + ".reconcile.interval", 600000);
-        this.logOperationCalls = new DynamicStringSetProperty(appName + ".log.operation.calls",
-                "SET,DEL,GMISS,TMISS,BMISS");
+        this.logOperationCalls = new DynamicStringSetProperty(appName + ".log.operation.calls", "SET,DEL,GMISS,TMISS,BMISS");
 
         final Map<String, String> map = new HashMap<String, String>();
         map.put("APP", _appName);
@@ -448,8 +447,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                         if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + rSet
                                 + "; instance : " + entry.getKey()
                                 + " not found in discovery and will shutdown the client and init it again.");
-                        EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged", tags)
-                                .set(Long.valueOf(2));
+                        EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged", tags).set(Long.valueOf(2));
                         return true;
                     }
                 }
@@ -468,8 +466,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                                     + "; Node : " + node
                                     + " is not active. Will shutdown the client and init it again.");
 
-                            EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged",
-                                    tags).set(Long.valueOf(3));
+                            EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged",tags).set(Long.valueOf(3));
                             return true;
                         }
                     }

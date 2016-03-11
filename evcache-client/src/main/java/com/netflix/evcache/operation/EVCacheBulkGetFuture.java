@@ -167,12 +167,10 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                     }
                 }
 
-                if (!hasZF && timedoutOps.size() > 0) EVCacheMetricsFactory.increment(appName
-                    + "-getSome-CheckedOperationTimeout");
+                if (!hasZF && timedoutOps.size() > 0) EVCacheMetricsFactory.increment(appName + "-getSome-CheckedOperationTimeout");
 
                 for (Operation op : ops) {
-                    if (op.isCancelled() && throwException) throw new ExecutionException(new CancellationException(
-                        "Cancelled"));
+                    if (op.isCancelled() && throwException) throw new ExecutionException(new CancellationException("Cancelled"));
                     if (op.hasErrored() && throwException) throw new ExecutionException(op.getException());
                 }
                 Map<String, T> m = new HashMap<String, T>();
