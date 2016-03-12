@@ -8,9 +8,5 @@ EVCache is an abbreviation for:
 * Volatile  - The data can disappear any time (Evicted).
 * Cache - An in-memory key-value store.
 
-## Features
-* Distributed Key-Value store,  i.e., the cache is spread across multiple instances
-* AWS Zone-Aware - Data can be replicated across zones.
-* Registers and works with [Eureka] (https://github.com/Netflix/eureka/) for automatic discovery of new nodes/services.
 
-<iframe style="border:2;width:640px;height:480px;" src="http://icant.co.uk/slidesharehtml/embed.php?url=http://www.slideshare.net/ShashiShekarMadappa/evcache-at-netflix¤t=1"></iframe>
+[![ScreenShot](http://image.slidesharecdn.com/evcacheatnetflix-160311224739/95/evcache-at-netflix-1-638.jpg?cb=1457769154)](http://www.slideshare.net/ShashiShekarMadappa/evcache-at-netflix)
