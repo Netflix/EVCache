@@ -117,8 +117,7 @@ public class EVCacheFutures implements ListenableFuture<Boolean, OperationComple
     public void onComplete(OperationFuture<?> future) throws Exception {
         int val = completionCounter.decrementAndGet();
         if (val == 0) {
-            if (latch != null) latch.onComplete(future);// Pass the last future
-                                                        // to get completed
+            if (latch != null) latch.onComplete(future);// Pass the last future to get completed
         }
     }
 

@@ -82,7 +82,7 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             final String rSetName = iInfo.getASGName();
             final Map<String, String> metaInfo = iInfo.getMetadata();
             final int evcachePort = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.port")) ? metaInfo.get("evcache.port") : DEFAULT_PORT);
-            final int rendPort = (metaInfo != null && metaInfo.containsKey("rend.port")) ? Integer.parseInt(metaInfo.get("evcache.port")) : 0;
+            final int rendPort = (metaInfo != null && metaInfo.containsKey("rend.port")) ? Integer.parseInt(metaInfo.get("rend.port")) : 0;
             final int udsproxyMemcachedPort = (metaInfo != null && metaInfo.containsKey("udsproxy.memcached.port")) ? Integer.parseInt(metaInfo.get("udsproxy.memcached.port")) : 0;
             final int udsproxyMementoPort = (metaInfo != null && metaInfo.containsKey("udsproxy.memento.port")) ? Integer.parseInt(metaInfo.get("udsproxy.memento.port")) : 0;
             final ServerGroup rSet = new ServerGroup(zone, rSetName);
@@ -100,8 +100,7 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             /* Don't try to use downed instances */
             final InstanceStatus status = iInfo.getStatus();
             if (status == null || InstanceStatus.OUT_OF_SERVICE == status || InstanceStatus.DOWN == status) {
-                if (log.isDebugEnabled()) log.debug("The Status of the instance in Discovery is " + status
-                        + ". App Name : " + _appName + "; Zone : " + zone
+                if (log.isDebugEnabled()) log.debug("The Status of the instance in Discovery is " + status + ". App Name : " + _appName + "; Zone : " + zone
                         + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
                 continue;
             }

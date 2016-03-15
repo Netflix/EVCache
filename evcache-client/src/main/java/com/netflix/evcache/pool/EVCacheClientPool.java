@@ -53,33 +53,21 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private final String _zone;
     private final EVCacheClientPoolManager manager;
     private ServerGroupCircularIterator localServerGroupIterator = null;
-    private final DynamicIntProperty _poolSize; // Number of MemcachedClients to
-                                                // each cluster
-    private final ChainedDynamicProperty.IntProperty _readTimeout; // Timeout
-                                                                   // for
-                                                                   // readOperation
-    private final ChainedDynamicProperty.IntProperty _bulkReadTimeout; // Timeout
-                                                                       // for
-                                                                       // readOperation
+    private final DynamicIntProperty _poolSize; // Number of MemcachedClients to each cluster
+    private final ChainedDynamicProperty.IntProperty _readTimeout; // Timeout for readOperation
+    private final ChainedDynamicProperty.IntProperty _bulkReadTimeout; // Timeout for readOperation
     public static final String DEFAULT_PORT = "11211";
 
-    private final DynamicBooleanProperty enableServerGroup, _retryAcrossAllReplicas;
+    private final DynamicBooleanProperty _retryAcrossAllReplicas;
     private final DynamicBooleanProperty enableDynamicWriteOnlyMode;
-    // private final DynamicBooleanProperty throttleRequest;
-    // private final DynamicBooleanProperty disableWrites;
-    // private final DynamicIntProperty throttlingPercent;
-    // private final DynamicIntProperty throttlingTime;
-    // private final AtomicLong throttlingCount;
     private long lastReconcileTime = 0;
 
     private final DynamicIntProperty logOperations;
     private final DynamicStringSetProperty logOperationCalls;
 
     /* Experimental Properties - Start */
-    private final DynamicIntProperty _opQueueMaxBlockTime; // Timeout for adding
-                                                           // an operation
-    private final DynamicIntProperty _operationTimeout;// Timeout for write
-                                                       // operation
+    private final DynamicIntProperty _opQueueMaxBlockTime; // Timeout for adding an operation
+    private final DynamicIntProperty _operationTimeout;// Timeout for write operation
     private final DynamicIntProperty _maxReadQueueSize;
     private final DynamicIntProperty reconcileInterval;
     private final DynamicIntProperty _maxRetries;
@@ -90,16 +78,15 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     @SuppressWarnings("serial")
     private final Map<ServerGroup, BooleanProperty> writeOnlyFastPropertyMap = new ConcurrentHashMap<ServerGroup, BooleanProperty>() {
         @Override
-        public BooleanProperty get(Object _rSet) {
-            final ServerGroup rSet = ServerGroup.class.cast(_rSet);
-            BooleanProperty isServerGroupInWriteOnlyMode = super.get(rSet);
+        public BooleanProperty get(Object _serverGroup) {
+            final ServerGroup serverGroup = ServerGroup.class.cast(_serverGroup);
+            BooleanProperty isServerGroupInWriteOnlyMode = super.get(serverGroup);
             if (isServerGroupInWriteOnlyMode != null) return isServerGroupInWriteOnlyMode;
 
-            isServerGroupInWriteOnlyMode = new BooleanProperty(_appName + "." + rSet.getName()
-                    + ".EVCacheClientPool.writeOnly",
-                    new ChainedDynamicProperty.DynamicBooleanPropertyThatSupportsNull(_appName + "." + rSet.getZone()
-                            + ".EVCacheClientPool.writeOnly", Boolean.FALSE));
-            put(rSet, isServerGroupInWriteOnlyMode);
+            isServerGroupInWriteOnlyMode = EVCacheConfig.getInstance().
+                    getChainedBooleanProperty(_appName + "." + serverGroup.getName() + ".EVCacheClientPool.writeOnly", 
+                                              _appName + "." + serverGroup.getZone() + ".EVCacheClientPool.writeOnly", Boolean.FALSE); 
+            put(serverGroup, isServerGroupInWriteOnlyMode);
             return isServerGroupInWriteOnlyMode;
         };
     };
@@ -133,34 +120,21 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 refreshPool();
             }
         });
-        this._readTimeout = new ChainedDynamicProperty.IntProperty(appName + ".EVCacheClientPool.readTimeout",
-                EVCacheClientPoolManager.getDefaultReadTimeout());
+        this._readTimeout = new ChainedDynamicProperty.IntProperty(appName + ".EVCacheClientPool.readTimeout", EVCacheClientPoolManager.getDefaultReadTimeout());
         this._readTimeout.addCallback(new Runnable() {
             public void run() {
                 clearState();
                 refreshPool();
             }
         });
-        this._bulkReadTimeout = new ChainedDynamicProperty.IntProperty(appName + ".EVCacheClientPool.bulkReadTimeout",
-                _readTimeout);
+        this._bulkReadTimeout = new ChainedDynamicProperty.IntProperty(appName + ".EVCacheClientPool.bulkReadTimeout", _readTimeout);
         this._bulkReadTimeout.addCallback(new Runnable() {
             public void run() {
                 clearState();
                 refreshPool();
             }
         });
-        this.enableDynamicWriteOnlyMode = config.getDynamicBooleanProperty("EVCacheClientPool.enable.dynamic.writeonly",
-                true);
-
-        // TODO : get rid of this once all the clients have upgraded to this
-        // jar. This is only for backward compatibility
-        this.enableServerGroup = config.getDynamicBooleanProperty(appName + ".enable.replica.set", true);
-        this.enableServerGroup.addCallback(new Runnable() {
-            public void run() {
-                clearState();
-                refreshPool();
-            }
-        });
+        this.enableDynamicWriteOnlyMode = config.getDynamicBooleanProperty("EVCacheClientPool.enable.dynamic.writeonly", true);
 
         this._opQueueMaxBlockTime = config.getDynamicIntProperty(appName + ".operation.QueueMaxBlockTime", 10);
         this._opQueueMaxBlockTime.addCallback(new Runnable() {
@@ -181,8 +155,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this._maxRetries = config.getDynamicIntProperty(_appName + ".max.retry.count", 1);
 
         this.logOperations = config.getDynamicIntProperty(appName + ".log.operation", 0);
+        this.logOperationCalls = new DynamicStringSetProperty(appName + ".log.operation.calls", "SET,DELETE,GMISS,TMISS,BMISS_ALL,TOUCH,REPLACE");
         this.reconcileInterval = config.getDynamicIntProperty(appName + ".reconcile.interval", 600000);
-        this.logOperationCalls = new DynamicStringSetProperty(appName + ".log.operation.calls", "SET,DEL,GMISS,TMISS,BMISS");
 
         final Map<String, String> map = new HashMap<String, String>();
         map.put("APP", _appName);
@@ -304,9 +278,9 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             int size = memcachedWriteInstancesByServerGroup.size() - memcachedReadInstancesByServerGroup.size();
             if (size == 0) return new EVCacheClient[0];
             final EVCacheClient[] clientArr = new EVCacheClient[size];
-            for (ServerGroup rSet : memcachedWriteInstancesByServerGroup.keySet()) {
-                if (!memcachedReadInstancesByServerGroup.containsKey(rSet)) {
-                    final List<EVCacheClient> clients = memcachedWriteInstancesByServerGroup.get(rSet);
+            for (ServerGroup serverGroup : memcachedWriteInstancesByServerGroup.keySet()) {
+                if (!memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
+                    final List<EVCacheClient> clients = memcachedWriteInstancesByServerGroup.get(serverGroup);
                     if (clients.size() == 1) {
                         clientArr[--size] = clients.get(0); // frequently used
                         // usecase
@@ -328,8 +302,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         try {
             final EVCacheClient[] clientArr = new EVCacheClient[memcachedWriteInstancesByServerGroup.size()];
             int i = 0;
-            for (ServerGroup rSet : memcachedWriteInstancesByServerGroup.keySet()) {
-                final List<EVCacheClient> clients = memcachedWriteInstancesByServerGroup.get(rSet);
+            for (ServerGroup serverGroup : memcachedWriteInstancesByServerGroup.keySet()) {
+                final List<EVCacheClient> clients = memcachedWriteInstancesByServerGroup.get(serverGroup);
                 if (clients.size() == 1) {
                     clientArr[i++] = clients.get(0); // frequently used usecase
                 } else {
@@ -349,9 +323,9 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         refresh(false);
     }
 
-    private boolean haveInstancesInServerGroupChanged(ServerGroup rSet,
+    private boolean haveInstancesInServerGroupChanged(ServerGroup serverGroup,
             Set<InetSocketAddress> discoveredHostsInServerGroup) {
-        final List<EVCacheClient> clients = memcachedInstancesByServerGroup.get(rSet);
+        final List<EVCacheClient> clients = memcachedInstancesByServerGroup.get(serverGroup);
 
         // 1. if we have discovered instances in zone but not in our map then
         // return immediately
@@ -366,7 +340,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             final int inActiveServerCount = connectionObserver.getInActiveServerCount();
             final int sizeInDiscovery = discoveredHostsInServerGroup.size();
             final int sizeInHashing = client.getNodeLocator().getAll().size();
-            final BasicTagList tags = BasicTagList.of("ServerGroup", rSet.getName(), "AppName", _appName);
+            final BasicTagList tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "AppName", _appName);
             if (i == 0) {
                 EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-PoolSize", tags).set(Long.valueOf(size));
                 EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-ActiveConnections", tags).set(Long.valueOf(
@@ -378,13 +352,13 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-InHashing", tags).set(Long.valueOf(
                         sizeInHashing));
 
-                final List<EVCacheClient> readClients = memcachedReadInstancesByServerGroup.get(rSet);
+                final List<EVCacheClient> readClients = memcachedReadInstancesByServerGroup.get(serverGroup);
                 if (readClients != null && readClients.size() > 0) {
                     EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-ReadInstanceCount", tags).set(Long.valueOf(
                             readClients.get(0).getConnectionObserver()
                                     .getActiveServerCount()));
                 }
-                final List<EVCacheClient> writeClients = memcachedWriteInstancesByServerGroup.get(rSet);
+                final List<EVCacheClient> writeClients = memcachedWriteInstancesByServerGroup.get(serverGroup);
                 if (writeClients != null && writeClients.size() > 0) {
                     EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-WriteInstanceCount", tags).set(Long.valueOf(
                             writeClients.get(0).getConnectionObserver()
@@ -392,7 +366,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 }
             }
 
-            if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + rSet
+            if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                     + "\n\tActive Count : " + activeServerCount + "\n\tInactive Count : "
                     + inActiveServerCount + "\n\tDiscovery Count : " + sizeInDiscovery);
             final long currentTime = System.currentTimeMillis();
@@ -406,7 +380,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             }
             final boolean hashingSizeDiff = (sizeInHashing != sizeInDiscovery && sizeInHashing != activeServerCount);
             if (reconcile || activeServerCount != sizeInDiscovery || inActiveServerCount > 0 || hashingSizeDiff) {
-                if (log.isDebugEnabled()) log.debug("\n\t" + _appName + " & " + rSet
+                if (log.isDebugEnabled()) log.debug("\n\t" + _appName + " & " + serverGroup
                         + " experienced an issue.\n\tActive Server Count : " + activeServerCount);
                 if (log.isDebugEnabled()) log.debug("\n\tInActive Server Count : " + inActiveServerCount
                         + "\n\tDiscovered Instances : " + sizeInDiscovery);
@@ -420,7 +394,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                             .getInActiveServers().containsKey(instance)) {
                         // DynamicCounter.increment("EVCacheClientPool-" +
                         // _appName + "-" + client.getId() + "-different_set");
-                        if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + rSet
+                        if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
                                 + "; instance : " + instance
                                 + " not found and will shutdown the client and init it again.");
                         EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged", tags)
@@ -444,7 +418,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 for (Entry<InetSocketAddress, Long> entry : connectionObserver.getInActiveServers().entrySet()) {
                     if ((currentTime - entry.getValue().longValue()) > 900000 && !discoveredHostsInServerGroup.contains(
                             entry.getKey())) {
-                        if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + rSet
+                        if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
                                 + "; instance : " + entry.getKey()
                                 + " not found in discovery and will shutdown the client and init it again.");
                         EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged", tags).set(Long.valueOf(2));
@@ -462,7 +436,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                         // If the connection to a node is not active then we
                         // will reconnect the client.
                         if (!evcNode.isActive() && !discoveredHostsInServerGroup.contains(evcNode.getSocketAddress())) {
-                            if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + rSet
+                            if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
                                     + "; Node : " + node
                                     + " is not active. Will shutdown the client and init it again.");
 
@@ -475,7 +449,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 // 4. if there is a difference in the number of nodes in the
                 // KetamaHashingMap then refresh
                 if (hashingSizeDiff) {
-                    if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + rSet
+                    if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
                             + "; PoolSize : " + size + "; ActiveConnections : " + activeServerCount
                             + "; InactiveConnections : " + inActiveServerCount + "; InDiscovery : " + sizeInDiscovery
                             + "; InHashing : " + sizeInHashing + "; hashingSizeDiff : " + hashingSizeDiff
@@ -490,7 +464,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 // ServerGroup then shutdown the client
                 if (sizeInDiscovery == 0) {
                     if (activeServerCount == 0 || inActiveServerCount > activeServerCount) {
-                        if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + rSet
+                        if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
                                 + "; Will shutdown the client since there are no active servers and no servers for this ServerGroup in disocvery.");
                         EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged", tags)
                                 .set(Long.valueOf(9));
@@ -532,29 +506,29 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
-    private void setupNewClientsByServerGroup(ServerGroup rSet, List<EVCacheClient> newClients) {
-        final List<EVCacheClient> currentClients = memcachedInstancesByServerGroup.put(rSet, newClients);
+    private void setupNewClientsByServerGroup(ServerGroup serverGroup, List<EVCacheClient> newClients) {
+        final List<EVCacheClient> currentClients = memcachedInstancesByServerGroup.put(serverGroup, newClients);
 
         // if the zone is in write only mode then remove it from the Map
-        final BooleanProperty isZoneInWriteOnlyMode = writeOnlyFastPropertyMap.get(rSet);
+        final BooleanProperty isZoneInWriteOnlyMode = writeOnlyFastPropertyMap.get(serverGroup);
         if (isZoneInWriteOnlyMode.get().booleanValue()) {
-            memcachedReadInstancesByServerGroup.remove(rSet);
+            memcachedReadInstancesByServerGroup.remove(serverGroup);
         } else {
-            memcachedReadInstancesByServerGroup.put(rSet, newClients);
+            memcachedReadInstancesByServerGroup.put(serverGroup, newClients);
         }
-        memcachedWriteInstancesByServerGroup.put(rSet, newClients);
+        memcachedWriteInstancesByServerGroup.put(serverGroup, newClients);
 
         if (currentClients == null || currentClients.isEmpty()) return;
 
         // Now since we have replace the old instances shutdown all the old
         // clients
-        if (log.isDebugEnabled()) log.debug("Replaced an existing Pool for ServerGroup : " + rSet + "; and app "
+        if (log.isDebugEnabled()) log.debug("Replaced an existing Pool for ServerGroup : " + serverGroup + "; and app "
                 + _appName + " ;\n\tOldClients : " + currentClients
                 + ";\n\tNewClients : " + newClients);
         for (EVCacheClient client : currentClients) {
             if (!client.isShutdown()) {
                 if (log.isDebugEnabled()) log.debug("Shutting down in Fallback -> AppName : " + _appName
-                        + "; ServerGroup : " + rSet + "; client {" + client + "};");
+                        + "; ServerGroup : " + serverGroup + "; client {" + client + "};");
                 try {
                     if (client.getConnectionObserver() != null) {
                         final boolean obsRemoved = client.removeConnectionObserver();
@@ -578,24 +552,24 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     // Similarly if the app has been moved to Read+Write from write only add it
     // back to the read map.
     private void updateMemcachedReadInstancesByZone() {
-        for (ServerGroup rSet : memcachedInstancesByServerGroup.keySet()) {
-            final BooleanProperty isZoneInWriteOnlyMode = writeOnlyFastPropertyMap.get(rSet);
+        for (ServerGroup serverGroup : memcachedInstancesByServerGroup.keySet()) {
+            final BooleanProperty isZoneInWriteOnlyMode = writeOnlyFastPropertyMap.get(serverGroup);
             if (isZoneInWriteOnlyMode.get().booleanValue()) {
-                if (memcachedReadInstancesByServerGroup.containsKey(rSet)) {
-                    DynamicCounter.increment("EVCacheClientPool-WRITE_ONLY-" + rSet);
-                    memcachedReadInstancesByServerGroup.remove(rSet);
+                if (memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
+                    DynamicCounter.increment("EVCacheClientPool-WRITE_ONLY-" + serverGroup);
+                    memcachedReadInstancesByServerGroup.remove(serverGroup);
                 }
             } else {
-                if (!memcachedReadInstancesByServerGroup.containsKey(rSet)) {
-                    DynamicCounter.increment("EVCacheClientPool-READ_ENABLED-" + rSet);
-                    memcachedReadInstancesByServerGroup.put(rSet, memcachedInstancesByServerGroup.get(rSet));
+                if (!memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
+                    DynamicCounter.increment("EVCacheClientPool-READ_ENABLED-" + serverGroup);
+                    memcachedReadInstancesByServerGroup.put(serverGroup, memcachedInstancesByServerGroup.get(serverGroup));
                 }
             }
 
             if (enableDynamicWriteOnlyMode.get()) {
                 // if we lose over 50% of instances put that zone in writeonly
                 // mode.
-                final List<EVCacheClient> clients = memcachedReadInstancesByServerGroup.get(rSet);
+                final List<EVCacheClient> clients = memcachedReadInstancesByServerGroup.get(serverGroup);
                 if (clients != null && !clients.isEmpty()) {
                     final EVCacheClient client = clients.get(0);
                     if (client != null) {
@@ -604,7 +578,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                             final int activeServerCount = connectionObserver.getActiveServerCount();
                             final int inActiveServerCount = connectionObserver.getInActiveServerCount();
                             if (inActiveServerCount > activeServerCount) {
-                                memcachedReadInstancesByServerGroup.remove(rSet);
+                                memcachedReadInstancesByServerGroup.remove(serverGroup);
                             }
                         }
                     }
@@ -617,13 +591,13 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     .keySet());
 
             Map<String, Set<ServerGroup>> readServerGroupByZoneMap = new ConcurrentHashMap<String, Set<ServerGroup>>();
-            for (ServerGroup rSet : memcachedReadInstancesByServerGroup.keySet()) {
-                Set<ServerGroup> serverGroupList = readServerGroupByZoneMap.get(rSet.getZone());
+            for (ServerGroup serverGroup : memcachedReadInstancesByServerGroup.keySet()) {
+                Set<ServerGroup> serverGroupList = readServerGroupByZoneMap.get(serverGroup.getZone());
                 if (serverGroupList == null) {
                     serverGroupList = new HashSet<ServerGroup>();
-                    readServerGroupByZoneMap.put(rSet.getZone(), serverGroupList);
+                    readServerGroupByZoneMap.put(serverGroup.getZone(), serverGroupList);
                 }
-                serverGroupList.add(rSet);
+                serverGroupList.add(serverGroup);
             }
 
             Map<String, ServerGroupCircularIterator> _readServerGroupByZone = new ConcurrentHashMap<String, ServerGroupCircularIterator>();
@@ -651,11 +625,11 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 }
             }
             if (force || removeEntry) {
-                final ServerGroup rSet = serverGroupEntry.getKey();
-                memcachedReadInstancesByServerGroup.remove(rSet);
-                memcachedWriteInstancesByServerGroup.remove(rSet);
+                final ServerGroup serverGroup = serverGroupEntry.getKey();
+                memcachedReadInstancesByServerGroup.remove(serverGroup);
+                memcachedWriteInstancesByServerGroup.remove(serverGroup);
                 for (EVCacheClient client : instancesInAServerGroup) {
-                    if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + rSet
+                    if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                             + " has no active servers. Cleaning up this ServerGroup.");
                     client.shutdown(0, TimeUnit.SECONDS);
                     client.getConnectionObserver().shutdown();
@@ -679,24 +653,24 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             }
 
             for (Entry<ServerGroup, EVCacheServerGroupConfig> serverGroupEntry : instances.entrySet()) {
-                final ServerGroup rSet = serverGroupEntry.getKey();
+                final ServerGroup serverGroup = serverGroupEntry.getKey();
                 final EVCacheServerGroupConfig config = serverGroupEntry.getValue();
                 final Set<InetSocketAddress> discoverdInstanceInServerGroup = config.getInetSocketAddress();
-                final String zone = rSet.getZone();
+                final String zone = serverGroup.getZone();
                 final Set<InetSocketAddress> discoveredHostsInServerGroup = (discoverdInstanceInServerGroup == null)
                         ? Collections.<InetSocketAddress> emptySet() : discoverdInstanceInServerGroup;
-                if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + rSet
+                if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                         + "\n\tSize : " + discoveredHostsInServerGroup.size()
                         + "\n\tInstances in ServerGroup : " + discoveredHostsInServerGroup);
 
-                if (discoveredHostsInServerGroup.size() == 0 && memcachedInstancesByServerGroup.containsKey(rSet)) {
-                    if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + rSet
+                if (discoveredHostsInServerGroup.size() == 0 && memcachedInstancesByServerGroup.containsKey(serverGroup)) {
+                    if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                             + " has no active servers. Cleaning up this ServerGroup.");
-                    final List<EVCacheClient> clients = memcachedInstancesByServerGroup.remove(rSet);
-                    memcachedReadInstancesByServerGroup.remove(rSet);
-                    memcachedWriteInstancesByServerGroup.remove(rSet);
+                    final List<EVCacheClient> clients = memcachedInstancesByServerGroup.remove(serverGroup);
+                    memcachedReadInstancesByServerGroup.remove(serverGroup);
+                    memcachedWriteInstancesByServerGroup.remove(serverGroup);
                     for (EVCacheClient client : clients) {
-                        if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + rSet
+                        if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                                 + "\n\tClient : " + client + " will be shutdown in 30 seconds.");
                         client.shutdown(30, TimeUnit.SECONDS);
                         client.getConnectionObserver().shutdown();
@@ -707,16 +681,16 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 boolean instanceChangeInServerGroup = force;
                 if (instanceChangeInServerGroup) {
                     if (log.isWarnEnabled()) log.warn("FORCE REFRESH :: AppName :" + _appName + "; ServerGroup : "
-                            + rSet + "; Changed : "
+                            + serverGroup + "; Changed : "
                             + instanceChangeInServerGroup);
                 } else {
-                    instanceChangeInServerGroup = haveInstancesInServerGroupChanged(rSet, discoveredHostsInServerGroup);
-                    if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + rSet
+                    instanceChangeInServerGroup = haveInstancesInServerGroupChanged(serverGroup, discoveredHostsInServerGroup);
+                    if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                             + "\n\tinstanceChangeInServerGroup : " + instanceChangeInServerGroup);
                     if (!instanceChangeInServerGroup) {
                         // quick exit as everything looks fine. No new instances
                         // found and were inactive
-                        if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + rSet
+                        if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
                                 + "; Changed : " + instanceChangeInServerGroup);
                         continue;
                     }
@@ -743,18 +717,18 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                             newClients.add(client);
                             final int id = client.getId();
                             // DynamicCounter.increment("EVCacheClientPool-" +
-                            // rSet.getName() + "-init");
-                            if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + rSet
+                            // serverGroup.getName() + "-init");
+                            if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
                                     + "; intit : client.getId() : " + id);
                             lastReconcileTime = System.currentTimeMillis();
                         } catch (Exception e) {
-                            EVCacheMetricsFactory.increment("EVCacheClientPool-" + _appName + "-" + rSet.getName()
+                            EVCacheMetricsFactory.increment("EVCacheClientPool-" + _appName + "-" + serverGroup.getName()
                                     + "EVCacheClient-INIT_ERROR");
                             log.error("Unable to create EVCacheClient for app - " + _appName + " and Server Group - "
-                                    + rSet.getName(), e);
+                                    + serverGroup.getName(), e);
                         }
                     }
-                    if (newClients.size() > 0) setupNewClientsByServerGroup(rSet, newClients);
+                    if (newClients.size() > 0) setupNewClientsByServerGroup(serverGroup, newClients);
                 }
             }
 
@@ -794,15 +768,15 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
-    public void serverGroupDisabled(final ServerGroup rSet) {
-        if (memcachedInstancesByServerGroup.containsKey(rSet)) {
-            if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + rSet
+    public void serverGroupDisabled(final ServerGroup serverGroup) {
+        if (memcachedInstancesByServerGroup.containsKey(serverGroup)) {
+            if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                     + " has no active servers. Cleaning up this ServerGroup.");
-            final List<EVCacheClient> clients = memcachedInstancesByServerGroup.remove(rSet);
-            memcachedReadInstancesByServerGroup.remove(rSet);
-            memcachedWriteInstancesByServerGroup.remove(rSet);
+            final List<EVCacheClient> clients = memcachedInstancesByServerGroup.remove(serverGroup);
+            memcachedReadInstancesByServerGroup.remove(serverGroup);
+            memcachedWriteInstancesByServerGroup.remove(serverGroup);
             for (EVCacheClient client : clients) {
-                if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + rSet
+                if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                         + "\n\tClient : " + client + " will be shutdown in 30 seconds.");
                 client.shutdown(30, TimeUnit.SECONDS);
                 client.getConnectionObserver().shutdown();
@@ -835,66 +809,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
-    public boolean doFIT() {
-        // final FitContext fitContext = new FitContextImpl();
-        // if (fitContext.shouldInjectFailure(injectionPoint)) {
-        // final InjectedFailure failure =
-        // fitContext.retrieveFromContext(injectionPoint);
-        // int delay = failure.getDelay() == null ? 0 :
-        // failure.getDelay().intValue();
-        // final int timeout = _readTimeout.get().intValue();
-        //
-        // if (delay > 0) {
-        // try {
-        // if (log.isDebugEnabled()) log.debug("App : " + _appName + "; zone : "
-        // + _zone + "; Injected FIT Delay : " + delay + "msec.");
-        // Thread.sleep(Math.min(delay, timeout));
-        // } catch (InterruptedException e) {
-        // Thread.currentThread().interrupt();
-        // }
-        //
-        // if (delay >= timeout) return true;
-        // }
-        //
-        // if (failure.shouldFail()) {
-        // if (log.isDebugEnabled()) log.debug("App : " + _appName + "; zone : "
-        // + _zone + "; Injected FIT failure");
-        // return true;
-        // }
-        // }
-        return false;
-    }
-
-    // public boolean throttleRequest(Call call) {
-    // if (doFIT()) return true;
-    // if(!throttleRequest.get()) return false;
-    // if(disableWrites.get()) {
-    // if (call == Call.SET || call == Call.DELETE || call == Call.INCR || call
-    // == Call.DECR || call == Call.REPLACE) return true;
-    // }
-    // final int throttleTime = throttlingTime.get();
-    // if(throttleTime > 0) {
-    // try {
-    // if(log.isDebugEnabled()) log.debug("Throttle Request for " + throttleTime
-    // + " msec");
-    // Thread.sleep(throttleTime);
-    // } catch (InterruptedException e) {
-    // }
-    // return false;
-    // }
-    // final int throttlingPcnt = throttlingPercent.get();
-    // if(throttlingPcnt == 0) return false;
-    //
-    // final long currentVal = throttlingCount.getAndIncrement();
-    // boolean throttle = (currentVal % 100) < throttlingPcnt;
-    // if(throttle && log.isDebugEnabled()) log.debug("Throttle Request since
-    // this request falls in " + throttlingPcnt + "% of request");
-    // return throttle;
-    // }
-
     void shutdown() {
-        if (log.isDebugEnabled()) log.debug("EVCacheClientPool for App : " + _appName + " and Zone : " + _zone
-                + " is being shutdown.");
+        if (log.isDebugEnabled()) log.debug("EVCacheClientPool for App : " + _appName + " and Zone : " + _zone + " is being shutdown.");
         _shutdown = true;
         for (List<EVCacheClient> instancesInAZone : memcachedInstancesByServerGroup.values()) {
             for (EVCacheClient client : instancesInAZone) {
@@ -928,8 +844,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     public int getInstanceCount() {
         int instances = 0;
-        for (ServerGroup rSet : memcachedInstancesByServerGroup.keySet()) {
-            instances += memcachedInstancesByServerGroup.get(rSet).get(0).getConnectionObserver()
+        for (ServerGroup serverGroup : memcachedInstancesByServerGroup.keySet()) {
+            instances += memcachedInstancesByServerGroup.get(serverGroup).get(0).getConnectionObserver()
                     .getActiveServerCount();
         }
         return instances;
@@ -1027,7 +943,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     public boolean shouldLogOperation(String key, String op) {
         if (!isLogEventEnabled()) return false;
         if (!logOperationCalls.get().contains(op)) return false;
-        return key.hashCode() % 1000 < logOperations.get();
+        return key.hashCode() % 1000 <= logOperations.get();
     }
 
     @Override
@@ -1044,7 +960,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return "\nEVCacheClientPool [\n\t_appName=" + _appName + ",\n\t_zone=" + _zone
                 + ",\n\tlocalServerGroupIterator=" + localServerGroupIterator + ",\n\t_poolSize=" + _poolSize
                 + ",\n\t_readTimeout=" + _readTimeout + ",\n\t_bulkReadTimeout=" + _bulkReadTimeout
-                + ",\n\tenableServerGroup=" + enableServerGroup
                 + ",\n\tenableDynamicWriteOnlyMode=" + enableDynamicWriteOnlyMode + ",\n\tlogOperations="
                 + logOperations + ",\n\t_opQueueMaxBlockTime="
                 + _opQueueMaxBlockTime + ",\n\t_operationTimeout=" + _operationTimeout + ",\n\t_maxReadQueueSize="

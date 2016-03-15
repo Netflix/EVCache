@@ -32,8 +32,7 @@ public class EVCacheLatchImpl implements EVCacheLatch {
         this.count = policyToCount(policy, _count);
         this.latch = new CountDownLatch(count);
 
-        if (log.isDebugEnabled()) log.debug("Number of Futures = " + _count
-                + "; Number of Futures that need to completed for Latch to be released = " + this.count);
+        if (log.isDebugEnabled()) log.debug("Number of Futures = " + _count + "; Number of Futures that need to completed for Latch to be released = " + this.count);
     }
 
     /*
