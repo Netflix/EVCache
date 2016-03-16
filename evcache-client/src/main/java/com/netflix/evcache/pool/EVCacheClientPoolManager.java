@@ -66,12 +66,9 @@ import com.netflix.evcache.util.EVCacheConfig;
 @Singleton
 public class EVCacheClientPoolManager {
     private static final Logger log = LoggerFactory.getLogger(EVCacheClientPoolManager.class);
-    private static final DynamicIntProperty defaultReadTimeout = EVCacheConfig.getInstance().getDynamicIntProperty(
-            "default.read.timeout", 20);
-    private final DynamicIntProperty defaultRefreshInterval = EVCacheConfig.getInstance().getDynamicIntProperty(
-            "EVCacheClientPoolManager.refresh.interval", 60);
-    private static final DynamicStringProperty logEnabledApps = EVCacheConfig.getInstance().getDynamicStringProperty(
-            "EVCacheClientPoolManager.log.apps", "*");
+    private static final DynamicIntProperty defaultReadTimeout = EVCacheConfig.getInstance().getDynamicIntProperty("default.read.timeout", 20);
+    private final DynamicIntProperty defaultRefreshInterval = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheClientPoolManager.refresh.interval", 60);
+    private static final DynamicStringProperty logEnabledApps = EVCacheConfig.getInstance().getDynamicStringProperty("EVCacheClientPoolManager.log.apps", "*");
 
     @Deprecated
     private volatile static EVCacheClientPoolManager instance;

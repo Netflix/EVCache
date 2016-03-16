@@ -158,27 +158,21 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             } else {
                 if (useLocalIp.get().booleanValue() || amznInfo.get(AmazonInfo.MetaDataKey.vpcId) != null) {
                     final String localIp = amznInfo.get(AmazonInfo.MetaDataKey.localIpv4);
-                    final String localHostname = amznInfo.get(AmazonInfo.MetaDataKey.localHostname);
 
                     final InetAddress add = InetAddresses.forString(localIp);
-                    final InetAddress inetAddress = InetAddress.getByAddress(localHostname, add.getAddress());
+                    final InetAddress inetAddress = InetAddress.getByAddress(localIp, add.getAddress());
                     address = new InetSocketAddress(inetAddress, evcachePort);
     
-                    if (log.isDebugEnabled()) log.debug("VPC : localIp - " + localIp + ". localHostname : " + localHostname + "; add : " + add
-                            + "; inetAddress : " + inetAddress + "; address - " + address + "; App Name : " + _appName
-                            + "; Zone : " + zone + "; myZone - " + myZone
-                            + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
+                    if (log.isDebugEnabled()) log.debug("VPC : localIp - " + localIp + " ; add : " + add + "; inetAddress : " + inetAddress + "; address - " + address 
+                            + "; App Name : " + _appName + "; Zone : " + zone + "; myZone - " + myZone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
                 } else {
                     final String localIp = (isInCloud) ? amznInfo.get(AmazonInfo.MetaDataKey.localIpv4)
                             : amznInfo.get(AmazonInfo.MetaDataKey.publicIpv4);
-                    String localHostname = amznInfo.get(AmazonInfo.MetaDataKey.localHostname);
-                    if(localHostname == null) localHostname = localIp;
                     final InetAddress add = InetAddresses.forString(localIp);
-                    final InetAddress inetAddress = InetAddress.getByAddress(localHostname, add.getAddress());
+                    final InetAddress inetAddress = InetAddress.getByAddress(localIp, add.getAddress());
                     address = new InetSocketAddress(inetAddress, evcachePort);
-                    if (log.isDebugEnabled()) log.debug("CLASSIC : localIp - " + localIp + ". localHostname : " + localHostname + "; add : "
-                            + add + "; inetAddress : " + inetAddress + "; address - " + address + "; App Name : " + _appName
-                            + "; Zone : " + zone + "; myZone - " + myZone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
+                    if (log.isDebugEnabled()) log.debug("CLASSIC : localIp - " + localIp + " ; add : " + add + "; inetAddress : " + inetAddress + "; address - " + address 
+                            + "; App Name : " + _appName + "; Zone : " + zone + "; myZone - " + myZone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
                 }
             }
 
