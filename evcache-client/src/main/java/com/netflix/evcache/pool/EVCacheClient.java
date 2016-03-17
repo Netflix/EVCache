@@ -1193,6 +1193,10 @@ public class EVCacheClient {
     public Counter getAddCounter() {
         return addCounter;
     }
+    
+    public EVCacheServerGroupConfig getEVCacheConfig() {
+        return config;
+    }
 
    static class ChunkDetails<T> {
 
