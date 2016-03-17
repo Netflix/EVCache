@@ -224,4 +224,25 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         }
         return Collections.<Monitor<?>> emptyList();
     }
+
+    public long getCreateTime() {
+        return stTime;
+    }
+
+    public String getAppName() {
+        return _appName;
+    }
+
+    public String getHostName() {
+        return hostName;
+    }
+
+    public ServerGroup getServerGroup() {
+        return _serverGroup;
+    }
+
+    public int getId() {
+        return id;
+    }
+
 }
