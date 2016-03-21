@@ -96,11 +96,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private boolean _shutdown = false;
     private Map<ServerGroup, List<EVCacheClient>> memcachedInstancesByServerGroup = new ConcurrentHashMap<ServerGroup, List<EVCacheClient>>();
     private Map<ServerGroup, List<EVCacheClient>> memcachedReadInstancesByServerGroup = new ConcurrentHashMap<ServerGroup, List<EVCacheClient>>();
-    private Map<ServerGroup, List<EVCacheClient>> memcachedWriteInstancesByServerGroup = Collections
-            .synchronizedSortedMap(new TreeMap<ServerGroup, List<EVCacheClient>>());
+    private Map<ServerGroup, List<EVCacheClient>> memcachedWriteInstancesByServerGroup = Collections.synchronizedSortedMap(new TreeMap<ServerGroup, List<EVCacheClient>>());
+    private final Map<InetSocketAddress, Long> evCacheDiscoveryConnectionLostSet = new ConcurrentHashMap<InetSocketAddress, Long>();
     private Map<String, ServerGroupCircularIterator> readServerGroupByZone = new ConcurrentHashMap<String, ServerGroupCircularIterator>();
-    private ServerGroupCircularIterator memcachedFallbackReadInstances = new ServerGroupCircularIterator(Collections
-            .<ServerGroup> emptySet());
+    private ServerGroupCircularIterator memcachedFallbackReadInstances = new ServerGroupCircularIterator(Collections.<ServerGroup> emptySet());
     private final EVCacheNodeList provider;
 
     EVCacheClientPool(final String appName, final EVCacheNodeList provider, final EVCacheClientPoolManager manager) {
@@ -323,8 +322,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         refresh(false);
     }
 
-    private boolean haveInstancesInServerGroupChanged(ServerGroup serverGroup,
-            Set<InetSocketAddress> discoveredHostsInServerGroup) {
+    protected boolean haveInstancesInServerGroupChanged(ServerGroup serverGroup, Set<InetSocketAddress> discoveredHostsInServerGroup) {
         final List<EVCacheClient> clients = memcachedInstancesByServerGroup.get(serverGroup);
 
         // 1. if we have discovered instances in zone but not in our map then
@@ -343,14 +341,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             final BasicTagList tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "AppName", _appName);
             if (i == 0) {
                 EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-PoolSize", tags).set(Long.valueOf(size));
-                EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-ActiveConnections", tags).set(Long.valueOf(
-                        activeServerCount * size));
-                EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-InactiveConnections", tags).set(Long.valueOf(
-                        inActiveServerCount * size));
-                EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-InDiscovery", tags).set(Long.valueOf(
-                        sizeInDiscovery));
-                EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-InHashing", tags).set(Long.valueOf(
-                        sizeInHashing));
+                EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-ActiveConnections", tags).set(Long.valueOf(activeServerCount * size));
+                EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-InactiveConnections", tags).set(Long.valueOf(inActiveServerCount * size));
+                EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-InDiscovery", tags).set(Long.valueOf(sizeInDiscovery));
+                EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-InHashing", tags).set(Long.valueOf(sizeInHashing));
 
                 final List<EVCacheClient> readClients = memcachedReadInstancesByServerGroup.get(serverGroup);
                 if (readClients != null && readClients.size() > 0) {
@@ -390,8 +384,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 // list. Typical case is we have replaced an existing node or
                 // expanded the cluster.
                 for (InetSocketAddress instance : discoveredHostsInServerGroup) {
-                    if (!connectionObserver.getActiveServers().containsKey(instance) && !connectionObserver
-                            .getInActiveServers().containsKey(instance)) {
+                    if (!connectionObserver.getActiveServers().containsKey(instance) && !connectionObserver.getInActiveServers().containsKey(instance)) {
                         // DynamicCounter.increment("EVCacheClientPool-" +
                         // _appName + "-" + client.getId() + "-different_set");
                         if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
@@ -404,11 +397,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 }
 
                 // 2. If a host is not in discovery and is
-                // inActive for more than 15 mins then we will have to refresh
-                // our
+                // inActive for more than 15 mins then we will have to refresh our
                 // list. Typical case is we have replaced an existing node or
                 // decreasing the cluster. Replacing an instance should not take
-                // more than 15 mins.
+                // more than 20 mins (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-system-instance-status-check.html#types-of-instance-status-checks).
                 // Even if it does then we will refresh the client twice which
                 // should be ok.
                 // NOTE : For a zombie instance this will mean that it will take
@@ -416,8 +408,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 // unless we force a refresh
                 // 12/5/2015 - Should we even do this anymore
                 for (Entry<InetSocketAddress, Long> entry : connectionObserver.getInActiveServers().entrySet()) {
-                    if ((currentTime - entry.getValue().longValue()) > 900000 && !discoveredHostsInServerGroup.contains(
-                            entry.getKey())) {
+                    if ((currentTime - entry.getValue().longValue()) > 1200000 && !discoveredHostsInServerGroup.contains(entry.getKey())) {
                         if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
                                 + "; instance : " + entry.getKey()
                                 + " not found in discovery and will shutdown the client and init it again.");
@@ -455,9 +446,33 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                             + "; InHashing : " + sizeInHashing + "; hashingSizeDiff : " + hashingSizeDiff
                             + ". Since there is a diff in hashing size will shutdown the client and init it again.");
 
-                    EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged", tags).set(
-                            Long.valueOf(4));
+                    EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged", tags).set(Long.valueOf(4));
                     return true;
+                }
+
+                // 5. If a host is in not discovery and we have an active connection to it for more than 20 mins then we will refresh
+                // Typical case is we have replaced an existing node but it has zombie. We are able to connect to it (hypervisor) but not talk to it 
+                // or prana has shutdown successfully but not memcached. In such scenario we will refresh the cluster
+                for(InetSocketAddress instance : connectionObserver.getActiveServers().keySet()) {
+                    if(!discoveredHostsInServerGroup.contains(instance)) {
+                        if(!evCacheDiscoveryConnectionLostSet.containsKey(instance)) {
+                            evCacheDiscoveryConnectionLostSet.put(instance, Long.valueOf(currentTime));
+                            if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
+                                    + "; instance : " + instance + " not found in discovery. We will add to our list and monitor it.");
+                        } else {
+                            long lostDur = (currentTime - evCacheDiscoveryConnectionLostSet.get(instance).longValue());
+                            if (lostDur >= 1200000) {
+                                if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
+                                        + "; instance : " + instance + " not found in discovery for the past 20 mins and will shutdown the client and init it again.");
+                                EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged", tags).set(Long.valueOf(5));
+                                evCacheDiscoveryConnectionLostSet.remove(instance);
+                                return true;
+                            } else {
+                                if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
+                                        + "; instance : " + instance + " not found in discovery for " + lostDur + " msec.");
+                            }
+                        }
+                    }
                 }
 
                 // 9. If we have removed all instances or took them OOS in a
