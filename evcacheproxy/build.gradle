@@ -1,0 +1,21 @@
+apply plugin: 'nebula'
+apply plugin: 'jetty'
+apply plugin: 'netflix.ospackage-tomcat'
+apply plugin: 'war'
+
+nebula {
+    moduleEmail = 'dlevcachedev@netflix.com'
+    moduleOwner = 'EVCache Team'
+}
+
+configurations.all {
+    exclude group:'netflix', module: 'SRWrapper'
+    exclude group: 'com.oracle'
+    exclude group:'amazon', module: 'aws-java-sdk'
+}
+
+//noinspection GroovyAssignabilityCheck
+dependencies {
+    compile group:"netflix", name:"base-server", version:"latest.release"
+    compile group:"netflix", name:"evcache-client2", version:"latest.release"
+}
