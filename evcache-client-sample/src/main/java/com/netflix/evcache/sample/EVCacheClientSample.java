@@ -84,6 +84,7 @@ public class EVCacheClientSample {
             evCacheClientSample.setKey();
             Thread.sleep(1000);
             System.out.println(" Key returned is >> " + evCacheClientSample.getKey());
+            System.exit(0);
         } catch (Exception e) {
             e.printStackTrace();
         }
