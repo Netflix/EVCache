@@ -1,0 +1,23 @@
+apply plugin: 'nebula'
+apply plugin: 'java'
+
+nebula {
+    moduleEmail = 'dlevcachedev@netflix.com'
+    moduleOwner = 'EVCache Team'
+}
+
+repositories {
+        jcenter()
+}
+
+configurations.all {
+    exclude group:'netflix', module: 'SRWrapper'
+    exclude group: 'com.oracle'
+    exclude group:'amazon', module: 'aws-java-sdk'
+}
+
+dependencies {
+    compile group:"com.netflix.evcache",       name:"evcache-client",             version:"latest.candidate" 
+}
+
+
