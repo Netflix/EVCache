@@ -1170,14 +1170,6 @@ final public class EVCacheImpl implements EVCache {
         return _timeToLive;
     }
 
-    public String getAppName() {
-        return _appName;
-    }
-
-    public String getCacheName() {
-        return _cacheName;
-    }
-
     public long incr(String key, long by, long defaultVal, int timeToLive) throws EVCacheException {
         if ((null == key) || by < 0 || defaultVal < 0 || timeToLive < 0) throw new IllegalArgumentException();
 
@@ -1403,4 +1395,16 @@ final public class EVCacheImpl implements EVCache {
         }
     }
 
+	@Override
+	public String getCachePrefix() {
+		return _cacheName;
+	}
+
+    public String getAppName() {
+        return _appName;
+    }
+
+    public String getCacheName() {
+        return _cacheName;
+    }
 }

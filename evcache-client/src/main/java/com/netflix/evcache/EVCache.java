@@ -787,6 +787,18 @@ public interface EVCache {
     <T> Future<Boolean>[] touch(String key, int ttl) throws EVCacheException;
 
     /**
+     * The {@code appName} that will be used by this {@code EVCache}.
+     * 
+     * @param The
+     *            name of the EVCache App cluster.
+     * @return this {@code Builder} object
+     */
+    String getAppName();
+    
+    
+    String getCachePrefix();
+    
+    /**
      * A Builder that builds an EVCache based on the specified App Name, cache
      * Name, TTl and Transcoder.
      * 
