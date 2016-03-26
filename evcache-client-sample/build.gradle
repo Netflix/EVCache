@@ -1,0 +1,32 @@
+apply plugin: 'nebula'
+apply plugin: 'java'
+
+nebula {
+    moduleEmail = 'dlevcachedev@netflix.com'
+    moduleOwner = 'EVCache Team'
+}
+
+repositories {
+        jcenter()
+}
+
+configurations.all {
+    exclude group:'netflix', module: 'SRWrapper'
+    exclude group: 'com.oracle'
+    exclude group:'amazon', module: 'aws-java-sdk'
+}
+
+dependencies {
+    compile group:"com.netflix.evcache",       name:"evcache-client",             version:"latest.candidate" 
+}
+
+task (runSample , dependsOn: 'classes' , type:JavaExec) {
+   main = "com.netflix.evcache.sample.EVCacheClientSample"
+   classpath = sourceSets.main.runtimeClasspath
+   systemProperty 'EVCACHE_APP1.use.simple.node.list.provider' , 'true'
+   systemProperty 'EVCACHE_APP1-NODES' , 'SERVERGROUP1=localhost:11211;SERVERGROUP2=localhost:11212'
+}
+
+defaultTasks 'runSample'
+
+
