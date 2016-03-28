@@ -796,6 +796,13 @@ public interface EVCache {
     String getAppName();
     
     
+    /**
+     * The {@code cachePrefix} that will be used by this {@code EVCache}.
+     * 
+     * @param The
+     *            name of the EVCache App cluster.
+     * @return this {@code Builder} object
+     */
     String getCachePrefix();
     
     /**

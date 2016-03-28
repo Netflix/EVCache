@@ -8,14 +8,23 @@ nebula {
     moduleOwner = 'EVCache Team'
 }
 
+repositories {
+        jcenter()
+        mavenLocal()
+        mavenCentral() // maven { url 'http://jcenter.bintray.com' }
+}
+
 configurations.all {
-    exclude group:'netflix', module: 'SRWrapper'
     exclude group: 'com.oracle'
     exclude group:'amazon', module: 'aws-java-sdk'
 }
 
-//noinspection GroovyAssignabilityCheck
 dependencies {
-    compile group:"netflix", name:"base-server", version:"latest.release"
-    compile group:"netflix", name:"evcache-client2", version:"latest.release"
+        compile group:"com.netflix.evcache",          name:"evcache-client",                  version:"latest.release"
+        compile group:"com.netflix.governator",       name:"governator",                      version:"latest.release"
+        compile group:"com.netflix.governator",       name:"governator-archaius",             version:"latest.release"
+        compile group:"com.netflix.governator",       name:"governator-servlet",              version:"latest.release"
+        compile group:"com.sun.jersey",               name:"jersey-servlet",                  version:"latest.release"
+        compile group:"com.sun.jersey.contribs",      name:"jersey-guice",                    version:"latest.release"
+        compile group:"com.netflix.karyon",           name:"karyon2-admin-web",              version:"latest.release"
 }
