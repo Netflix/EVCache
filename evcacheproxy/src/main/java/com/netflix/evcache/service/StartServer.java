@@ -2,6 +2,8 @@ package com.netflix.evcache.service;
 
 import javax.servlet.ServletContextEvent;
 
+import com.netflix.appinfo.ApplicationInfoManager;
+import com.netflix.appinfo.InstanceInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,6 +20,7 @@ public class StartServer extends GovernatorServletContextListener
     
     public void contextInitialized(ServletContextEvent servletContextEvent) {
         super.contextInitialized(servletContextEvent);
+        getInjector().getInstance(ApplicationInfoManager.class).setInstanceStatus(InstanceInfo.InstanceStatus.UP);
     }
 
     public void contextDestroyed(ServletContextEvent servletContextEvent) {
@@ -27,6 +30,7 @@ public class StartServer extends GovernatorServletContextListener
     @Override
     protected Injector createInjector() {
         if(logger.isDebugEnabled()) logger.debug("Creating Injector");
+
         return InjectorBuilder.fromModules(new EVCacheServiceModule()).createInjector();
     }
 }

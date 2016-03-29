@@ -1,6 +1,7 @@
 package com.netflix.evcache.service;
 
 import com.google.inject.AbstractModule;
+import com.netflix.appinfo.ApplicationInfoManager;
 import com.netflix.config.ConfigurationManager;
 import com.netflix.discovery.guice.EurekaModule;
 import com.netflix.evcache.EVCacheModule;
@@ -41,7 +42,7 @@ public class EVCacheServiceModule extends AbstractModule {
                 bind(EVCacheRESTService.class).asEagerSingleton();
                 bind(HealthCheckHandlerImpl.class).asEagerSingleton();
             }
-        });        
+        });
     }
 }
 
