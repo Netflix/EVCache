@@ -21,7 +21,7 @@
                  proxyPort="">
          <Factory className="org.apache.catalina.net.DefaultServerSocketFactory"/>
       </Connector>
-      <Connector acceptCount="300" bufferSize="2048" compression="off" connectionLinger="-1"
+      <!--Connector acceptCount="300" bufferSize="2048" compression="off" connectionLinger="-1"
                  connectionTimeout="4000"
                  debug="0"
                  disableUploadTimeout="true"
@@ -40,7 +40,7 @@
                  address="0.0.0.0"
                  proxyPort="">
          <Factory className="org.apache.catalina.net.DefaultServerSocketFactory"/>
-      </Connector>
+      </Connector -->
       <Engine defaultHost="localhost" name="Standalone">
          <Host appBase="webapps" autoDeploy="true" liveDeploy="true" name="localhost"
                unpackWARs="true"
