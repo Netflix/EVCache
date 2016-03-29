@@ -18,10 +18,10 @@ public class EVCacheServiceModule extends AbstractModule {
     @Override
     protected void configure() {
         try {
-            ConfigurationManager.loadAppOverrideProperties("evcache_proxy");
+            ConfigurationManager.loadAppOverrideProperties("evcacheproxy");
             final String env = ConfigurationManager.getConfigInstance().getString("eureka.environment", "test");
             if(env != null && env.length() > 0) {
-                ConfigurationManager.loadAppOverrideProperties("evcache_proxy-"+env);
+                ConfigurationManager.loadAppOverrideProperties("evcacheproxy-"+env);
             }
         } catch (Exception e) {
             e.printStackTrace();
