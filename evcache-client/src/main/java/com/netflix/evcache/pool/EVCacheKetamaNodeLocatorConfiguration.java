@@ -6,9 +6,9 @@ import java.util.List;
 
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.config.DynamicIntProperty;
 import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.shared.Application;
+import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.util.DefaultKetamaNodeLocatorConfiguration;
@@ -25,8 +25,9 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
         this.appId = appId;
         this.replicaSet = serverGroup;
         this.poolManager = poolManager;
-        bucketSize = new ChainedDynamicProperty.IntProperty(appId + "." + serverGroup.getName() + ".bucket.size",
-                new DynamicIntProperty(appId + ".bucket.size", super.getNodeRepetitions()));
+        bucketSize = EVCacheConfig.getInstance().getChainedIntProperty(appId + "." + serverGroup.getName() + ".bucket.size",appId + ".bucket.size", super.getNodeRepetitions());
+//        bucketSize = new ChainedDynamicProperty.IntProperty(appId + "." + serverGroup.getName() + ".bucket.size",
+//                new DynamicIntProperty(appId + ".bucket.size", super.getNodeRepetitions()));
     }
 
     /**
