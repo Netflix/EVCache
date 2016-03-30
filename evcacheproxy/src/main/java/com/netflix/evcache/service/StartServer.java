@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import com.google.inject.Injector;
 import com.netflix.evcache.service.resources.EVCacheRESTService;
 import com.netflix.governator.InjectorBuilder;
+import com.netflix.governator.LifecycleInjector;
 import com.netflix.governator.guice.servlet.GovernatorServletContextListener;
 
 
@@ -20,7 +21,6 @@ public class StartServer extends GovernatorServletContextListener
     
     public void contextInitialized(ServletContextEvent servletContextEvent) {
         super.contextInitialized(servletContextEvent);
-        getInjector().getInstance(ApplicationInfoManager.class).setInstanceStatus(InstanceInfo.InstanceStatus.UP);
     }
 
     public void contextDestroyed(ServletContextEvent servletContextEvent) {
@@ -31,6 +31,9 @@ public class StartServer extends GovernatorServletContextListener
     protected Injector createInjector() {
         if(logger.isDebugEnabled()) logger.debug("Creating Injector");
 
-        return InjectorBuilder.fromModules(new EVCacheServiceModule()).createInjector();
+        final LifecycleInjector injector = InjectorBuilder.fromModules(new EVCacheServiceModule()).createInjector();
+        injector.getInstance(ApplicationInfoManager.class).setInstanceStatus(InstanceInfo.InstanceStatus.UP);
+        return injector;
+        
     }
 }
