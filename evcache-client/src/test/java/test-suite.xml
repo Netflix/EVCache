@@ -12,4 +12,9 @@
     </classes>
   </test>
    -->
+  <test name="Unit Tests">
+    <classes>
+      <class name="com.netflix.evcache.pool.EVCacheClientPoolTest" />
+    </classes>
+  </test>
 </suite>
