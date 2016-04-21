@@ -211,8 +211,11 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         if (clients.size() == 1) {
             return clients.get(0); // Frequently used scenario
         }
+
         final long currentVal = numberOfModOps.incrementAndGet();
-        final int index = (int) currentVal % clients.size();
+        // Get absolute value of current val to ensure correctness even at 9 quintillion+ requests
+        // make sure to truncate after the mod. This allows up to 2^31 clients.
+        final int index = Math.abs((int) (currentVal % clients.size()));
         return clients.get(index);
     }
 
