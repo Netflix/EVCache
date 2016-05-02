@@ -68,11 +68,9 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             }
 
             /* Only AWS instances are usable; bypass all others */
-            if (DataCenterInfo.Name.Amazon != dcInfo.getName()) {
-                if (log.isErrorEnabled()) log.error(
-                        "This is not a AWSDataCenter. You will not be able to use Discovery Nodelist Provider. Cannot proceed. DataCenterInfo : "
-                                + dcInfo + "; appName - "
-                                + _appName);
+            if (DataCenterInfo.Name.Amazon != dcInfo.getName() || !(dcInfo instanceof AmazonInfo)) {
+                log.error("This is not a AWSDataCenter. You will not be able to use Discovery Nodelist Provider. Cannot proceed. DataCenterInfo : "
+                         + dcInfo + "; appName - " + _appName + ". Please use SimpleNodeList provider and specify the server groups manually.");
                 continue;
             }
 
@@ -114,17 +112,18 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             }
 
             final InstanceInfo myInfo = applicationInfoManager.getInfo();
+            final DataCenterInfo myDC = myInfo.getDataCenterInfo();
+            final AmazonInfo myAmznDC = (myDC instanceof AmazonInfo) ? (AmazonInfo) myDC : null;   
             final String myInstanceId = myInfo.getInstanceId();
             final String myIp = myInfo.getIPAddr();
-            final String myPublicHostName = ((AmazonInfo) myInfo.getDataCenterInfo()).get(
-                    AmazonInfo.MetaDataKey.publicHostname);
+            final String myPublicHostName = (myAmznDC != null) ? myAmznDC.get(AmazonInfo.MetaDataKey.publicHostname) : null;
             boolean isInCloud = false;
             if (myPublicHostName != null) {
                 isInCloud = myPublicHostName.startsWith("ec2");
             }
 
             if (!isInCloud) {
-                if (((AmazonInfo) myInfo.getDataCenterInfo()).get(AmazonInfo.MetaDataKey.vpcId) != null) {
+                if (myAmznDC != null && myAmznDC.get(AmazonInfo.MetaDataKey.vpcId) != null) {
                     isInCloud = true;
                 } else {
                     if (myIp.equals(myInstanceId)) {
@@ -132,7 +131,7 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                     }
                 }
             }
-            final String myZone = ((AmazonInfo) myInfo.getDataCenterInfo()).get(AmazonInfo.MetaDataKey.availabilityZone);
+            final String myZone = (myAmznDC != null) ? myAmznDC.get(AmazonInfo.MetaDataKey.availabilityZone) : null; 
             final String myRegion = (myZone != null) ? myZone.substring(0, myZone.length() - 1) : null;
             final String region = (zone != null) ? zone.substring(0, zone.length() - 1) : null;
             final String host = amznInfo.get(AmazonInfo.MetaDataKey.publicHostname);
