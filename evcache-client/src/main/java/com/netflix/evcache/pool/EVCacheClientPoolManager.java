@@ -82,16 +82,9 @@ public class EVCacheClientPoolManager {
     private final Provider<IConnectionFactoryProvider> connectionFactoryprovider;
 
     @Inject
-    public EVCacheClientPoolManager(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient,
-            Provider<IConnectionFactoryProvider> connectionFactoryprovider) {
+    public EVCacheClientPoolManager(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient, Provider<IConnectionFactoryProvider> connectionFactoryprovider) {
         instance = this;
         
-        try {
-            ConfigurationManager.loadPropertiesFromResources("evcache");
-        } catch (IOException e) {
-            log.info("Default evcache configuration not loaded", e);
-        }
-
         this.applicationInfoManager = applicationInfoManager;
         this.discoveryClient = discoveryClient;
         this.connectionFactoryprovider = connectionFactoryprovider;
