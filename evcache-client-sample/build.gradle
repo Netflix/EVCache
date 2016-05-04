@@ -1,10 +1,4 @@
-apply plugin: 'nebula'
 apply plugin: 'java'
-
-nebula {
-    moduleEmail = 'dlevcachedev@netflix.com'
-    moduleOwner = 'EVCache Team'
-}
 
 repositories {
         jcenter()
