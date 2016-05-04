@@ -85,6 +85,12 @@ public class EVCacheClientPoolManager {
     public EVCacheClientPoolManager(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient, Provider<IConnectionFactoryProvider> connectionFactoryprovider) {
         instance = this;
         
+        try {
+            ConfigurationManager.loadCascadedPropertiesFromResources("evcache");
+        } catch (IOException e) {
+            log.info("Default evcache configuration not loaded", e);
+        }
+
         this.applicationInfoManager = applicationInfoManager;
         this.discoveryClient = discoveryClient;
         this.connectionFactoryprovider = connectionFactoryprovider;
