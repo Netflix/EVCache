@@ -1,2 +1,3 @@
 rootProject.name='EVCache'
 include 'evcache-client'
+include 'evcache-client-sample'
