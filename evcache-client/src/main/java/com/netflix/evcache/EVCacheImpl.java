@@ -1417,7 +1417,7 @@ final public class EVCacheImpl implements EVCache {
             return new EVCacheFuture[0]; // Fast failure
         }
 
-        final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.APPEND);
+        final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.APPEND_OR_ADD);
         if (event != null) {
             if (shouldThrottle(event)) {
                 increment("THROTTLED");
@@ -1428,7 +1428,7 @@ final public class EVCacheImpl implements EVCache {
         }
 
         final String canonicalKey = getCanonicalizedKey(key);
-        final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.APPEND, stats, Operation.TYPE.MILLI);
+        final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.APPEND_OR_ADD, stats, Operation.TYPE.MILLI);
         try {
             final EVCacheFuture[] futures = new EVCacheFuture[clients.length];
             CachedData cd = null;
@@ -1478,7 +1478,7 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception setting data for APP " + _appName + ", key : " + canonicalKey, ex);
         } finally {
             op.stop();
-            if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND : APP " + _appName + ", Took " + op.getDuration() + " milliSec for key : " + canonicalKey);
+            if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Took " + op.getDuration() + " milliSec for key : " + canonicalKey);
         }
 	}
 

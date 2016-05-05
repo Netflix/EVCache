@@ -59,7 +59,7 @@ import rx.Single;
 public interface EVCache {
 
     public static enum Call {
-        GET, GETL, GET_AND_TOUCH, ASYNC_GET, BULK, SET, DELETE, INCR, DECR, TOUCH, APPEND, PREPEND, REPLACE, ADD
+        GET, GETL, GET_AND_TOUCH, ASYNC_GET, BULK, SET, DELETE, INCR, DECR, TOUCH, APPEND, PREPEND, REPLACE, ADD, APPEND_OR_ADD
     };
 
     /**
