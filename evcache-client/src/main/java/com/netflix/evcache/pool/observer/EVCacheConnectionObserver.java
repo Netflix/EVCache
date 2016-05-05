@@ -54,7 +54,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         this.id = id;
         monitorName = appName + "_" + serverGroup.getName() + "_" + id + "_connections";
 
-        final TagList tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "AppName", appName);
+        final TagList tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "APP", appName);
         this.connect = EVCacheMetricsFactory.getCounter("EVCacheConnectionObserver_CONNECT", tags);
         this.lost = EVCacheMetricsFactory.getCounter("EVCacheConnectionObserver_LOST", tags);
 

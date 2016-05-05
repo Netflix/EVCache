@@ -71,7 +71,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         this.inputQueue = iq;
         this.sendMetrics = EVCacheConfig.getInstance().getDynamicBooleanProperty("EVCacheNodeImpl." + appName
                 + ".sendMetrics", false);
-        this.tags = BasicTagList.of("ServerGroup", _serverGroup.getName(), "AppName", appName);
+        this.tags = BasicTagList.of("ServerGroup", _serverGroup.getName(), "APP", appName);
         this.hostName = ((InetSocketAddress) getSocketAddress()).getHostName();
         this.metricPrefix = "EVCacheNode";
         this.baseConfig = MonitorConfig.builder(metricPrefix).build();
@@ -205,13 +205,13 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
                 final LongGauge wQueue = new LongGauge(monitorConfig);
                 wQueue.set(Long.valueOf(writeQ.size()));
                 metrics.add(wQueue);
-    
+
                 monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_ReadQ", DataSourceType.GAUGE,
                         baseTags);
                 final LongGauge rQueue = new LongGauge(monitorConfig);
                 rQueue.set(Long.valueOf(readQ.size()));
                 metrics.add(rQueue);
-    
+
                 monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_NumOfOps",
                         DataSourceType.COUNTER, baseTags);
                 final BasicCounter counter = new BasicCounter(monitorConfig);

@@ -84,8 +84,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             if (isServerGroupInWriteOnlyMode != null) return isServerGroupInWriteOnlyMode;
 
             isServerGroupInWriteOnlyMode = EVCacheConfig.getInstance().
-                    getChainedBooleanProperty(_appName + "." + serverGroup.getName() + ".EVCacheClientPool.writeOnly", 
-                                              _appName + "." + serverGroup.getZone() + ".EVCacheClientPool.writeOnly", Boolean.FALSE); 
+                    getChainedBooleanProperty(_appName + "." + serverGroup.getName() + ".EVCacheClientPool.writeOnly",
+                                              _appName + "." + serverGroup.getZone() + ".EVCacheClientPool.writeOnly", Boolean.FALSE);
             put(serverGroup, isServerGroupInWriteOnlyMode);
             return isServerGroupInWriteOnlyMode;
         };
@@ -236,7 +236,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     public EVCacheClient getEVCacheClient(ServerGroup serverGroup) {
         if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) return null;
-        
+
         try {
             List<EVCacheClient> clients = memcachedReadInstancesByServerGroup.get(serverGroup);
             if (clients == null) {
@@ -361,7 +361,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             final int inActiveServerCount = connectionObserver.getInActiveServerCount();
             final int sizeInDiscovery = discoveredHostsInServerGroup.size();
             final int sizeInHashing = client.getNodeLocator().getAll().size();
-            final BasicTagList tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "AppName", _appName);
+            final BasicTagList tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "APP", _appName);
             if (i == 0) {
                 EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-PoolSize", tags).set(Long.valueOf(size));
                 EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-ActiveConnections", tags).set(Long.valueOf(activeServerCount * size));
@@ -474,7 +474,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 }
 
                 // 5. If a host is in not discovery and we have an active connection to it for more than 20 mins then we will refresh
-                // Typical case is we have replaced an existing node but it has zombie. We are able to connect to it (hypervisor) but not talk to it 
+                // Typical case is we have replaced an existing node but it has zombie. We are able to connect to it (hypervisor) but not talk to it
                 // or prana has shutdown successfully but not memcached. In such scenario we will refresh the cluster
                 for(InetSocketAddress instance : connectionObserver.getActiveServers().keySet()) {
                     if(!discoveredHostsInServerGroup.contains(instance)) {
