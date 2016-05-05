@@ -271,8 +271,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return rv;
     }
 
-    private <T> OperationFuture<Boolean> asyncStore(final StoreType storeType, final String key, int exp, T value,
-            Transcoder<T> tc, EVCacheLatch evcacheLatch) {
+    private <T> OperationFuture<Boolean> asyncStore(final StoreType storeType, final String key, int exp, T value, Transcoder<T> tc, EVCacheLatch evcacheLatch) {
         CachedData co;
         if (value instanceof CachedData) {
             co = (CachedData) value;

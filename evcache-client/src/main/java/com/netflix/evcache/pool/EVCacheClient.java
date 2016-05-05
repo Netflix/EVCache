@@ -947,6 +947,19 @@ public class EVCacheClient {
         return evcacheMemcachedClient.add(key, exp, value, tc);
     }
 
+    public <T> Future<Boolean> add(String key, int exp, T value) throws Exception {
+        if (enableChunking.get()) throw new EVCacheException(
+                "This operation is not supported as chunking is enabled on this EVCacheClient.");
+        if (addCounter == null) addCounter = EVCacheMetricsFactory.getCounter(serverGroup.getName() + "-AddCall");
+
+        final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
+        if (!node.isActive()) return getDefaultFuture();
+
+        ensureWriteQueueSize(node, key);
+        addCounter.increment();
+        return evcacheMemcachedClient.add(key, exp, value);
+    }
+
     public <T> Future<Boolean> touch(String key, int timeToLive) throws Exception {
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         if (!node.isActive()) return getDefaultFuture();

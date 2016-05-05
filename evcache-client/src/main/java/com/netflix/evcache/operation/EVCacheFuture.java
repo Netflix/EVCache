@@ -5,6 +5,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
 
 public class EVCacheFuture implements Future<Boolean> {
@@ -13,12 +14,18 @@ public class EVCacheFuture implements Future<Boolean> {
     private final String app;
     private final ServerGroup serverGroup;
     private final String key;
+    private final EVCacheClient client;
 
     public EVCacheFuture(Future<Boolean> future, String key, String app, ServerGroup serverGroup) {
+    	this(future, key, app, serverGroup, null);
+    }
+
+    public EVCacheFuture(Future<Boolean> future, String key, String app, ServerGroup serverGroup, EVCacheClient client) {
         this.future = future;
         this.app = app;
         this.serverGroup = serverGroup;
         this.key = key;
+        this.client = client;
     }
 
     @Override
@@ -59,14 +66,18 @@ public class EVCacheFuture implements Future<Boolean> {
         return serverGroup.getZone();
     }
 
-    public String getServerGroupNamae() {
+    public String getServerGroupName() {
         return serverGroup.getName();
+    }
+
+    public EVCacheClient getEVCacheClient() {
+        return client;
     }
 
     @Override
     public String toString() {
         return "EVCacheFuture [future=" + future + ", app=" + app + ", ServerGroup="
-                + serverGroup + "]";
+                + serverGroup + ", EVCacheClient=" + client + "]";
     }
 
 }

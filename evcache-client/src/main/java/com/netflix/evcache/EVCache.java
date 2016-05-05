@@ -740,6 +740,10 @@ public interface EVCache {
      *            the value to be appended
      * @param tc
      *            the transcoder the will be used for serialization
+     * @param timeToLive
+     *            the expiration of this object i.e. less than 30 days in
+     *            seconds or the exact expiry time as UNIX time
+     *            
      * @return Array of futures representing the processing of this operation
      *         across all the replicas
      * @throws EVCacheException
@@ -747,7 +751,7 @@ public interface EVCache {
      *             more requests or issues Serializing the value or any IO
      *             Related issues
      */
-    <T> Future<Boolean>[] append(String key, T value, Transcoder<T> tc) throws EVCacheException;
+    <T> Future<Boolean>[] append(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException;
 
     /**
      * Append the given value to the existing value in EVCache. You cannot
@@ -760,6 +764,10 @@ public interface EVCache {
      *            control characters.
      * @param T
      *            the value to be appended
+     * @param timeToLive
+     *            the expiration of this object i.e. less than 30 days in
+     *            seconds or the exact expiry time as UNIX time
+     *            
      * @return Array of futures representing the processing of this operation
      *         across all the replicas
      * @throws EVCacheException
@@ -767,7 +775,7 @@ public interface EVCache {
      *             more requests or issues Serializing the value or any IO
      *             Related issues
      */
-    <T> Future<Boolean>[] append(String key, T value) throws EVCacheException;
+    <T> Future<Boolean>[] append(String key, T value, int timeToLive) throws EVCacheException;
 
     /**
      * Touch the given key and reset its expiration time.
@@ -785,6 +793,31 @@ public interface EVCache {
      *             Related issues
      */
     <T> Future<Boolean>[] touch(String key, int ttl) throws EVCacheException;
+
+    /**
+     * Append the given value to the existing value in EVCache. If the Key does not exist the the key will added.
+     *  
+     *
+     * @param key
+     *            the key under which this object should be appended or Added. Ensure the
+     *            key is properly encoded and does not contain whitespace or
+     *            control characters.
+     * @param T
+     *            the value to be appended
+     * @param tc
+     *            the transcoder the will be used for serialization
+     * @param timeToLive
+     *            the expiration of this object i.e. less than 30 days in
+     *            seconds or the exact expiry time as UNIX time
+     *            
+     * @return Array of futures representing the processing of this operation
+     *         across all the replicas
+     * @throws EVCacheException
+     *             in the circumstance where queue is too full to accept any
+     *             more requests or issues Serializing the value or any IO
+     *             Related issues
+     */
+    <T> Future<Boolean>[] appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException;
 
     /**
      * The {@code appName} that will be used by this {@code EVCache}.
