@@ -51,8 +51,10 @@ public abstract class Base  {
         }
 
         props.setProperty("eureka.environment", "test");
+        System.setProperty("eureka.region", "us-east-1");
         props.setProperty("eureka.region", "us-east-1");
         props.setProperty("eureka.appid", "clatency");
+        props.setProperty("eureka.serviceUrl.default","http://${@region}.discovery${@environment}.netflix.net:7001/discovery/v2/");
         return props;
     }
 
@@ -64,12 +66,11 @@ public abstract class Base  {
         Properties props = getProps();
 
         try {
-            //BasicConfigurator.configure();
             ConfigurationManager.loadProperties(props);
 
             LifecycleInjectorBuilder builder = LifecycleInjector.builder();
             builder.withModules(
-                    new EurekaModule(), 
+                    new EurekaModule(),
                     new EVCacheModule(), 
                     new ConnectionModule(),
                     new SpectatorModule()
@@ -98,10 +99,25 @@ public abstract class Base  {
     protected boolean append(int i, EVCache gCache) throws Exception {
         String val = ";APP_" + i;
         String key = "key_" + i;
-        Future<Boolean>[] status = gCache.append(key, val);
+        Future<Boolean>[] status = gCache.append(key, val, 24 * 60 * 60);
         for (Future<Boolean> s : status) {
             if (log.isDebugEnabled()) log.debug("APPEND : key : " + key + "; success = " + s.get() + "; Future = " + s.toString());
             if (s.get() == Boolean.FALSE) return false;
+        }
+        return true;
+    }
+    
+    protected boolean appendOrAdd(int i, EVCache gCache) throws Exception {
+        return appendOrAdd(i, gCache, 24 * 60 * 60);
+    }
+
+    protected boolean appendOrAdd(int i, EVCache gCache, int ttl) throws Exception {
+        String val = "val_aa_" + i;
+        String key = "key_" + i;
+        Future<Boolean>[] status = gCache.appendOrAdd(key, val, null, ttl);
+        for(Future<Boolean> s : status) {
+            if(log.isDebugEnabled()) log.debug("AppendOrAdd : key : " + key + "; success = " + s.get() + "; Future = " + s.toString());
+            if(s.get() == Boolean.FALSE) return false;
         }
         return true;
     }

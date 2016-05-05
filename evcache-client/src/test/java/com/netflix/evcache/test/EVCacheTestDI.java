@@ -147,7 +147,7 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
             if (val == null) {
                 if (log.isDebugEnabled()) log.debug("key " + key + " returned null");
             } else {
-                assertTrue(val.equals("val_replaced_" + i));
+                assertTrue(val.equals("val_" + i));
             }
         }
     }
@@ -183,12 +183,19 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
     }
 
     @Test(dependsOnMethods = { "testReplace" })
+    public void testAppendOrAdd() throws Exception {
+        for (int i = 0; i < loops; i++) {
+            assertTrue(appendOrAdd(i, evCache));
+        }
+    }
+
+    @Test(dependsOnMethods = { "testAppendOrAdd" })
     public void testDelete() throws Exception {
         for (int i = 0; i < loops; i++) {
             delete(i, evCache);
         }
     }
-
+    
     public void testAll() {
         try {
             setupEnv();
@@ -207,8 +214,9 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
                     testGetObservable();
                     testGetAndTouchObservable();
                     waitForCallbacks();
-                    testDelete();
-                    Thread.sleep(1000);
+                    testAppendOrAdd();
+                    //testDelete();
+                    Thread.sleep(10000);
                 } catch (Throwable e) {
                     log.error(e.getMessage(), e);
                 }
@@ -216,6 +224,7 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
             if (log.isDebugEnabled()) log.debug("All Done!!!. Will exit.");
             System.exit(0);
         } catch (Exception e) {
+        	e.printStackTrace();
             log.error(e.getMessage(), e);
         }
     }
