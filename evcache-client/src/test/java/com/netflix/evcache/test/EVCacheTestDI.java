@@ -58,8 +58,23 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
         this.evCache = getNewBuilder().setAppName("EVCACHE").setCachePrefix("cid").enableRetry().build();
         assertNotNull(evCache);
     }
-
+    
     @Test(dependsOnMethods = { "testEVCache" })
+    public void testDelete() throws Exception {
+        for (int i = 0; i < loops; i++) {
+            delete(i, evCache);
+        }
+    }
+    
+    @Test(dependsOnMethods = { "testDelete" })
+    public void testAdd() throws Exception {
+        for (int i = 0; i < loops; i++) {
+            assertTrue(add(i, evCache));
+        }
+    }
+
+
+    @Test(dependsOnMethods = { "" })
     public void testInsertBinary() throws Exception {
         for (int i = 0; i < loops; i++) {
             assertTrue(insertBytes(i, evCache));
@@ -189,17 +204,13 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
         }
     }
 
-    @Test(dependsOnMethods = { "testAppendOrAdd" })
-    public void testDelete() throws Exception {
-        for (int i = 0; i < loops; i++) {
-            delete(i, evCache);
-        }
-    }
-    
     public void testAll() {
         try {
             setupEnv();
             testEVCache();
+            testDelete();
+            testAdd();
+            Thread.sleep(5000);
             testInsertBinary();
             testInsert();
 

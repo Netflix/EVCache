@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,7 +27,11 @@ import com.netflix.discovery.shared.Pair;
 import com.netflix.evcache.EVCacheException;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheReadQueueException;
+import com.netflix.evcache.EVCache.Call;
+import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.metrics.Operation;
+import com.netflix.evcache.operation.EVCacheFuture;
 import com.netflix.evcache.operation.EVCacheFutures;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
@@ -76,6 +81,7 @@ public class EVCacheClient {
 
     private final ChainedDynamicProperty.IntProperty readTimeout;
     private final ChainedDynamicProperty.IntProperty bulkReadTimeout;
+    private final DynamicIntProperty operationTimeout;
     private final DynamicIntProperty maxReadQueueSize;
     private final ChainedDynamicProperty.BooleanProperty enableChunking;
     private final ChainedDynamicProperty.IntProperty chunkSize;
@@ -99,6 +105,7 @@ public class EVCacheClient {
         this.readTimeout = readTimeout;
         this.bulkReadTimeout = bulkReadTimeout;
         this.maxReadQueueSize = maxReadQueueSize;
+        this.operationTimeout = operationTimeout;
         this.pool = pool;
         this.connectionFactory = pool.getEVCacheClientPoolManager().getConnectionFactoryProvider().getConnectionFactory(appName, id, serverGroup, pool.getEVCacheClientPoolManager());
         this.enableChunking = EVCacheConfig.getInstance().getChainedBooleanProperty(this.serverGroup.getName()+ ".chunk.data", appName + ".chunk.data", Boolean.FALSE);
@@ -853,8 +860,7 @@ public class EVCacheClient {
     public <T> Future<Boolean> set(String key, T value, int timeToLive, EVCacheLatch evcacheLatch) throws Exception {
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         if (!node.isActive()) {
-            if (log.isInfoEnabled()) log.info("Node : " + node
-                    + " is not active. Failing fast and dropping the write event.");
+            if (log.isInfoEnabled()) log.info("Node : " + node + " is not active. Failing fast and dropping the write event.");
             final ListenableFuture<Boolean, OperationCompletionListener> defaultFuture = (ListenableFuture<Boolean, OperationCompletionListener>) getDefaultFuture();
             if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch)
                     .addFuture(defaultFuture);
@@ -877,15 +883,14 @@ public class EVCacheClient {
                         final String prefix = (i < 10) ? "0" : "";
                         futures[i] = evcacheMemcachedClient.set(key + "_" + prefix + i, timeToLive, cd[i], null, null);
                     }
-                    evcacheMemcachedClient.delete(key);// ensure we are deleting
-                                                       // the unchunked key if
-                                                       // it exists. Ignore
-                                                       // return value since it
-                                                       // may not exist.
+                    // ensure we are deleting the unchunked key if it exists. 
+                    // Ignore return value since it may not exist.
+                    evcacheMemcachedClient.delete(key);
                     return new EVCacheFutures(futures, key, appName, serverGroup, evcacheLatch);
                 } else {
-                    delete(key);// delete all the chunks if they exist as the
-                                // data is moving from chunked to unchunked
+                    // delete all the chunks if they exist as the
+                    // data is moving from chunked to unchunked
+                    delete(key);
                     return evcacheMemcachedClient.set(key, timeToLive, value, null, evcacheLatch);
                 }
             } else {
@@ -933,10 +938,47 @@ public class EVCacheClient {
             throw e;
         }
     }
+    
+	public boolean appendOrAdd(String key, CachedData value, int timeToLive) throws EVCacheException {
+		int i = 0;
+		try {
+			do {
+		        final Future<Boolean> future = evcacheMemcachedClient.append(key, value);
+		        try {
+		        	if(future.get(operationTimeout.get(), TimeUnit.MILLISECONDS) == Boolean.FALSE) {
+		        		final Future<Boolean> f = evcacheMemcachedClient.add(key, timeToLive, value);
+		        		if(f.get(operationTimeout.get(), TimeUnit.MILLISECONDS) == Boolean.TRUE) {
+		        			return true;
+		        		}
+		        	} else {
+		        		return true;
+		        	}
+		        } catch(TimeoutException te) {
+		        	return false;
+		        }
+			} while(i++ < 2);
+        } catch (Exception ex) {
+            if (log.isDebugEnabled() ) log.debug("Exception appendOrAdd data for APP " + appName + ", key : " + key, ex);
+            return false;
+        } 
+		return false;
+	}
+
+
+    public <T> Future<Boolean> add(String key, int exp, T value) throws Exception {
+        if (enableChunking.get()) throw new EVCacheException("This operation is not supported as chunking is enabled on this EVCacheClient.");
+        if (addCounter == null) addCounter = EVCacheMetricsFactory.getCounter(serverGroup.getName() + "-AddCall");
+
+        final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
+        if (!node.isActive()) return getDefaultFuture();
+
+        ensureWriteQueueSize(node, key);
+        addCounter.increment();
+        return evcacheMemcachedClient.add(key, exp, value, null);
+    }
 
     public <T> Future<Boolean> add(String key, int exp, T value, Transcoder<T> tc) throws Exception {
-        if (enableChunking.get()) throw new EVCacheException(
-                "This operation is not supported as chunking is enabled on this EVCacheClient.");
+        if (enableChunking.get()) throw new EVCacheException("This operation is not supported as chunking is enabled on this EVCacheClient.");
         if (addCounter == null) addCounter = EVCacheMetricsFactory.getCounter(serverGroup.getName() + "-AddCall");
 
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
@@ -947,18 +989,6 @@ public class EVCacheClient {
         return evcacheMemcachedClient.add(key, exp, value, tc);
     }
 
-    public <T> Future<Boolean> add(String key, int exp, T value) throws Exception {
-        if (enableChunking.get()) throw new EVCacheException(
-                "This operation is not supported as chunking is enabled on this EVCacheClient.");
-        if (addCounter == null) addCounter = EVCacheMetricsFactory.getCounter(serverGroup.getName() + "-AddCall");
-
-        final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
-        if (!node.isActive()) return getDefaultFuture();
-
-        ensureWriteQueueSize(node, key);
-        addCounter.increment();
-        return evcacheMemcachedClient.add(key, exp, value);
-    }
 
     public <T> Future<Boolean> touch(String key, int timeToLive) throws Exception {
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);

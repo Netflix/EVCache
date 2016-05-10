@@ -122,6 +122,15 @@ public abstract class Base  {
         return true;
     }
 
+    public boolean add(int i, EVCache gCache) throws Exception {
+        //String val = "This is a very long value that should work well since we are going to use compression on it. blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah val_"+i;
+        String val = "val_add_"+i;
+        String key = "key_" + i;
+        boolean status = gCache.add(key, val, null, 24 * 60 * 60);
+        if(log.isDebugEnabled()) log.debug("ADD : key : " + key + "; success = " + status);
+        return status;
+    }
+    
     public boolean insert(int i, EVCache gCache) throws Exception {
         //String val = "This is a very long value that should work well since we are going to use compression on it. blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah val_"+i;
         String val = "val_"+i;

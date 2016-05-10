@@ -74,7 +74,7 @@ final public class EVCacheImpl implements EVCache {
     private EVCacheInMemoryCache<?> cache;
 
     private final EVCacheClientPoolManager _poolManager;
-    private DistributionSummary setTTLSummary, replaceTTLSummary, touchTTLSummary, setDataSizeSummary, replaceDataSizeSummary, appendDataSizeSummary;
+    private DistributionSummary setTTLSummary, replaceTTLSummary, addTTLSummary, touchTTLSummary, setDataSizeSummary, replaceDataSizeSummary, appendDataSizeSummary, addDataSizeSummary;
     private Counter touchCounter;
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
@@ -1479,6 +1479,97 @@ final public class EVCacheImpl implements EVCache {
         } finally {
             op.stop();
             if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Took " + op.getDuration() + " milliSec for key : " + canonicalKey);
+        }
+	}
+
+	@Override
+	public <T> boolean add(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
+        if ((null == key) || (null == value)) throw new IllegalArgumentException();
+
+        final boolean throwExc = doThrowException();
+        final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
+        if (clients.length == 0) {
+            increment("NULL_CLIENT");
+            if (throwExc) throw new EVCacheException("Could not find a client to Add the data");
+            return false;
+        }
+
+        final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.ADD);
+        if (event != null) {
+            if (shouldThrottle(event)) {
+                increment("THROTTLED");
+                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                return false;
+            }
+            startEvent(event);
+        }
+
+        final String canonicalKey = getCanonicalizedKey(key);
+        final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.ADD, stats, Operation.TYPE.MILLI);
+        try {
+            final EVCacheFuture[] futures = new EVCacheFuture[clients.length];
+            CachedData cd = null;
+            int index = 0;
+            for (EVCacheClient client : clients) {
+                if (cd == null) {
+                    if (tc != null) {
+                        cd = tc.encode(value);
+                    } else if ( _transcoder != null) { 
+                        cd = ((Transcoder<Object>)_transcoder).encode(value);
+                    } else {
+                        cd = client.getTranscoder().encode(value);
+                    }
+                }
+                final Future<Boolean> future = client.add(canonicalKey, timeToLive, cd);
+                futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup(), client);
+                
+                if (cd != null) {
+                    if (addDataSizeSummary == null) this.addDataSizeSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-AddData-Size");
+                    if (addDataSizeSummary != null) this.addDataSizeSummary.record(cd.getData().length);
+                }
+            }
+            if (event != null) {
+                event.setCanonicalKeys(Arrays.asList(canonicalKey));
+                event.setCachedData(cd);
+                endEvent(event);
+            }
+            
+            if(futures.length == 0) return false;
+
+            int successCount = 0, failCount = 0;
+            for(int i = 0; i < futures.length; i++) {
+            	final EVCacheFuture future = futures[i];
+            	if(future.get() == Boolean.TRUE) {
+            		successCount++;
+            		if(log.isDebugEnabled()) log.debug("ADD Success : APP " + _appName + ", key " + key);
+            	} else {
+            		failCount++;
+            		if(log.isDebugEnabled()) log.debug("ADD Fail : APP " + _appName + ", key " + key);
+            	}
+            }
+
+            if(successCount > 0 && failCount > 0) {
+                for(int i = 0; i < futures.length; i++) {
+                	final EVCacheFuture future = futures[i];
+                	if(future.get() == Boolean.TRUE) {
+                   		final EVCacheClient client = future.getEVCacheClient();
+                   		client.delete(canonicalKey);
+                	}
+            	}
+                return false;
+            } else {
+            	if(failCount == 0) return true;
+            	else return false;
+            }
+
+        } catch (Exception ex) {
+            if (log.isDebugEnabled() && shouldLog()) log.debug("Exception adding the data for APP " + _appName + ", key : " + canonicalKey, ex);
+            if (event != null) eventError(event, ex);
+            if (!throwExc) return false;
+            throw new EVCacheException("Exception adding data for APP " + _appName + ", key : " + canonicalKey, ex);
+        } finally {
+            op.stop();
+            if (log.isDebugEnabled() && shouldLog()) log.debug("ADD : APP " + _appName + ", Took " + op.getDuration() + " milliSec for key : " + canonicalKey);
         }
 	}
 

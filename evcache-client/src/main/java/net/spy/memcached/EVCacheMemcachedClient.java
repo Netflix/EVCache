@@ -338,4 +338,10 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return appName + "_" + zone + " _" + id;
     }
 
+    @SuppressWarnings("unchecked")
+    public <T> OperationFuture<Boolean> add(String key, int exp, T o, final Transcoder<T> tc, EVCacheLatch latch) {
+        Transcoder<T> t = (Transcoder<T>) ((tc == null) ? transcoder : tc);
+        return asyncStore(StoreType.add, key, exp, o, t, latch);
+    }
+
 }
