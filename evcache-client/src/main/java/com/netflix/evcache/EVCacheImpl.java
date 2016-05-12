@@ -1404,6 +1404,70 @@ final public class EVCacheImpl implements EVCache {
     public String getCacheName() {
         return _cacheName;
     }
+    
+    public <T> EVCacheLatch appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
+        if ((null == key) || (null == value)) throw new IllegalArgumentException();
+
+        final boolean throwExc = doThrowException();
+        final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
+        if (clients.length == 0) {
+            increment("NULL_CLIENT");
+            if (throwExc) throw new EVCacheException("Could not find a client to appendOrAdd the data");
+            return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
+        }
+
+        final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.APPEND_OR_ADD);
+        if (event != null) {
+            if (shouldThrottle(event)) {
+                increment("THROTTLED");
+                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
+            }
+            startEvent(event);
+        }
+
+        final String canonicalKey = getCanonicalizedKey(key);
+        final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.APPEND_OR_ADD, stats, Operation.TYPE.MILLI);
+        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy,
+                clients.length, _appName);
+        try {
+            CachedData cd = null;
+            for (EVCacheClient client : clients) {
+                if (cd == null) {
+                    if (tc != null) {
+                        cd = tc.encode(value);
+                    } else if ( _transcoder != null) { 
+                        cd = ((Transcoder<Object>)_transcoder).encode(value);
+                    } else {
+                        cd = client.getTranscoder().encode(value);
+                    }
+                }
+                if (cd != null) {
+                    if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-AppendData-Size");
+                    if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
+                }
+                final Future<Boolean> future = client.appendOrAdd(canonicalKey, cd, timeToLive, latch);
+                if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Future " + future
+                        + " for key : " + canonicalKey);
+            }
+            if (event != null) {
+                event.setCanonicalKeys(Arrays.asList(canonicalKey));
+                event.setTTL(timeToLive);
+                event.setCachedData(cd);
+                event.setLatch(latch);
+                endEvent(event);
+            }
+            return latch;
+        } catch (Exception ex) {
+            if (log.isDebugEnabled() && shouldLog()) log.debug("Exception while appendOrAdd the data for APP " + _appName + ", key : " + canonicalKey, ex);
+            if (event != null) eventError(event, ex);
+            if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName);
+            throw new EVCacheException("Exception while appendOrAdd data for APP " + _appName + ", key : " + canonicalKey, ex);
+        } finally {
+            op.stop();
+            if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Took " + op.getDuration() + " milliSec for key : " + canonicalKey);
+        }
+    }
 
 	@Override
 	public <T> Future<Boolean>[] appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {

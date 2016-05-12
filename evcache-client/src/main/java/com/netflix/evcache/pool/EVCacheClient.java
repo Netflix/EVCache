@@ -902,6 +902,25 @@ public class EVCacheClient {
         }
     }
 
+    public <T> Future<Boolean> appendOrAdd(String key, CachedData value, int timeToLive, EVCacheLatch evcacheLatch) throws Exception {
+        final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
+        if (!node.isActive()) {
+            if (log.isInfoEnabled()) log.info("Node : " + node + " is not active. Failing fast and dropping the write event.");
+            final ListenableFuture<Boolean, OperationCompletionListener> defaultFuture = (ListenableFuture<Boolean, OperationCompletionListener>) getDefaultFuture();
+            if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch)
+                    .addFuture(defaultFuture);
+            return defaultFuture;
+        }
+
+        try {
+            ensureWriteQueueSize(node, key);
+            return evcacheMemcachedClient.asyncAppendOrAdd(key, timeToLive, value, evcacheLatch);
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+            throw e;
+        }
+    }
+
     public <T> Future<Boolean> replace(String key, T value, int timeToLive, EVCacheLatch evcacheLatch)
             throws Exception {
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);

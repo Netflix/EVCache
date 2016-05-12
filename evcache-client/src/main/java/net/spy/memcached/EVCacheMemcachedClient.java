@@ -31,10 +31,12 @@ import com.netflix.servo.tag.Tag;
 
 import net.spy.memcached.internal.GetFuture;
 import net.spy.memcached.internal.OperationFuture;
+import net.spy.memcached.ops.ConcatenationType;
 import net.spy.memcached.ops.DeleteOperation;
 import net.spy.memcached.ops.GetAndTouchOperation;
 import net.spy.memcached.ops.GetOperation;
 import net.spy.memcached.ops.Operation;
+import net.spy.memcached.ops.OperationCallback;
 import net.spy.memcached.ops.OperationStatus;
 import net.spy.memcached.ops.StatusCode;
 import net.spy.memcached.ops.StoreOperation;
@@ -270,6 +272,68 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         mconn.enqueueOperation(key, op);
         return rv;
     }
+    
+    public <T> OperationFuture<Boolean> asyncAppendOrAdd(final String key, int exp, CachedData co, EVCacheLatch evcacheLatch) {
+        final CountDownLatch latch = new CountDownLatch(1);
+        final OperationFuture<Boolean> rv = new EVCacheOperationFuture<Boolean>(key, latch, new AtomicReference<Boolean>(null), operationTimeout, executorService, appName, serverGroup, "LatencyAoA" );
+
+        Operation op = opFact.cat(ConcatenationType.append, 0, key, co.getData(),
+            new OperationCallback() {
+        	boolean appendSuccess = true;
+              @Override
+              public void receivedStatus(OperationStatus val) {
+                  if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
+                      EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-AppendCall-SUCCESS").increment();
+                      rv.set(val.isSuccess(), val);
+                  } else {
+                	  appendSuccess = false;
+                  }
+              }
+
+              @Override
+              public void complete() {
+            	  if(appendSuccess)  {
+    		          	rv.signalComplete();
+		                latch.countDown();
+            	  } else {
+                      Operation op = opFact.store(StoreType.add, key, co.getFlags(), exp, co.getData(), new StoreOperation.Callback() {
+                          @Override
+                          public void receivedStatus(OperationStatus val) {
+                              if (log.isDebugEnabled()) log.debug("Storing Key : " + key + "; Status : " + val.getStatusCode().name()
+                                      + "; Message : " + val.getMessage());
+
+                              Tag tag = null;
+                              final MemcachedNode node = getEVCacheNode(key);
+                              if (node.getSocketAddress() instanceof InetSocketAddress) {
+                                  tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
+                              }
+                              rv.set(val.isSuccess(), val);
+                          }
+
+                          @Override
+                          public void gotData(String key, long cas) {
+                              rv.setCas(cas);
+                          }
+
+                          @Override
+                          public void complete() {
+                              latch.countDown();
+                              rv.signalComplete();
+                          }
+                      });            		  
+                      rv.setOperation(op);
+                      mconn.enqueueOperation(key, op);
+            	  }
+              }
+            });
+        rv.setOperation(op);
+        mconn.enqueueOperation(key, op);
+        if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch)
+                .addFuture(rv);
+        return rv;
+    }
+
+
 
     private <T> OperationFuture<Boolean> asyncStore(final StoreType storeType, final String key, int exp, T value, Transcoder<T> tc, EVCacheLatch evcacheLatch) {
         CachedData co;

@@ -10,6 +10,7 @@ import javax.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 
 import net.spy.memcached.transcoders.Transcoder;
@@ -843,6 +844,38 @@ public interface EVCache {
      *             Related issues
      */
     <T> Future<Boolean>[] appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException;
+
+    
+    /**
+     * Append the given value to the existing value in EVCache. If the Key does not exist the the key will added.
+     *  
+     *
+     * @param key
+     *            the key under which this object should be appended or Added. Ensure the
+     *            key is properly encoded and does not contain whitespace or
+     *            control characters.
+     * @param T
+     *            the value to be appended
+     * @param tc
+     *            the transcoder the will be used for serialization
+     * @param timeToLive
+     *            the expiration of this object i.e. less than 30 days in
+     *            seconds or the exact expiry time as UNIX time
+     *            
+     * @param policy
+     *            The Latch will be returned based on the Policy. The Latch can then be used to await until the count down has reached to 0 or the specified time has elapsed.
+     *
+     * @return EVCacheLatch which will encompasses the Operation. You can block
+     *         on the Operation based on the policy to ensure the required
+     *         criteria is met. The Latch can also be queried to get details on
+     *         status of the operations
+     * 
+     * @throws EVCacheException
+     *             in the circumstance where queue is too full to accept any
+     *             more requests or issues Serializing the value or any IO
+     *             Related issues
+     */
+    <T> EVCacheLatch appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException;
 
     /**
      * The {@code appName} that will be used by this {@code EVCache}.
