@@ -17,9 +17,9 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     private static final Logger log = LoggerFactory.getLogger(EVCacheMetrics.class);
 
     private final String appName, cacheName;
-    private StepCounter getCallsCounter, bulkCallsCounter, bulkHitsCounter, getHitsCounter, setCallsCounter, replaceCallCounter, delCallsCounter;
+    private StepCounter getCallsCounter, bulkCallsCounter, bulkHitsCounter, getHitsCounter, setCallsCounter, addCallsCounter, replaceCallCounter, delCallsCounter;
     private StepCounter bulkMissCounter, getMissCounter;
-    private StatsTimer getDuration, bulkDuration;
+    private StatsTimer getDuration, bulkDuration, appendOrAddDuration, appendDuration;
 
     EVCacheMetrics(final String appName, String _cacheName) {
         this.appName = appName;
@@ -41,6 +41,12 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
         } else if (op == Call.BULK) {
             getBulkCounter().increment();
             getBulkCallDuration().record(duration);
+        } else if (op == Call.APPEND_OR_ADD) {
+            getAppendOrAddDuration().record(duration);
+        } else if (op == Call.ADD) {
+            getAddCallCounter().increment();
+        } else if (op == Call.APPEND) {
+            getAppendDuration().record(duration);
         }
     }
 
@@ -105,6 +111,14 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
         return bulkMissCounter;
     }
 
+    
+    private StepCounter getAddCallCounter() {
+        if (this.addCallsCounter != null) return this.addCallsCounter;
+
+        this.addCallsCounter = EVCacheMetricsFactory.getStepCounter(appName, cacheName, "AddCall");
+        return addCallsCounter;
+    }
+
     private StepCounter getSetCallCounter() {
         if (this.setCallsCounter != null) return this.setCallsCounter;
 
@@ -126,6 +140,20 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
         return delCallsCounter;
     }
 
+    private StatsTimer getAppendOrAddDuration() {
+        if (appendOrAddDuration != null) return appendOrAddDuration;
+
+        this.appendOrAddDuration = EVCacheMetricsFactory.getStatsTimer(appName, cacheName, "LatencyAppendOrAdd");
+        return appendOrAddDuration;
+    }
+    
+    private StatsTimer getAppendDuration() {
+        if (appendDuration != null) return appendDuration;
+
+        this.appendDuration = EVCacheMetricsFactory.getStatsTimer(appName, cacheName, "LatencyAppend");
+        return appendDuration;
+    }
+    
     private StatsTimer getGetCallDuration() {
         if (getDuration != null) return getDuration;
 
