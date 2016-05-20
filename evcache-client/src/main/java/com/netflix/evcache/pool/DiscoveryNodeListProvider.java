@@ -30,8 +30,8 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
     private static Logger log = LoggerFactory.getLogger(DiscoveryNodeListProvider.class);
     private final DiscoveryClient _discoveryClient;
     private final String _appName;
-    private final Map<ServerGroup, ChainedDynamicProperty.BooleanProperty> useLocalIpFPMap = new HashMap<ServerGroup, ChainedDynamicProperty.BooleanProperty>();
     private final ApplicationInfoManager applicationInfoManager;
+    private final Map<String, ChainedDynamicProperty.BooleanProperty> useRendBatchPortMap = new HashMap<String, ChainedDynamicProperty.BooleanProperty>();
 
     public DiscoveryNodeListProvider(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient,
             String appName) {
@@ -81,8 +81,17 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             final Map<String, String> metaInfo = iInfo.getMetadata();
             final int evcachePort = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.port")) ? metaInfo.get("evcache.port") : DEFAULT_PORT);
             final int rendPort = (metaInfo != null && metaInfo.containsKey("rend.port")) ? Integer.parseInt(metaInfo.get("rend.port")) : 0;
+            final int rendBatchPort = (metaInfo != null && metaInfo.containsKey("rend.batch.port")) ? Integer.parseInt(metaInfo.get("rend.batch.port")) : 0;
             final int udsproxyMemcachedPort = (metaInfo != null && metaInfo.containsKey("udsproxy.memcached.port")) ? Integer.parseInt(metaInfo.get("udsproxy.memcached.port")) : 0;
             final int udsproxyMementoPort = (metaInfo != null && metaInfo.containsKey("udsproxy.memento.port")) ? Integer.parseInt(metaInfo.get("udsproxy.memento.port")) : 0;
+
+            ChainedDynamicProperty.BooleanProperty useBatchPort = useRendBatchPortMap.get(rSetName);
+            if (useBatchPort == null) {
+                useBatchPort = EVCacheConfig.getInstance().getChainedBooleanProperty(_appName + "." + rSetName+ ".use.batch.port", _appName + ".use.batch.port", Boolean.FALSE);
+                useRendBatchPortMap.put(rSetName, useBatchPort);
+            }
+            final int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);
+
             final ServerGroup rSet = new ServerGroup(zone, rSetName);
             final Set<InetSocketAddress> instances;
             final EVCacheServerGroupConfig config;
@@ -104,12 +113,6 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             }
 
             
-            ChainedDynamicProperty.BooleanProperty useLocalIp = useLocalIpFPMap.get(rSet);
-            InetSocketAddress address = null;
-            if (useLocalIp == null) {
-                useLocalIp = EVCacheConfig.getInstance().getChainedBooleanProperty(_appName + "." + rSet.getName()+ ".use.localip", _appName + ".use.localip", Boolean.FALSE);
-                useLocalIpFPMap.put(rSet, useLocalIp);
-            }
 
             final InstanceInfo myInfo = applicationInfoManager.getInfo();
             final DataCenterInfo myDC = myInfo.getDataCenterInfo();
@@ -131,16 +134,17 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                     }
                 }
             }
-            final String myZone = (myAmznDC != null) ? myAmznDC.get(AmazonInfo.MetaDataKey.availabilityZone) : null; 
+            final String myZone = (myAmznDC != null) ? myAmznDC.get(AmazonInfo.MetaDataKey.availabilityZone) : null;
             final String myRegion = (myZone != null) ? myZone.substring(0, myZone.length() - 1) : null;
             final String region = (zone != null) ? zone.substring(0, zone.length() - 1) : null;
             final String host = amznInfo.get(AmazonInfo.MetaDataKey.publicHostname);
             if (log.isDebugEnabled()) log.debug("myZone - " + myZone + "; zone : " + zone + "; myRegion : " + myRegion + "; region : " + region + "; host : " + host);
+            InetSocketAddress address = null;
             if(host != null) {
                 if (myRegion == null || region == null || !myRegion.equals(region)) {
                     // Hack so tests can work on desktop and in jenkins
                     final InetAddress inetAddress = InetAddress.getByName(host);
-                    address = new InetSocketAddress(inetAddress, evcachePort);
+                    address = new InetSocketAddress(inetAddress, port);
                     if (log.isDebugEnabled()) log.debug("myZone - " + myZone + ". host : " + host
                             + "; inetAddress : " + inetAddress + "; address - " + address + "; App Name : " + _appName
                             + "; Zone : " + zone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
@@ -149,27 +153,27 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                             : amznInfo.get(AmazonInfo.MetaDataKey.publicIpv4);
                     final InetAddress add = InetAddresses.forString(localIp);
                     final InetAddress inetAddress = InetAddress.getByAddress(host, add.getAddress());
-                    address = new InetSocketAddress(inetAddress, evcachePort);
+                    address = new InetSocketAddress(inetAddress, port);
                     if (log.isDebugEnabled()) log.debug("CLASSIC : localIp - " + localIp + ". host : " + host + "; add : "
                             + add + "; inetAddress : " + inetAddress + "; address - " + address + "; App Name : " + _appName
                             + "; Zone : " + zone + "; myZone - " + myZone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
                 }
             } else {
-                if (useLocalIp.get().booleanValue() || amznInfo.get(AmazonInfo.MetaDataKey.vpcId) != null) {
+                if (amznInfo.get(AmazonInfo.MetaDataKey.vpcId) != null) {
                     final String localIp = amznInfo.get(AmazonInfo.MetaDataKey.localIpv4);
 
                     final InetAddress add = InetAddresses.forString(localIp);
                     final InetAddress inetAddress = InetAddress.getByAddress(localIp, add.getAddress());
-                    address = new InetSocketAddress(inetAddress, evcachePort);
+                    address = new InetSocketAddress(inetAddress, port);
     
-                    if (log.isDebugEnabled()) log.debug("VPC : localIp - " + localIp + " ; add : " + add + "; inetAddress : " + inetAddress + "; address - " + address 
+                    if (log.isDebugEnabled()) log.debug("VPC : localIp - " + localIp + " ; add : " + add + "; inetAddress : " + inetAddress + "; address - " + address  
                             + "; App Name : " + _appName + "; Zone : " + zone + "; myZone - " + myZone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
                 } else {
                     final String localIp = (isInCloud) ? amznInfo.get(AmazonInfo.MetaDataKey.localIpv4)
                             : amznInfo.get(AmazonInfo.MetaDataKey.publicIpv4);
                     final InetAddress add = InetAddresses.forString(localIp);
                     final InetAddress inetAddress = InetAddress.getByAddress(localIp, add.getAddress());
-                    address = new InetSocketAddress(inetAddress, evcachePort);
+                    address = new InetSocketAddress(inetAddress, port);
                     if (log.isDebugEnabled()) log.debug("CLASSIC : localIp - " + localIp + " ; add : " + add + "; inetAddress : " + inetAddress + "; address - " + address 
                             + "; App Name : " + _appName + "; Zone : " + zone + "; myZone - " + myZone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
                 }

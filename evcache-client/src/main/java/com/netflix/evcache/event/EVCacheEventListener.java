@@ -2,6 +2,8 @@ package com.netflix.evcache.event;
 
 import java.util.EventListener;
 
+import com.netflix.evcache.EVCacheException;
+
 public interface EVCacheEventListener extends EventListener {
 
     void onStart(EVCacheEvent e);
@@ -10,5 +12,5 @@ public interface EVCacheEventListener extends EventListener {
 
     void onError(EVCacheEvent e, Throwable t);
 
-    boolean onThrottle(EVCacheEvent e);
+    boolean onThrottle(EVCacheEvent e) throws EVCacheException;
 }

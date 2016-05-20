@@ -99,7 +99,7 @@ public abstract class Base  {
     protected boolean append(int i, EVCache gCache) throws Exception {
         String val = ";APP_" + i;
         String key = "key_" + i;
-        Future<Boolean>[] status = gCache.append(key, val, 24 * 60 * 60);
+        Future<Boolean>[] status = gCache.append(key, val, 60 * 60);
         for (Future<Boolean> s : status) {
             if (log.isDebugEnabled()) log.debug("APPEND : key : " + key + "; success = " + s.get() + "; Future = " + s.toString());
             if (s.get() == Boolean.FALSE) return false;
@@ -108,17 +108,16 @@ public abstract class Base  {
     }
     
     protected boolean appendOrAdd(int i, EVCache gCache) throws Exception {
-        return appendOrAdd(i, gCache, 24 * 60 * 60);
+        return appendOrAdd(i, gCache, 60 * 60);
     }
 
     protected boolean appendOrAdd(int i, EVCache gCache, int ttl) throws Exception {
         String val = "val_aa_" + i;
         String key = "key_" + i;
-        Future<Boolean>[] status = gCache.appendOrAdd(key, val, null, ttl);
-        for(Future<Boolean> s : status) {
-            if(log.isDebugEnabled()) log.debug("AppendOrAdd : key : " + key + "; success = " + s.get() + "; Future = " + s.toString());
-            if(s.get() == Boolean.FALSE) return false;
-        }
+        EVCacheLatch latch = gCache.appendOrAdd(key, val, null, ttl, Policy.ALL_MINUS_1);
+        if(log.isDebugEnabled()) log.debug("AppendOrAdd : key : " + key + "; Latch = " + latch);
+        boolean status = latch.await(2000, TimeUnit.MILLISECONDS);
+        if(log.isDebugEnabled()) log.debug("AppendOrAdd : key : " + key + "; success = " + status);
         return true;
     }
 
@@ -126,7 +125,7 @@ public abstract class Base  {
         //String val = "This is a very long value that should work well since we are going to use compression on it. blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah val_"+i;
         String val = "val_add_"+i;
         String key = "key_" + i;
-        boolean status = gCache.add(key, val, null, 24 * 60 * 60);
+        boolean status = gCache.add(key, val, null, 60 * 60);
         if(log.isDebugEnabled()) log.debug("ADD : key : " + key + "; success = " + status);
         return status;
     }
@@ -135,7 +134,7 @@ public abstract class Base  {
         //String val = "This is a very long value that should work well since we are going to use compression on it. blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah val_"+i;
         String val = "val_"+i;
         String key = "key_" + i;
-        Future<Boolean>[] status = gCache.set(key, val, 24 * 60 * 60);
+        Future<Boolean>[] status = gCache.set(key, val, 60 * 60);
         for(Future<Boolean> s : status) {
             if(log.isDebugEnabled()) log.debug("SET : key : " + key + "; success = " + s.get() + "; Future = " + s.toString());
             if(s.get() == Boolean.FALSE) return false;
@@ -144,7 +143,7 @@ public abstract class Base  {
     }
     
     protected boolean replace(int i, EVCache gCache) throws Exception {
-        return replace(i, gCache, 24 * 60 * 60);
+        return replace(i, gCache, 60 * 60);
     }
 
     protected boolean replace(int i, EVCache gCache, int ttl) throws Exception {
@@ -169,7 +168,7 @@ public abstract class Base  {
     }
 
     protected boolean touch(int i, EVCache gCache) throws Exception {
-        return touch(i, gCache, 24 * 60 * 60);
+        return touch(i, gCache, 60 * 60);
     }
 
     protected boolean touch(int i, EVCache gCache, int ttl) throws Exception {
@@ -189,7 +188,7 @@ public abstract class Base  {
         final EVCacheClient[] clients = manager.getEVCacheClientPool(app).getEVCacheClientForWrite();
         final EVCacheLatch latch = new EVCacheLatchImpl(EVCacheLatch.Policy.ALL, clients.length, app);
         for (EVCacheClient client : clients) {
-            client.set(key, val, 24 * 60 * 60, latch);
+            client.set(key, val, 60 * 60, latch);
         }
         boolean success = latch.await(1000, TimeUnit.MILLISECONDS);
         if (log.isDebugEnabled()) log.debug("SET LATCH : key : " + key + "; Finished in " + (System.currentTimeMillis() - start) + " msec");
@@ -218,7 +217,7 @@ public abstract class Base  {
 
     public String getAndTouch(int i, EVCache gCache) throws Exception {
         String key = "key_" + i;
-        String value = gCache.<String>getAndTouch(key, 24 * 60 * 60);
+        String value = gCache.<String>getAndTouch(key, 60 * 60);
         if(log.isDebugEnabled()) log.debug("getAndTouch : key : " + key + " val = " + value);
         return value;
     }
@@ -244,7 +243,7 @@ public abstract class Base  {
 
     public String getAndTouchObservable(int i, EVCache gCache, Scheduler scheduler) throws Exception {
         String key = "key_" + i;
-        String value = gCache.<String>getAndTouch(key, 24 * 60 * 60, scheduler).toBlocking().value();
+        String value = gCache.<String>getAndTouch(key, 60 * 60, scheduler).toBlocking().value();
         if(log.isDebugEnabled()) log.debug("getAndTouch : key : " + key + " val = " + value);
         return value;
     }

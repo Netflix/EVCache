@@ -49,8 +49,8 @@ import static com.netflix.evcache.util.Sneaky.sneakyThrow;
 
 @SuppressWarnings("unchecked")
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "WMI_WRONG_MAP_ITERATOR",
-        "DB_DUPLICATE_BRANCHES", "REC_CATCH_EXCEPTION",
-        "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE" })
+    "DB_DUPLICATE_BRANCHES", "REC_CATCH_EXCEPTION",
+"RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE" })
 final public class EVCacheImpl implements EVCache {
 
     private static Logger log = LoggerFactory.getLogger(EVCacheImpl.class);
@@ -74,7 +74,7 @@ final public class EVCacheImpl implements EVCache {
     private EVCacheInMemoryCache<?> cache;
 
     private final EVCacheClientPoolManager _poolManager;
-    private DistributionSummary setTTLSummary, replaceTTLSummary, addTTLSummary, touchTTLSummary, setDataSizeSummary, replaceDataSizeSummary, appendDataSizeSummary, addDataSizeSummary;
+    private DistributionSummary setTTLSummary, replaceTTLSummary, touchTTLSummary, setDataSizeSummary, replaceDataSizeSummary, appendDataSizeSummary, addDataSizeSummary;
     private Counter touchCounter;
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
@@ -147,7 +147,7 @@ final public class EVCacheImpl implements EVCache {
         return event;
     }
 
-    private boolean shouldThrottle(EVCacheEvent event) {
+    private boolean shouldThrottle(EVCacheEvent event) throws EVCacheException {
         for (EVCacheEventListener evcacheEventListener : getEVCacheEventListeners()) {
             if (evcacheEventListener.onThrottle(event)) {
                 return true;
@@ -185,7 +185,7 @@ final public class EVCacheImpl implements EVCache {
     public <T> T get(String key) throws EVCacheException {
         return this.get(key, (Transcoder<T>) _transcoder);
     }
-    
+
     private void increment(String metric) {
         increment(null, _metricPrefix + metric);
     }
@@ -208,9 +208,15 @@ final public class EVCacheImpl implements EVCache {
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key),
                 Call.GET);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return null;
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                 return null;
             }
             startEvent(event);
@@ -274,7 +280,7 @@ final public class EVCacheImpl implements EVCache {
         } finally {
             op.stop();
             if (log.isDebugEnabled() && shouldLog()) log.debug("GET : APP " + _appName + ", Took " + op.getDuration()
-                    + " milliSec.");
+            + " milliSec.");
         }
     }
 
@@ -294,9 +300,13 @@ final public class EVCacheImpl implements EVCache {
 
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key), Call.GET);
         if (event != null) {
-            if (shouldThrottle(event)) {
-                increment("THROTTLED");
-                return Single.error(new EVCacheException("Request Throttled for app " + _appName + " & key " + key));
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    return Single.error(new EVCacheException("Request Throttled for app " + _appName + " & key " + key));
+                }
+            } catch(EVCacheException ex) {
+                throw sneakyThrow(ex);
             }
             startEvent(event);
         }
@@ -345,9 +355,9 @@ final public class EVCacheImpl implements EVCache {
                 if (event != null) eventError(event, ex);
                 if (!throwExc) return null;
                 throw sneakyThrow(new EVCacheException("CheckedOperationTimeoutException getting data for APP " + _appName + ", key = "
-                    + canonicalKey
-                    + ".\nYou can set the following property to increase the timeout " + _appName
-                    + ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex));
+                        + canonicalKey
+                        + ".\nYou can set the following property to increase the timeout " + _appName
+                        + ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex));
             } else {
                 if (event != null) eventError(event, ex);
                 if (!throwExc) return null;
@@ -382,7 +392,7 @@ final public class EVCacheImpl implements EVCache {
             throw ex;
         }
     }
-    
+
     private <T> Single<T> getData(int index, int size, EVCacheClient client, String canonicalKey, Transcoder<T> tc, boolean throwEx, boolean throwExc, boolean hasZF, Scheduler scheduler) {
         if(index >= size -1) throwEx = throwExc; 
         return getData(client, canonicalKey, tc, throwEx, hasZF, scheduler);
@@ -394,18 +404,18 @@ final public class EVCacheImpl implements EVCache {
         return client.get(canonicalKey, tc, throwException, hasZF, scheduler).onErrorReturn(ex -> {
             if (ex instanceof EVCacheReadQueueException) {
                 if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheReadQueueException while getting data for APP "
-                    + _appName + ", key : " + canonicalKey + "; hasZF : "
-                    + hasZF, ex);
+                        + _appName + ", key : " + canonicalKey + "; hasZF : "
+                        + hasZF, ex);
                 if (!throwException || hasZF) return null;
                 throw sneakyThrow(ex);
             } else if (ex instanceof EVCacheException) {
                 if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheException while getting data for APP " + _appName
-                    + ", key : " + canonicalKey + "; hasZF : " + hasZF, ex);
+                        + ", key : " + canonicalKey + "; hasZF : " + hasZF, ex);
                 if (!throwException || hasZF) return null;
                 throw sneakyThrow(ex);
             } else {
                 if (log.isDebugEnabled() && shouldLog()) log.debug("Exception while getting data for APP " + _appName
-                    + ", key : " + canonicalKey, ex);
+                        + ", key : " + canonicalKey, ex);
                 if (!throwException || hasZF) return null;
                 throw sneakyThrow(ex);
             }
@@ -420,8 +430,8 @@ final public class EVCacheImpl implements EVCache {
         } catch (EVCacheReadQueueException ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug(
                     "EVCacheReadQueueException while getAndTouch data for APP " + _appName + ", key : " + canonicalKey
-                            + "; hasZF : "
-                            + hasZF, ex);
+                    + "; hasZF : "
+                    + hasZF, ex);
             if (!throwException || hasZF) return null;
             throw ex;
         } catch (EVCacheException ex) {
@@ -459,9 +469,13 @@ final public class EVCacheImpl implements EVCache {
 
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key), Call.GET_AND_TOUCH);
         if (event != null) {
-            if (shouldThrottle(event)) {
-                increment("THROTTLED");
-                return Single.error(new EVCacheException("Request Throttled for app " + _appName + " & key " + key));
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    return Single.error(new EVCacheException("Request Throttled for app " + _appName + " & key " + key));
+                }
+            } catch(EVCacheException ex) {
+                throw sneakyThrow(ex);
             }
             startEvent(event);
         }
@@ -523,7 +537,7 @@ final public class EVCacheImpl implements EVCache {
                 if (event != null) eventError(event, ex);
                 if (!throwExc) return null;
                 throw sneakyThrow(new EVCacheException("CheckedOperationTimeoutException executing getAndTouch APP " + _appName + ", key = " + canonicalKey
-                + ".\nYou can set the following property to increase the timeout " + _appName + ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex));
+                        + ".\nYou can set the following property to increase the timeout " + _appName + ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex));
             } else {
                 if (event != null) eventError(event, ex);
                 if (!throwExc) return null;
@@ -549,9 +563,15 @@ final public class EVCacheImpl implements EVCache {
 
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key), Call.GET_AND_TOUCH);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return null;
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                 return null;
             }
             startEvent(event);
@@ -609,7 +629,7 @@ final public class EVCacheImpl implements EVCache {
             if (event != null) eventError(event, ex);
             if (!throwExc) return null;
             throw new EVCacheException("CheckedOperationTimeoutException executing getAndTouch APP " + _appName + ", key  = " + canonicalKey
-            + ".\nYou can set the following property to increase the timeout " + _appName+ ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex);
+                    + ".\nYou can set the following property to increase the timeout " + _appName+ ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex);
         } catch (Exception ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing getAndTouch APP " + _appName
                     + ", key = " + canonicalKey, ex);
@@ -637,10 +657,16 @@ final public class EVCacheImpl implements EVCache {
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key),
                 Call.TOUCH);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return new EVCacheFuture[0];
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
-                return new EVCacheFuture[0];
+                return null;
             }
             startEvent(event);
         }
@@ -696,9 +722,15 @@ final public class EVCacheImpl implements EVCache {
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key),
                 Call.ASYNC_GET);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return null;
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                 return null;
             }
             startEvent(event);
@@ -762,10 +794,16 @@ final public class EVCacheImpl implements EVCache {
 
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), keys, Call.BULK);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & keys " + keys);
+                    return Collections.<String, T> emptyMap();
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & keys " + keys);
-                return Collections.<String, T> emptyMap();
+                return null;
             }
             startEvent(event);
         }
@@ -817,7 +855,7 @@ final public class EVCacheImpl implements EVCache {
                             final Map<String, T> fbRetMap = getBulkData(fbClient, retryKeys, tc, false, hasZF);
                             if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName
                                     + ", key [" + retryKeys + "], Fallback Server Group : " + fbClient
-                                            .getServerGroup().getName());
+                                    .getServerGroup().getName());
                             for (Map.Entry<String, T> i : fbRetMap.entrySet()) {
                                 retMap.put(i.getKey(), i.getValue());
                                 if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName
@@ -909,7 +947,7 @@ final public class EVCacheImpl implements EVCache {
         } finally {
             op.stop();
             if (log.isDebugEnabled() && shouldLog()) log.debug("BULK : APP " + _appName + " Took " + op.getDuration()
-                    + " milliSec to get the value for key " + canonicalKeys);
+            + " milliSec to get the value for key " + canonicalKeys);
         }
     }
 
@@ -971,10 +1009,16 @@ final public class EVCacheImpl implements EVCache {
 
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.SET);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return new EVCacheLatchImpl(policy, 0, _appName);
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
-                return new EVCacheLatchImpl(policy, 0, _appName);
+                return null;
             }
             startEvent(event);
         }
@@ -1027,7 +1071,7 @@ final public class EVCacheImpl implements EVCache {
         } finally {
             op.stop();
             if (log.isDebugEnabled() && shouldLog()) log.debug("SET : APP " + _appName + ", Took " + op.getDuration()
-                    + " milliSec for key : " + canonicalKey);
+            + " milliSec for key : " + canonicalKey);
         }
     }
 
@@ -1048,10 +1092,16 @@ final public class EVCacheImpl implements EVCache {
 
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.APPEND);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return new EVCacheFuture[0];
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
-                return new EVCacheFuture[0];
+                return null;
             }
             startEvent(event);
         }
@@ -1074,7 +1124,7 @@ final public class EVCacheImpl implements EVCache {
                 }
                 final Future<Boolean> future = client.append(canonicalKey, cd);
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
-                
+
                 if (cd != null) {
                     if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-AppendData-Size");
                     if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
@@ -1124,10 +1174,16 @@ final public class EVCacheImpl implements EVCache {
 
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.DELETE);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return new EVCacheFuture[0];
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
-                return new EVCacheFuture[0];
+                return null;
             }
             startEvent(event);
         }
@@ -1159,7 +1215,7 @@ final public class EVCacheImpl implements EVCache {
         } finally {
             op.stop();
             if (log.isDebugEnabled() && shouldLog()) log.debug("DELETE : APP " + _appName + " Took " + op.getDuration()
-                    + " milliSec for key : " + key);
+            + " milliSec for key : " + key);
         }
     }
 
@@ -1182,9 +1238,15 @@ final public class EVCacheImpl implements EVCache {
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key),
                 Call.INCR);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return -1;
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                 return -1;
             }
             startEvent(event);
@@ -1214,7 +1276,7 @@ final public class EVCacheImpl implements EVCache {
                     } else if (vals[i] != currentValue) {
                         if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + "; Zone " + clients[i].getZone()
                                 + " had a value of " + vals[i]
-                                + " so setting it to current value = " + currentValue + " for key : " + key);
+                                        + " so setting it to current value = " + currentValue + " for key : " + key);
                         clients[i].set(canonicalKey, String.valueOf(currentValue), timeToLive);
                     }
                 }
@@ -1230,7 +1292,7 @@ final public class EVCacheImpl implements EVCache {
         } finally {
             op.stop();
             if (log.isDebugEnabled() && shouldLog()) log.debug("INCR : APP " + _appName + ", Took " + op.getDuration()
-                    + " milliSec for key : " + key);
+            + " milliSec for key : " + key);
         }
     }
 
@@ -1249,9 +1311,15 @@ final public class EVCacheImpl implements EVCache {
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key),
                 Call.DECR);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return -1;
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                 return -1;
             }
             startEvent(event);
@@ -1281,7 +1349,7 @@ final public class EVCacheImpl implements EVCache {
                     } else if (vals[i] != currentValue) {
                         if (log.isDebugEnabled()) log.debug("DECR : APP " + _appName + "; Zone " + clients[i].getZone()
                                 + " had a value of " + vals[i]
-                                + " so setting it to current value = " + currentValue + " for key : " + key);
+                                        + " so setting it to current value = " + currentValue + " for key : " + key);
                         clients[i].set(canonicalKey, String.valueOf(currentValue), timeToLive);
                     }
                 }
@@ -1298,7 +1366,7 @@ final public class EVCacheImpl implements EVCache {
         } finally {
             op.stop();
             if (log.isDebugEnabled() && shouldLog()) log.debug("DECR : APP " + _appName + ", Took " + op.getDuration()
-                    + " milliSec for key : " + key);
+            + " milliSec for key : " + key);
         }
     }
 
@@ -1332,10 +1400,16 @@ final public class EVCacheImpl implements EVCache {
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key),
                 Call.REPLACE);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return new EVCacheLatchImpl(policy, 0, _appName);
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
-                return new EVCacheLatchImpl(policy, 0, _appName);
+                return null;
             }
             startEvent(event);
         }
@@ -1392,10 +1466,10 @@ final public class EVCacheImpl implements EVCache {
         }
     }
 
-	@Override
-	public String getCachePrefix() {
-		return _cacheName;
-	}
+    @Override
+    public String getCachePrefix() {
+        return _cacheName;
+    }
 
     public String getAppName() {
         return _appName;
@@ -1404,7 +1478,7 @@ final public class EVCacheImpl implements EVCache {
     public String getCacheName() {
         return _cacheName;
     }
-    
+
     public <T> EVCacheLatch appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
 
@@ -1418,14 +1492,19 @@ final public class EVCacheImpl implements EVCache {
 
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.APPEND_OR_ADD);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
-                return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
+                return null;
             }
             startEvent(event);
         }
-
         final String canonicalKey = getCanonicalizedKey(key);
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.APPEND_OR_ADD, stats, Operation.TYPE.MILLI);
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy,
@@ -1469,8 +1548,8 @@ final public class EVCacheImpl implements EVCache {
         }
     }
 
-	@Override
-	public <T> Future<Boolean>[] appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
+    @Override
+    public <T> Future<Boolean>[] appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
 
         final boolean throwExc = doThrowException();
@@ -1483,10 +1562,16 @@ final public class EVCacheImpl implements EVCache {
 
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.APPEND_OR_ADD);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return new EVCacheFuture[0];
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
-                return new EVCacheFuture[0];
+                return null;
             }
             startEvent(event);
         }
@@ -1509,7 +1594,7 @@ final public class EVCacheImpl implements EVCache {
                 }
                 final Future<Boolean> future = client.append(canonicalKey, cd);
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup(), client);
-                
+
                 if (cd != null) {
                     if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-AppendData-Size");
                     if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
@@ -1522,15 +1607,15 @@ final public class EVCacheImpl implements EVCache {
             }
 
             for(int i = 0; i < futures.length; i++) {
-            	final EVCacheFuture future = futures[i];
-        		
-            	if(!future.get()) {
-            		final EVCacheClient client = future.getEVCacheClient();
-            		if(client != null) {
-	            		final Future<Boolean> f = client.add(canonicalKey, timeToLive, cd);
-	            		futures[i] = new EVCacheFuture(f, key, _appName, client.getServerGroup(), client);
-            		}
-            	}
+                final EVCacheFuture future = futures[i];
+
+                if(!future.get()) {
+                    final EVCacheClient client = future.getEVCacheClient();
+                    if(client != null) {
+                        final Future<Boolean> f = client.add(canonicalKey, timeToLive, cd);
+                        futures[i] = new EVCacheFuture(f, key, _appName, client.getServerGroup(), client);
+                    }
+                }
             }
 
             touch(key, timeToLive);//ensure the ttl is reset
@@ -1544,10 +1629,10 @@ final public class EVCacheImpl implements EVCache {
             op.stop();
             if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Took " + op.getDuration() + " milliSec for key : " + canonicalKey);
         }
-	}
+    }
 
-	@Override
-	public <T> boolean add(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
+    @Override
+    public <T> boolean add(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
 
         final boolean throwExc = doThrowException();
@@ -1560,9 +1645,15 @@ final public class EVCacheImpl implements EVCache {
 
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.ADD);
         if (event != null) {
-            if (shouldThrottle(event)) {
+            try {
+                if (shouldThrottle(event)) {
+                    increment("THROTTLED");
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return false;
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 increment("THROTTLED");
-                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                 return false;
             }
             startEvent(event);
@@ -1586,7 +1677,7 @@ final public class EVCacheImpl implements EVCache {
                 }
                 final Future<Boolean> future = client.add(canonicalKey, timeToLive, cd);
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup(), client);
-                
+
                 if (cd != null) {
                     if (addDataSizeSummary == null) this.addDataSizeSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-AddData-Size");
                     if (addDataSizeSummary != null) this.addDataSizeSummary.record(cd.getData().length);
@@ -1597,33 +1688,33 @@ final public class EVCacheImpl implements EVCache {
                 event.setCachedData(cd);
                 endEvent(event);
             }
-            
+
             if(futures.length == 0) return false;
 
             int successCount = 0, failCount = 0;
             for(int i = 0; i < futures.length; i++) {
-            	final EVCacheFuture future = futures[i];
-            	if(future.get() == Boolean.TRUE) {
-            		successCount++;
-            		if(log.isDebugEnabled()) log.debug("ADD Success : APP " + _appName + ", key " + key);
-            	} else {
-            		failCount++;
-            		if(log.isDebugEnabled()) log.debug("ADD Fail : APP " + _appName + ", key " + key);
-            	}
+                final EVCacheFuture future = futures[i];
+                if(future.get() == Boolean.TRUE) {
+                    successCount++;
+                    if(log.isDebugEnabled()) log.debug("ADD Success : APP " + _appName + ", key " + key);
+                } else {
+                    failCount++;
+                    if(log.isDebugEnabled()) log.debug("ADD Fail : APP " + _appName + ", key " + key);
+                }
             }
 
             if(successCount > 0 && failCount > 0) {
                 for(int i = 0; i < futures.length; i++) {
-                	final EVCacheFuture future = futures[i];
-                	if(future.get() == Boolean.TRUE) {
-                   		final EVCacheClient client = future.getEVCacheClient();
-                   		client.delete(canonicalKey);
-                	}
-            	}
+                    final EVCacheFuture future = futures[i];
+                    if(future.get() == Boolean.TRUE) {
+                        final EVCacheClient client = future.getEVCacheClient();
+                        client.delete(canonicalKey);
+                    }
+                }
                 return false;
             } else {
-            	if(failCount == 0) return true;
-            	else return false;
+                if(failCount == 0) return true;
+                else return false;
             }
 
         } catch (Exception ex) {
@@ -1635,6 +1726,6 @@ final public class EVCacheImpl implements EVCache {
             op.stop();
             if (log.isDebugEnabled() && shouldLog()) log.debug("ADD : APP " + _appName + ", Took " + op.getDuration() + " milliSec for key : " + canonicalKey);
         }
-	}
+    }
 
 }

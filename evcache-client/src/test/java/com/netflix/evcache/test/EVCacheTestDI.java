@@ -74,7 +74,7 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
     }
 
 
-    @Test(dependsOnMethods = { "" })
+    @Test(dependsOnMethods = { "testAdd" })
     public void testInsertBinary() throws Exception {
         for (int i = 0; i < loops; i++) {
             assertTrue(insertBytes(i, evCache));
