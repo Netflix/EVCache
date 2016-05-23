@@ -33,7 +33,9 @@ import com.netflix.servo.monitor.Counter;
 import com.netflix.spectator.api.DistributionSummary;
 
 import net.spy.memcached.CachedData;
+import net.spy.memcached.protocol.binary.BinaryOperationFactory;
 import net.spy.memcached.transcoders.Transcoder;
+import net.spy.memcached.util.StringUtils;
 import rx.Observable;
 import rx.Scheduler;
 import rx.Single;
@@ -102,8 +104,14 @@ final public class EVCacheImpl implements EVCache {
     }
 
     private String getCanonicalizedKey(String key) {
-        if (this._cacheName == null) return key;
-        return _cacheName + ':' + key;
+        final String cKey;
+        if (this._cacheName == null) {
+            cKey = key;
+        } else {
+            cKey = _cacheName + ':' + key;
+        }
+        StringUtils.validateKey(cKey, false);
+        return  cKey;
     }
 
     private String getKey(String canonicalizedKey) {

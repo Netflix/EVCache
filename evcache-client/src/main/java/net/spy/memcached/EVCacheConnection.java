@@ -11,7 +11,9 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 import net.spy.memcached.ops.Operation;
+import net.spy.memcached.protocol.binary.BinaryOperationFactory;
 import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
+import net.spy.memcached.util.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,6 +76,13 @@ public class EVCacheConnection extends MemcachedConnection {
             ((EVCacheNodeImpl) node).incrOps();
         }
     }
+
+    @Override
+    public void enqueueOperation(final String key, final Operation o) {
+        checkState();
+        addOperation(key, o);
+      }
+    
 
     @Override
     public CountDownLatch broadcastOperation(BroadcastOpFactory of, Collection<MemcachedNode> nodes) {

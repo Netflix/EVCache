@@ -58,14 +58,44 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
         this.evCache = getNewBuilder().setAppName("EVCACHE").setCachePrefix("cid").enableRetry().build();
         assertNotNull(evCache);
     }
-    
+
     @Test(dependsOnMethods = { "testEVCache" })
+    public void testKeySizeCheck() throws Exception {
+        final String key = "This is an invalid key";
+        boolean exceptionThrown = false;
+        for (int i = 0; i < loops; i++) {
+            try {
+                if (log.isDebugEnabled()) log.debug("Check key : " + key );
+                evCache.<String>get(key);
+            } catch(Exception e) {
+                exceptionThrown = true;
+                if (log.isDebugEnabled()) log.debug("Check key : " + key  + ": INVALID");
+            }
+            assertTrue(exceptionThrown);
+        }
+
+        final String longKey = "This_is_an_a_very_long_key.This_is_an_a_very_long_key.This_is_an_a_very_long_key.This_is_an_a_very_long_key.This_is_an_a_very_long_key.This_is_an_a_very_long_key.This_is_an_a_very_long_key.This_is_an_a_very_long_key.This_is_an_a_very_long_key.This_is_an_a_very_long_key.This_is_an_a_very_long_key.This_is_an_a_very_long_key.";
+        exceptionThrown = false;
+        for (int i = 0; i < loops; i++) {
+            try {
+                if (log.isDebugEnabled()) log.debug("Check key length : " + longKey );
+                evCache.<String>get(longKey);
+            } catch(Exception e) {
+                exceptionThrown = true;
+                if (log.isDebugEnabled()) log.debug("Check key length: " + longKey  + ": INVALID");
+            }
+            assertTrue(exceptionThrown);
+        }
+        
+    }
+
+    @Test(dependsOnMethods = { "testKeySizeCheck" })
     public void testDelete() throws Exception {
         for (int i = 0; i < loops; i++) {
             delete(i, evCache);
         }
     }
-    
+
     @Test(dependsOnMethods = { "testDelete" })
     public void testAdd() throws Exception {
         for (int i = 0; i < loops; i++) {
