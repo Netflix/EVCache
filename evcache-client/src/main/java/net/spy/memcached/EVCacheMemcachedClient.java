@@ -279,10 +279,15 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
         Operation op = opFact.cat(ConcatenationType.append, 0, key, co.getData(),
             new OperationCallback() {
+            final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "LatencyAoA").start();
         	boolean appendSuccess = true;
               @Override
               public void receivedStatus(OperationStatus val) {
                   if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
+                      operationDuration.stop();
+                      if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
+                              + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration()));
+
                       EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-AppendCall-SUCCESS").increment();
                       rv.set(val.isSuccess(), val);
                   } else {
@@ -299,14 +304,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                       Operation op = opFact.store(StoreType.add, key, co.getFlags(), exp, co.getData(), new StoreOperation.Callback() {
                           @Override
                           public void receivedStatus(OperationStatus val) {
-                              if (log.isDebugEnabled()) log.debug("Storing Key : " + key + "; Status : " + val.getStatusCode().name()
-                                      + "; Message : " + val.getMessage());
-
-                              Tag tag = null;
-                              final MemcachedNode node = getEVCacheNode(key);
-                              if (node.getSocketAddress() instanceof InetSocketAddress) {
-                                  tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
-                              }
+                              operationDuration.stop();
+                              if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Ad Operation): " + key + "; Status : " + val.getStatusCode().name()
+                                      + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration()));
                               rv.set(val.isSuccess(), val);
                           }
 
@@ -328,8 +328,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             });
         rv.setOperation(op);
         mconn.enqueueOperation(key, op);
-        if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch)
-                .addFuture(rv);
+        if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch).addFuture(rv);
         return rv;
     }
 
