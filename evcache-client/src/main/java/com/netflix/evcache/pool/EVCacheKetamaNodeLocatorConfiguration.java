@@ -68,8 +68,7 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
                         }
                     }
                 } else {
-                    result = ((InetSocketAddress)socketAddress).getHostName() + '/' +
-                            ((InetSocketAddress)socketAddress).getPort();
+                    result = ((InetSocketAddress)socketAddress).getHostName() + '/' + ((InetSocketAddress)socketAddress).getAddress().getHostAddress() + ":11211";
                 }
             } else {
                 result=String.valueOf(socketAddress);
