@@ -148,17 +148,18 @@ public class EVCacheClient {
         if (node instanceof EVCacheNodeImpl) {
             final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
             if (!evcNode.isAvailable()) {
+                EVCacheMetricsFactory.increment("EVCacheClient-" + appName + "-" + zone + "-INACTIVE_NODE");
                 pool.refreshAsync(evcNode);
             }
 
             while (true) {
-                if (!evcNode.isActive()) {
-                    EVCacheMetricsFactory.increment("EVCacheClient-" + appName + "-" + zone + "-INACTIVE_NODE");
-                    if (log.isDebugEnabled()) log.debug("Node : " + evcNode + " for app : " + appName + "; zone : "
-                            + zone
-                            + " is not active. Will Fail Fast and the write will be dropped for key : " + key);
-                    break;
-                }
+//                if (!evcNode.isActive()) {
+//                    EVCacheMetricsFactory.increment("EVCacheClient-" + appName + "-" + zone + "-INACTIVE_NODE");
+//                    if (log.isDebugEnabled()) log.debug("Node : " + evcNode + " for app : " + appName + "; zone : "
+//                            + zone
+//                            + " is not active. Will Fail Fast and the write will be dropped for key : " + key);
+//                    break;
+//                }
                 final int size = evcNode.getWriteQueueSize();
                 final boolean canAddToOpQueue = size < maxWriteQueueSize;
                 if (log.isDebugEnabled()) log.debug("App : " + appName + "; zone : " + zone + "; key : " + key
@@ -988,7 +989,7 @@ public class EVCacheClient {
         if (addCounter == null) addCounter = EVCacheMetricsFactory.getCounter(serverGroup.getName() + "-AddCall");
 
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
-        if (!node.isActive()) return getDefaultFuture();
+//        if (!node.isActive()) return getDefaultFuture();
 
         ensureWriteQueueSize(node, key);
         addCounter.increment();
@@ -1000,7 +1001,7 @@ public class EVCacheClient {
         if (addCounter == null) addCounter = EVCacheMetricsFactory.getCounter(serverGroup.getName() + "-AddCall");
 
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
-        if (!node.isActive()) return getDefaultFuture();
+//        if (!node.isActive()) return getDefaultFuture();
 
         ensureWriteQueueSize(node, key);
         addCounter.increment();
