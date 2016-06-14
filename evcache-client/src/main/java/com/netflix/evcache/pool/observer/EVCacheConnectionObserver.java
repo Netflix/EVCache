@@ -72,6 +72,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
             if (log.isDebugEnabled()) log.debug(appName + ":CONNECTION ESTABLISHED : From " + instanceInfo.getHostName()
                     + " to " + address + " was established after " + reconnectCount + " retries");
         }
+        if(log.isTraceEnabled()) log.trace("Stack", new Exception());
         connect.increment();
         connectCount++;
     }
@@ -87,6 +88,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
             if (log.isDebugEnabled()) log.debug(appName + ":CONNECTION LOST : From " + instanceInfo.getHostName()
                     + " to " + address);
         }
+        if(log.isTraceEnabled()) log.trace("Stack", new Exception());
         lost.increment();
         lostCount++;
     }
