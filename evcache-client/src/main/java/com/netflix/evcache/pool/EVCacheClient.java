@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,19 +26,13 @@ import com.netflix.discovery.shared.Pair;
 import com.netflix.evcache.EVCacheException;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheReadQueueException;
-import com.netflix.evcache.EVCache.Call;
-import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
-import com.netflix.evcache.metrics.Operation;
-import com.netflix.evcache.operation.EVCacheFuture;
 import com.netflix.evcache.operation.EVCacheFutures;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.servo.monitor.Counter;
 import com.netflix.servo.monitor.Stopwatch;
-import com.netflix.servo.tag.BasicTag;
-import com.netflix.servo.tag.Tag;
 
 import net.spy.memcached.CASValue;
 import net.spy.memcached.CachedData;
@@ -135,10 +128,9 @@ public class EVCacheClient {
                 // Size - " + size + " for app " + appName + " & zone " + zone +
                 // " ; node " + node);
                 if (!canAddToOpQueue) {
-                    EVCacheMetricsFactory.increment("EVCacheClient-" + appName + "-" + zone + "-READ_QUEUE_FULL");
+                    EVCacheMetricsFactory.getCounter("EVCacheClient-" + appName + "-READ_QUEUE_FULL", evcNode.getBaseTags()).increment();
                     if (log.isDebugEnabled()) log.debug("Read Queue Full on Bulk Operation for app : " + appName
-                            + "; zone : " + zone + "; Current Size : " + size + "; Max Size : "
-                            + maxReadQueueSize.get() * 2);
+                            + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get() * 2);
                 } else {
                     retKeys.add(key);
                 }
@@ -151,7 +143,7 @@ public class EVCacheClient {
         if (node instanceof EVCacheNodeImpl) {
             final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
             if (!evcNode.isAvailable()) {
-                EVCacheMetricsFactory.increment("EVCacheClient-" + appName + "-" + zone + "-INACTIVE_NODE");
+                EVCacheMetricsFactory.getCounter("EVCacheClient-" + appName + "-INACTIVE_NODE", evcNode.getBaseTags()).increment();
                 pool.refreshAsync(evcNode);
             }
 
@@ -162,7 +154,7 @@ public class EVCacheClient {
                 if (log.isDebugEnabled()) log.debug("App : " + appName + "; zone : " + zone + "; key : " + key
                         + "; WriteQSize : " + size);
                 if (canAddToOpQueue) break;
-                EVCacheMetricsFactory.increment("EVCacheClient-" + appName + "-" + zone + "-WRITE_BLOCK");
+                EVCacheMetricsFactory.getCounter("EVCacheClient-" + appName + "-WRITE_BLOCK", evcNode.getBaseTags()).increment();
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
@@ -171,8 +163,7 @@ public class EVCacheClient {
                 if(startTime > 0) {
                     startTime -= 100;
                 } else {
-                    Tag tag = new BasicTag("HOST", evcNode.getHostName());
-                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), "EVCacheClient-" + appName + "-" + zone + "-INACTIVE_NODE", tag).increment();
+                    EVCacheMetricsFactory.getCounter("EVCacheClient-" + appName + "-INACTIVE_NODE", evcNode.getBaseTags()).increment();
                     if (log.isDebugEnabled()) log.debug("Node : " + evcNode + " for app : " + appName + "; zone : "
                             + zone + " is not active. Will Fail Fast and the write will be dropped for key : " + key);
                     return false;
@@ -188,29 +179,24 @@ public class EVCacheClient {
         if (node instanceof EVCacheNodeImpl) {
             final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
             if (!evcNode.isAvailable()) {
-                EVCacheMetricsFactory.increment("EVCacheClient-" + appName + "-" + zone + "-INACTIVE_NODE");
+            	EVCacheMetricsFactory.getCounter("EVCacheClient-" + appName + "-INACTIVE_NODE", evcNode.getBaseTags()).increment();
                 if (log.isDebugEnabled()) log.debug("Node : " + node + " for app : " + appName + "; zone : " + zone
                         + " is not active. Will Fail Fast so that we can fallback to Other Zone if available.");
                 if (_throwException) throw new EVCacheException("Connection for Node : " + node + " for app : " + appName
                         + "; zone : " + zone + " is not active");
                 return false;
             }
-        }
 
-        // now check to see if the read queue is full.
-        if (node instanceof EVCacheNodeImpl) {
-            final int size = ((EVCacheNodeImpl) node).getReadQueueSize();
+            final int size = evcNode.getReadQueueSize();
             final boolean canAddToOpQueue = size < maxReadQueueSize.get();
             if (log.isDebugEnabled()) log.debug("Current Read Queue Size - " + size + " for app " + appName + " & zone "
                     + zone);
             if (!canAddToOpQueue) {
-                EVCacheMetricsFactory.increment("EVCacheClient-" + appName + "-" + zone + "-READ_QUEUE_FULL");
+                EVCacheMetricsFactory.getCounter("EVCacheClient-" + appName + "-" + zone + "-READ_QUEUE_FULL", evcNode.getBaseTags()).increment();
                 if (log.isDebugEnabled()) log.debug("Read Queue Full for Node : " + node + "; app : " + appName
-                        + "; zone : " + zone + "; Current Size : " + size + "; Max Size : "
-                        + maxReadQueueSize.get());
+                        + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get());
                 if (_throwException) throw new EVCacheReadQueueException("Read Queue Full for Node : " + node + "; app : "
-                        + appName + "; zone : " + zone + "; Current Size : " + size
-                        + "; Max Size : " + maxReadQueueSize.get());
+                        + appName + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get());
                 return false;
             }
         }
@@ -447,8 +433,7 @@ public class EVCacheClient {
             if (!hasZF) {
                 if (log.isWarnEnabled()) log.warn("CHECKSUM_ERROR : Chunks : " + ci.getChunks() + " ; "
                         + "currentChecksum : " + currentChecksum + "; expectedChecksum : " + expectedChecksum
-                        + " for key : "
-                        + ci.getKey());
+                        + " for key : " + ci.getKey());
                 EVCacheMetricsFactory.increment(appName + "-CHECK_SUM_ERROR");
             }
             return false;

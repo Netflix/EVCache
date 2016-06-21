@@ -25,9 +25,11 @@ import com.netflix.evcache.operation.EVCacheBulkGetFuture;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.servo.monitor.Stopwatch;
 import com.netflix.servo.tag.BasicTag;
 import com.netflix.servo.tag.Tag;
+import com.netflix.spectator.api.DistributionSummary;
 
 import net.spy.memcached.internal.GetFuture;
 import net.spy.memcached.internal.OperationFuture;
@@ -55,6 +57,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private final String zone;
     private final ChainedDynamicProperty.IntProperty readTimeout;
     private final ServerGroup serverGroup;
+    private DistributionSummary getDataSize, bulkDataSize, getAndTouchDataSize;
 
     public EVCacheMemcachedClient(ConnectionFactory cf, List<InetSocketAddress> addrs,
             ChainedDynamicProperty.IntProperty readTimeout, String appName, String zone, int id,
@@ -100,6 +103,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             @SuppressWarnings("unchecked")
             public void gotData(String k, int flags, byte[] data) {
+            	
+                if (data != null)  {
+                	if(getDataSize == null) getDataSize = EVCacheConfig.getInstance().getDistributionSummary(appName + "-GetData-Size");
+                	if (getDataSize != null) getDataSize.record(data.length);
+                }
                 if (!key.equals(k)) log.warn("Wrong key returned. Key - " + key + "; Returned Key " + k);
                 if (tc == null) {
                     if (tcService == null) {
@@ -167,6 +175,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             @Override
             public void gotData(String k, int flags, byte[] data) {
+                if (data != null)  {
+                	if(bulkDataSize == null) bulkDataSize = EVCacheConfig.getInstance().getDistributionSummary(appName + "-BulkData-Size");
+                	if (bulkDataSize != null) bulkDataSize.record(data.length);
+                }
+
                 m.put(k, tcService.decode(tc, new CachedData(flags, data, tc.getMaxSize())));
             }
 
@@ -211,6 +224,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             public void gotData(String k, int flags, long cas, byte[] data) {
                 if (!key.equals(k)) log.warn("Wrong key returned. Key - " + key + "; Returned Key " + k);
+                if (data != null)  {
+                	if(getAndTouchDataSize == null) getAndTouchDataSize = EVCacheConfig.getInstance().getDistributionSummary(appName + "-GATData-Size");
+                	if (getAndTouchDataSize != null) getAndTouchDataSize.record(data.length);
+                }
+                
                 val = new CASValue<T>(cas, tc.decode(new CachedData(flags, data, tc.getMaxSize())));
             }
         });
@@ -280,7 +298,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         Operation op = opFact.cat(ConcatenationType.append, 0, key, co.getData(),
             new OperationCallback() {
             final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "LatencyAoA").start();
-        	boolean appendSuccess = true;
+        	boolean appendSuccess = false;
               @Override
               public void receivedStatus(OperationStatus val) {
                   if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
@@ -290,6 +308,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
                       EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-AppendCall-SUCCESS").increment();
                       rv.set(val.isSuccess(), val);
+                      appendSuccess = true;
                   } else {
                 	  appendSuccess = false;
                   }
@@ -298,8 +317,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
               @Override
               public void complete() {
             	  if(appendSuccess)  {
-    		          	rv.signalComplete();
 		                latch.countDown();
+    		          	rv.signalComplete();
             	  } else {
                       Operation op = opFact.store(StoreType.add, key, co.getFlags(), exp, co.getData(), new StoreOperation.Callback() {
                           @Override

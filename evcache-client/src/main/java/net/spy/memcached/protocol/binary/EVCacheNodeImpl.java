@@ -53,7 +53,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     protected final DynamicBooleanProperty sendMetrics;
     protected final MonitorConfig baseConfig;
     protected final TagList baseTags;
-    protected final TagList tags;
+	protected final TagList tags;
 
     private long timeoutStartTime;
 
@@ -245,4 +245,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         return id;
     }
 
+    public TagList getBaseTags() {
+		return baseTags;
+	}
 }

@@ -1,5 +1,7 @@
 package com.netflix.evcache;
 
+import static com.netflix.evcache.util.Sneaky.sneakyThrow;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -33,14 +35,11 @@ import com.netflix.servo.monitor.Counter;
 import com.netflix.spectator.api.DistributionSummary;
 
 import net.spy.memcached.CachedData;
-import net.spy.memcached.protocol.binary.BinaryOperationFactory;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.util.StringUtils;
 import rx.Observable;
 import rx.Scheduler;
 import rx.Single;
-
-import static com.netflix.evcache.util.Sneaky.sneakyThrow;
 
 /**
  * An implementation of a ephemeral volatile cache.
