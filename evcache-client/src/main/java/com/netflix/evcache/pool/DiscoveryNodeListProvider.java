@@ -20,8 +20,10 @@ import com.netflix.appinfo.DataCenterInfo;
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.appinfo.InstanceInfo.InstanceStatus;
 import com.netflix.config.ChainedDynamicProperty;
+import com.netflix.config.DynamicStringSetProperty;
 import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.shared.Application;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
 
 public class DiscoveryNodeListProvider implements EVCacheNodeList {
@@ -32,12 +34,15 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
     private final String _appName;
     private final ApplicationInfoManager applicationInfoManager;
     private final Map<String, ChainedDynamicProperty.BooleanProperty> useRendBatchPortMap = new HashMap<String, ChainedDynamicProperty.BooleanProperty>();
+    private final DynamicStringSetProperty ignoreHosts;
 
     public DiscoveryNodeListProvider(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient,
             String appName) {
         this.applicationInfoManager = applicationInfoManager;
         this._discoveryClient = discoveryClient;
         this._appName = appName;
+        ignoreHosts = new DynamicStringSetProperty(appName + ".ignore.hosts", "");
+        
     }
 
     /*
@@ -77,7 +82,16 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             final AmazonInfo amznInfo = (AmazonInfo) dcInfo; 
             // We checked above if this instance is Amazon so no need to do a instanceof check
             final String zone = amznInfo.get(AmazonInfo.MetaDataKey.availabilityZone);
+            if(zone == null) {
+            	EVCacheMetricsFactory.increment(_appName, null, "EVCacheClient-DiscoveryNodeListProvider-NULL_ZONE");
+            	continue;
+            }
             final String rSetName = iInfo.getASGName();
+            if(rSetName == null) {
+            	EVCacheMetricsFactory.increment(_appName, null, "EVCacheClient-DiscoveryNodeListProvider-NULL_SERVER_GROUP");
+            	continue;
+            }
+            
             final Map<String, String> metaInfo = iInfo.getMetadata();
             final int evcachePort = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.port")) ? metaInfo.get("evcache.port") : DEFAULT_PORT);
             final int rendPort = (metaInfo != null && metaInfo.containsKey("rend.port")) ? Integer.parseInt(metaInfo.get("rend.port")) : 0;
@@ -111,8 +125,6 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                         + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
                 continue;
             }
-
-            
 
             final InstanceInfo myInfo = applicationInfoManager.getInfo();
             final DataCenterInfo myDC = myInfo.getDataCenterInfo();
@@ -149,8 +161,8 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                             + "; inetAddress : " + inetAddress + "; address - " + address + "; App Name : " + _appName
                             + "; Zone : " + zone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
                 } else {
-                    final String localIp = (isInCloud) ? amznInfo.get(AmazonInfo.MetaDataKey.localIpv4)
-                            : amznInfo.get(AmazonInfo.MetaDataKey.publicIpv4);
+                    final String localIp = (isInCloud) ? amznInfo.get(AmazonInfo.MetaDataKey.localIpv4) : amznInfo.get(AmazonInfo.MetaDataKey.publicIpv4);
+                    if(ignoreHosts.get().contains(localIp)) continue;
                     final InetAddress add = InetAddresses.forString(localIp);
                     final InetAddress inetAddress = InetAddress.getByAddress(host, add.getAddress());
                     address = new InetSocketAddress(inetAddress, port);
@@ -161,6 +173,7 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             } else {
                 if (amznInfo.get(AmazonInfo.MetaDataKey.vpcId) != null) {
                     final String localIp = amznInfo.get(AmazonInfo.MetaDataKey.localIpv4);
+                    if(ignoreHosts.get().contains(localIp)) continue;
 
                     final InetAddress add = InetAddresses.forString(localIp);
                     final InetAddress inetAddress = InetAddress.getByAddress(localIp, add.getAddress());
@@ -171,6 +184,7 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                 } else {
                     final String localIp = (isInCloud) ? amznInfo.get(AmazonInfo.MetaDataKey.localIpv4)
                             : amznInfo.get(AmazonInfo.MetaDataKey.publicIpv4);
+                    if(ignoreHosts.get().contains(localIp)) continue;
                     final InetAddress add = InetAddresses.forString(localIp);
                     final InetAddress inetAddress = InetAddress.getByAddress(localIp, add.getAddress());
                     address = new InetSocketAddress(inetAddress, port);
