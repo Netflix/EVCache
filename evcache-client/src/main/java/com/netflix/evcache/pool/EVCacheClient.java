@@ -702,7 +702,8 @@ public class EVCacheClient {
             srcPos += lengthOfArray;
             chunkData[i] = decodingTranscoder.encode(dest);
         }
-        EVCacheConfig.getInstance().getDistributionSummary(appName + "-Data-NumberOfChunks").record(numOfChunks);
+        EVCacheConfig.getInstance().getDistributionSummary(appName + "-ChunkData-NumberOfChunks").record(numOfChunks);
+        EVCacheConfig.getInstance().getDistributionSummary(appName + "-ChunkData-TotalSize").record(len);
 
         return chunkData;
     }
@@ -719,15 +720,20 @@ public class EVCacheClient {
     public Map<String, CachedData> getAllChunks(String key) throws EVCacheReadQueueException, EVCacheException, Exception {
         try {
             final ChunkDetails<Object> cd = getChunkDetails(key);
+            if(log.isDebugEnabled()) log.debug("Chunkdetails " + cd);
             if (cd == null) return null;
             if (!cd.isChunked()) {
                 Map<String, CachedData> rv = new HashMap<String, CachedData>();
                 rv.put(key, (CachedData) cd.getData());
+                if(log.isDebugEnabled()) log.debug("Data : " + rv);
                 return rv;
             } else {
                 final List<String> keys = cd.getChunkKeys();
+                if(log.isDebugEnabled()) log.debug("Keys - " + keys);
                 final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(keys, chunkingTranscoder, null, "GetAllChunksOperation")
                         .getSome(readTimeout.get().intValue(), TimeUnit.MILLISECONDS, false, false);
+                
+                if(log.isDebugEnabled()) log.debug("Datamap " + dataMap);
                 return dataMap;
             }
         } catch (Exception e) {
@@ -1283,6 +1289,12 @@ public class EVCacheClient {
         public T getData() {
             return data;
         }
+
+		@Override
+		public String toString() {
+			return "ChunkDetails [chunkKeys=" + chunkKeys + ", chunkInfo=" + chunkInfo + ", chunked=" + chunked
+					+ ", data=" + data + "]";
+		}
 
     }
 
