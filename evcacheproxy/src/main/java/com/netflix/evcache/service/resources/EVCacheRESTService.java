@@ -21,7 +21,7 @@ import java.util.concurrent.Future;
 /**
  * Created by senugula on 3/22/16.
  */
-@Path("/evcache")
+@Path("/evcrest/v1.0")
 public class EVCacheRESTService {
 
     private Logger logger = LoggerFactory.getLogger(EVCacheRESTService.class);
