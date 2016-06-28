@@ -61,6 +61,32 @@ public class EVCacheRESTService {
             return Response.serverError().build();
         }
     }
+    
+    @PUT
+    @Path("{appId}/{key}")
+    @Consumes({MediaType.APPLICATION_OCTET_STREAM})
+    @Produces(MediaType.TEXT_PLAIN)
+    public Response putOperation(final InputStream in, @PathParam("appId") String appId, @PathParam("key") String key,
+                                 @QueryParam("ttl") String ttl) {
+        try {
+            byte[] bytes = IOUtils.toByteArray(in);
+            final EVCache evcache = getEVCache(appId);
+            if (ttl == null) {
+                return Response.status(400).type("text/plain").entity("Please specify ttl for the key " + key + " as query parameter \n").build();
+            }
+            int timeToLive = Integer.valueOf(ttl).intValue();
+            Future<Boolean>[] _future = evcache.set(key, bytes, timeToLive);
+            if (_future.equals(Boolean.TRUE)) {
+                if (logger.isDebugEnabled()) logger.debug("set key is successful \n");
+            }
+            return Response.ok("Set Operation for Key - " + key + " was successful. \n").build();
+        } catch (EVCacheException e) {
+            e.printStackTrace();
+            return Response.serverError().build();
+        } catch (Throwable t) {
+            return Response.serverError().build();
+        }
+    }
 
     @GET
     @Path("{appId}/{key}")
