@@ -1,5 +1,4 @@
-REST API Service is for the clients that are Non-Java clients such as Python , JavaScript , Shell etc., and store key , value in memcached.
-Service supports basic REST (CRUD) Operations for evcache.
+REST API Service is for the clients that are Non-Java clients such as Python , JavaScript , Shell etc., and store key , value in memcached.Service supports basic REST (CRUD) Operations for evcache.
 
 PRE-REQUISTES:
 1. memcached must be deployed and running.
