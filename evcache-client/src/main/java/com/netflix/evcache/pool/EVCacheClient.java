@@ -324,7 +324,6 @@ public class EVCacheClient {
                             throw e;
                         }
 
-                        System.arraycopy(val, 0, data, index, len);
                         index += val.length;
                         if (touch) evcacheMemcachedClient.touch(_key, ttl);
                     }

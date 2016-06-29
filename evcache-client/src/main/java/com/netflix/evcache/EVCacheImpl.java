@@ -469,6 +469,7 @@ final public class EVCacheImpl implements EVCache {
             } catch(EVCacheException ex) {
                 throw sneakyThrow(ex);
             }
+            event.setTTL(timeToLive);
             startEvent(event);
         }
 
@@ -478,8 +479,8 @@ final public class EVCacheImpl implements EVCache {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : [" + canonicalKey + (log.isTraceEnabled() ? "], Value [" + value : "]") );
             if (value != null) {
                 try {
-                    touch(key, timeToLive);
-                } catch (EVCacheException e) {
+                	touchData(canonicalKey, key, timeToLive);
+                } catch (Exception e) {
                     throw sneakyThrow(new EVCacheException("Exception performing touch for APP " + _appName + ", key = " + canonicalKey, e));
                 }
                 return Single.just(value);
@@ -512,8 +513,8 @@ final public class EVCacheImpl implements EVCache {
                 }
                 // touch all copies
                 try {
-                    touch(key, timeToLive);
-                } catch (EVCacheException e) {
+                	touchData(canonicalKey, key, timeToLive);
+                } catch (Exception e) {
                     throw sneakyThrow(new EVCacheException("Exception performing touch for APP " + _appName + ", key = " + canonicalKey, e));
                 }
                 if (log.isDebugEnabled() && shouldLog()) log.debug("GET_AND_TOUCH : APP " + _appName + ", key [" + canonicalKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + client .getServerGroup());
@@ -566,6 +567,7 @@ final public class EVCacheImpl implements EVCache {
                 increment("THROTTLED");
                 return null;
             }
+            event.setTTL(timeToLive);
             startEvent(event);
         }
 
@@ -573,7 +575,11 @@ final public class EVCacheImpl implements EVCache {
         if (_useInMemoryCache.get()) {
             T value = (T) getInMemoryCache().get(canonicalKey);
             if (value != null) {
-                touch(key, timeToLive);
+            	try {
+					touchData(canonicalKey, key, timeToLive);
+				} catch (Exception e) {
+		            if (throwExc) throw new EVCacheException("Exception executing getAndTouch APP " + _appName + ", key = " + canonicalKey, e);
+				}
                 return value;
             }
         }
@@ -607,7 +613,7 @@ final public class EVCacheImpl implements EVCache {
                 }
 
                 // touch all copies
-                touch(key, timeToLive);
+                touchData(canonicalKey, key, timeToLive);
                 if (log.isDebugEnabled() && shouldLog()) log.debug("GET_AND_TOUCH : APP " + _appName + ", key [" + canonicalKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + client.getServerGroup());
             } else {
                 stats.cacheMiss(Call.GET_AND_TOUCH);
@@ -645,8 +651,7 @@ final public class EVCacheImpl implements EVCache {
             return new EVCacheFuture[0]; // Fast failure
         }
 
-        final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key),
-                Call.TOUCH);
+        final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.TOUCH);
         if (event != null) {
             try {
                 if (shouldThrottle(event)) {
@@ -664,12 +669,7 @@ final public class EVCacheImpl implements EVCache {
 
         final String canonicalKey = getCanonicalizedKey(key);
         try {
-            final EVCacheFuture[] futures = new EVCacheFuture[clients.length];
-            int index = 0;
-            for (EVCacheClient client : clients) {
-                final Future<Boolean> future = client.touch(canonicalKey, timeToLive);
-                futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
-            }
+        	final EVCacheFuture[] futures = touchData(canonicalKey, key, timeToLive, clients);
 
             if (touchTTLSummary == null) this.touchTTLSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-TouchData-TTL");
             if (touchTTLSummary != null) touchTTLSummary.record(timeToLive);
@@ -690,6 +690,21 @@ final public class EVCacheImpl implements EVCache {
         } finally {
             if (log.isDebugEnabled() && shouldLog()) log.debug("TOUCH : APP " + _appName + " for key : " + canonicalKey + " with ttl : " + timeToLive);
         }
+    }
+    
+    private EVCacheFuture[] touchData(String canonicalKey, String key, int timeToLive) throws Exception {
+    	final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
+    	return touchData(canonicalKey, key, timeToLive, clients);
+    }
+    
+    private EVCacheFuture[] touchData(String canonicalKey, String key, int timeToLive, EVCacheClient[] clients) throws Exception {
+        final EVCacheFuture[] futures = new EVCacheFuture[clients.length];
+        int index = 0;
+        for (EVCacheClient client : clients) {
+            final Future<Boolean> future = client.touch(canonicalKey, timeToLive);
+            futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
+        }
+    	return futures;
     }
 
     public <T> Future<T> getAsynchronous(String key) throws EVCacheException {
@@ -792,6 +807,7 @@ final public class EVCacheImpl implements EVCache {
                 increment("THROTTLED");
                 return null;
             }
+            event.setTTL(ttl);
             startEvent(event);
         }
 
@@ -887,7 +903,7 @@ final public class EVCacheImpl implements EVCache {
                 final T value = retMap.get(key);
                 if (value != null) {
                     decanonicalR.put(deCanKey, value);
-                    if (touch) touch(deCanKey, ttl);
+                    if (touch) touchData(key, deCanKey, ttl);
                 } else if (fbClients != null && fbClients.size() > 0) {
                     // this ensures the fallback was tried
                     decanonicalR.put(deCanKey, null);
@@ -1107,9 +1123,10 @@ final public class EVCacheImpl implements EVCache {
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
                 event.setCachedData(cd);
+                event.setTTL(timeToLive);
                 endEvent(event);
             }
-            touch(key, timeToLive);
+            touchData(canonicalKey, key, timeToLive, clients);
             return futures;
         } catch (Exception ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception setting the data for APP " + _appName + ", key : " + canonicalKey, ex);
@@ -1569,6 +1586,7 @@ final public class EVCacheImpl implements EVCache {
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
                 event.setCachedData(cd);
+                event.setTTL(timeToLive);
                 endEvent(event);
             }
 
@@ -1584,7 +1602,7 @@ final public class EVCacheImpl implements EVCache {
                 }
             }
 
-            touch(key, timeToLive);//ensure the ttl is reset
+            touchData(canonicalKey, key, timeToLive, clients);
             return futures;
         } catch (Exception ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception setting the data for APP " + _appName + ", key : " + canonicalKey, ex);
