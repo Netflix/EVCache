@@ -90,7 +90,7 @@ final public class EVCacheImpl implements EVCache {
 
         stats = EVCacheMetricsFactory.getStats(appName, cacheName);
         _metricName = (_cacheName == null) ? _appName : _appName + "." + _cacheName;
-        _metricPrefix = (_cacheName == null) ? _appName : _appName + "-" + _cacheName + "-";
+        _metricPrefix = ( (_cacheName == null) ? _appName : _appName + "-" + _cacheName ) + "-";
         this._poolManager = poolManager;
         this._pool = poolManager.getEVCacheClientPool(_appName);
         final EVCacheConfig config = EVCacheConfig.getInstance();
@@ -674,7 +674,7 @@ final public class EVCacheImpl implements EVCache {
             if (touchTTLSummary == null) this.touchTTLSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-TouchData-TTL");
             if (touchTTLSummary != null) touchTTLSummary.record(timeToLive);
 
-            if (touchCounter == null) this.touchCounter = EVCacheMetricsFactory.getCounter(_appName, _cacheName, _metricPrefix + "-TouchCall", DataSourceType.COUNTER);
+            if (touchCounter == null) this.touchCounter = EVCacheMetricsFactory.getCounter(_appName, _cacheName, _metricPrefix + "TouchCall", DataSourceType.COUNTER);
             if (touchCounter != null) touchCounter.increment();
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));

@@ -1,0 +1,24 @@
+REST API Service is for the clients that are Non-Java clients such as Python , JavaScript , Shell etc., and store key , value in memcached.Service supports basic REST (CRUD) Operations for evcache.
+
+PRE-REQUISTES:
+1. memcached must be deployed and running.
+
+Basic REST Operations :
+
+
+
+HTTP Method: GET
+URI : http://[hostname]/evcrest/v1.0/{cacheName}/{key}
+Action : Retrieve key value 
+Response : 200 Success, 404 Not found
+
+HTTP Method: POST
+URI : http://[hostname]/evcrest/v1.0/{cacheName}/{key}?ttl=[ttl-for-key]
+Action : store key value in evcache ( binary)
+Response : 202 Success, 400 Bad Request
+
+HTTP Method: DELETE
+URI : http://[hostname]/evcrest/v1.0/{cacheName}/{key}
+Action : Delete key from cache
+Response : 200 Success
+
