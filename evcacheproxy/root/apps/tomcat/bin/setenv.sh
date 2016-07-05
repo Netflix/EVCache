@@ -21,7 +21,7 @@ JAVA_OPTS=" \
  -XX:NewSize=${NEW_MB}m \
  -XX:SurvivorRatio=8 \
  -XX:+UseConcMarkSweepGC \
- -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false "
+ -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false  -Deureka.environment=${NETFLIX_ENVIRONMENT} -Deureka.region=${EC2_REGION} "
 
 #####
 #
