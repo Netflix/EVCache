@@ -18,31 +18,31 @@ public class EVCacheServiceModule extends AbstractModule {
 
     @Override
     protected void configure() {
-        try {
-            ConfigurationManager.loadAppOverrideProperties("evcacheproxy");
-            final String env = ConfigurationManager.getConfigInstance().getString("eureka.environment", "test");
-            if(env != null && env.length() > 0) {
-                ConfigurationManager.loadAppOverrideProperties("evcacheproxy-"+env);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        
-        install(new ShutdownHookModule());
-        install(new EurekaModule()); 
-        install(new SpectatorModule());
-        install(new ConnectionModule());
-        install(new EVCacheModule()); 
-        install(new KaryonWebAdminModule());
-        install(new JerseyServletModule() {
-            protected void configureServlets() {
-                serve("/*").with(GuiceContainer.class);
-                binder().bind(GuiceContainer.class).asEagerSingleton();
-                bind(EVCacheRESTService.class).asEagerSingleton();
-                bind(HealthCheckHandlerImpl.class).asEagerSingleton();
-            }
-        });
+//        try {
+//            ConfigurationManager.loadAppOverrideProperties("evcacheproxy");
+//            final String env = ConfigurationManager.getConfigInstance().getString("eureka.environment", "test");
+//            if(env != null && env.length() > 0) {
+//                ConfigurationManager.loadAppOverrideProperties("evcacheproxy-"+env);
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//
+//        
+//        install(new ShutdownHookModule());
+//        install(new EurekaModule());
+//        install(new SpectatorModule());
+//        install(new ConnectionModule());
+//        install(new EVCacheModule()); 
+//        install(new KaryonWebAdminModule());
+//        install(new JerseyServletModule() {
+//            protected void configureServlets() {
+//                serve("/*").with(GuiceContainer.class);
+//                binder().bind(GuiceContainer.class).asEagerSingleton();
+//                bind(EVCacheRESTService.class).asEagerSingleton();
+//                bind(HealthCheckHandlerImpl.class).asEagerSingleton();
+//            }
+//        });
     }
 }
 

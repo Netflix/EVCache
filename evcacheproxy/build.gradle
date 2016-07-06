@@ -2,6 +2,8 @@ apply plugin: 'nebula'
 apply plugin: 'jetty'
 apply plugin: 'netflix.ospackage-tomcat'
 apply plugin: 'war'
+apply plugin: 'eclipse'
+apply plugin: 'java'
 
 nebula {
     moduleEmail = 'dlevcachedev@netflix.com'
@@ -21,4 +23,16 @@ dependencies {
         compile group:"com.sun.jersey",               name:"jersey-servlet",                  version:"latest.release"
         compile group:"com.sun.jersey.contribs",      name:"jersey-guice",                    version:"latest.release"
         compile group:"com.netflix.karyon",           name:"karyon2-admin-web",               version:"latest.release"
+        
+        compile group:"netflix",                         name:"platform",               version:"latest.release"
+        compile group:"netflix",                         name:"evcache-client2",        version:"latest.candidate"
+        compile group:"netflix",                         name:"base-server",            version:"latest.release"
+        compile group:"netflix",                         name:"nflibrary",              version:"latest.release"
+        
+}
+
+eclipse {
+    classpath {
+       downloadSources=true
+    }
 }
