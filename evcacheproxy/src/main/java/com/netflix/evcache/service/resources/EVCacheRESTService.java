@@ -96,7 +96,7 @@ public class EVCacheRESTService {
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
             final EVCache evCache = getEVCache(appId);
-            CachedData cachedData = evCache.get(key, evcacheTranscoder);
+            CachedData cachedData = (CachedData) evCache.get(key, evcacheTranscoder);
             if (cachedData == null) {
                 return Response.status(404).type("text/plain").entity("Key " + key + " Not Found in cache " + appId + "\n").build();
             }
