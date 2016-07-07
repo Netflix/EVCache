@@ -43,6 +43,7 @@ public class EVCacheRESTService {
     public Response setOperation(final InputStream in, @PathParam("appId") String appId, @PathParam("key") String key,
                                  @QueryParam("ttl") String ttl) {
         try {
+            appId = appId.toUpperCase();
             byte[] bytes = IOUtils.toByteArray(in);
             final EVCache evcache = getEVCache(appId);
             if (ttl == null) {
@@ -69,6 +70,7 @@ public class EVCacheRESTService {
     public Response putOperation(final InputStream in, @PathParam("appId") String appId, @PathParam("key") String key,
                                  @QueryParam("ttl") String ttl) {
         try {
+            appId = appId.toUpperCase();
             byte[] bytes = IOUtils.toByteArray(in);
             final EVCache evcache = getEVCache(appId);
             if (ttl == null) {
@@ -93,6 +95,7 @@ public class EVCacheRESTService {
     @Produces({MediaType.APPLICATION_OCTET_STREAM})
     public Response getOperation(@PathParam("appId") String appId,
                                  @PathParam("key") String key) {
+        appId = appId.toUpperCase();
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
             final EVCache evCache = getEVCache(appId);
@@ -120,6 +123,7 @@ public class EVCacheRESTService {
     @Produces("text/plain")
     public Response deleteOperation(@PathParam("appId") String appId, @PathParam("key") String key) {
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
+        appId = appId.toUpperCase();
         final EVCache evCache = getEVCache(appId);
         try {
             Future<Boolean>[] _future = evCache.delete(key);
