@@ -43,6 +43,7 @@ public class EVCacheRESTService {
     public Response setOperation(final InputStream in, @PathParam("appId") String appId, @PathParam("key") String key,
                                  @QueryParam("ttl") String ttl) {
         try {
+            appId = appId.toUpperCase();
             byte[] bytes = IOUtils.toByteArray(in);
             final EVCache evcache = getEVCache(appId);
             if (ttl == null) {
@@ -69,6 +70,7 @@ public class EVCacheRESTService {
     public Response putOperation(final InputStream in, @PathParam("appId") String appId, @PathParam("key") String key,
                                  @QueryParam("ttl") String ttl) {
         try {
+            appId = appId.toUpperCase();
             byte[] bytes = IOUtils.toByteArray(in);
             final EVCache evcache = getEVCache(appId);
             if (ttl == null) {
@@ -95,6 +97,7 @@ public class EVCacheRESTService {
                                  @PathParam("key") String key) {
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
+            appId = appId.toUpperCase();
             final EVCache evCache = getEVCache(appId);
             CachedData cachedData = (CachedData) evCache.get(key, evcacheTranscoder);
             if (cachedData == null) {
@@ -120,8 +123,9 @@ public class EVCacheRESTService {
     @Produces("text/plain")
     public Response deleteOperation(@PathParam("appId") String appId, @PathParam("key") String key) {
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
-        final EVCache evCache = getEVCache(appId);
         try {
+            appId = appId.toUpperCase();
+            final EVCache evCache = getEVCache(appId);
             Future<Boolean>[] _future = evCache.delete(key);
             if (_future.equals(Boolean.TRUE)) {
                 if (logger.isDebugEnabled()) logger.debug("set key is successful");
