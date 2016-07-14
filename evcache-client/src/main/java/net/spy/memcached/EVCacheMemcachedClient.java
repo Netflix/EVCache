@@ -310,6 +310,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                       rv.set(val.isSuccess(), val);
                       appendSuccess = true;
                   } else {
+                	  EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-AppendCall-FAIL").increment();
                 	  appendSuccess = false;
                   }
               }
@@ -327,6 +328,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                               if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Ad Operation): " + key + "; Status : " + val.getStatusCode().name()
                                       + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration()));
                               rv.set(val.isSuccess(), val);
+                              if(val.isSuccess()) {
+                            	  EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-AddCall-SUCCESS").increment();
+                              } else {
+                            	  EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-AddCall-FAIL").increment();
+                              }
                           }
 
                           @Override
