@@ -65,7 +65,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private final DynamicIntProperty logOperations;
     private final DynamicStringSetProperty logOperationCalls;
 
-    /* Experimental Properties - Start */
     private final DynamicIntProperty _opQueueMaxBlockTime; // Timeout for adding an operation
     private final DynamicIntProperty _operationTimeout;// Timeout for write operation
     private final DynamicIntProperty _maxReadQueueSize;
@@ -73,7 +72,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private final DynamicIntProperty _maxRetries;
 
     private final BooleanProperty _pingServers;
-    /* Experimental Properties - End */
 
     @SuppressWarnings("serial")
     private final Map<ServerGroup, BooleanProperty> writeOnlyFastPropertyMap = new ConcurrentHashMap<ServerGroup, BooleanProperty>() {
