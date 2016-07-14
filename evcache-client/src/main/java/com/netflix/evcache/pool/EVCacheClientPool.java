@@ -72,7 +72,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private final DynamicIntProperty reconcileInterval;
     private final DynamicIntProperty _maxRetries;
 
-    private final DynamicBooleanProperty _pingServers;
+    private final BooleanProperty _pingServers;
     /* Experimental Properties - End */
 
     @SuppressWarnings("serial")
@@ -160,7 +160,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         final Map<String, String> map = new HashMap<String, String>();
         map.put("APP", _appName);
 
-        this._pingServers = config.getDynamicBooleanProperty(appName + ".ping.servers", false);
+        this._pingServers = config.getChainedBooleanProperty(appName + ".ping.servers", "evcache.ping.servers", false); 
         setupMonitoring();
         refreshPool();
         if (log.isInfoEnabled()) log.info(toString());
@@ -1032,7 +1032,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return _maxReadQueueSize;
     }
 
-    public DynamicBooleanProperty getPingServers() {
+    public BooleanProperty getPingServers() {
         return _pingServers;
     }
 
