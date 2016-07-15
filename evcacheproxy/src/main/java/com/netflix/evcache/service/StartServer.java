@@ -5,6 +5,7 @@ import java.util.Map;
 
 import javax.servlet.ServletContextEvent;
 
+import com.netflix.evcache.service.resources.EVCacheRESTService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +37,8 @@ public class StartServer extends BaseServerLifecycleListener
     protected void initialize(ServletContextEvent sce) throws Exception {
         Injector injector = getInjector();
         injector.getInstance(EVCacheClientLibrary.class);
+        EVCacheRESTService evCacheRESTService = injector.getInstance(EVCacheRESTService.class);
+        evCacheRESTService.initializeCaches();
     }
 
     @Override

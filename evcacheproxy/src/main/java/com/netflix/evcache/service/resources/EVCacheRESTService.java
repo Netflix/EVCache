@@ -1,8 +1,12 @@
 package com.netflix.evcache.service.resources;
 
 import com.google.inject.Inject;
+import com.netflix.config.DynamicStringSetProperty;
+import com.netflix.discovery.shared.Applications;
+import com.netflix.discovery.shared.Application;
 import com.netflix.evcache.EVCache;
 import com.netflix.evcache.EVCacheException;
+import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.service.transcoder.RESTServiceTranscoder;
 import net.spy.memcached.CachedData;
 import org.apache.commons.io.IOUtils;
@@ -14,6 +18,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 
@@ -27,13 +32,15 @@ public class EVCacheRESTService {
     private Logger logger = LoggerFactory.getLogger(EVCacheRESTService.class);
 
     private final EVCache.Builder builder;
-    private final Map<String, EVCache> evCacheMap;
+    private static Map<String, EVCache> evCacheMap = new HashMap<>();;
     private final RESTServiceTranscoder evcacheTranscoder = new RESTServiceTranscoder();
+    private final EVCacheClientPoolManager evCacheClientPoolManager;
+    private final DynamicStringSetProperty ignoreApps = new DynamicStringSetProperty("evcacheproxy.ignore.apps", "EVCACHEPROXY,EVCACHESTATS,EVCACHEPLUGIN");
 
     @Inject
-    public EVCacheRESTService(EVCache.Builder builder) {
+    public EVCacheRESTService(EVCache.Builder builder, EVCacheClientPoolManager evCacheClientPoolManager) {
         this.builder = builder;
-        this.evCacheMap = new HashMap<>();
+        this.evCacheClientPoolManager = evCacheClientPoolManager;
     }
 
     @POST
@@ -62,7 +69,7 @@ public class EVCacheRESTService {
             return Response.serverError().build();
         }
     }
-    
+
     @PUT
     @Path("{appId}/{key}")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
@@ -140,8 +147,26 @@ public class EVCacheRESTService {
     private EVCache getEVCache(String appId) {
         EVCache evCache = evCacheMap.get(appId);
         if (evCache != null) return evCache;
+        logger.debug("Initialize cache that is not intialized during start up");
         evCache = builder.setAppName(appId).build();
         evCacheMap.put(appId, evCache);
         return evCache;
+    }
+
+    public void initializeCaches() {
+        final Applications apps = evCacheClientPoolManager.getDiscoveryClient().getApplications();
+        if (apps != null) {
+            final List<Application> appList = apps.getRegisteredApplications();
+            for (Application app : appList) {
+                final String appName = app.getName().toUpperCase();
+                if (appName.startsWith("EVCACHE") && !(ignoreApps.get().contains(appName))) {
+                    logger.debug("Initialize cache for application " + appName);
+                    EVCache evCache = evCacheMap.get(appName);
+                    evCache = builder.setAppName(appName).build();
+                    evCacheMap.put(appName, evCache);
+                    logger.debug("Done Initialize cache for appplication " + appName);
+                }
+            }
+        }
     }
 }
