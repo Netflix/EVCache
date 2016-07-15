@@ -105,6 +105,7 @@ public class EVCacheRESTService {
         appId = appId.toUpperCase();
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
+            appId = appId.toUpperCase();
             final EVCache evCache = getEVCache(appId);
             CachedData cachedData = (CachedData) evCache.get(key, evcacheTranscoder);
             if (cachedData == null) {
@@ -130,9 +131,9 @@ public class EVCacheRESTService {
     @Produces("text/plain")
     public Response deleteOperation(@PathParam("appId") String appId, @PathParam("key") String key) {
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
-        appId = appId.toUpperCase();
-        final EVCache evCache = getEVCache(appId);
         try {
+            appId = appId.toUpperCase();
+            final EVCache evCache = getEVCache(appId);
             Future<Boolean>[] _future = evCache.delete(key);
             if (_future.equals(Boolean.TRUE)) {
                 if (logger.isDebugEnabled()) logger.debug("set key is successful");
