@@ -329,9 +329,30 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                                       + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration()));
                               rv.set(val.isSuccess(), val);
                               if(val.isSuccess()) {
+                            	  appendSuccess = true;
                             	  EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-AddCall-SUCCESS").increment();
                               } else {
                             	  EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-AddCall-FAIL").increment();
+                                  Operation op = opFact.cat(ConcatenationType.append, 0, key, co.getData(),
+                                          new OperationCallback() {
+                                            public void receivedStatus(OperationStatus val) {
+                                                if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
+                                                    if (log.isDebugEnabled()) log.debug("AddOrAppend Retry append Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
+                                                            + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration()));
+
+                                                    EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-RetryAppendCall-SUCCESS").increment();
+                                                    rv.set(val.isSuccess(), val);
+                                                } else {
+                                              	  EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-Retry-AppendCall-FAIL").increment();
+                                                }
+                                            }
+                                            public void complete() {
+                        		                latch.countDown();
+                            		          	rv.signalComplete();
+                                            }
+                                        });
+                                  rv.setOperation(op);
+                                  mconn.enqueueOperation(key, op);
                               }
                           }
 
@@ -342,10 +363,12 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
                           @Override
                           public void complete() {
-                              latch.countDown();
-                              rv.signalComplete();
+                        	  if(appendSuccess) {
+                        		  latch.countDown();
+                        		  rv.signalComplete();
+                        	  }
                           }
-                      });            		  
+                      });
                       rv.setOperation(op);
                       mconn.enqueueOperation(key, op);
             	  }
