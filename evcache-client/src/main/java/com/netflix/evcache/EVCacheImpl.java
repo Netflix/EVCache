@@ -247,7 +247,7 @@ final public class EVCacheImpl implements EVCache {
                     for (int i = 0; i < fbClients.size(); i++) {
                         final EVCacheClient fbClient = fbClients.get(i);
                         if(i >= fbClients.size() - 1) throwEx = throwExc;
-                        data = getData(fbClient, canonicalKey, tc, throwEx, false);
+                        data = getData(fbClient, canonicalKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
                         if (log.isDebugEnabled() && shouldLog()) log.debug("Retry for APP " + _appName + ", key [" + canonicalKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + fbClient.getServerGroup());
                         if (data != null) {
                             client = fbClient;
@@ -594,7 +594,7 @@ final public class EVCacheImpl implements EVCache {
                 for (int i = 0; i < fbClients.size(); i++) {
                     final EVCacheClient fbClient = fbClients.get(i);
                     if(i >= fbClients.size() - 1) throwEx = throwExc;
-                    data = getAndTouchData(fbClient, canonicalKey, tc, throwEx, false, timeToLive);
+                    data = getAndTouchData(fbClient, canonicalKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false, timeToLive);
                     if (log.isDebugEnabled() && shouldLog()) log.debug("GetAndTouch Retry for APP " + _appName + ", key [" + canonicalKey + (log.isTraceEnabled() ? "], Value [" + data : "")  + "], ServerGroup : " + fbClient.getServerGroup());
                     if (data != null) {
                         client = fbClient;
@@ -832,7 +832,7 @@ final public class EVCacheImpl implements EVCache {
                         for (int i = 0; i < fbClients.size(); i++) {
                             final EVCacheClient fbClient = fbClients.get(i);
                             if(i >= fbClients.size() - 1) throwEx = throwExc;
-                            retMap = getBulkData(fbClient, canonicalKeys, tc, throwEx, false);
+                            retMap = getBulkData(fbClient, canonicalKeys, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
                             if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + canonicalKeys + (log.isTraceEnabled() ? "], Value [" + retMap : "") + "], zone : " + fbClient.getZone());
                             if (retMap != null && !retMap.isEmpty()) break;
                         }

@@ -1024,7 +1024,7 @@ public interface EVCache {
          * @return this {@code Builder} object
          */
         public <T> Builder disableRetry() {
-            this._serverGroupRetry = true;
+            this._serverGroupRetry = false;
             return this;
         }
 
