@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 
+import com.netflix.config.ConfigurationManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +37,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
      */
     @Override
     public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances() throws IOException {
-        final String nodeListString = System.getProperty(propertyName);
+        final String nodeListString = ConfigurationManager.getConfigInstance().getString(propertyName);
         if (log.isDebugEnabled())
             log.debug("List of Nodes" + nodeListString);
 
