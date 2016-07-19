@@ -188,7 +188,7 @@ public class EVCacheClientPoolManager {
         final String APP = getAppName(app);
         if (poolMap.containsKey(APP)) return;
         final EVCacheNodeList provider;
-        if (System.getProperty(APP + ".use.simple.node.list.provider", "false").equals("true")) {
+        if (ConfigurationManager.getConfigInstance().getBoolean(APP + ".use.simple.node.list.provider", false)) {
             provider = new SimpleNodeListProvider(APP + "-NODES");
         } else {
             provider = new DiscoveryNodeListProvider(applicationInfoManager, discoveryClient, APP);
