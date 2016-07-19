@@ -1,0 +1,40 @@
+
+1) Generate ssl key and self-signed certificate.
+
+    openssl req -new -x509 -nodes -days 3650 -out helloworld.crt -keyout helloworld.key
+    Generating a 1024 bit RSA private key
+    ....++++++
+    ......++++++
+    writing new private key to 'helloworld.key'
+    -----
+    You are about to be asked to enter information that will be incorporated
+    into your certificate request.
+    What you are about to enter is what is called a Distinguished Name or a DN.
+    There are quite a few fields but you can leave some blank
+    For some fields there will be a default value,
+    If you enter '.', the field will be left blank.
+    -----
+    Country Name (2 letter code) [AU]:US
+    State or Province Name (full name) [Some-State]:California
+    Locality Name (eg, city) []:Los Gatos
+    Organization Name (eg, company) [Internet Widgits Pty Ltd]:Netflix, Inc.
+    Organizational Unit Name (eg, section) []:Engineering Tools
+    Common Name (eg, YOUR name) []:*.amazonaws.com
+    Email Address []:nobody@netflix.com
+
+2) Create a keystore for Tomcat
+
+2a) Combine key and cert into a pkcs12 format (use the string 'changeit' for the password):
+
+    openssl pkcs12 -export -in helloworld.crt -inkey helloworld.key -certfile helloworld.crt -name "tomcat" -out helloworld.p12
+    Export Password:
+    Verifying - Enter Export Password:
+
+2b) Convert the .p12 file into a JKS (use same password as in previous step):
+
+    keytool -importkeystore -srckeystore helloworld.p12 -srcstoretype pkcs12 -destkeystore helloworld.keystore -deststoretype JKS
+    Enter destination keystore password:  
+    Re-enter new password: 
+    Enter source keystore password:  
+    Entry for alias tomcat successfully imported.
+    Import command completed:  1 entries successfully imported, 0 entries failed or cancelled

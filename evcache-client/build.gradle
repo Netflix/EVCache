@@ -1,0 +1,40 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+
+sourceSets.main.java.srcDir 'src/main/java'
+sourceSets.main.resources.srcDir 'src/main/resources'
+sourceSets.test.java.srcDir 'src/test/java'
+
+repositories {
+        mavenLocal()
+        mavenCentral() // maven { url 'http://jcenter.bintray.com' }
+}
+
+test {
+        useTestNG() 
+        options.suites('src/test/java/test-suite.xml')
+        minHeapSize = '1024m'
+        testLogging.displayGranularity = 2
+        testLogging.showStandardStreams = true
+}
+
+dependencies {
+        compile group:"net.spy",                      name:"spymemcached",                     version:"2.11.4"
+        compile group:"com.google.code.findbugs",     name:"annotations",                      version:"latest.release"
+        compile group:"com.netflix.archaius",         name:"archaius2-core",                   version:"latest.release"
+        compile group:"com.netflix.governator",       name:"governator",                       version:"latest.release"
+        compile group:"com.netflix.eureka",           name:"eureka-client",                    version:"latest.release"
+        compile group:"com.netflix.servo",            name:"servo-core",                       version:"latest.release"
+        compile group:"com.netflix.spectator",        name:"spectator-api",                    version:"latest.release"
+        compile group:"com.netflix.spectator",        name:"spectator-nflx-plugin",            version:"latest.release"
+        compile group:"io.reactivex",                 name:"rxjava",                           version:"latest.release"
+        compile group:"org.slf4j",                    name:"slf4j-log4j12",                    version:"latest.release"
+        compile group:"org.slf4j",                    name:"slf4j-api",                        version:"latest.release"
+
+        testCompile group:"org.testng",               name:"testng",                           version:"latest.release"
+        testCompile group:"org.mockito",              name:"mockito-all",                      version:"latest.release"
+}
+
+javadoc {
+    failOnError = false
+}

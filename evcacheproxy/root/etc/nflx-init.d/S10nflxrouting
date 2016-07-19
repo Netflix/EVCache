@@ -1,0 +1,37 @@
+#!/bin/bash
+#
+# $Id$
+# $DateTime$
+# $Change$
+#
+
+# source this to pick up NETFLIX_STACK
+test -f /etc/profile.d/netflix_environment.sh && source /etc/profile.d/netflix_environment.sh
+
+systemjdk=/usr/bin/system-jdk
+
+# examle using the NETFLIX_STACK environment variable
+if [[ $NETFLIX_STACK =~ ^(open|sun)jdk6$ || $NETFLIX_STACK =~ ^sunjdk7$ ]]
+then
+    $systemjdk --set $NETFLIX_STACK
+fi
+
+
+# Example of how to migrate from custom user data to nflx-init
+if [[ $NETFLIX_ENVIRONMENT == test ]]
+then
+cat <<EndOfInput>> /etc/profile.d/netflix_environment.sh
+# String pizzaToppings = System.getenv("FAVORITE_PIZZA_TOPPINGS")
+export FAVORITE_PIZZA_TOPPINGS="Artichokes and Olives"
+export FAVORITE_BEVERAGE="Light beer"
+EndOfInput
+fi
+
+if [[ $NETFLIX_ENVIRONMENT == prod ]]
+then
+cat <<EndOfInput>> /etc/profile.d/netflix_environment.sh
+# String pizzaToppings = System.getenv("FAVORITE_PIZZA_TOPPINGS")
+export FAVORITE_PIZZA_TOPPINGS="Pineapple and Ham"
+export FAVORITE_BEVERAGE="Ice cream float"
+EndOfInput
+fi

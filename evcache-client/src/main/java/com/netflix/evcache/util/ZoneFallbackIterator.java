@@ -20,8 +20,9 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
- * A Zone Based fallback circular iterator.
- * This ensures that during a fallback scenario the requests are spread out across all zones evenly.
+ * A Zone Based fallback circular iterator. This ensures that during a fallback
+ * scenario the requests are spread out across all zones evenly.
+ * 
  * @author smadappa
  */
 public class ZoneFallbackIterator {
@@ -30,7 +31,9 @@ public class ZoneFallbackIterator {
 
     /**
      * Creates an instance of ZoneFallbackIterator given all the zones.
-     * @param allZones Set of all available zones.
+     * 
+     * @param allZones
+     *            Set of all available zones.
      */
     public ZoneFallbackIterator(Set<String> allZones) {
         if (allZones == null || allZones.size() == 0) return;
@@ -53,7 +56,9 @@ public class ZoneFallbackIterator {
 
     /**
      * Returns the next zone from the set which should get the request.
-     * @return - the next zone in the iterator. If there are none then null is returned.
+     * 
+     * @return - the next zone in the iterator. If there are none then null is
+     *         returned.
      */
     public String next() {
         if (entry == null) return null;
@@ -62,8 +67,11 @@ public class ZoneFallbackIterator {
     }
 
     /**
-     * Returns the next zone from the set excluding the given zone which should get the request.
-     * @return - the next zone in the iterator. If there are none then null is returned.
+     * Returns the next zone from the set excluding the given zone which should
+     * get the request.
+     * 
+     * @return - the next zone in the iterator. If there are none then null is
+     *         returned.
      */
     public String next(String ignoreZone) {
         if (entry == null) return null;
@@ -80,7 +88,9 @@ public class ZoneFallbackIterator {
     }
 
     /**
-     * The Entry keeps track of the current element and next element in the list.
+     * The Entry keeps track of the current element and next element in the
+     * list.
+     * 
      * @author smadappa
      *
      * @param <E>
