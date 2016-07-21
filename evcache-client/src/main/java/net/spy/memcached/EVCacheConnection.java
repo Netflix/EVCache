@@ -10,13 +10,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
-import net.spy.memcached.ops.Operation;
-import net.spy.memcached.protocol.binary.BinaryOperationFactory;
-import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
-import net.spy.memcached.util.StringUtils;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import net.spy.memcached.ops.Operation;
+import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
 
 public class EVCacheConnection extends MemcachedConnection {
     private static Logger log = LoggerFactory.getLogger(EVCacheConnection.class);

@@ -411,6 +411,29 @@ public interface EVCache {
     Future<Boolean>[] delete(String key) throws EVCacheException;
 
     /**
+     * Remove a current key value relation from the Cache.
+     *
+     * @param key
+     *            the non-null key corresponding to the relation to be removed.
+     *            Ensure the key is properly encoded and does not contain
+     *            whitespace or control characters.
+     * @param policy
+     *            The Latch will be returned based on the Policy. The Latch can
+     *            then be used to await until the count down has reached to 0 or
+     *            the specified time has elapsed.
+     * 
+     * @return EVCacheLatch which will encompasses the Operation. You can block
+     *         on the Operation based on the policy to ensure the required
+     *         criteria is met. The Latch can also be queried to get details on
+     *         status of the operations
+     * 
+     * @throws EVCacheException
+     *             in the rare circumstance where queue is too full to accept
+     *             any more requests or any IO Related issues
+     */
+    <T> EVCacheLatch delete(String key, EVCacheLatch.Policy policy) throws EVCacheException;
+
+    /**
      * Retrieve the value for the given key.
      *
      * @param key
@@ -819,6 +842,33 @@ public interface EVCache {
      *             Related issues
      */
     <T> Future<Boolean>[] touch(String key, int ttl) throws EVCacheException;
+
+
+    /**
+     * Remove a current key value relation from the Cache.
+     *
+     * Touch the given key and reset its expiration time.
+     *
+     * @param key
+     *            the key to touch
+     * @param ttl
+     *            the new expiration time in seconds
+     * 
+     * @param policy
+     *            The Latch will be returned based on the Policy. The Latch can
+     *            then be used to await until the count down has reached to 0 or
+     *            the specified time has elapsed.
+     * 
+     * @return EVCacheLatch which will encompasses the Operation. You can block
+     *         on the Operation based on the policy to ensure the required
+     *         criteria is met. The Latch can also be queried to get details on
+     *         status of the operations
+     * 
+     * @throws EVCacheException
+     *             in the rare circumstance where queue is too full to accept
+     *             any more requests or any IO Related issues
+     */
+    <T> EVCacheLatch touch(String key, int ttl, EVCacheLatch.Policy policy) throws EVCacheException;
 
     /**
      * Append the given value to the existing value in EVCache. If the Key does not exist the the key will added.

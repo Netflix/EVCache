@@ -1007,27 +1007,35 @@ public class EVCacheClient {
         return evcacheMemcachedClient.add(key, exp, value, tc);
     }
 
-
     public <T> Future<Boolean> touch(String key, int timeToLive) throws Exception {
+    	return touch(key, timeToLive, null);
+    }
+
+    public <T> Future<Boolean> touch(String key, int timeToLive, EVCacheLatch latch) throws Exception {
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
-        if (!ensureWriteQueueSize(node, key)) return getDefaultFuture();
+        if (!ensureWriteQueueSize(node, key)) {
+            final ListenableFuture<Boolean, OperationCompletionListener> defaultFuture = (ListenableFuture<Boolean, OperationCompletionListener>) getDefaultFuture();
+            if (latch != null && latch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) latch).addFuture(defaultFuture);
+            return defaultFuture;
+        }
+
         if (enableChunking.get()) {
             final ChunkDetails<?> cd = getChunkDetails(key);
             if (cd.isChunked()) {
                 final List<String> keys = cd.getChunkKeys();
                 OperationFuture<Boolean>[] futures = new OperationFuture[keys.size() + 1];
-                futures[0] = evcacheMemcachedClient.touch(key + "_00", timeToLive);
+                futures[0] = evcacheMemcachedClient.touch(key + "_00", timeToLive, latch);
                 for (int i = 0; i < keys.size(); i++) {
                     final String prefix = (i < 10) ? "0" : "";
                     final String _key = key + "_" + prefix + i;
-                    futures[i + 1] = evcacheMemcachedClient.touch(_key, timeToLive);
+                    futures[i + 1] = evcacheMemcachedClient.touch(_key, timeToLive, latch);
                 }
-                return new EVCacheFutures(futures, key, appName, serverGroup, null);
+                return new EVCacheFutures(futures, key, appName, serverGroup, latch);
             } else {
-                return evcacheMemcachedClient.touch(key, timeToLive);
+                return evcacheMemcachedClient.touch(key, timeToLive, latch);
             }
         } else {
-            return evcacheMemcachedClient.touch(key, timeToLive);
+            return evcacheMemcachedClient.touch(key, timeToLive, latch);
         }
     }
 
