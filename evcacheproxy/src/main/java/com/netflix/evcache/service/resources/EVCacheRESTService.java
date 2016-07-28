@@ -1,6 +1,7 @@
 package com.netflix.evcache.service.resources;
 
 import com.google.inject.Inject;
+import com.google.inject.Singleton;
 import com.netflix.config.DynamicStringSetProperty;
 import com.netflix.discovery.shared.Applications;
 import com.netflix.discovery.shared.Application;
@@ -27,6 +28,7 @@ import java.util.concurrent.Future;
  * Created by senugula on 3/22/16.
  */
 @Path("/evcrest/v1.0")
+@Singleton
 public class EVCacheRESTService {
 
     private Logger logger = LoggerFactory.getLogger(EVCacheRESTService.class);
