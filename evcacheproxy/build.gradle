@@ -13,6 +13,10 @@ nebula {
 configurations.all {
     exclude group: 'com.oracle'
     exclude group:'amazon', module: 'aws-java-sdk'
+
+    resolutionStrategy {
+        force "netflix:platform:3.1.1"
+    }
 }
 
 dependencies {
