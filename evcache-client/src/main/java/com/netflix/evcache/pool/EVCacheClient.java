@@ -701,8 +701,8 @@ public class EVCacheClient {
             srcPos += lengthOfArray;
             chunkData[i] = decodingTranscoder.encode(dest);
         }
-        EVCacheConfig.getInstance().getDistributionSummary(appName + "-ChunkData-NumberOfChunks").record(numOfChunks);
-        EVCacheConfig.getInstance().getDistributionSummary(appName + "-ChunkData-TotalSize").record(len);
+        EVCacheMetricsFactory.getDistributionSummary(appName + "-ChunkData-NumberOfChunks", appName, serverGroup.getName()).record(numOfChunks);
+        EVCacheMetricsFactory.getDistributionSummary(appName + "-ChunkData-TotalSize", appName, serverGroup.getName()).record(len);
 
         return chunkData;
     }

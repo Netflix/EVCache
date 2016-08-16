@@ -25,6 +25,7 @@ import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.shared.Application;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.servo.tag.BasicTagList;
 
 public class DiscoveryNodeListProvider implements EVCacheNodeList {
     public static final String DEFAULT_PORT = "11211";
@@ -106,17 +107,17 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             }
             final int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);
 
-            final ServerGroup rSet = new ServerGroup(zone, asgName);
+            final ServerGroup serverGroup = new ServerGroup(zone, asgName);
             final Set<InetSocketAddress> instances;
             final EVCacheServerGroupConfig config;
-            if (instancesSpecific.containsKey(rSet)) {
-                config = instancesSpecific.get(rSet);
+            if (instancesSpecific.containsKey(serverGroup)) {
+                config = instancesSpecific.get(serverGroup);
                 instances = config.getInetSocketAddress();
             } else {
                 instances = new HashSet<InetSocketAddress>();
-                config = new EVCacheServerGroupConfig(rSet, instances, rendPort, udsproxyMemcachedPort, udsproxyMementoPort);
-                instancesSpecific.put(rSet, config);
-                EVCacheMetricsFactory.getLongGauge("EVCacheClient-"+_appName + "-" + asgName +"-port").set(Long.valueOf(port));
+                config = new EVCacheServerGroupConfig(serverGroup, instances, rendPort, udsproxyMemcachedPort, udsproxyMementoPort);
+                instancesSpecific.put(serverGroup, config);
+                EVCacheMetricsFactory.getLongGauge(_appName + "-port", BasicTagList.of("ServerGroup", asgName, "APP", _appName)).set(Long.valueOf(port));
             }
 
             /* Don't try to use downed instances */

@@ -119,14 +119,14 @@ public class EVCacheConfig {
         return mc;
     }
 
-    public DistributionSummary getDistributionSummary(String name) {
-        final Registry registry = Spectator.globalRegistry(); //_poolManager.getRegistry();
-        if (registry != null) {
-            final DistributionSummary ds = registry.distributionSummary(name);
-            if (!Monitors.isObjectRegistered(ds)) Monitors.registerObject(ds);
-            return ds;
-        }
-        return null;
-    }
+//    public DistributionSummary getDistributionSummary(String name) {
+//        final Registry registry = Spectator.globalRegistry(); //_poolManager.getRegistry();
+//        if (registry != null) {
+//            final DistributionSummary ds = registry.distributionSummary(name);
+//            if (!Monitors.isObjectRegistered(ds)) Monitors.registerObject(ds);
+//            return ds;
+//        }
+//        return null;
+//    }
 
 }

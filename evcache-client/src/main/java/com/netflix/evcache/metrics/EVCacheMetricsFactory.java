@@ -18,6 +18,7 @@ import com.netflix.servo.monitor.Counter;
 import com.netflix.servo.monitor.LongGauge;
 import com.netflix.servo.monitor.Monitor;
 import com.netflix.servo.monitor.MonitorConfig;
+import com.netflix.servo.monitor.Monitors;
 import com.netflix.servo.monitor.MonitorConfig.Builder;
 import com.netflix.servo.monitor.StatsTimer;
 import com.netflix.servo.monitor.StepCounter;
@@ -26,6 +27,10 @@ import com.netflix.servo.stats.StatsConfig;
 import com.netflix.servo.tag.BasicTagList;
 import com.netflix.servo.tag.Tag;
 import com.netflix.servo.tag.TagList;
+import com.netflix.spectator.api.DistributionSummary;
+import com.netflix.spectator.api.Id;
+import com.netflix.spectator.api.Registry;
+import com.netflix.spectator.api.Spectator;
 import com.netflix.servo.tag.BasicTag;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = { "NF_LOCAL_FAST_PROPERTY",
@@ -33,6 +38,7 @@ import com.netflix.servo.tag.BasicTag;
 public final class EVCacheMetricsFactory {
     private static final Map<String, Stats> statsMap = new ConcurrentHashMap<String, Stats>();
     private static final Map<String, Monitor<?>> monitorMap = new ConcurrentHashMap<String, Monitor<?>>();
+    private static final Map<String, DistributionSummary> distributionSummaryMap = new ConcurrentHashMap<String, DistributionSummary>();
     private static final Lock writeLock = (new ReentrantReadWriteLock()).writeLock();
     private static final Map<String, Timer> timerMap = new HashMap<String, Timer>();
     private static final DynamicIntProperty sampleSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCache.metrics.sample.size", 100);
@@ -75,6 +81,11 @@ public final class EVCacheMetricsFactory {
     public static Map<String, Monitor<?>> getAllMonitor() {
         return monitorMap;
     }
+    
+    public static Map<String, DistributionSummary> getAllDistributionSummaryMap() {
+        return distributionSummaryMap;
+    }
+    
 
     public static LongGauge getLongGauge(String name) {
         LongGauge gauge = (LongGauge) monitorMap.get(name);
@@ -297,8 +308,7 @@ public final class EVCacheMetricsFactory {
         return builder.build();
     }
 
-    public static MonitorConfig getMonitorConfig(String name, String appName, String cacheName, String serverGroup,
-            String metric) {
+    public static MonitorConfig getMonitorConfig(String name, String appName, String cacheName, String serverGroup, String metric) {
         Builder builder = MonitorConfig.builder(name).withTag("APP", appName).withTag("METRIC", metric);
         if (cacheName != null && cacheName.length() > 0) {
             builder = builder.withTag("CACHE", cacheName);
@@ -329,6 +339,23 @@ public final class EVCacheMetricsFactory {
         } finally {
             writeLock.unlock();
         }
+    }
+
+    public static DistributionSummary getDistributionSummary(String name, String appName, String serverGroup) {
+        final String metricName = getMetricName(appName, serverGroup, name);
+        final DistributionSummary _ds = distributionSummaryMap.get(metricName);
+        if(_ds != null) return _ds;
+        final Registry registry = Spectator.globalRegistry(); //_poolManager.getRegistry();
+        if (registry != null) {
+            Id id = registry.createId(name);
+            id = id.withTag("APP", appName);
+            if(serverGroup != null) id = id.withTag("ServerGroup", serverGroup);
+            final DistributionSummary ds = registry.distributionSummary(id);
+            if (!Monitors.isObjectRegistered(ds)) Monitors.registerObject(ds);
+            distributionSummaryMap.put(metricName, ds);
+            return ds;
+        }
+        return null;
     }
 
 }

@@ -693,7 +693,7 @@ final public class EVCacheImpl implements EVCache {
             final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length, _appName);
             touchData(canonicalKey, key, timeToLive, clients, latch);
 
-            if (touchTTLSummary == null) this.touchTTLSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-TouchData-TTL");
+            if (touchTTLSummary == null) this.touchTTLSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-TouchData-TTL", _appName, null);
             if (touchTTLSummary != null) touchTTLSummary.record(timeToLive);
 
             if (touchCounter == null) this.touchCounter = EVCacheMetricsFactory.getCounter(_appName, _cacheName, _metricPrefix + "TouchCall", DataSourceType.COUNTER);
@@ -1058,11 +1058,10 @@ final public class EVCacheImpl implements EVCache {
                         cd = client.getTranscoder().encode(value);
                     }
 
-                    if (setTTLSummary == null) this.setTTLSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-SetData-TTL");
+                    if (setTTLSummary == null) this.setTTLSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-SetData-TTL", _appName, null);
                     if (setTTLSummary != null) setTTLSummary.record(timeToLive);
                     if (cd != null) {
-                        if (setDataSizeSummary == null) this.setDataSizeSummary = EVCacheConfig.getInstance()
-                                .getDistributionSummary(_appName + "-SetData-Size");
+                        if (setDataSizeSummary == null) this.setDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-SetData-Size", _appName, null);
                         if (setDataSizeSummary != null) this.setDataSizeSummary.record(cd.getData().length);
                     }
                 }
@@ -1142,7 +1141,7 @@ final public class EVCacheImpl implements EVCache {
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
 
                 if (cd != null) {
-                    if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-AppendData-Size");
+                    if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AppendData-Size", _appName, null);
                     if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
                 }
             }
@@ -1469,10 +1468,10 @@ final public class EVCacheImpl implements EVCache {
                         cd = client.getTranscoder().encode(value);
                     }
 
-                    if (replaceTTLSummary == null) this.replaceTTLSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-ReplaceData-TTL");
+                    if (replaceTTLSummary == null) this.replaceTTLSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-ReplaceData-TTL", _appName, null);
                     if (replaceTTLSummary != null) replaceTTLSummary.record(timeToLive);
                     if (cd != null) {
-                        if (replaceDataSizeSummary == null) this.replaceDataSizeSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-ReplaceData-Size");
+                        if (replaceDataSizeSummary == null) this.replaceDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-ReplaceData-Size", _appName, null);
                         if (replaceDataSizeSummary != null) this.replaceDataSizeSummary.record(cd.getData().length);
                     }
                 }
@@ -1557,7 +1556,7 @@ final public class EVCacheImpl implements EVCache {
                     }
                 }
                 if (cd != null) {
-                    if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-AppendData-Size");
+                    if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AppendData-Size", _appName, null);
                     if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
                 }
                 final Future<Boolean> future = client.appendOrAdd(canonicalKey, cd, timeToLive, latch);
@@ -1630,7 +1629,7 @@ final public class EVCacheImpl implements EVCache {
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup(), client);
 
                 if (cd != null) {
-                    if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-AppendData-Size");
+                    if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AppendData-Size", _appName, null);
                     if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
                 }
             }
@@ -1714,7 +1713,7 @@ final public class EVCacheImpl implements EVCache {
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup(), client);
 
                 if (cd != null) {
-                    if (addDataSizeSummary == null) this.addDataSizeSummary = EVCacheConfig.getInstance().getDistributionSummary(_appName + "-AddData-Size");
+                    if (addDataSizeSummary == null) this.addDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AddData-Size", _appName, null);
                     if (addDataSizeSummary != null) this.addDataSizeSummary.record(cd.getData().length);
                 }
             }
