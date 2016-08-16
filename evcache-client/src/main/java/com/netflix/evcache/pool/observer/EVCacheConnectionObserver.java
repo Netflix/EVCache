@@ -38,7 +38,6 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
     private final Set<SocketAddress> evCacheInActiveSet;
     private final Map<InetSocketAddress, Long> evCacheActiveStringSet;
     private final Map<InetSocketAddress, Long> evCacheInActiveStringSet;
-    private final Counter connect, lost;
 
     private final String monitorName;
 
@@ -55,9 +54,6 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         monitorName = appName + "_" + serverGroup.getName() + "_" + id + "_connections";
 
         final TagList tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "APP", appName);
-        this.connect = EVCacheMetricsFactory.getCounter("EVCacheConnectionObserver_CONNECT", tags);
-        this.lost = EVCacheMetricsFactory.getCounter("EVCacheConnectionObserver_LOST", tags);
-
         setupMonitoring(false);
     }
 
@@ -73,7 +69,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
                     + " to " + address + " was established after " + reconnectCount + " retries");
         }
         if(log.isTraceEnabled()) log.trace("Stack", new Exception());
-        connect.increment();
+        EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-CONNECT");
         connectCount++;
     }
 
@@ -89,7 +85,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
                     + " to " + address);
         }
         if(log.isTraceEnabled()) log.trace("Stack", new Exception());
-        lost.increment();
+        EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-CONNECTION_LOST");
         lostCount++;
     }
 

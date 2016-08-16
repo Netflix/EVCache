@@ -190,6 +190,9 @@ public final class EVCacheMetricsFactory {
             if(serverGroupName != null && serverGroupName.length() > 0) {
                 tags = BasicTagList.concat(tags, new BasicTag("ServerGroup", serverGroupName));
             }
+            if(!tags.containsKey(DataSourceType.COUNTER.getKey())) {
+                tags = BasicTagList.concat(tags, DataSourceType.COUNTER);
+            }
             writeLock.lock();
             try {
                 if (monitorMap.containsKey(name)) {
@@ -207,7 +210,7 @@ public final class EVCacheMetricsFactory {
     }
 
     public static StepCounter getStepCounter(String appName, String cacheName, String metric) {
-        final String metricName = getMetricName(appName, cacheName, metric);
+        final String metricName = getMetricName(appName, null, metric);
         final String name = metricName + "type=StepCounter";
         final StepCounter counter = (StepCounter) monitorMap.get(name);
         if (counter != null) return counter;
@@ -228,7 +231,7 @@ public final class EVCacheMetricsFactory {
     }
 
     public static StatsTimer getStatsTimer(String appName, String cacheName, String metric) {
-        final String metricName = getMetricName(appName, cacheName, metric);
+        final String metricName = getMetricName(appName, null, metric);
         final String name = metricName + "type=StatsTimer";
         final StatsTimer duration = (StatsTimer) monitorMap.get(name);
         if (duration != null) return duration;

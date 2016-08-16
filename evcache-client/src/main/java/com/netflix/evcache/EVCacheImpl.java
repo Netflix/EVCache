@@ -90,7 +90,7 @@ final public class EVCacheImpl implements EVCache {
 
         stats = EVCacheMetricsFactory.getStats(appName, cacheName);
         _metricName = (_cacheName == null) ? _appName : _appName + "." + _cacheName;
-        _metricPrefix = ( (_cacheName == null) ? _appName : _appName + "-" + _cacheName ) + "-";
+        _metricPrefix = _appName + "-";
         this._poolManager = poolManager;
         this._pool = poolManager.getEVCacheClientPool(_appName);
         final EVCacheConfig config = EVCacheConfig.getInstance();
@@ -198,7 +198,7 @@ final public class EVCacheImpl implements EVCache {
     }
 
     private void increment(String serverGroup, String metric) {
-        EVCacheMetricsFactory.increment(_appName, _cacheName, serverGroup, _metricPrefix + metric);
+        EVCacheMetricsFactory.increment(_appName, null, serverGroup, _metricPrefix + metric);
     }
 
     public <T> T get(String key, Transcoder<T> tc) throws EVCacheException {

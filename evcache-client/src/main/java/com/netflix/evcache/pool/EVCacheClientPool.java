@@ -36,7 +36,6 @@ import com.netflix.evcache.metrics.Operation;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.ServerGroupCircularIterator;
-import com.netflix.servo.monitor.DynamicCounter;
 import com.netflix.servo.monitor.Monitors;
 import com.netflix.servo.tag.BasicTagList;
 
@@ -302,8 +301,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 if (!memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
                     final List<EVCacheClient> clients = memcachedWriteInstancesByServerGroup.get(serverGroup);
                     if (clients.size() == 1) {
-                        clientArr[--size] = clients.get(0); // frequently used
-                        // usecase
+                        clientArr[--size] = clients.get(0); // frequently used use case
                     } else {
                         final long currentVal = numberOfModOps.incrementAndGet();
                         final int index = (int) (currentVal % clients.size());
@@ -406,8 +404,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 // expanded the cluster.
                 for (InetSocketAddress instance : discoveredHostsInServerGroup) {
                     if (!connectionObserver.getActiveServers().containsKey(instance) && !connectionObserver.getInActiveServers().containsKey(instance)) {
-                        // DynamicCounter.increment("EVCacheClientPool-" +
-                        // _appName + "-" + client.getId() + "-different_set");
                         if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
                                 + "; instance : " + instance
                                 + " not found and will shutdown the client and init it again.");
@@ -528,8 +524,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         // Shutdown the old clients in 60 seconds, this will give ample time to
         // cleanup anything pending in its queue
         for (EVCacheClient oldClient : clients) {
-            // DynamicCounter.increment("EVCacheClientPool-" + _appName + "-" +
-            // oldClient.getZone() + "-" + oldClient.getId() + "-shutdown");
             try {
                 final boolean obsRemoved = oldClient.removeConnectionObserver();
                 if (log.isDebugEnabled()) log.debug("Connection observer removed " + obsRemoved);
@@ -592,12 +586,12 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             final BooleanProperty isZoneInWriteOnlyMode = writeOnlyFastPropertyMap.get(serverGroup);
             if (isZoneInWriteOnlyMode.get().booleanValue()) {
                 if (memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
-                    DynamicCounter.increment("EVCacheClientPool-WRITE_ONLY-" + serverGroup);
+                	EVCacheMetricsFactory.increment(_appName, null, serverGroup.getName(), _appName + "-" + serverGroup.getName() + "-WRITE_ONLY");
                     memcachedReadInstancesByServerGroup.remove(serverGroup);
                 }
             } else {
                 if (!memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
-                    DynamicCounter.increment("EVCacheClientPool-READ_ENABLED-" + serverGroup);
+                	EVCacheMetricsFactory.increment(_appName, null, serverGroup.getName(), _appName + "-" + serverGroup.getName() + "-READ_ENABLED");
                     memcachedReadInstancesByServerGroup.put(serverGroup, memcachedInstancesByServerGroup.get(serverGroup));
                 }
             }
@@ -747,19 +741,14 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                                 + ".max.queue.length", 16384);
                         EVCacheClient client;
                         try {
-                            client = new EVCacheClient(_appName, zone, i, config, memcachedSAInServerGroup, maxQueueSize,
-                                    _maxReadQueueSize, _readTimeout, _bulkReadTimeout,
-                                    _opQueueMaxBlockTime, _operationTimeout, this);
+                            client = new EVCacheClient(_appName, zone, i, config, memcachedSAInServerGroup, maxQueueSize, 
+                            		_maxReadQueueSize, _readTimeout, _bulkReadTimeout, _opQueueMaxBlockTime, _operationTimeout, this);
                             newClients.add(client);
                             final int id = client.getId();
-                            // DynamicCounter.increment("EVCacheClientPool-" +
-                            // serverGroup.getName() + "-init");
-                            if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
-                                    + "; intit : client.getId() : " + id);
+                            if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup + "; intit : client.getId() : " + id);
                             lastReconcileTime = System.currentTimeMillis();
                         } catch (Exception e) {
-                            EVCacheMetricsFactory.increment("EVCacheClientPool-" + _appName + "-" + serverGroup.getName()
-                                    + "EVCacheClient-INIT_ERROR");
+                            EVCacheMetricsFactory.increment("EVCacheClientPool-" + _appName + "-" + serverGroup.getName() + "EVCacheClient-INIT_ERROR");
                             log.error("Unable to create EVCacheClient for app - " + _appName + " and Server Group - "
                                     + serverGroup.getName(), e);
                         }

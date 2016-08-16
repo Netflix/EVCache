@@ -16,18 +16,16 @@ import net.spy.memcached.util.DefaultKetamaNodeLocatorConfiguration;
 public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLocatorConfiguration {
 
     private final String appId;
-    private final ServerGroup replicaSet;
+    private final ServerGroup serverGroup;
     private final EVCacheClientPoolManager poolManager;
 
     private final ChainedDynamicProperty.IntProperty bucketSize;
 
     public EVCacheKetamaNodeLocatorConfiguration(String appId, ServerGroup serverGroup, EVCacheClientPoolManager poolManager) {
         this.appId = appId;
-        this.replicaSet = serverGroup;
+        this.serverGroup = serverGroup;
         this.poolManager = poolManager;
         bucketSize = EVCacheConfig.getInstance().getChainedIntProperty(appId + "." + serverGroup.getName() + ".bucket.size",appId + ".bucket.size", super.getNodeRepetitions());
-//        bucketSize = new ChainedDynamicProperty.IntProperty(appId + "." + serverGroup.getName() + ".bucket.size",
-//                new DynamicIntProperty(appId + ".bucket.size", super.getNodeRepetitions()));
     }
 
     /**
@@ -65,6 +63,7 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
                             final String ip = info.getIPAddr();
                             final String port = info.getMetadata().get("evcache.port");
                             result = hostName + '/' + ip + ':' + ((port != null) ? port : "11211");
+                            break;
                         }
                     }
                 } else {
@@ -83,7 +82,6 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
 
     @Override
     public String toString() {
-        return "EVCacheKetamaNodeLocatorConfiguration [app=" + appId
-                + ", ReplicaSet=" + replicaSet + ", BucketSize=" + getNodeRepetitions() + "]";
+        return "EVCacheKetamaNodeLocatorConfiguration [app=" + appId + ", ServerGroup=" + serverGroup + ", BucketSize=" + getNodeRepetitions() + "]";
     }
 }
