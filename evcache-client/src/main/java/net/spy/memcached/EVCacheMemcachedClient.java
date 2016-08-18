@@ -26,6 +26,7 @@ import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.Stopwatch;
 import com.netflix.servo.tag.BasicTag;
 import com.netflix.servo.tag.Tag;
@@ -270,14 +271,14 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             public void receivedStatus(OperationStatus status) {
                 rv.set(Boolean.TRUE, status);
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
-                    EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-DeleteCall-SUCCESS").increment();
+                	EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DeleteOperation-SUCCESS", DataSourceType.COUNTER).increment();
                 } else {
                     Tag tag = null;
                     final MemcachedNode node = getEVCacheNode(key);
                     if (node.getSocketAddress() instanceof InetSocketAddress) {
                         tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
                     }
-                    EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-DeleteCall-" + status.getStatusCode().name(), tag).increment();
+                	EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DeleteOperation-"+ status.getStatusCode().name(), tag).increment();
                 }
                 
             }
@@ -311,14 +312,14 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     			rv.set(status.isSuccess(), status);
     			
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
-                    EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-TouchCall-SUCCESS").increment();
+                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-TouchOperation-SUCCESS", DataSourceType.COUNTER).increment();
                 } else {
                     Tag tag = null;
                     final MemcachedNode node = getEVCacheNode(key);
                     if (node.getSocketAddress() instanceof InetSocketAddress) {
                         tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
                     }
-                    EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-TouchCall-" + status.getStatusCode().name(), tag).increment();
+                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-TouchOperation-"+status.getStatusCode().name(), tag).increment();
                 }
     		}
 
@@ -350,11 +351,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                       if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
                               + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration()));
 
-                      EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-AppendCall-SUCCESS").increment();
+                      EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-AoA-AppendOperation-SUCCESS", DataSourceType.COUNTER).increment();
                       rv.set(val.isSuccess(), val);
                       appendSuccess = true;
                   } else {
-                	  EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-AppendCall-FAIL").increment();
+                	  EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-AoA-AppendOperation-FAIL", DataSourceType.COUNTER).increment();
                 	  appendSuccess = false;
                   }
               }
@@ -374,9 +375,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                               rv.set(val.isSuccess(), val);
                               if(val.isSuccess()) {
                             	  appendSuccess = true;
-                            	  EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-AddCall-SUCCESS").increment();
+                            	  EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-AoA-AddOperation-SUCCESS", DataSourceType.COUNTER).increment();
                               } else {
-                            	  EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-AddCall-FAIL").increment();
+                            	  EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-AoA-AddOperation-FAIL", DataSourceType.COUNTER).increment();
                                   Operation op = opFact.cat(ConcatenationType.append, 0, key, co.getData(),
                                           new OperationCallback() {
                                             public void receivedStatus(OperationStatus val) {
@@ -384,10 +385,10 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                                                     if (log.isDebugEnabled()) log.debug("AddOrAppend Retry append Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
                                                             + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration()));
 
-                                                    EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-RetryAppendCall-SUCCESS").increment();
+                                                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-AoA-RetryAppendOperation-SUCCESS", DataSourceType.COUNTER).increment();
                                                     rv.set(val.isSuccess(), val);
                                                 } else {
-                                              	  EVCacheMetricsFactory.getCounter(appName + "-" + serverGroup.getName() + "-AoA-Retry-AppendCall-FAIL").increment();
+                                                	EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-AoA-RetryAppendOperation-FAIL", DataSourceType.COUNTER).increment();
                                                 }
                                             }
                                             public void complete() {
