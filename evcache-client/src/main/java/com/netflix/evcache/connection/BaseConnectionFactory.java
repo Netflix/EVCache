@@ -53,7 +53,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
         this.serverGroup = serverGroup;
         this.poolManager = poolManager;
         this.startTime = System.currentTimeMillis();
-        this.failureMode = EVCacheConfig.getInstance().getChainedStringProperty(this.serverGroup.getName() + ".failure.mode", appName + ".failure.mode", "Cancel");
+        this.failureMode = EVCacheConfig.getInstance().getChainedStringProperty(this.serverGroup.getName() + ".failure.mode", appName + ".failure.mode", "Retry");
         this.name = appName + "-" + serverGroup.getName() + "-" + id;
     }
 
