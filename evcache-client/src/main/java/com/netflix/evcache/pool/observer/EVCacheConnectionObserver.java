@@ -20,8 +20,8 @@ import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.servo.monitor.Counter;
 import com.netflix.servo.monitor.Monitors;
-import com.netflix.servo.tag.BasicTagList;
-import com.netflix.servo.tag.TagList;
+import com.netflix.servo.tag.BasicTag;
+import com.netflix.servo.tag.Tag;
 
 import net.spy.memcached.ConnectionObserver;
 
@@ -53,7 +53,6 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         this.id = id;
         monitorName = appName + "_" + serverGroup.getName() + "_" + id + "_connections";
 
-        final TagList tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "APP", appName);
         setupMonitoring(false);
     }
 
@@ -85,7 +84,8 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
                     + " to " + address);
         }
         if(log.isTraceEnabled()) log.trace("Stack", new Exception());
-        EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-CONNECTION_LOST");
+        final Tag tag = new BasicTag("HOST", inetAdd.getAddress().getHostAddress());
+        EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-CONNECTION_LOST", tag).increment();
         lostCount++;
     }
 
