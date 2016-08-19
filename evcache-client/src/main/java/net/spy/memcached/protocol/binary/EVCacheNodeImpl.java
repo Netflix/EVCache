@@ -74,7 +74,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         this.hostName = ((InetSocketAddress) getSocketAddress()).getHostName();
         this.metricPrefix = "EVCacheNode";
         this.baseConfig = MonitorConfig.builder(metricPrefix).build();
-        baseTags = BasicTagList.concat(tags, BasicTagList.of("ServerGroup", _serverGroup.getName(), "EVCacheHostName", hostName));
+        baseTags = BasicTagList.concat(tags, BasicTagList.of("ServerGroup", _serverGroup.getName(), "HOST", hostName));
         setupMonitoring(appName, serverGroup);
     }
 
