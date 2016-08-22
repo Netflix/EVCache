@@ -222,7 +222,7 @@ public final class EVCacheMetricsFactory {
 
     public static StepCounter getStepCounter(String appName, String cacheName, String metric) {
         final String metricName = getMetricName(appName, null, metric);
-        final String name = metricName + "type=StepCounter";
+        final String name = metricName + (cacheName == null ? "" : "-" + cacheName + "-") + "type=StepCounter";
         final StepCounter counter = (StepCounter) monitorMap.get(name);
         if (counter != null) return counter;
         writeLock.lock();
@@ -243,7 +243,7 @@ public final class EVCacheMetricsFactory {
 
     public static StatsTimer getStatsTimer(String appName, String cacheName, String metric) {
         final String metricName = getMetricName(appName, null, metric);
-        final String name = metricName + "type=StatsTimer";
+        final String name = metricName + (cacheName == null ? "" : "-" + cacheName + "-") + "type=StatsTimer";
         final StatsTimer duration = (StatsTimer) monitorMap.get(name);
         if (duration != null) return duration;
 
