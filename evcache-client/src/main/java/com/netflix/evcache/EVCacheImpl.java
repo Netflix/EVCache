@@ -194,11 +194,11 @@ final public class EVCacheImpl implements EVCache {
     }
 
     private void increment(String metric) {
-        increment(null, _metricPrefix + metric);
+        increment(null, null, _metricPrefix + metric);
     }
 
-    private void increment(String serverGroup, String metric) {
-        EVCacheMetricsFactory.increment(_appName, null, serverGroup, _metricPrefix + metric);
+    private void increment(String serverGroup, String cachePrefix, String metric) {
+        EVCacheMetricsFactory.increment(_appName, cachePrefix, serverGroup, _metricPrefix + metric);
     }
 
     public <T> T get(String key, Transcoder<T> tc) throws EVCacheException {
@@ -254,7 +254,7 @@ final public class EVCacheImpl implements EVCache {
                             break;
                         }
                     }
-                    increment(client.getServerGroupName(), "RETRY_" + ((data == null) ? "MISS" : "HIT"));
+                    increment(client.getServerGroupName(), _cacheName, "RETRY_" + ((data == null) ? "MISS" : "HIT"));
                 }
             }
             if (data != null) {
@@ -333,7 +333,7 @@ final public class EVCacheImpl implements EVCache {
                 if (fbClients != null && !fbClients.isEmpty()) {
                     return Observable.concat(Observable.from(fbClients).map(
                             fbClient -> getData(fbClients.indexOf(fbClient), fbClients.size(), fbClient, canonicalKey, tc, throwEx, throwExc, false, scheduler) //TODO : for the last one make sure to pass throwExc
-                            .doOnSuccess(fbData -> increment(fbClient.getServerGroupName(), "RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
+                            .doOnSuccess(fbData -> increment(fbClient.getServerGroupName(), _cacheName, "RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
                             .toObservable()))
                             .firstOrDefault(null, fbData -> (fbData != null)).toSingle();
                 }
@@ -497,7 +497,7 @@ final public class EVCacheImpl implements EVCache {
                 if (fbClients != null && !fbClients.isEmpty()) {
                     return Observable.concat(Observable.from(fbClients).map(
                             fbClient -> getData(fbClients.indexOf(fbClient), fbClients.size(), fbClient, canonicalKey, tc, throwEx, throwExc, false, scheduler) //TODO : for the last one make sure to pass throwExc
-                            .doOnSuccess(fbData -> increment(fbClient.getServerGroupName(), "RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
+                            .doOnSuccess(fbData -> increment(fbClient.getServerGroupName(), _cacheName, "RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
                             .toObservable()))
                             .firstOrDefault(null, fbData -> (fbData != null)).toSingle();
                 }
@@ -601,7 +601,7 @@ final public class EVCacheImpl implements EVCache {
                         break;
                     }
                 }
-                increment(client.getServerGroupName(), "RETRY_" + ((data == null) ? "MISS" : "HIT"));
+                increment(client.getServerGroupName(), _cacheName, "RETRY_" + ((data == null) ? "MISS" : "HIT"));
             }
 
             if (data != null) {
@@ -849,7 +849,7 @@ final public class EVCacheImpl implements EVCache {
         try {
             final boolean hasZF = hasZoneFallbackForBulk();
             boolean throwEx = hasZF ? false : throwExc;
-            increment(client.getServerGroupName(), "BULK_GET");
+            increment(client.getServerGroupName(), _cacheName, "BULK_GET");
             Map<String, T> retMap = getBulkData(client, canonicalKeys, tc, throwEx, hasZF);
             List<EVCacheClient> fbClients = null;
             if (hasZF) {
@@ -863,7 +863,7 @@ final public class EVCacheImpl implements EVCache {
                             if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + canonicalKeys + (log.isTraceEnabled() ? "], Value [" + retMap : "") + "], zone : " + fbClient.getZone());
                             if (retMap != null && !retMap.isEmpty()) break;
                         }
-                        increment(client.getServerGroupName(), "BULK_GET-FULL_RETRY-" + ((retMap == null || retMap.isEmpty()) ? "MISS" : "HIT"));
+                        increment(client.getServerGroupName(), _cacheName, "BULK_GET-FULL_RETRY-" + ((retMap == null || retMap.isEmpty()) ? "MISS" : "HIT"));
                     }
                 }
 
@@ -899,7 +899,7 @@ final public class EVCacheImpl implements EVCache {
                                 }
                             }
                         }
-                        if (retMap.size() > initRetMapSize) increment(client.getServerGroupName(), "BULK_GET-PARTIAL_RETRY-" + (retMap.isEmpty() ? "MISS" : "HIT"));
+                        if (retMap.size() > initRetMapSize) increment(client.getServerGroupName(), _cacheName, "BULK_GET-PARTIAL_RETRY-" + (retMap.isEmpty() ? "MISS" : "HIT"));
                     }
                     if (log.isDebugEnabled() && shouldLog() && retMap.size() == keys.size()) log.debug("Fallback SUCCESS for APP " + _appName + ",  retMap [" + retMap + "]");
                 }
@@ -917,7 +917,7 @@ final public class EVCacheImpl implements EVCache {
                 }
                 stats.cacheMiss(Call.BULK);
                 /* If both Retry and first request fail Exit Immediately. */
-                increment(client.getServerGroupName(), "BULK_MISS");
+                increment(client.getServerGroupName(), _cacheName, "BULK_MISS");
                 if (event != null) endEvent(event);
                 return retMap;
             }
@@ -939,14 +939,14 @@ final public class EVCacheImpl implements EVCache {
             if (!decanonicalR.isEmpty()) {
                 if (decanonicalR.size() == keys.size()) {
                     stats.cacheHit(Call.BULK);
-                    increment(client.getServerGroupName(), "BULK_HIT");
+                    increment(client.getServerGroupName(), _cacheName, "BULK_HIT");
                     if (event != null) event.setAttribute("status", "BHIT");
                 } else {
                     if (event != null) {
                         event.setAttribute("status", "BHIT_PARTIAL");
                         event.setAttribute("BHIT_PARTIAL_KEYS", decanonicalR);
                     }
-                    increment(client.getServerGroupName(), "BULK_HIT_PARTIAL");
+                    increment(client.getServerGroupName(), _cacheName, "BULK_HIT_PARTIAL");
                     if (log.isInfoEnabled() && shouldLog()) log.info("BULK_HIT_PARTIAL for APP " + _appName + ", keys in cache [" + decanonicalR + "], all keys [" + keys + "]");
                 }
             }
@@ -1136,14 +1136,13 @@ final public class EVCacheImpl implements EVCache {
                     } else {
                         cd = client.getTranscoder().encode(value);
                     }
+                    if (cd != null) {
+                        if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AppendData-Size", _appName, null);
+                        if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
+                    }
                 }
                 final Future<Boolean> future = client.append(canonicalKey, cd);
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
-
-                if (cd != null) {
-                    if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AppendData-Size", _appName, null);
-                    if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
-                }
             }
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
@@ -1554,10 +1553,10 @@ final public class EVCacheImpl implements EVCache {
                     } else {
                         cd = client.getTranscoder().encode(value);
                     }
-                }
-                if (cd != null) {
-                    if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AppendData-Size", _appName, null);
-                    if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
+                    if (cd != null) {
+                        if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AppendData-Size", _appName, null);
+                        if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
+                    }
                 }
                 final Future<Boolean> future = client.appendOrAdd(canonicalKey, cd, timeToLive, latch);
                 if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Future " + future + " for key : " + canonicalKey);
@@ -1624,14 +1623,13 @@ final public class EVCacheImpl implements EVCache {
                     } else {
                         cd = client.getTranscoder().encode(value);
                     }
+                    if (cd != null) {
+                        if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AppendData-Size", _appName, null);
+                        if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
+                    }
                 }
                 final Future<Boolean> future = client.append(canonicalKey, cd);
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup(), client);
-
-                if (cd != null) {
-                    if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AppendData-Size", _appName, null);
-                    if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
-                }
             }
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
@@ -1708,14 +1706,14 @@ final public class EVCacheImpl implements EVCache {
                     } else {
                         cd = client.getTranscoder().encode(value);
                     }
+
+                    if (cd != null) {
+                        if (addDataSizeSummary == null) this.addDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AddData-Size", _appName, null);
+                        if (addDataSizeSummary != null) this.addDataSizeSummary.record(cd.getData().length);
+                    }
                 }
                 final Future<Boolean> future = client.add(canonicalKey, timeToLive, cd);
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup(), client);
-
-                if (cd != null) {
-                    if (addDataSizeSummary == null) this.addDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AddData-Size", _appName, null);
-                    if (addDataSizeSummary != null) this.addDataSizeSummary.record(cd.getData().length);
-                }
             }
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));

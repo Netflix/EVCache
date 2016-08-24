@@ -106,7 +106,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             public void gotData(String k, int flags, byte[] data) {
             	
                 if (data != null)  {
-                	if(getDataSize == null) getDataSize = EVCacheMetricsFactory.getDistributionSummary(appName + "-GetData-Size", appName, serverGroup.getName());
+                	if(getDataSize == null) getDataSize = EVCacheMetricsFactory.getDistributionSummary(appName + "-GetOperation-DataSize", appName, serverGroup.getName());
                 	if (getDataSize != null) getDataSize.record(data.length);
                 }
                 if (!key.equals(k)) log.warn("Wrong key returned. Key - " + key + "; Returned Key " + k);
@@ -177,7 +177,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             @Override
             public void gotData(String k, int flags, byte[] data) {
                 if (data != null)  {
-                	if(bulkDataSize == null) bulkDataSize = EVCacheMetricsFactory.getDistributionSummary(appName + "-BulkData-Size", appName, serverGroup.getName());
+                	if(bulkDataSize == null) bulkDataSize = EVCacheMetricsFactory.getDistributionSummary(appName + "-BulkOperation-DataSize", appName, serverGroup.getName());
                 	if (bulkDataSize != null) bulkDataSize.record(data.length);
                 }
 
@@ -226,7 +226,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             public void gotData(String k, int flags, long cas, byte[] data) {
                 if (!key.equals(k)) log.warn("Wrong key returned. Key - " + key + "; Returned Key " + k);
                 if (data != null)  {
-                	if(getAndTouchDataSize == null) getAndTouchDataSize = EVCacheMetricsFactory.getDistributionSummary(appName + "-GATData-Size", appName, serverGroup.getName());
+                	if(getAndTouchDataSize == null) getAndTouchDataSize = EVCacheMetricsFactory.getDistributionSummary(appName + "-GATOperation-DataSize", appName, serverGroup.getName());
                 	if (getAndTouchDataSize != null) getAndTouchDataSize.record(data.length);
                 }
                 
