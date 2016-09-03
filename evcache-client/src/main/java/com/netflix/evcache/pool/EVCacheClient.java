@@ -81,7 +81,7 @@ public class EVCacheClient {
     private final ChainedDynamicProperty.BooleanProperty enableChunking;
     private final ChainedDynamicProperty.IntProperty chunkSize;
     private final ChunkTranscoder chunkingTranscoder;
-    private final SerializingTranscoder decodingTranscoder = new SerializingTranscoder(Integer.MAX_VALUE);
+    private final SerializingTranscoder decodingTranscoder;
     private final EVCacheClientPool pool;
     private Counter addCounter = null;
     
@@ -111,6 +111,9 @@ public class EVCacheClient {
         this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, appName, zone, id, serverGroup);
         this.connectionObserver = new EVCacheConnectionObserver(appName, serverGroup, id);
         this.evcacheMemcachedClient.addObserver(connectionObserver);
+
+        this.decodingTranscoder = new SerializingTranscoder(Integer.MAX_VALUE);
+        decodingTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
     }
 
     private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys) throws EVCacheException {
