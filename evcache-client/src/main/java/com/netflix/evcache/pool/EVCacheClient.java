@@ -333,7 +333,7 @@ public class EVCacheClient {
                 if (!checksumPass) return null;
                 final Transcoder<T> transcoder = (tc == null ? (Transcoder<T>) evcacheMemcachedClient.getTranscoder()
                         : tc);
-                return transcoder.decode(new CachedData(ci.getFlags(), data, CachedData.MAX_SIZE));
+                return transcoder.decode(new CachedData(ci.getFlags(), data, Integer.MAX_VALUE));
             }
         } catch (Exception e) {
             log.error(e.getMessage(), e);
@@ -411,7 +411,7 @@ public class EVCacheClient {
                         if (!checksumPass) return null;
                         final Transcoder<T> transcoder = (tc == null ? (Transcoder<T>) evcacheMemcachedClient.getTranscoder()
                             : tc);
-                        return transcoder.decode(new CachedData(ci.getFlags(), data, CachedData.MAX_SIZE));
+                        return transcoder.decode(new CachedData(ci.getFlags(), data, Integer.MAX_VALUE));
                     });
             }
         }).doAfterTerminate(() ->
@@ -536,7 +536,7 @@ public class EVCacheClient {
                 }
                 final boolean checksumPass = checkCRCChecksum(data, ci, hasZF);
                 if (data != null && checksumPass) {
-                    final CachedData cd = new CachedData(ci.getFlags(), data, CachedData.MAX_SIZE);
+                    final CachedData cd = new CachedData(ci.getFlags(), data, Integer.MAX_VALUE);
                     returnMap.put(ci.getKey(), tc.decode(cd));
                 } else {
                     returnMap.put(ci.getKey(), null);
@@ -636,7 +636,7 @@ public class EVCacheClient {
                             }
                             final boolean checksumPass = checkCRCChecksum(data, ci, hasZF);
                             if (data != null && checksumPass) {
-                                final CachedData cd = new CachedData(ci.getFlags(), data, CachedData.MAX_SIZE);
+                                final CachedData cd = new CachedData(ci.getFlags(), data, Integer.MAX_VALUE);
                                 returnMap.put(ci.getKey(), tc.decode(cd));
                             } else {
                                 returnMap.put(ci.getKey(), null);

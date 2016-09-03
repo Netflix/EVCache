@@ -1,6 +1,7 @@
 package com.netflix.evcache.pool;
 
 import net.spy.memcached.CachedData;
+import net.spy.memcached.transcoders.BaseSerializingTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
 
 /**
@@ -9,9 +10,12 @@ import net.spy.memcached.transcoders.Transcoder;
  * @author smadappa
  *
  */
-class ChunkTranscoder implements Transcoder<CachedData> {
+class ChunkTranscoder extends BaseSerializingTranscoder implements Transcoder<CachedData> {
 
-    public ChunkTranscoder() {
+	private static final int COMPRESSED = 2;
+
+	public ChunkTranscoder() {
+		super(Integer.MAX_VALUE);
     }
 
     public boolean asyncDecode(CachedData d) {
@@ -19,6 +23,10 @@ class ChunkTranscoder implements Transcoder<CachedData> {
     }
 
     public CachedData decode(CachedData d) {
+        if ((d.getFlags() & COMPRESSED) != 0) {
+             return new CachedData (d.getFlags(), decompress(d.getData()), Integer.MAX_VALUE);
+          }
+    	
         return d;
     }
 
@@ -27,7 +35,7 @@ class ChunkTranscoder implements Transcoder<CachedData> {
     }
 
     public int getMaxSize() {
-        return CachedData.MAX_SIZE;
+        return Integer.MAX_VALUE;
     }
 
 }
