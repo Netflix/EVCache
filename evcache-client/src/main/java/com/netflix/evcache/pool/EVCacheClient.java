@@ -82,6 +82,7 @@ public class EVCacheClient {
     private final ChainedDynamicProperty.IntProperty chunkSize;
     private final ChunkTranscoder chunkingTranscoder;
     private final SerializingTranscoder decodingTranscoder;
+    private static final int SPECIAL_BYTEARRAY = (8 << 8);
     private final EVCacheClientPool pool;
     private Counter addCounter = null;
     
@@ -702,7 +703,8 @@ public class EVCacheClient {
                 }
             }
             srcPos += lengthOfArray;
-            chunkData[i] = decodingTranscoder.encode(dest);
+            //chunkData[i] = decodingTranscoder.encode(dest);
+            chunkData[i] = new CachedData(SPECIAL_BYTEARRAY, dest, Integer.MAX_VALUE);
         }
         EVCacheMetricsFactory.getDistributionSummary(appName + "-ChunkData-NumberOfChunks", appName, serverGroup.getName()).record(numOfChunks);
         EVCacheMetricsFactory.getDistributionSummary(appName + "-ChunkData-TotalSize", appName, serverGroup.getName()).record(len);

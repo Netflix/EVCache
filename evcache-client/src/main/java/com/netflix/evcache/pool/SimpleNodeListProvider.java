@@ -10,11 +10,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 
-import com.netflix.config.ConfigurationManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.net.InetAddresses;
+import com.sun.javafx.runtime.SystemProperties;
 
 public class SimpleNodeListProvider implements EVCacheNodeList {
 
@@ -37,9 +37,8 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
      */
     @Override
     public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances() throws IOException {
-        final String nodeListString = ConfigurationManager.getConfigInstance().getString(propertyName);
-        if (log.isDebugEnabled())
-            log.debug("List of Nodes" + nodeListString);
+        final String nodeListString = SystemProperties.getProperty(propertyName);
+        if (log.isDebugEnabled()) log.debug("List of Nodes = " + nodeListString);
 
         if (nodeListString != null && nodeListString.length() > 0) {
             final Map<ServerGroup, EVCacheServerGroupConfig> instancesSpecific = new HashMap<ServerGroup,EVCacheServerGroupConfig>();
