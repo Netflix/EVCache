@@ -12,8 +12,6 @@ import net.spy.memcached.transcoders.Transcoder;
  */
 class ChunkTranscoder extends BaseSerializingTranscoder implements Transcoder<CachedData> {
 
-	private static final int COMPRESSED = 2;
-
 	public ChunkTranscoder() {
 		super(Integer.MAX_VALUE);
     }
@@ -23,10 +21,6 @@ class ChunkTranscoder extends BaseSerializingTranscoder implements Transcoder<Ca
     }
 
     public CachedData decode(CachedData d) {
-        if ((d.getFlags() & COMPRESSED) != 0) {
-             return new CachedData (d.getFlags(), decompress(d.getData()), Integer.MAX_VALUE);
-          }
-    	
         return d;
     }
 
