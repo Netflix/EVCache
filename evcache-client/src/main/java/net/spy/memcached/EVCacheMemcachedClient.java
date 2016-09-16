@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -38,6 +39,7 @@ import net.spy.memcached.ops.ConcatenationType;
 import net.spy.memcached.ops.DeleteOperation;
 import net.spy.memcached.ops.GetAndTouchOperation;
 import net.spy.memcached.ops.GetOperation;
+import net.spy.memcached.ops.Mutator;
 import net.spy.memcached.ops.Operation;
 import net.spy.memcached.ops.OperationCallback;
 import net.spy.memcached.ops.OperationStatus;
@@ -349,7 +351,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                   if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                       operationDuration.stop();
                       if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
-                              + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration()));
+                              + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration(TimeUnit.MILLISECONDS)));
 
                       EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-AoA-AppendOperation-SUCCESS", DataSourceType.COUNTER).increment();
                       rv.set(val.isSuccess(), val);
@@ -371,7 +373,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                           public void receivedStatus(OperationStatus val) {
                               operationDuration.stop();
                               if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Ad Operation): " + key + "; Status : " + val.getStatusCode().name()
-                                      + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration()));
+                                      + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration(TimeUnit.MILLISECONDS)));
                               rv.set(val.isSuccess(), val);
                               if(val.isSuccess()) {
                             	  appendSuccess = true;
@@ -383,7 +385,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                                             public void receivedStatus(OperationStatus val) {
                                                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                                                     if (log.isDebugEnabled()) log.debug("AddOrAppend Retry append Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
-                                                            + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration()));
+                                                            + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration(TimeUnit.MILLISECONDS)));
 
                                                     EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-AoA-RetryAppendOperation-SUCCESS", DataSourceType.COUNTER).increment();
                                                     rv.set(val.isSuccess(), val);
@@ -451,7 +453,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             public void receivedStatus(OperationStatus val) {
                 operationDuration.stop();
                 if (log.isDebugEnabled()) log.debug("Storing Key : " + key + "; Status : " + val.getStatusCode().name()
-                        + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration()));
+                        + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration(TimeUnit.MILLISECONDS)));
 
                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                     EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-" + operationStr + "Operation-SUCCESS");
@@ -503,4 +505,30 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return asyncStore(StoreType.add, key, exp, o, t, latch);
     }
 
+    public long incr(String key, long by, long def, int exp) {
+        final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "LatencyIncr").start();
+        long val = 0;
+        try {
+            val = super.incr(key, by, def, exp);
+        } finally {
+            operationDuration.stop();
+            if (log.isDebugEnabled()) log.debug("Increment Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp 
+                    + "; val : " + val + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration(TimeUnit.MILLISECONDS)));
+        }
+        return val;
+      }
+
+
+    public long decr(String key, long by, long def, int exp) {
+        final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "LatencyDecr").start();
+        long val = 0;
+        try {
+            val = super.decr(key, by, def, exp);
+        } finally {
+            operationDuration.stop();
+            if (log.isDebugEnabled()) log.debug("decrement Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp 
+                    + "; val : " + val + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration(TimeUnit.MILLISECONDS)));
+        }
+        return val;
+      }
 }

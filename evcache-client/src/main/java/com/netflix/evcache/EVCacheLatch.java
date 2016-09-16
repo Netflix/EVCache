@@ -8,8 +8,25 @@ import net.spy.memcached.internal.OperationCompletionListener;
 
 public interface EVCacheLatch extends OperationCompletionListener {
 
+    /**
+     * The Policy which can be used to control the latch behavior. The latch is released when the number operations as specified by the Policy are completed.
+     * For example: If your evcache app has 3 copies (3 server groups) in a region then each write done on that app will perform 3 operations (one for each copy/server group).
+     * If you are doing a set operation and the selected Policy is ALL_MINUS_1 then we need to complete 2 operations(set on 2 copies/server groups) need to be finished before we release the latch. 
+     *
+     * Note that an Operation completed means that the operation was accepted by evcache or rejected by evcache.
+     * If it is still in flight the that operation is in pending state. 
+     *
+     * Case ALL : All the operations have to be completed.
+     * Case All_MINUS_1 : All but one needs to be completed. For ex: If there are 3 copies for a cache then 2 need to be completed.
+     * Case QUORUM: Quorum number of operations have to be completed before we release the latch: for a cluster with 3 this means 2 operations need to be completed. 
+     * Case ONE: At least one operations needs to be completed before we release the latch.
+     * Case NONE: The latch is released immediately. 
+     * 
+     * @author smadappa
+     *
+     */
     public static enum Policy {
-        ONE, QUORUM, ALL_MINUS_1, ALL
+        NONE, ONE, QUORUM, ALL_MINUS_1, ALL
     }
 
     /**

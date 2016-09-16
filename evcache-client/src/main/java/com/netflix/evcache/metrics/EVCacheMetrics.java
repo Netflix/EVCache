@@ -17,7 +17,7 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     private static final Logger log = LoggerFactory.getLogger(EVCacheMetrics.class);
 
     private final String appName, cacheName;
-    private StepCounter getCallsCounter, bulkCallsCounter, bulkHitsCounter, getHitsCounter, setCallsCounter, addCallsCounter, replaceCallCounter, delCallsCounter;
+    private StepCounter getCallsCounter, bulkCallsCounter, bulkHitsCounter, getHitsCounter, setCallsCounter, addCallsCounter, replaceCallCounter, delCallsCounter, incrCounter, decrCounter;
     private StepCounter bulkMissCounter, getMissCounter;
     private StatsTimer getDuration, bulkDuration, appendOrAddDuration, appendDuration;
 
@@ -47,6 +47,10 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
             getAddCallCounter().increment();
         } else if (op == Call.APPEND) {
             getAppendDuration().record(duration);
+        } else if (op == Call.INCR) {
+            getIncrCounter().increment();
+        } else if (op == Call.DECR) {
+            getDecrCounter().increment();
         }
     }
 
@@ -210,6 +214,23 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
         } else {
             this.getMissCounter().increment();
         }
+    }
+
+    private StepCounter getIncrCounter() {
+        if (this.incrCounter != null) return this.incrCounter;
+
+        this.incrCounter = EVCacheMetricsFactory.getStepCounter(appName, cacheName, "IncrCall");
+
+        return incrCounter;
+    }
+
+    private StepCounter getDecrCounter() {
+        if (this.getCallsCounter != null) return this.getCallsCounter;
+
+        this.getCallsCounter = EVCacheMetricsFactory.getStepCounter(appName, cacheName, "GetCall");
+        getHitCounter();
+
+        return getCallsCounter;
     }
 
     public long getGetDuration() {

@@ -148,6 +148,8 @@ public class EVCacheLatchImpl implements EVCacheLatch {
     private int policyToCount(Policy policy, int count) {
         if (policy == null) return 0;
         switch (policy) {
+        case NONE:
+            return 0;
         case ONE:
             return 1;
         case QUORUM:
