@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,12 +30,16 @@ import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.evcache.pool.EVCacheClientUtil;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.Counter;
 import com.netflix.spectator.api.DistributionSummary;
 
 import net.spy.memcached.CachedData;
+import net.spy.memcached.internal.OperationFuture;
+import net.spy.memcached.ops.OperationStatus;
+import net.spy.memcached.ops.StatusCode;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.util.StringUtils;
 import rx.Observable;
@@ -1662,9 +1667,21 @@ final public class EVCacheImpl implements EVCache {
             if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Took " + op.getDuration() + " milliSec for key : " + canonicalKey);
         }
     }
+    
+    public <T> boolean add(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
+        final EVCacheLatch latch = add(key, value, tc, timeToLive, Policy.ALL);
+        try {
+            return latch.await(_pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            if (log.isDebugEnabled() && shouldLog()) log.debug("Exception adding the data for APP " + _appName + ", key : " + key, e);
+            final boolean throwExc = doThrowException();
+            if(throwExc) throw new EVCacheException("Exception add data for APP " + _appName + ", key : " + key, e);
+            return false;
+        }
+    }
 
     @Override
-    public <T> boolean add(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
+    public <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
 
         final boolean throwExc = doThrowException();
@@ -1672,7 +1689,7 @@ final public class EVCacheImpl implements EVCache {
         if (clients.length == 0) {
             increment("NULL_CLIENT");
             if (throwExc) throw new EVCacheException("Could not find a client to Add the data");
-            return false;
+            return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
         }
 
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.ADD);
@@ -1681,22 +1698,21 @@ final public class EVCacheImpl implements EVCache {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
-                    return false;
+                    return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
                 increment("THROTTLED");
-                return false;
+                return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
             }
             startEvent(event);
         }
 
         final String canonicalKey = getCanonicalizedKey(key);
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.ADD, stats, Operation.TYPE.MILLI);
+        EVCacheLatch latch = null;
         try {
-            final EVCacheFuture[] futures = new EVCacheFuture[clients.length];
             CachedData cd = null;
-            int index = 0;
             for (EVCacheClient client : clients) {
                 if (cd == null) {
                     if (tc != null) {
@@ -1712,8 +1728,7 @@ final public class EVCacheImpl implements EVCache {
                         if (addDataSizeSummary != null) this.addDataSizeSummary.record(cd.getData().length);
                     }
                 }
-                final Future<Boolean> future = client.add(canonicalKey, timeToLive, cd);
-                futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup(), client);
+                latch = EVCacheClientUtil.add(canonicalKey, cd, timeToLive, _pool, policy);
             }
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
@@ -1721,38 +1736,11 @@ final public class EVCacheImpl implements EVCache {
                 endEvent(event);
             }
 
-            if(futures.length == 0) return false;
-
-            int successCount = 0, failCount = 0;
-            for(int i = 0; i < futures.length; i++) {
-                final EVCacheFuture future = futures[i];
-                if(future.get() == Boolean.TRUE) {
-                    successCount++;
-                    if(log.isDebugEnabled()) log.debug("ADD Success : APP " + _appName + ", key " + key);
-                } else {
-                    failCount++;
-                    if(log.isDebugEnabled()) log.debug("ADD Fail : APP " + _appName + ", key " + key);
-                }
-            }
-
-            if(successCount > 0 && failCount > 0) {
-                for(int i = 0; i < futures.length; i++) {
-                    final EVCacheFuture future = futures[i];
-                    if(future.get() == Boolean.TRUE) {
-                        final EVCacheClient client = future.getEVCacheClient();
-                        client.delete(canonicalKey);
-                    }
-                }
-                return false;
-            } else {
-                if(failCount == 0) return true;
-                else return false;
-            }
-
+            return latch;
         } catch (Exception ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception adding the data for APP " + _appName + ", key : " + canonicalKey, ex);
             if (event != null) eventError(event, ex);
-            if (!throwExc) return false;
+            if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName); 
             throw new EVCacheException("Exception adding data for APP " + _appName + ", key : " + canonicalKey, ex);
         } finally {
             op.stop();

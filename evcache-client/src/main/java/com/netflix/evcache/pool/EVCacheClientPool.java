@@ -381,7 +381,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
             if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                     + "\n\tActive Count : " + activeServerCount + "\n\tInactive Count : "
-                    + inActiveServerCount + "\n\tDiscovery Count : " + sizeInDiscovery);
+                    + inActiveServerCount + "\n\tDiscovery Count : " + sizeInDiscovery + "\n\tsizeInHashing : " + sizeInHashing);
             final long currentTime = System.currentTimeMillis();
             boolean reconcile = false;
             if (currentTime - lastReconcileTime > reconcileInterval.get()) {

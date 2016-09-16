@@ -28,6 +28,10 @@ public class EVCacheFuture implements Future<Boolean> {
         this.client = client;
     }
 
+    public Future<Boolean> getFuture() {
+        return future;
+    }
+
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
         return future.cancel(mayInterruptIfRunning);

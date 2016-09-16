@@ -463,11 +463,6 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     }
                     EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-" + operationStr + "Operation-TIMEDOUT", tag).increment();
                 } else if (val.getStatusCode().equals(StatusCode.ERR_NOT_FOUND) || val.getStatusCode().equals(StatusCode.ERR_EXISTS)) {
-                    Tag tag = null;
-                    final MemcachedNode node = getEVCacheNode(key);
-                    if (node.getSocketAddress() instanceof InetSocketAddress) {
-                        tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
-                    }
                     EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-" + operationStr + "Operation-" + val.getStatusCode().name());
                 } else {
                     Tag tag = null;

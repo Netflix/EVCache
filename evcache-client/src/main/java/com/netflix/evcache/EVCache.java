@@ -825,6 +825,39 @@ public interface EVCache {
      *             Related issues
      */
     <T> boolean add(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException;
+    
+    
+
+    /**
+     * Add the given value to EVCache. You cannot add if the key already exist in EVCache. 
+     *
+     * @param key
+     *            the key which this object should be added to. Ensure the
+     *            key is properly encoded and does not contain whitespace or
+     *            control characters.
+     * @param T
+     *            the value to be added
+     * @param tc
+     *            the transcoder the will be used for serialization
+     * @param timeToLive
+     *            the expiration of this object i.e. less than 30 days in
+     *            seconds or the exact expiry time as UNIX time
+     * @param policy
+     *            The Latch will be returned based on the Policy. The Latch can then be used to await until the count down has reached to 0 or the specified time has elapsed.
+     *
+     *            
+     * @return EVCacheLatch which will encompasses the Operation. You can block
+     *         on the Operation to ensure all adds are successful. If there are any partial success
+     *         The client will try and fix the Data. 
+     * 
+     * 
+     * @throws EVCacheException
+     *             in the rare circumstance where queue is too full to accept
+     *             any more requests or issues Serializing the value or any IO
+     *             Related issues
+     */
+    <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException;
+    
 
     /**
      * Touch the given key and reset its expiration time.
