@@ -37,9 +37,6 @@ import com.netflix.servo.monitor.Counter;
 import com.netflix.spectator.api.DistributionSummary;
 
 import net.spy.memcached.CachedData;
-import net.spy.memcached.internal.OperationFuture;
-import net.spy.memcached.ops.OperationStatus;
-import net.spy.memcached.ops.StatusCode;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.util.StringUtils;
 import rx.Observable;
@@ -1671,7 +1668,8 @@ final public class EVCacheImpl implements EVCache {
     public <T> boolean add(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
         final EVCacheLatch latch = add(key, value, tc, timeToLive, Policy.ALL);
         try {
-            return latch.await(_pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+            latch.await(_pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+            return (latch.getSuccessCount() == latch.getExpectedSuccessCount());
         } catch (InterruptedException e) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception adding the data for APP " + _appName + ", key : " + key, e);
             final boolean throwExc = doThrowException();

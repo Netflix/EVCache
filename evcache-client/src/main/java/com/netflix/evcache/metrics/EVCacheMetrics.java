@@ -225,12 +225,11 @@ public class EVCacheMetrics implements EVCacheMetricsMBean, Stats {
     }
 
     private StepCounter getDecrCounter() {
-        if (this.getCallsCounter != null) return this.getCallsCounter;
+        if (this.decrCounter != null) return this.decrCounter;
 
-        this.getCallsCounter = EVCacheMetricsFactory.getStepCounter(appName, cacheName, "GetCall");
-        getHitCounter();
+        this.decrCounter = EVCacheMetricsFactory.getStepCounter(appName, cacheName, "DecrCall");
 
-        return getCallsCounter;
+        return decrCounter;
     }
 
     public long getGetDuration() {
