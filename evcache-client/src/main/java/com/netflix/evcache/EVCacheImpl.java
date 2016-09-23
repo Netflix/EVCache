@@ -1730,7 +1730,9 @@ final public class EVCacheImpl implements EVCache {
             }
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
+                event.setTTL(timeToLive);
                 event.setCachedData(cd);
+                event.setLatch(latch);
                 endEvent(event);
             }
 
