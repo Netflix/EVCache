@@ -1720,11 +1720,6 @@ final public class EVCacheImpl implements EVCache {
                     } else {
                         cd = client.getTranscoder().encode(value);
                     }
-
-                    if (cd != null) {
-                        if (addDataSizeSummary == null) this.addDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AddData-Size", _appName, null);
-                        if (addDataSizeSummary != null) this.addDataSizeSummary.record(cd.getData().length);
-                    }
                 }
                 latch = EVCacheClientUtil.add(canonicalKey, cd, timeToLive, _pool, policy);
             }
