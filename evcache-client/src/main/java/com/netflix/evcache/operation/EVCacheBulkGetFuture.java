@@ -206,4 +206,9 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         super.signalComplete();
     }
 
+    public boolean cancel(boolean ign) {
+        if(log.isDebugEnabled()) log.debug("Operation cancelled", new Exception());
+      return super.cancel(ign);
+    }
+
 }

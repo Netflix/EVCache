@@ -248,5 +248,28 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     public void signalComplete() {
         super.signalComplete();
     }
+    
+    /**
+     * Cancel this operation, if possible.
+     *
+     * @param ign not used
+     * @deprecated
+     * @return true if the operation has not yet been written to the network
+     */
+    public boolean cancel(boolean ign) {
+        if(log.isDebugEnabled()) log.debug("Operation cancelled", new Exception());
+      return super.cancel(ign);
+    }
+
+    /**
+     * Cancel this operation, if possible.
+     *
+     * @return true if the operation has not yet been written to the network
+     */
+    public boolean cancel() {
+        if(log.isDebugEnabled()) log.debug("Operation cancelled", new Exception());
+        return super.cancel();
+    }
+    
 
 }

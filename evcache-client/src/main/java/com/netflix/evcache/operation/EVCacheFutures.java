@@ -6,6 +6,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.pool.ServerGroup;
 
@@ -17,6 +20,7 @@ import net.spy.memcached.internal.OperationFuture;
 public class EVCacheFutures implements ListenableFuture<Boolean, OperationCompletionListener>,
         OperationCompletionListener {
 
+    private Logger log = LoggerFactory.getLogger(EVCacheFutures.class);
     private final OperationFuture<Boolean>[] futures;
     private final String app;
     private final ServerGroup serverGroup;
@@ -47,6 +51,7 @@ public class EVCacheFutures implements ListenableFuture<Boolean, OperationComple
     }
 
     public boolean cancel(boolean mayInterruptIfRunning) {
+        if(log.isDebugEnabled()) log.debug("Operation cancelled", new Exception());
         for (OperationFuture<Boolean> future : futures) {
             future.cancel();
         }

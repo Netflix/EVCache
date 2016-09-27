@@ -5,11 +5,15 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
 
 public class EVCacheFuture implements Future<Boolean> {
 
+    private Logger log = LoggerFactory.getLogger(EVCacheFuture.class);
     private final Future<Boolean> future;
     private final String app;
     private final ServerGroup serverGroup;
@@ -34,6 +38,7 @@ public class EVCacheFuture implements Future<Boolean> {
 
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
+        if(log.isDebugEnabled()) log.debug("Operation cancelled", new Exception());
         return future.cancel(mayInterruptIfRunning);
     }
 
