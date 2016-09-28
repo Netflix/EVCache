@@ -36,9 +36,8 @@ public class EVCacheClientUtil {
 
             @Override
             public void onComplete(OperationFuture<?> operationFuture) throws Exception {
-                if(getPendingCount() > 1) {
-                    super.onComplete(operationFuture);
-                } else {
+                super.onComplete(operationFuture);
+                if (getPendingCount() == 0) {
                     final List<Future<Boolean>> futures = getAllFutures();
                     int successCount = 0, failCount = 0;
                     for(int i = 0; i < futures.size() ; i++) {
@@ -93,7 +92,6 @@ public class EVCacheClientUtil {
                             }
                         }
                     }
-                    super.onComplete(operationFuture);
                 }
             }
         };
