@@ -6,11 +6,13 @@ import java.util.concurrent.Future;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
+import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.DistributionSummary;
 
 import net.spy.memcached.CachedData;
@@ -28,8 +30,7 @@ public class EVCacheClientUtil {
         if (addDataSizeSummary != null) addDataSizeSummary.record(cd.getData().length);
         final DistributionSummary addTTLSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AddData-TTL", _appName, null);
         if (addTTLSummary != null) addTTLSummary.record(timeToLive);
-
-
+        final DynamicBooleanProperty fixup = EVCacheConfig.getInstance().getDynamicBooleanProperty(_appName + ".addOperation.fixup", Boolean.FALSE);
         
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, clients.length, _pool.getAppName()){
@@ -37,7 +38,7 @@ public class EVCacheClientUtil {
             @Override
             public void onComplete(OperationFuture<?> operationFuture) throws Exception {
                 super.onComplete(operationFuture);
-                if (getPendingCount() == 0) {
+                if (getPendingCount() == 0 && fixup.get()) {
                     final List<Future<Boolean>> futures = getAllFutures();
                     int successCount = 0, failCount = 0;
                     for(int i = 0; i < futures.size() ; i++) {
