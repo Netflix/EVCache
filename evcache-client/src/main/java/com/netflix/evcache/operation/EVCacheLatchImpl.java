@@ -268,4 +268,26 @@ public class EVCacheLatchImpl implements EVCacheLatch {
         return builder.toString();
     }
 
+    @Override
+    public int getPendingFutureCount() {
+        int count = 0;
+        for (Future<Boolean> future : futures) {
+            if (!future.isDone()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    @Override
+    public int getCompletedFutureCount() {
+        int count = 0;
+        for (Future<Boolean> future : futures) {
+            if (future.isDone()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
 }

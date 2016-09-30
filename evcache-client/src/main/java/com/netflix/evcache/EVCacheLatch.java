@@ -80,6 +80,20 @@ public interface EVCacheLatch extends OperationCompletionListener {
     List<Future<Boolean>> getCompletedFutures();
 
     /**
+     * Returns the number of Futures that are still Pending.
+     *
+     * @return the current outstanding Future task count
+     */
+    int getPendingFutureCount();
+
+    /**
+     * Returns the number of Future Tasks that are completed.
+     *
+     * @return the current completed future task count
+     */
+    int getCompletedFutureCount();
+
+    /**
      * Returns the number of Tasks that are still Pending.
      *
      * @return the current outstanding task count

@@ -75,9 +75,10 @@ final public class EVCacheImpl implements EVCache {
     private final ChainedDynamicProperty.BooleanProperty _useInMemoryCache;
     private final Stats stats;
     private EVCacheInMemoryCache<?> cache;
+    private EVCacheClientUtil clientUtil = null;
 
     private final EVCacheClientPoolManager _poolManager;
-    private DistributionSummary setTTLSummary, replaceTTLSummary, touchTTLSummary, setDataSizeSummary, replaceDataSizeSummary, appendDataSizeSummary, addDataSizeSummary;
+    private DistributionSummary setTTLSummary, replaceTTLSummary, touchTTLSummary, setDataSizeSummary, replaceDataSizeSummary, appendDataSizeSummary;
     private Counter touchCounter;
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
@@ -1711,18 +1712,17 @@ final public class EVCacheImpl implements EVCache {
         EVCacheLatch latch = null;
         try {
             CachedData cd = null;
-            for (EVCacheClient client : clients) {
-                if (cd == null) {
-                    if (tc != null) {
-                        cd = tc.encode(value);
-                    } else if ( _transcoder != null) { 
-                        cd = ((Transcoder<Object>)_transcoder).encode(value);
-                    } else {
-                        cd = client.getTranscoder().encode(value);
-                    }
+            if (cd == null) {
+                if (tc != null) {
+                    cd = tc.encode(value);
+                } else if ( _transcoder != null) { 
+                    cd = ((Transcoder<Object>)_transcoder).encode(value);
+                } else {
+                    cd = _pool.getEVCacheClientForRead().getTranscoder().encode(value);
                 }
-                latch = EVCacheClientUtil.add(canonicalKey, cd, timeToLive, _pool, policy);
             }
+            if(clientUtil == null) clientUtil = new EVCacheClientUtil(_pool);
+            latch = clientUtil.add(canonicalKey, cd, timeToLive, policy);
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
                 event.setTTL(timeToLive);
