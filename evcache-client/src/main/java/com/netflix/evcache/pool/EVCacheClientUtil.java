@@ -144,7 +144,7 @@ public class EVCacheClientUtil {
                                 final EVCacheClient client = _pool.getEVCacheClient(f.getServerGroup());
                                 if(client != null) {
                                     try {
-                                        client.set(canonicalKey, readData, timeToLive, latch);
+                                        client.set(canonicalKey, readData, timeToLive, null);
                                         if(log.isDebugEnabled()) log.debug("Add: Fixup for : APP " + _appName + ", key " + canonicalKey + "; ServerGroup : " + client.getServerGroupName());
                                         EVCacheMetricsFactory.increment(_appName , null, client.getServerGroupName(), _appName + "-AddCall-FixUp");
                                     } catch (Exception e) {
