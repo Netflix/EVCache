@@ -1664,10 +1664,10 @@ final public class EVCacheImpl implements EVCache {
     }
     
     public <T> boolean add(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
-        final EVCacheLatch latch = add(key, value, tc, timeToLive, Policy.ALL);
+        final EVCacheLatch latch = add(key, value, tc, timeToLive, Policy.NONE);
         try {
             latch.await(_pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
-            return (latch.getSuccessCount() == latch.getExpectedSuccessCount());
+            return (latch.getSuccessCount() >= latch.getExpectedSuccessCount());
         } catch (InterruptedException e) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception adding the data for APP " + _appName + ", key : " + key, e);
             final boolean throwExc = doThrowException();
