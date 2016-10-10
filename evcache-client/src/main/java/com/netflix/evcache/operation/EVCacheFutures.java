@@ -28,8 +28,7 @@ public class EVCacheFutures implements ListenableFuture<Boolean, OperationComple
     private final AtomicInteger completionCounter;
     private final EVCacheLatch latch;
 
-    public EVCacheFutures(OperationFuture<Boolean>[] futures, String key, String app, ServerGroup serverGroup,
-            EVCacheLatch latch) {
+    public EVCacheFutures(OperationFuture<Boolean>[] futures, String key, String app, ServerGroup serverGroup, EVCacheLatch latch) {
         this.futures = futures;
         this.app = app;
         this.serverGroup = serverGroup;

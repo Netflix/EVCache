@@ -693,7 +693,7 @@ final public class EVCacheImpl implements EVCache {
 
         final String canonicalKey = getCanonicalizedKey(key);
         try {
-            final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length, _appName);
+            final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
             touchData(canonicalKey, key, timeToLive, clients, latch);
 
             if (touchTTLSummary == null) this.touchTTLSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-TouchData-TTL", _appName, null);
@@ -1048,7 +1048,7 @@ final public class EVCacheImpl implements EVCache {
 
         final String canonicalKey = getCanonicalizedKey(key);
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.SET, stats, Operation.TYPE.MILLI);
-        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length, _appName);
+        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
         try {
             CachedData cd = null;
             for (EVCacheClient client : clients) {
@@ -1233,8 +1233,7 @@ final public class EVCacheImpl implements EVCache {
         }
 
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.DELETE, stats);
-        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy,
-                clients.length, _appName);
+        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
         try {
             for (int i = 0; i < clients.length; i++) {
                 Future<Boolean> future = clients[i].delete(canonicalKey, latch);
@@ -1454,8 +1453,7 @@ final public class EVCacheImpl implements EVCache {
 
         final String canonicalKey = getCanonicalizedKey(key);
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.REPLACE, stats, Operation.TYPE.MILLI);
-        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy,
-                clients.length, _appName);
+        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
         try {
             final EVCacheFuture[] futures = new EVCacheFuture[clients.length];
             CachedData cd = null;
@@ -1543,8 +1541,7 @@ final public class EVCacheImpl implements EVCache {
         }
         final String canonicalKey = getCanonicalizedKey(key);
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.APPEND_OR_ADD, stats, Operation.TYPE.MILLI);
-        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy,
-                clients.length, _appName);
+        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
         try {
             CachedData cd = null;
             for (EVCacheClient client : clients) {

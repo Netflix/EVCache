@@ -109,7 +109,7 @@ public class EVCacheClient {
         this.chunkingTranscoder = new ChunkTranscoder();
         this.maxWriteQueueSize = maxQueueSize;
 
-        this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, appName, zone, id, serverGroup);
+        this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, appName, zone, id, serverGroup, this);
         this.connectionObserver = new EVCacheConnectionObserver(appName, serverGroup, id);
         this.evcacheMemcachedClient.addObserver(connectionObserver);
 
@@ -872,8 +872,7 @@ public class EVCacheClient {
         if (!ensureWriteQueueSize(node, key)) {
             if (log.isInfoEnabled()) log.info("Node : " + node + " is not active. Failing fast and dropping the write event.");
             final ListenableFuture<Boolean, OperationCompletionListener> defaultFuture = (ListenableFuture<Boolean, OperationCompletionListener>) getDefaultFuture();
-            if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch)
-                    .addFuture(defaultFuture);
+            if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl && !isInWriteOnly()) ((EVCacheLatchImpl) evcacheLatch).addFuture(defaultFuture);
             return defaultFuture;
         }
 
@@ -916,7 +915,7 @@ public class EVCacheClient {
         if (!ensureWriteQueueSize(node, key)) {
             if (log.isInfoEnabled()) log.info("Node : " + node + " is not active. Failing fast and dropping the write event.");
             final ListenableFuture<Boolean, OperationCompletionListener> defaultFuture = (ListenableFuture<Boolean, OperationCompletionListener>) getDefaultFuture();
-            if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch).addFuture(defaultFuture);
+            if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl && !isInWriteOnly()) ((EVCacheLatchImpl) evcacheLatch).addFuture(defaultFuture);
             return defaultFuture;
         }
 
@@ -935,8 +934,7 @@ public class EVCacheClient {
             if (log.isInfoEnabled()) log.info("Node : " + node
                     + " is not active. Failing fast and dropping the replace event.");
             final ListenableFuture<Boolean, OperationCompletionListener> defaultFuture = (ListenableFuture<Boolean, OperationCompletionListener>) getDefaultFuture();
-            if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch)
-                    .addFuture(defaultFuture);
+            if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl && !isInWriteOnly()) ((EVCacheLatchImpl) evcacheLatch).addFuture(defaultFuture);
             return defaultFuture;
         }
 
@@ -1033,7 +1031,7 @@ public class EVCacheClient {
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         if (!ensureWriteQueueSize(node, key)) {
             final ListenableFuture<Boolean, OperationCompletionListener> defaultFuture = (ListenableFuture<Boolean, OperationCompletionListener>) getDefaultFuture();
-            if (latch != null && latch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) latch).addFuture(defaultFuture);
+            if (latch != null && latch instanceof EVCacheLatchImpl && !isInWriteOnly()) ((EVCacheLatchImpl) latch).addFuture(defaultFuture);
             return defaultFuture;
         }
 
@@ -1074,7 +1072,7 @@ public class EVCacheClient {
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         if (!ensureWriteQueueSize(node, key)) {
             final ListenableFuture<Boolean, OperationCompletionListener> defaultFuture = (ListenableFuture<Boolean, OperationCompletionListener>) getDefaultFuture();
-            if (latch != null && latch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) latch).addFuture(defaultFuture);
+            if (latch != null && latch instanceof EVCacheLatchImpl && !isInWriteOnly()) ((EVCacheLatchImpl) latch).addFuture(defaultFuture);
             return defaultFuture;
         }
 
@@ -1141,6 +1139,10 @@ public class EVCacheClient {
 
     public boolean isShutdown() {
         return this.shutdown;
+    }
+    
+    public boolean isInWriteOnly(){
+        return pool.isInWriteOnly(getServerGroup());
     }
 
     public Map<SocketAddress, Map<String, String>> getStats(String cmd) {

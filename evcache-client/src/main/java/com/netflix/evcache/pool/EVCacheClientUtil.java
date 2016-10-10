@@ -65,7 +65,7 @@ public class EVCacheClientUtil {
         addTTLSummary.record(timeToLive);
         
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
-        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, clients.length, _appName){
+        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName){
 
             @Override
             public void onComplete(OperationFuture<?> operationFuture) throws Exception {

@@ -25,8 +25,8 @@ import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.operation.EVCacheBulkGetFuture;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
+import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
-import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.Stopwatch;
 import com.netflix.servo.tag.BasicTag;
@@ -39,7 +39,6 @@ import net.spy.memcached.ops.ConcatenationType;
 import net.spy.memcached.ops.DeleteOperation;
 import net.spy.memcached.ops.GetAndTouchOperation;
 import net.spy.memcached.ops.GetOperation;
-import net.spy.memcached.ops.Mutator;
 import net.spy.memcached.ops.Operation;
 import net.spy.memcached.ops.OperationCallback;
 import net.spy.memcached.ops.OperationStatus;
@@ -60,17 +59,19 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private final String zone;
     private final ChainedDynamicProperty.IntProperty readTimeout;
     private final ServerGroup serverGroup;
+    private final EVCacheClient client;
     private DistributionSummary getDataSize, bulkDataSize, getAndTouchDataSize;
 
     public EVCacheMemcachedClient(ConnectionFactory cf, List<InetSocketAddress> addrs,
             ChainedDynamicProperty.IntProperty readTimeout, String appName, String zone, int id,
-            ServerGroup serverGroup) throws IOException {
+            ServerGroup serverGroup, EVCacheClient client) throws IOException {
         super(cf, addrs);
         this.id = id;
         this.appName = appName;
         this.zone = zone;
         this.readTimeout = readTimeout;
         this.serverGroup = serverGroup;
+        this.client = client;
     }
 
     public NodeLocator getNodeLocator() {
@@ -299,7 +300,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
         final DeleteOperation op = opFact.delete(key, callback);
         rv.setOperation(op);
-        if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch).addFuture(rv);
+        if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl && !client.isInWriteOnly()) ((EVCacheLatchImpl) evcacheLatch).addFuture(rv);
         mconn.enqueueOperation(key, op);
         return rv;
     }
@@ -332,7 +333,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     		}
     	});
     	rv.setOperation(op);
-    	if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch).addFuture(rv);
+    	if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl && !client.isInWriteOnly()) ((EVCacheLatchImpl) evcacheLatch).addFuture(rv);
     	mconn.enqueueOperation(key, op);
     	return rv;
     }
@@ -423,7 +424,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             });
         rv.setOperation(op);
         mconn.enqueueOperation(key, op);
-        if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch).addFuture(rv);
+        if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl && !client.isInWriteOnly()) ((EVCacheLatchImpl) evcacheLatch).addFuture(rv);
         return rv;
     }
 
@@ -489,8 +490,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             }
         });
         rv.setOperation(op);
-        if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl) ((EVCacheLatchImpl) evcacheLatch)
-                .addFuture(rv);
+        if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl && !client.isInWriteOnly()) ((EVCacheLatchImpl) evcacheLatch).addFuture(rv);
         mconn.enqueueOperation(key, op);
         return rv;
     }

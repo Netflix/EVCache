@@ -291,6 +291,16 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
         return Collections.<EVCacheClient> emptyList();
     }
+    
+    public boolean isInWriteOnly(ServerGroup serverGroup) {
+          if (memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
+              return false;
+          }
+          if(memcachedWriteInstancesByServerGroup.containsKey(serverGroup)) {
+              return true;
+          }
+          return false;
+    }
 
     public EVCacheClient[] getWriteOnlyEVCacheClients() {
         try {
