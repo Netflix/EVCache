@@ -15,6 +15,7 @@ import com.netflix.evcache.EVCacheClientLibrary;
 import com.netflix.evcservice.service.StatusPage;
 import com.netflix.server.base.NFFilter;
 import com.netflix.server.base.lifecycle.BaseServerLifecycleListener;
+import com.sun.jersey.api.core.ResourceConfig;
 import com.sun.jersey.api.core.PackagesResourceConfig;
 import com.sun.jersey.guice.JerseyServletModule;
 import com.sun.jersey.guice.spi.container.servlet.GuiceContainer;
@@ -55,6 +56,7 @@ public class StartServer extends BaseServerLifecycleListener
 //                initParams.put("requestId.accept", "true");
 //                initParams.put("requestId.require", "true");
                 initParams.put(PackagesResourceConfig.PROPERTY_PACKAGES, "com.netflix.evcservice.resources");
+                initParams.put(ResourceConfig.FEATURE_DISABLE_WADL, "true");
                 filter("/*").through(NFFilter.class, initParams);
                 filter("/healthcheck", "/status").through(NFFilter.class, initParams);
                 serve("/*").with(GuiceContainer.class, initParams);
