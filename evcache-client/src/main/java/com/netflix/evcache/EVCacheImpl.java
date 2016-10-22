@@ -423,7 +423,8 @@ final public class EVCacheImpl implements EVCache {
         });
     }
 
-    private <T> T getAndTouchData(EVCacheClient client, String canonicalKey, Transcoder<T> tc, boolean throwException,
+    /*
+     * private <T> T getAndTouchData(EVCacheClient client, String canonicalKey, Transcoder<T> tc, boolean throwException,
             boolean hasZF, int timeToLive) throws Exception {
         try {
             if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
@@ -441,7 +442,7 @@ final public class EVCacheImpl implements EVCache {
             if (!throwException || hasZF) return null;
             throw ex;
         }
-    }
+    }*/
 
     public <T> T getAndTouch(String key, int timeToLive) throws EVCacheException {
         return this.getAndTouch(key, timeToLive, (Transcoder<T>) _transcoder);
@@ -591,13 +592,14 @@ final public class EVCacheImpl implements EVCache {
         try {
             final boolean hasZF = hasZoneFallback();
             boolean throwEx = hasZF ? false : throwExc;
-            T data = getAndTouchData(client, canonicalKey, tc, throwEx, hasZF, timeToLive);
+            //T data = getAndTouchData(client, canonicalKey, tc, throwEx, hasZF, timeToLive);
+            T data = getData(client, canonicalKey, tc, throwEx, hasZF);
             if (data == null && hasZF) {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
                 for (int i = 0; i < fbClients.size(); i++) {
                     final EVCacheClient fbClient = fbClients.get(i);
                     if(i >= fbClients.size() - 1) throwEx = throwExc;
-                    data = getAndTouchData(fbClient, canonicalKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false, timeToLive);
+                    data = getData(fbClient, canonicalKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
                     if (log.isDebugEnabled() && shouldLog()) log.debug("GetAndTouch Retry for APP " + _appName + ", key [" + canonicalKey + (log.isTraceEnabled() ? "], Value [" + data : "")  + "], ServerGroup : " + fbClient.getServerGroup());
                     if (data != null) {
                         client = fbClient;

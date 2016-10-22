@@ -85,6 +85,7 @@ public class EVCacheClient {
     private static final int SPECIAL_BYTEARRAY = (8 << 8);
     private final EVCacheClientPool pool;
     private Counter addCounter = null;
+    private final ChainedDynamicProperty.BooleanProperty ignoreTouch;
     
 
     EVCacheClient(String appName, String zone, int id, EVCacheServerGroupConfig config,
@@ -108,6 +109,7 @@ public class EVCacheClient {
         this.chunkSize = EVCacheConfig.getInstance().getChainedIntProperty(this.serverGroup.getName() + ".chunk.size", appName + ".chunk.size", 1180);
         this.chunkingTranscoder = new ChunkTranscoder();
         this.maxWriteQueueSize = maxQueueSize;
+        this.ignoreTouch = EVCacheConfig.getInstance().getChainedBooleanProperty(appName + this.serverGroup.getName() + ".ignore.touch", appName + ".ignore.touch", false);
 
         this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, appName, zone, id, serverGroup, this);
         this.connectionObserver = new EVCacheConnectionObserver(appName, serverGroup, id);
@@ -795,9 +797,13 @@ public class EVCacheClient {
         if (enableChunking.get()) {
             return assembleChunks(key, false, 0, tc, hasZF);
         } else {
-            final CASValue<T> value = evcacheMemcachedClient.asyncGetAndTouch(key, timeToLive, tc)
-                .get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
-            returnVal = (value == null) ? null : value.getValue();
+        	if(ignoreTouch.get()) {
+        		returnVal = evcacheMemcachedClient.get(key, tc);
+        	} else {
+        		final CASValue<T> value = evcacheMemcachedClient.asyncGetAndTouch(key, timeToLive, tc)
+        				.get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+        		returnVal = (value == null) ? null : value.getValue();
+        	}
 
         }
         return returnVal;
@@ -1028,6 +1034,7 @@ public class EVCacheClient {
     }
 
     public <T> Future<Boolean> touch(String key, int timeToLive, EVCacheLatch latch) throws Exception {
+    	if(ignoreTouch.get()) return new SuccessFuture();
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         if (!ensureWriteQueueSize(node, key)) {
             final ListenableFuture<Boolean, OperationCompletionListener> defaultFuture = (ListenableFuture<Boolean, OperationCompletionListener>) getDefaultFuture();
@@ -1185,6 +1192,35 @@ public class EVCacheClient {
 
     public NodeLocator getNodeLocator() {
         return this.evcacheMemcachedClient.getNodeLocator();
+    }
+    
+    static class SuccessFuture implements Future<Boolean>{
+
+		@Override
+		public boolean cancel(boolean mayInterruptIfRunning) {
+			return true;
+		}
+
+		@Override
+		public boolean isCancelled() {
+			return false;
+		}
+
+		@Override
+		public boolean isDone() {
+			return true;
+		}
+
+		@Override
+		public Boolean get() throws InterruptedException, ExecutionException {
+			return Boolean.TRUE;
+		}
+
+		@Override
+		public Boolean get(long timeout, TimeUnit unit)
+				throws InterruptedException, ExecutionException, TimeoutException {
+			return Boolean.TRUE;
+		}
     }
 
     static class DefaultFuture implements ListenableFuture<Boolean, OperationCompletionListener> {
