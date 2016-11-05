@@ -126,7 +126,10 @@ public class EVCacheClient {
             final MemcachedNode node = evcacheMemcachedClient.getNodeLocator().getPrimary(key);
             if (node instanceof EVCacheNodeImpl) {
                 final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
-                if (!evcNode.isAvailable()) continue;
+                if (!evcNode.isAvailable()) {
+                    evcacheMemcachedClient.reconnect(evcNode);
+                    continue;
+                }
 
                 final int size = evcNode.getReadQueueSize();
                 final boolean canAddToOpQueue = size < (maxReadQueueSize.get() * 2);
@@ -151,9 +154,10 @@ public class EVCacheClient {
             if (!evcNode.isAvailable()) {
                 EVCacheMetricsFactory.getCounter("EVCacheClient-" + appName + "-INACTIVE_NODE", evcNode.getBaseTags()).increment();
                 pool.refreshAsync(evcNode);
+                evcacheMemcachedClient.reconnect(evcNode);
             }
 
-            long startTime = operationTimeout.get();
+            int i = 0;
             while (true) {
                 final int size = evcNode.getWriteQueueSize();
                 final boolean canAddToOpQueue = size < maxWriteQueueSize;
@@ -166,12 +170,13 @@ public class EVCacheClient {
                 } catch (InterruptedException e) {
                     throw new EVCacheException("Thread was Interrupted", e);
                 }
-                if(startTime > 0) {
-                    startTime -= 100;
-                } else {
+
+                if(i++ > 3) {
                     EVCacheMetricsFactory.getCounter("EVCacheClient-" + appName + "-INACTIVE_NODE", evcNode.getBaseTags()).increment();
                     if (log.isDebugEnabled()) log.debug("Node : " + evcNode + " for app : " + appName + "; zone : "
                             + zone + " is not active. Will Fail Fast and the write will be dropped for key : " + key);
+                    evcNode.shutdown();
+                    evcacheMemcachedClient.reconnect(evcNode);
                     return false;
                 }
             }
@@ -190,6 +195,7 @@ public class EVCacheClient {
                         + " is not active. Will Fail Fast so that we can fallback to Other Zone if available.");
                 if (_throwException) throw new EVCacheException("Connection for Node : " + node + " for app : " + appName
                         + "; zone : " + zone + " is not active");
+                evcacheMemcachedClient.reconnect(evcNode);
                 return false;
             }
 

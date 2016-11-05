@@ -46,6 +46,7 @@ import net.spy.memcached.ops.StatusCode;
 import net.spy.memcached.ops.StoreOperation;
 import net.spy.memcached.ops.StoreType;
 import net.spy.memcached.protocol.binary.BinaryOperationFactory;
+import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.util.StringUtils;
 
@@ -316,6 +317,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     			
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
                     EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-TouchOperation-SUCCESS", DataSourceType.COUNTER).increment();
+                } else if (status.getStatusCode().equals(StatusCode.ERR_NOT_FOUND) ) {
+                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-TouchOperation-"+status.getStatusCode().name(), DataSourceType.COUNTER).increment();
                 } else {
                     Tag tag = null;
                     final MemcachedNode node = getEVCacheNode(key);
@@ -531,4 +534,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         }
         return val;
       }
+
+    public void reconnect(EVCacheNodeImpl evcNode ) {
+        mconn.queueReconnect(evcNode);
+    }
 }
