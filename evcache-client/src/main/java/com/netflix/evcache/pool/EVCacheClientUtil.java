@@ -123,7 +123,7 @@ public class EVCacheClientUtil {
                                 try {
                                     readData = client.get(canonicalKey, ct, false, false);
                                 } catch (Exception e) {
-                                    log.error("Error readig the data", e);
+                                    log.error("Error reading the data", e);
                                 }
                                 if(log.isDebugEnabled()) log.debug("Add : Read existing data for: APP " + _appName + ", key " + canonicalKey + "; ServerGroup : " + client.getServerGroupName());
                                 if(readData != null) {
