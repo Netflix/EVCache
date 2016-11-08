@@ -79,7 +79,7 @@ public class EVCacheClient {
     private final DynamicIntProperty operationTimeout;
     private final DynamicIntProperty maxReadQueueSize;
     private final ChainedDynamicProperty.BooleanProperty enableChunking;
-    private final ChainedDynamicProperty.IntProperty chunkSize;
+    private final ChainedDynamicProperty.IntProperty chunkSize, writeBlock;
     private final ChunkTranscoder chunkingTranscoder;
     private final SerializingTranscoder decodingTranscoder;
     private static final int SPECIAL_BYTEARRAY = (8 << 8);
@@ -107,6 +107,7 @@ public class EVCacheClient {
         this.connectionFactory = pool.getEVCacheClientPoolManager().getConnectionFactoryProvider().getConnectionFactory(appName, id, serverGroup, pool.getEVCacheClientPoolManager());
         this.enableChunking = EVCacheConfig.getInstance().getChainedBooleanProperty(this.serverGroup.getName()+ ".chunk.data", appName + ".chunk.data", Boolean.FALSE);
         this.chunkSize = EVCacheConfig.getInstance().getChainedIntProperty(this.serverGroup.getName() + ".chunk.size", appName + ".chunk.size", 1180);
+        this.writeBlock = EVCacheConfig.getInstance().getChainedIntProperty(appName + "." + this.serverGroup.getName() + ".write.block.duration", appName + ".write.block.duration", 25);
         this.chunkingTranscoder = new ChunkTranscoder();
         this.maxWriteQueueSize = maxQueueSize;
         this.ignoreTouch = EVCacheConfig.getInstance().getChainedBooleanProperty(appName + "." + this.serverGroup.getName() + ".ignore.touch", appName + ".ignore.touch", false);
@@ -140,6 +141,7 @@ public class EVCacheClient {
                     EVCacheMetricsFactory.getCounter(appName + "-READ_QUEUE_FULL", evcNode.getBaseTags()).increment();
                     if (log.isDebugEnabled()) log.debug("Read Queue Full on Bulk Operation for app : " + appName
                             + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get() * 2);
+                    evcacheMemcachedClient.reconnect(evcNode);
                 } else {
                     retKeys.add(key);
                 }
@@ -166,7 +168,7 @@ public class EVCacheClient {
                 if (canAddToOpQueue) break;
                 EVCacheMetricsFactory.getCounter("EVCacheClient-" + appName + "-WRITE_BLOCK", evcNode.getBaseTags()).increment();
                 try {
-                    Thread.sleep(100);
+                    Thread.sleep(writeBlock.get());
                 } catch (InterruptedException e) {
                     throw new EVCacheException("Thread was Interrupted", e);
                 }
@@ -209,6 +211,7 @@ public class EVCacheClient {
                         + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get());
                 if (_throwException) throw new EVCacheReadQueueException("Read Queue Full for Node : " + node + "; app : "
                         + appName + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get());
+                evcacheMemcachedClient.reconnect(evcNode);
                 return false;
             }
         }
