@@ -18,10 +18,11 @@ import net.spy.memcached.internal.OperationFuture;
 public class EVCacheLatchImpl implements EVCacheLatch {
     private static final Logger log = LoggerFactory.getLogger(EVCacheLatchImpl.class);
 
-    private final int count;
+    private final int expectedSuccessCount;
     private final CountDownLatch latch;
     private final List<Future<Boolean>> futures;
     private final Policy policy;
+    private final int totalFutureCount;
 
     private final String appName;
 
@@ -29,10 +30,11 @@ public class EVCacheLatchImpl implements EVCacheLatch {
         this.policy = policy;
         this.futures = new ArrayList<Future<Boolean>>(_count);
         this.appName = appName;
-        this.count = policyToCount(policy, _count);
-        this.latch = new CountDownLatch(count);
+        this.totalFutureCount = _count;
+        this.expectedSuccessCount = policyToCount(policy, _count);
+        this.latch = new CountDownLatch(expectedSuccessCount);
 
-        if (log.isDebugEnabled()) log.debug("Number of Futures = " + _count + "; Number of Futures that need to completed for Latch to be released = " + this.count);
+        if (log.isDebugEnabled()) log.debug("Number of Futures = " + _count + "; Number of Futures that need to completed for Latch to be released = " + this.expectedSuccessCount);
     }
 
     /*
@@ -99,8 +101,9 @@ public class EVCacheLatchImpl implements EVCacheLatch {
      */
     @Override
     public int getCompletedCount() {
-        if (log.isDebugEnabled()) log.debug("Completed Count = " + (count - (int) latch.getCount()));
-        return (count - (int) latch.getCount());
+        final int completedCount = (totalFutureCount - (int) latch.getCount());
+        if (log.isDebugEnabled()) log.debug("Completed Count = " + completedCount);
+        return completedCount;
     }
 
     /*
@@ -110,7 +113,7 @@ public class EVCacheLatchImpl implements EVCacheLatch {
      */
     @Override
     public List<Future<Boolean>> getPendingFutures() {
-        final List<Future<Boolean>> returnFutures = new ArrayList<Future<Boolean>>(count);
+        final List<Future<Boolean>> returnFutures = new ArrayList<Future<Boolean>>(expectedSuccessCount);
         for (Future<Boolean> future : futures) {
             if (!future.isDone()) {
                 returnFutures.add(future);
@@ -136,7 +139,7 @@ public class EVCacheLatchImpl implements EVCacheLatch {
      */
     @Override
     public List<Future<Boolean>> getCompletedFutures() {
-        final List<Future<Boolean>> returnFutures = new ArrayList<Future<Boolean>>(count);
+        final List<Future<Boolean>> returnFutures = new ArrayList<Future<Boolean>>(expectedSuccessCount);
         for (Future<Boolean> future : futures) {
             if (future.isDone()) {
                 returnFutures.add(future);
@@ -212,7 +215,7 @@ public class EVCacheLatchImpl implements EVCacheLatch {
      */
     @Override
     public int getExpectedSuccessCount() {
-        return this.count;
+        return this.expectedSuccessCount;
     }
 
     /*
@@ -264,6 +267,8 @@ public class EVCacheLatchImpl implements EVCacheLatch {
         builder.append(getFailureCount());
         builder.append("\",\"Success Count\":\"");
         builder.append(getSuccessCount());
+        builder.append("\",\"Excpected Success Count\":\"");
+        builder.append(getExpectedSuccessCount());
         builder.append("\"}");
         return builder.toString();
     }

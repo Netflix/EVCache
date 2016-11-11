@@ -37,7 +37,7 @@ import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.ServerGroupCircularIterator;
 import com.netflix.servo.monitor.Monitors;
-import com.netflix.servo.tag.BasicTagList;
+import com.netflix.servo.tag.TagList;
 
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
@@ -58,7 +58,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     public static final String DEFAULT_PORT = "11211";
 
     private final DynamicBooleanProperty _retryAcrossAllReplicas;
-    private final DynamicBooleanProperty enableDynamicWriteOnlyMode;
     private long lastReconcileTime = 0;
 
     private final DynamicIntProperty logOperations;
@@ -130,7 +129,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 refreshPool();
             }
         });
-        this.enableDynamicWriteOnlyMode = config.getDynamicBooleanProperty("EVCacheClientPool.enable.dynamic.writeonly", true);
 
         this._opQueueMaxBlockTime = config.getDynamicIntProperty(appName + ".operation.QueueMaxBlockTime", 10);
         this._opQueueMaxBlockTime.addCallback(new Runnable() {
@@ -367,7 +365,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             final int inActiveServerCount = connectionObserver.getInActiveServerCount();
             final int sizeInDiscovery = discoveredHostsInServerGroup.size();
             final int sizeInHashing = client.getNodeLocator().getAll().size();
-            final BasicTagList tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "APP", _appName);
+            final TagList tags = client.getTagList();
             if (i == 0) {
                 EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-PoolSize", tags).set(Long.valueOf(size));
                 EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-ActiveConnections", tags).set(Long.valueOf(activeServerCount * size));
@@ -563,8 +561,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         // Now since we have replace the old instances shutdown all the old
         // clients
         if (log.isDebugEnabled()) log.debug("Replaced an existing Pool for ServerGroup : " + serverGroup + "; and app "
-                + _appName + " ;\n\tOldClients : " + currentClients
-                + ";\n\tNewClients : " + newClients);
+                + _appName + " ;\n\tOldClients : " + currentClients + ";\n\tNewClients : " + newClients);
         for (EVCacheClient client : currentClients) {
             if (!client.isShutdown()) {
                 if (log.isDebugEnabled()) log.debug("Shutting down in Fallback -> AppName : " + _appName
@@ -606,20 +603,17 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 }
             }
 
-            if (enableDynamicWriteOnlyMode.get()) {
-                // if we lose over 50% of instances put that zone in writeonly
-                // mode.
-                final List<EVCacheClient> clients = memcachedReadInstancesByServerGroup.get(serverGroup);
-                if (clients != null && !clients.isEmpty()) {
-                    final EVCacheClient client = clients.get(0);
-                    if (client != null) {
-                        final EVCacheConnectionObserver connectionObserver = client.getConnectionObserver();
-                        if (connectionObserver != null) {
-                            final int activeServerCount = connectionObserver.getActiveServerCount();
-                            final int inActiveServerCount = connectionObserver.getInActiveServerCount();
-                            if (inActiveServerCount > activeServerCount) {
-                                memcachedReadInstancesByServerGroup.remove(serverGroup);
-                            }
+            // if we lose over 50% of instances put that zone in writeonly mode.
+            final List<EVCacheClient> clients = memcachedReadInstancesByServerGroup.get(serverGroup);
+            if (clients != null && !clients.isEmpty()) {
+                final EVCacheClient client = clients.get(0);
+                if (client != null) {
+                    final EVCacheConnectionObserver connectionObserver = client.getConnectionObserver();
+                    if (connectionObserver != null) {
+                        final int activeServerCount = connectionObserver.getActiveServerCount();
+                        final int inActiveServerCount = connectionObserver.getInActiveServerCount();
+                        if (inActiveServerCount > activeServerCount) {
+                            memcachedReadInstancesByServerGroup.remove(serverGroup);
                         }
                     }
                 }
@@ -627,8 +621,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
 
         if (memcachedReadInstancesByServerGroup.size() != memcachedFallbackReadInstances.getSize()) {
-            memcachedFallbackReadInstances = new ServerGroupCircularIterator(memcachedReadInstancesByServerGroup
-                    .keySet());
+            memcachedFallbackReadInstances = new ServerGroupCircularIterator(memcachedReadInstancesByServerGroup.keySet());
 
             Map<String, Set<ServerGroup>> readServerGroupByZoneMap = new ConcurrentHashMap<String, Set<ServerGroup>>();
             for (ServerGroup serverGroup : memcachedReadInstancesByServerGroup.keySet()) {
@@ -648,7 +641,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             this.readServerGroupByZone = _readServerGroupByZone;
             localServerGroupIterator = readServerGroupByZone.get(_zone);
         }
-
     }
 
     private void cleanupMemcachedInstances(boolean force) {
@@ -776,6 +768,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 cleanupMemcachedInstances(false);
             }
             updateMemcachedReadInstancesByZone();
+            updateQueueStats();
             if (_pingServers.get()) pingServers();
         } catch (Throwable t) {
             log.error("Exception while refreshing the Server list", t);
@@ -785,6 +778,19 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
         if (log.isDebugEnabled()) log.debug("refresh APP : " + _appName + "; DONE");
     }
+
+    private void updateQueueStats() {
+        for (ServerGroup serverGroup : memcachedInstancesByServerGroup.keySet()) {
+            List<EVCacheClient> clients = memcachedInstancesByServerGroup.get(serverGroup);
+            for(EVCacheClient client : clients) {
+                final int wSize = client.getWriteQueueLength();
+                EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-WriteQueueSize", client.getTagList()).set(Long.valueOf(wSize));
+                final int rSize = client.getReadQueueLength();
+                EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-ReadQueueSize", client.getTagList()).set(Long.valueOf(rSize));
+            }
+        }
+    }
+    
 
     public void pingServers() {
         try {
@@ -995,8 +1001,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return "\nEVCacheClientPool [\n\t_appName=" + _appName + ",\n\t_zone=" + _zone
                 + ",\n\tlocalServerGroupIterator=" + localServerGroupIterator + ",\n\t_poolSize=" + _poolSize
                 + ",\n\t_readTimeout=" + _readTimeout + ",\n\t_bulkReadTimeout=" + _bulkReadTimeout
-                + ",\n\tenableDynamicWriteOnlyMode=" + enableDynamicWriteOnlyMode + ",\n\tlogOperations="
-                + logOperations + ",\n\t_opQueueMaxBlockTime="
+                + ",\n\tlogOperations=" + logOperations + ",\n\t_opQueueMaxBlockTime="
                 + _opQueueMaxBlockTime + ",\n\t_operationTimeout=" + _operationTimeout + ",\n\t_maxReadQueueSize="
                 + _maxReadQueueSize // + ",\n\tinjectionPoint=" + injectionPoint
                 + ",\n\t_pingServers=" + _pingServers + ",\n\twriteOnlyFastPropertyMap=" + writeOnlyFastPropertyMap

@@ -33,6 +33,8 @@ import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.servo.monitor.Counter;
 import com.netflix.servo.monitor.Stopwatch;
+import com.netflix.servo.tag.BasicTagList;
+import com.netflix.servo.tag.TagList;
 
 import net.spy.memcached.CASValue;
 import net.spy.memcached.CachedData;
@@ -86,7 +88,7 @@ public class EVCacheClient {
     private final EVCacheClientPool pool;
     private Counter addCounter = null;
     private final ChainedDynamicProperty.BooleanProperty ignoreTouch;
-    
+    protected final TagList tags;
 
     EVCacheClient(String appName, String zone, int id, EVCacheServerGroupConfig config,
             List<InetSocketAddress> memcachedNodesInZone, int maxQueueSize, DynamicIntProperty maxReadQueueSize,
@@ -115,6 +117,7 @@ public class EVCacheClient {
         this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, appName, zone, id, serverGroup, this);
         this.connectionObserver = new EVCacheConnectionObserver(appName, serverGroup, id);
         this.evcacheMemcachedClient.addObserver(connectionObserver);
+        this.tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "APP", appName);
 
         this.decodingTranscoder = new SerializingTranscoder(Integer.MAX_VALUE);
         decodingTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
@@ -1431,5 +1434,31 @@ public class EVCacheClient {
             builder.append("\"}");
             return builder.toString();
         }
+    }
+
+    public int getWriteQueueLength() {
+        final Collection<MemcachedNode> allNodes = evcacheMemcachedClient.getNodeLocator().getAll();
+        int size = 0;
+        for(MemcachedNode node : allNodes) {
+            if(node instanceof EVCacheNodeImpl) {
+                size += ((EVCacheNodeImpl)node).getWriteQueueSize(); 
+            }
+        }
+        return size;
+    }
+
+    public int getReadQueueLength() {
+        final Collection<MemcachedNode> allNodes = evcacheMemcachedClient.getNodeLocator().getAll();
+        int size = 0;
+        for(MemcachedNode node : allNodes) {
+            if(node instanceof EVCacheNodeImpl) {
+                size += ((EVCacheNodeImpl)node).getReadQueueSize(); 
+            }
+        }
+        return size;
+    }
+
+    public TagList getTagList() {
+        return tags;
     }
 }

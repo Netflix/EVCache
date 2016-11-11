@@ -21,6 +21,9 @@ import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.servo.DefaultMonitorRegistry;
+import com.netflix.servo.monitor.CompositeMonitor;
+import com.netflix.servo.monitor.Monitors;
 import com.netflix.spectator.api.DistributionSummary;
 
 import net.spy.memcached.CachedData;
@@ -61,6 +64,9 @@ public class EVCacheClientUtil {
 
         final BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>(10000);
         threadPool = new ThreadPoolExecutor(fixupPoolSize.get(), fixupPoolSize.get() * 2, 30, TimeUnit.SECONDS, queue, new SimpleThreadFactory(), block);
+        
+        CompositeMonitor<?> newThreadPoolMonitor = Monitors.newThreadPoolMonitor("EVCacheClientUtil-AddFixUp", threadPool);
+        DefaultMonitorRegistry.getInstance().register(newThreadPoolMonitor);
         threadPool.prestartAllCoreThreads();
         
     }

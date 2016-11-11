@@ -6,6 +6,24 @@ import java.util.concurrent.TimeUnit;
 
 import net.spy.memcached.internal.OperationCompletionListener;
 
+
+/**
+ * EVCacheLatch is a blocking mechanism that allows one or more threads to wait until
+ * a set of operations as specified by {@Link Policy} performed by evcache threads are complete.
+ * 
+ *  <p>The Latch is initialized with a <em>count</em> as determined by the Policy.
+ * The {@link #await await} methods block until the current count reaches
+ * zero due to completion of the operation, after which
+ * all waiting threads are released and any subsequent invocations of
+ * {@link #await await} return immediately. 
+ * 
+ * The latch is also released if the specified timeout is reached even though the count is greater than zero. 
+ * In this case the {@link #await await} method returns false
+ * 
+ * The various methods in latch can be queried any time and they return the state of the operations across the Futures. 
+
+ */
+
 public interface EVCacheLatch extends OperationCompletionListener {
 
     /**
