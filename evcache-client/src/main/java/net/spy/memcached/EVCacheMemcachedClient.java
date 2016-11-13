@@ -536,7 +536,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
       }
 
     public void reconnect(EVCacheNodeImpl evcNode ) {
-    	EVCacheMetricsFactory.getCounter(appName + "-RECONNECT", evcNode.getBaseTags()).increment();
-        mconn.queueReconnect(evcNode);
+    	//EVCacheMetricsFactory.getCounter(appName + "-RECONNECT", evcNode.getBaseTags()).increment();
+        //mconn.queueReconnect(evcNode);
+    	//client.getPool().refreshPool();
     }
 }
