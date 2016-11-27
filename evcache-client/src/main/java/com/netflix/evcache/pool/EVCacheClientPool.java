@@ -38,6 +38,7 @@ import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.ServerGroupCircularIterator;
 import com.netflix.servo.monitor.Monitors;
 import com.netflix.servo.tag.TagList;
+import com.netflix.servo.tag.BasicTag;
 
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
@@ -70,6 +71,9 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private final DynamicIntProperty _maxRetries;
 
     private final BooleanProperty _pingServers;
+    
+    private final ChainedDynamicProperty.BooleanProperty refreshConnectionOnReadQueueFull;
+    private final ChainedDynamicProperty.IntProperty refreshConnectionOnReadQueueFullSize;
 
     @SuppressWarnings("serial")
     private final Map<ServerGroup, BooleanProperty> writeOnlyFastPropertyMap = new ConcurrentHashMap<ServerGroup, BooleanProperty>() {
@@ -130,6 +134,9 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             }
         });
 
+        this.refreshConnectionOnReadQueueFull = config.getChainedBooleanProperty(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull", "EVCacheClientPool.refresh.connection.on.readQueueFull", false);
+        this.refreshConnectionOnReadQueueFullSize = config.getChainedIntProperty(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull.size", "EVCacheClientPool.refresh.connection.on.readQueueFull.size", 100);
+        
         this._opQueueMaxBlockTime = config.getDynamicIntProperty(appName + ".operation.QueueMaxBlockTime", 10);
         this._opQueueMaxBlockTime.addCallback(new Runnable() {
             public void run() {
@@ -787,6 +794,16 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-WriteQueueSize", client.getTagList()).set(Long.valueOf(wSize));
                 final int rSize = client.getReadQueueLength();
                 EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-ReadQueueSize", client.getTagList()).set(Long.valueOf(rSize));
+                if(refreshConnectionOnReadQueueFull.get()) {
+                	if(rSize > refreshConnectionOnReadQueueFullSize.get().intValue()) {
+                		try {
+                			EVCacheMetricsFactory.getCounter(_appName , null, serverGroup.getName(), "EVCacheClientPool-REFRESH_ON_QUEUE_FULL", new BasicTag("Id", String.valueOf(client.getId()))).increment();
+							refresh();
+						} catch (IOException e) {
+							log.error("Exception while refreshing queue", e);
+						}
+                	}
+                }
             }
         }
     }

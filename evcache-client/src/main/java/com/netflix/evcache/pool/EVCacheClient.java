@@ -117,7 +117,7 @@ public class EVCacheClient {
         this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, appName, zone, id, serverGroup, this);
         this.connectionObserver = new EVCacheConnectionObserver(appName, serverGroup, id);
         this.evcacheMemcachedClient.addObserver(connectionObserver);
-        this.tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "APP", appName);
+        this.tags = BasicTagList.of("ServerGroup", serverGroup.getName(), "APP", appName, "Id", String.valueOf(id));
 
         this.decodingTranscoder = new SerializingTranscoder(Integer.MAX_VALUE);
         decodingTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
