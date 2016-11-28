@@ -5,6 +5,7 @@ import java.util.Map;
 
 import javax.servlet.ServletContextEvent;
 
+import com.netflix.evcache.service.resources.EVCacheRESTService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +38,8 @@ public class StartServer extends BaseServerLifecycleListener
     protected void initialize(ServletContextEvent sce) throws Exception {
         Injector injector = getInjector();
         injector.getInstance(EVCacheClientLibrary.class);
+        EVCacheRESTService evCacheRESTService = injector.getInstance(EVCacheRESTService.class);
+        evCacheRESTService.initializeCaches();
     }
 
     @Override
@@ -54,6 +57,7 @@ public class StartServer extends BaseServerLifecycleListener
 //                initParams.put("requestId.require", "true");
                 initParams.put(ResourceConfig.FEATURE_DISABLE_WADL, "true");
                 initParams.put(PackagesResourceConfig.PROPERTY_PACKAGES, "com.netflix.evcservice.resources");
+                initParams.put(ResourceConfig.FEATURE_DISABLE_WADL, "true");
                 filter("/*").through(NFFilter.class, initParams);
                 filter("/healthcheck", "/status").through(NFFilter.class, initParams);
                 serve("/*").with(GuiceContainer.class, initParams);
