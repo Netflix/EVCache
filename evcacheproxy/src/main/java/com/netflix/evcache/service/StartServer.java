@@ -11,7 +11,10 @@ import org.slf4j.LoggerFactory;
 import com.google.inject.Injector;
 import com.google.inject.servlet.ServletModule;
 import com.netflix.evcache.EVCacheClientLibrary;
+import com.netflix.evcache.service.resources.EVCacheRESTService;
 import com.netflix.evcservice.service.StatusPage;
+import com.netflix.server.base.BaseHealthCheckServlet;
+import com.netflix.server.base.BaseStatusPage;
 import com.netflix.server.base.NFFilter;
 import com.netflix.server.base.lifecycle.BaseServerLifecycleListener;
 import com.sun.jersey.api.core.ResourceConfig;
@@ -53,10 +56,14 @@ public class StartServer extends BaseServerLifecycleListener
 //                initParams.put("requestId.accept", "true");
 //                initParams.put("requestId.require", "true");
                 initParams.put(ResourceConfig.FEATURE_DISABLE_WADL, "true");
-                initParams.put(PackagesResourceConfig.PROPERTY_PACKAGES, "com.netflix.evcservice.resources");
+                initParams.put(PackagesResourceConfig.PROPERTY_PACKAGES, "com.netflix.evcache.service.resources");
                 filter("/*").through(NFFilter.class, initParams);
                 filter("/healthcheck", "/status").through(NFFilter.class, initParams);
+//                serve("/*").with(GuiceContainer.class, initParams);
+                serve("/Status", "/status").with(BaseStatusPage.class);
+                serve("/healthcheck", "/Healthcheck").with(BaseHealthCheckServlet.class);
                 serve("/*").with(GuiceContainer.class, initParams);
+                bind(EVCacheRESTService.class).asEagerSingleton();
                 binder().bind(GuiceContainer.class).asEagerSingleton();
                 
                 install(new EVCacheServiceModule());
