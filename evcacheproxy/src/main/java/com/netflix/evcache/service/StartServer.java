@@ -59,7 +59,6 @@ public class StartServer extends BaseServerLifecycleListener
                 initParams.put(PackagesResourceConfig.PROPERTY_PACKAGES, "com.netflix.evcache.service.resources");
                 filter("/*").through(NFFilter.class, initParams);
                 filter("/healthcheck", "/status").through(NFFilter.class, initParams);
-//                serve("/*").with(GuiceContainer.class, initParams);
                 serve("/Status", "/status").with(BaseStatusPage.class);
                 serve("/healthcheck", "/Healthcheck").with(BaseHealthCheckServlet.class);
                 serve("/*").with(GuiceContainer.class, initParams);
