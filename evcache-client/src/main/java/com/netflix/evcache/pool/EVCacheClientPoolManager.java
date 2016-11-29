@@ -95,7 +95,8 @@ public class EVCacheClientPoolManager {
         this.discoveryClient = discoveryClient;
         this.connectionFactoryprovider = connectionFactoryprovider;
         this.evcacheEventListenerList = new ArrayList<EVCacheEventListener>();
-        final int poolSize = ConfigurationManager.getConfigInstance().getInt("default.refresher.poolsize", 1);
+        final int poolSize = EVCacheConfig.getInstance().getDynamicIntProperty("default.refresher.poolsize", 1).get();
+        //final int poolSize = ConfigurationManager.getConfigInstance().getInt("default.refresher.poolsize", 1);
 
         final ThreadFactory factory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat(
                 "EVCacheClientPoolManager_refresher-%d").build();
@@ -144,9 +145,10 @@ public class EVCacheClientPoolManager {
     public static EVCacheClientPoolManager getInstance() {
         if (instance == null) {
             new EVCacheClientPoolManager(null, null, new DefaultFactoryProvider());
-            log.warn(
-                    "Please make sure EVCacheClientPoolManager is injected first. This is not the appropriate way to init EVCacheClientPoolManager",
-                    new Exception());
+            if (!EVCacheConfig.getInstance().getDynamicBooleanProperty("evcache.use.simple.node.list.provider", false).get()) {
+                log.warn("Please make sure EVCacheClientPoolManager is injected first. This is not the appropriate way to init EVCacheClientPoolManager."
+                        + " If you are using simple node list provider please set evcache.use.simple.node.list.provider property to true.", new Exception());
+            }
         }
         return instance;
     }
@@ -162,10 +164,9 @@ public class EVCacheClientPoolManager {
     }
 
     public void initAtStartup() {
-        final String appsToInit = ConfigurationManager.getConfigInstance().getString("evcache.appsToInit");
-        if (appsToInit != null) {
-            if (log.isWarnEnabled()) log.warn(
-                    "Use of evcache.appsToInit is deprecated. Please remove this property as their is no effect setting this property.");
+        //final String appsToInit = ConfigurationManager.getConfigInstance().getString("evcache.appsToInit");
+        final String appsToInit = EVCacheConfig.getInstance().getDynamicStringProperty("evcache.appsToInit", "").get();
+        if (appsToInit != null && appsToInit.length() > 0) {
             final StringTokenizer apps = new StringTokenizer(appsToInit, ",");
             while (apps.hasMoreTokens()) {
                 final String app = getAppName(apps.nextToken());
@@ -188,7 +189,7 @@ public class EVCacheClientPoolManager {
         final String APP = getAppName(app);
         if (poolMap.containsKey(APP)) return;
         final EVCacheNodeList provider;
-        if (ConfigurationManager.getConfigInstance().getBoolean(APP + ".use.simple.node.list.provider", false)) {
+        if (EVCacheConfig.getInstance().getChainedBooleanProperty(APP + ".use.simple.node.list.provider", "evcache.use.simple.node.list.provider", false).get()) {
             provider = new SimpleNodeListProvider(APP + "-NODES");
         } else {
             provider = new DiscoveryNodeListProvider(applicationInfoManager, discoveryClient, APP);
@@ -246,8 +247,7 @@ public class EVCacheClientPoolManager {
 
     private String getAppName(String _app) {
         _app = _app.toUpperCase();
-        final String app = ConfigurationManager.getConfigInstance().getString("EVCacheClientPoolManager." + _app
-                + ".alias", _app).toUpperCase();
+        final String app = ConfigurationManager.getConfigInstance().getString("EVCacheClientPoolManager." + _app + ".alias", _app).toUpperCase();
         if (log.isDebugEnabled()) log.debug("Original App Name : " + _app + "; Alias App Name : " + app);
         return app;
     }

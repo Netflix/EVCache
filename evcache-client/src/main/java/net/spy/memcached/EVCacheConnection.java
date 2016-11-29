@@ -28,10 +28,18 @@ public class EVCacheConnection extends MemcachedConnection {
 
     @Override
     public void shutdown() throws IOException {
-        super.shutdown();
-        for (MemcachedNode qa : getLocator().getAll()) {
-            if (qa instanceof EVCacheNodeImpl) {
-                ((EVCacheNodeImpl) qa).shutdown();
+        try {
+            super.shutdown();
+            for (MemcachedNode qa : getLocator().getAll()) {
+                if (qa instanceof EVCacheNodeImpl) {
+                    ((EVCacheNodeImpl) qa).shutdown();
+                }
+            }
+        } finally {
+            if(running) {
+                running = false;
+                if(log.isWarnEnabled()) log.warn("Forceful shutdown by interrupting the thread.", new Exception());
+                interrupt();
             }
         }
     }

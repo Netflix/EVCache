@@ -130,7 +130,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public boolean isDaemon() {
-        return super.isDaemon();
+        return EVCacheConfig.getInstance().getDynamicBooleanProperty("evcache.thread.daemon", super.isDaemon()).get();
     }
 
     public boolean shouldOptimize() {

@@ -795,14 +795,14 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 final int rSize = client.getReadQueueLength();
                 EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-ReadQueueSize", client.getTagList()).set(Long.valueOf(rSize));
                 if(refreshConnectionOnReadQueueFull.get()) {
-                	if(rSize > refreshConnectionOnReadQueueFullSize.get().intValue()) {
-                		try {
-                			EVCacheMetricsFactory.getCounter(_appName , null, serverGroup.getName(), "EVCacheClientPool-REFRESH_ON_QUEUE_FULL", new BasicTag("Id", String.valueOf(client.getId()))).increment();
-							refresh();
-						} catch (IOException e) {
-							log.error("Exception while refreshing queue", e);
-						}
-                	}
+                    if(rSize > refreshConnectionOnReadQueueFullSize.get().intValue()) {
+                        try {
+                            EVCacheMetricsFactory.getCounter(_appName , null, serverGroup.getName(), "EVCacheClientPool-REFRESH_ON_QUEUE_FULL", new BasicTag("Id", String.valueOf(client.getId()))).increment();
+                            refresh();
+                        } catch (IOException e) {
+                            log.error("Exception while refreshing queue", e);
+                        }
+                    }
                 }
             }
         }
