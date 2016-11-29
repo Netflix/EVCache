@@ -86,8 +86,8 @@ public class EVCacheRESTService {
         final int timeToLive = Integer.valueOf(ttl).intValue();
         EVCacheLatch latch = null; 
         if(flag != null && flag.length() > 0) {
-        	final CachedData cd = new CachedData(Integer.parseInt(flag), bytes, Integer.MAX_VALUE); 
-        	latch = evcache.set(key, cd, timeToLive, Policy.ALL_MINUS_1);
+        	final CachedData cd = new CachedData(Integer.parseInt(flag), bytes, Integer.MAX_VALUE);
+        	latch = evcache.set(key, evcacheTranscoder.encode(cd), timeToLive, Policy.ALL_MINUS_1);
         } else {
         	latch = evcache.set(key, bytes, timeToLive, Policy.ALL_MINUS_1);
         }

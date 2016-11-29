@@ -1,16 +1,16 @@
 package com.netflix.evcache.service.transcoder;
 
+import com.netflix.evcache.EVCacheTranscoder;
+
 import net.spy.memcached.CachedData;
-import net.spy.memcached.transcoders.SerializingTranscoder;
 
 /**
  * Created by senugula on 6/23/16.
  */
-public class RESTServiceTranscoder extends SerializingTranscoder {
+public class RESTServiceTranscoder extends EVCacheTranscoder {
 
     static final int COMPRESSED = 2;
     public RESTServiceTranscoder() {
-
     }
 
     public boolean asyncDecode(CachedData d) {
@@ -25,6 +25,9 @@ public class RESTServiceTranscoder extends SerializingTranscoder {
     }
 
     public CachedData encode(CachedData o) {
+    	if(o.getData().length > compressionThreshold) {
+    		return new CachedData(o.getFlags() | COMPRESSED, compress(o.getData()), o.MAX_SIZE);
+    	}
         return o;
     }
 
