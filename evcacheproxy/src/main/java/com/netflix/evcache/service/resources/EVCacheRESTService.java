@@ -53,9 +53,10 @@ public class EVCacheRESTService {
             final byte[] bytes = IOUtils.toByteArray(in);
            	return setData(appId, ttl, flag, key, bytes);
         } catch (EVCacheException e) {
-            e.printStackTrace();
+        	logger.error("EVCacheException", e);
             return Response.serverError().build();
         } catch (Throwable t) {
+        	logger.error("Throwable", t);
             return Response.serverError().build();
         }
     }
@@ -71,9 +72,10 @@ public class EVCacheRESTService {
             final byte[] bytes = IOUtils.toByteArray(in);
            	return setData(appId, ttl, flag, key, bytes);
         } catch (EVCacheException e) {
-            e.printStackTrace();
+        	logger.error("EVCacheException", e);
             return Response.serverError().build();
         } catch (Throwable t) {
+        	logger.error("Throwable", t);
             return Response.serverError().build();
         }
     }
@@ -81,7 +83,7 @@ public class EVCacheRESTService {
     private Response setData(String appId, String ttl, String flag, String key, byte[] bytes) throws EVCacheException, InterruptedException {
         final EVCache evcache = getEVCache(appId);
         if (ttl == null) {
-            return Response.status(400).type("text/plain").entity("Please specify ttl for the key " + key + " as query parameter \n").build();
+            return Response.status(400).type(MediaType.TEXT_PLAIN).entity("Please specify ttl for the key " + key + " as query parameter \n").build();
         }
         final int timeToLive = Integer.valueOf(ttl).intValue();
         EVCacheLatch latch = null; 
@@ -112,26 +114,66 @@ public class EVCacheRESTService {
     }
 
     @GET
+    @Path("incr/{appId}/{key}")
+    @Produces({MediaType.TEXT_PLAIN})
+    public Response incrOperation(@PathParam("appId") String appId, @PathParam("key") String key, @DefaultValue("1") @QueryParam("by") String byStr, 
+    		@DefaultValue("1") @QueryParam("def") String defStr, @DefaultValue("0") @QueryParam("ttl") String ttlStr) {
+        appId = appId.toUpperCase();
+        if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
+        try {
+            final EVCache evCache = getEVCache(appId);
+            final long by = Long.parseLong(byStr);
+            final long def = Long.parseLong(defStr);
+            final int ttl = Integer.parseInt(ttlStr);
+            final long val = evCache.incr(key, by, def, ttl);
+            return Response.status(200).type(MediaType.TEXT_PLAIN).entity(String.valueOf(val)).build();
+        } catch (EVCacheException e) {
+        	logger.error("EVCacheException", e);
+            return Response.serverError().build();
+        }
+    }
+
+
+    @GET
+    @Path("decr/{appId}/{key}")
+    @Produces({MediaType.TEXT_PLAIN})
+    public Response decrOperation(@PathParam("appId") String appId, @PathParam("key") String key, @DefaultValue("1") @QueryParam("by") String byStr, 
+    		@DefaultValue("1") @QueryParam("def") String defStr, @DefaultValue("0") @QueryParam("ttl") String ttlStr) {
+        appId = appId.toUpperCase();
+        if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
+        try {
+            final EVCache evCache = getEVCache(appId);
+            final long by = Long.parseLong(byStr);
+            final long def = Long.parseLong(defStr);
+            final int ttl = Integer.parseInt(ttlStr);
+            final long val = evCache.decr(key, by, def, ttl);
+            return Response.status(200).type(MediaType.TEXT_PLAIN).entity(String.valueOf(val)).build();
+        } catch (EVCacheException e) {
+            logger.error("EVCacheException", e);
+            return Response.serverError().build();
+        }
+    }
+    
+    @GET
     @Path("{appId}/{key}")
     @Produces({MediaType.APPLICATION_OCTET_STREAM})
-    public Response getOperation(@PathParam("appId") String appId,
-                                 @PathParam("key") String key) {
+    public Response getOperation(@PathParam("appId") String appId, @PathParam("key") String key) {
         appId = appId.toUpperCase();
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
             final EVCache evCache = getEVCache(appId);
             CachedData cachedData = (CachedData) evCache.get(key, evcacheTranscoder);
             if (cachedData == null) {
-                return Response.status(404).type("text/plain").entity("Key " + key + " Not Found in cache " + appId + "\n").build();
+                return Response.status(404).type(MediaType.TEXT_PLAIN).entity("Key " + key + " Not Found in cache " + appId + "\n").build();
             }
             byte[] bytes = cachedData.getData();
             if (bytes == null) {
-                return Response.status(404).type("text/plain").entity("Key " + key + " Not Found in cache " + appId + "\n").build();
+                return Response.status(404).type(MediaType.TEXT_PLAIN).entity("Key " + key + " Not Found in cache " + appId + "\n").build();
             } else {
-                return Response.status(200).type("application/octet-stream").entity(bytes).build();
+                return Response.status(200).type(MediaType.APPLICATION_OCTET_STREAM).entity(bytes).build();
             }
         } catch (EVCacheException e) {
-            e.printStackTrace();
+        	logger.error("EVCacheException", e);
             return Response.serverError().build();
 
         }
@@ -141,7 +183,7 @@ public class EVCacheRESTService {
     @DELETE
     @Path("{appId}/{key}")
     @Consumes(MediaType.APPLICATION_JSON)
-    @Produces("text/plain")
+    @Produces(MediaType.TEXT_PLAIN)
     public Response deleteOperation(@PathParam("appId") String appId, @PathParam("key") String key) {
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         appId = appId.toUpperCase();
@@ -153,7 +195,7 @@ public class EVCacheRESTService {
             }
             return Response.ok("Deleted Operation for Key - " + key + " was successful. \n").build();
         } catch (EVCacheException e) {
-            e.printStackTrace();
+        	logger.error("EVCacheException", e);
             return Response.serverError().build();
         }
     }
