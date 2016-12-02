@@ -19,7 +19,6 @@ import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.servo.annotations.DataSourceType;
-import com.netflix.servo.monitor.Stopwatch;
 import com.sun.management.GcInfo;
 
 import net.spy.memcached.MemcachedConnection;
@@ -28,6 +27,7 @@ import net.spy.memcached.internal.OperationFuture;
 import net.spy.memcached.ops.Operation;
 import rx.Scheduler;
 import rx.Single;
+import rx.functions.Action0;
 
 /**
  * Managed future for operations.
@@ -56,11 +56,6 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     private final String appName;
     private final ServerGroup serverGroup;
     private final String key;
-    private final String metricName;
-
-    public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout, ExecutorService service, String appName, ServerGroup serverGroup) {
-        this(k, l, oref, opTimeout, service, appName, serverGroup, null);
-    }
 
     public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout, ExecutorService service, String appName, ServerGroup serverGroup, String metricName) {
         super(k, l, oref, opTimeout, service);
@@ -69,7 +64,6 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         this.appName = appName;
         this.serverGroup = serverGroup;
         this.key = k;
-        this.metricName = metricName;
     }
 
     public Operation getOperation() {
@@ -133,7 +127,6 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
      */
     public T get(long duration, TimeUnit units, boolean throwException, boolean hasZF) throws InterruptedException, TimeoutException, ExecutionException {
         final long startTime = System.currentTimeMillis();
-        final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, (metricName == null) ? "GetOperation" : metricName).start();
         boolean status = latch.await(duration, units);
         if (!status) {
             boolean gcPause = false;
@@ -209,7 +202,6 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                 throw new ExecutionException(new CheckedOperationTimeoutException("Operation timed out.", op));
             }
         }
-        operationDuration.stop();
         return objRef.get();
     }
 
@@ -226,7 +218,6 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     }
 
     public Single<T> get(long duration, TimeUnit units, boolean throwException, boolean hasZF, Scheduler scheduler) {
-        final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, (metricName == null) ? "LatencyGet" : metricName).start();;
         return observe().timeout(duration, units, Single.create(subscriber -> {
             // whenever timeout occurs, continuous timeout counter will increase by 1.
             MemcachedConnection.opTimedOut(op);
@@ -240,8 +231,12 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                 }
                 subscriber.onSuccess(objRef.get());
             }
-        }), scheduler).doAfterTerminate(() ->
-            operationDuration.stop()
+        }), scheduler).doAfterTerminate(new Action0() {
+            @Override
+            public void call() {
+                
+            }
+        }
         );
     }
 

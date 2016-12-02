@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.MBeanServer;
@@ -40,8 +41,9 @@ import sun.nio.ch.DirectBuffer;
 public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheNodeImplMBean, CompositeMonitor<Long> {
     private static final Logger log = LoggerFactory.getLogger(EVCacheNodeImpl.class);
 
-    protected final long stTime;
+    protected long stTime;
     protected final AtomicLong opCount = new AtomicLong(0);
+    protected final AtomicInteger reconnectCount = new AtomicInteger(0);
 
     protected final String _appName;
     protected final String hostName;
@@ -66,11 +68,11 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         this.id = id;
         this._appName = appName;
         this._serverGroup = serverGroup;
-        this.stTime = stTime;
+        setConnectTime(stTime);
         this.readQ = rq;
         this.inputQueue = iq;
         this.sendMetrics = EVCacheConfig.getInstance().getDynamicBooleanProperty("EVCacheNodeImpl." + appName + ".sendMetrics", false);
-        this.tags = BasicTagList.of("ServerGroup", _serverGroup.getName(), "APP", appName);
+        this.tags = BasicTagList.of("ServerGroup", _serverGroup.getName(), "APP", appName, "Id", String.valueOf(id));
         this.hostName = ((InetSocketAddress) getSocketAddress()).getHostName();
         this.metricPrefix = "EVCacheNode";
         this.baseConfig = MonitorConfig.builder(metricPrefix).build();
@@ -228,6 +230,11 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         return stTime;
     }
 
+    public void setConnectTime(long cTime) {
+        this.stTime = cTime;
+        reconnectCount.incrementAndGet();
+    }
+
     public String getAppName() {
         return _appName;
     }
@@ -247,4 +254,8 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     public TagList getBaseTags() {
 		return baseTags;
 	}
+    
+    public int getTotalReconnectCount() {
+        return reconnectCount.get();
+    }
 }
