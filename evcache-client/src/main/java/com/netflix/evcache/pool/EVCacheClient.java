@@ -131,7 +131,6 @@ public class EVCacheClient {
             if (node instanceof EVCacheNodeImpl) {
                 final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
                 if (!evcNode.isAvailable()) {
-                    evcacheMemcachedClient.reconnect(evcNode);
                     continue;
                 }
 
@@ -144,7 +143,6 @@ public class EVCacheClient {
                     EVCacheMetricsFactory.getCounter(appName + "-READ_QUEUE_FULL", evcNode.getBaseTags()).increment();
                     if (log.isDebugEnabled()) log.debug("Read Queue Full on Bulk Operation for app : " + appName
                             + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get() * 2);
-                    evcacheMemcachedClient.reconnect(evcNode);
                 } else {
                     retKeys.add(key);
                 }
@@ -159,7 +157,6 @@ public class EVCacheClient {
             if (!evcNode.isAvailable()) {
                 EVCacheMetricsFactory.getCounter("EVCacheClient-" + appName + "-INACTIVE_NODE", evcNode.getBaseTags()).increment();
                 pool.refreshAsync(evcNode);
-                evcacheMemcachedClient.reconnect(evcNode);
             }
 
             int i = 0;
@@ -181,7 +178,6 @@ public class EVCacheClient {
                     if (log.isDebugEnabled()) log.debug("Node : " + evcNode + " for app : " + appName + "; zone : "
                             + zone + " is not active. Will Fail Fast and the write will be dropped for key : " + key);
                     evcNode.shutdown();
-                    evcacheMemcachedClient.reconnect(evcNode);
                     return false;
                 }
             }
@@ -200,7 +196,6 @@ public class EVCacheClient {
                         + " is not active. Will Fail Fast so that we can fallback to Other Zone if available.");
                 if (_throwException) throw new EVCacheException("Connection for Node : " + node + " for app : " + appName
                         + "; zone : " + zone + " is not active");
-                evcacheMemcachedClient.reconnect(evcNode);
                 return false;
             }
 
@@ -214,7 +209,6 @@ public class EVCacheClient {
                         + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get());
                 if (_throwException) throw new EVCacheReadQueueException("Read Queue Full for Node : " + node + "; app : "
                         + appName + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get());
-                evcacheMemcachedClient.reconnect(evcNode);
                 return false;
             }
         }
@@ -809,14 +803,13 @@ public class EVCacheClient {
         if (enableChunking.get()) {
             return assembleChunks(key, false, 0, tc, hasZF);
         } else {
-        	if(ignoreTouch.get()) {
-        		returnVal = evcacheMemcachedClient.get(key, tc);
-        	} else {
-        		final CASValue<T> value = evcacheMemcachedClient.asyncGetAndTouch(key, timeToLive, tc)
-        				.get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
-        		returnVal = (value == null) ? null : value.getValue();
-        	}
-
+            if(ignoreTouch.get()) {
+                returnVal = evcacheMemcachedClient.get(key, tc);
+            } else {
+                final CASValue<T> value = evcacheMemcachedClient.asyncGetAndTouch(key, timeToLive, tc)
+                        .get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+                returnVal = (value == null) ? null : value.getValue();
+            }
         }
         return returnVal;
     }

@@ -12,12 +12,8 @@ import com.netflix.config.DynamicPropertyFactory;
 import com.netflix.config.DynamicStringProperty;
 import com.netflix.config.Property;
 import com.netflix.servo.monitor.MonitorConfig;
-import com.netflix.servo.monitor.Monitors;
 import com.netflix.servo.tag.Tag;
 import com.netflix.servo.tag.TagList;
-import com.netflix.spectator.api.DistributionSummary;
-import com.netflix.spectator.api.Registry;
-import com.netflix.spectator.api.Spectator;
 
 public class EVCacheConfig {
 
@@ -41,7 +37,7 @@ public class EVCacheConfig {
         return prop;
     }
 
-    public DynamicLongProperty getDynamicLongProperty(String name, int defaultValue) {
+    public DynamicLongProperty getDynamicLongProperty(String name, long defaultValue) {
         DynamicLongProperty prop = (DynamicLongProperty) fastPropMap.get(name);
         if (prop != null) return prop;
 

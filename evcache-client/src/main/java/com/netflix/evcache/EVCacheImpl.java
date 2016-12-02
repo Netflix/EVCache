@@ -1307,18 +1307,15 @@ final public class EVCacheImpl implements EVCache {
             }
 
             if (currentValue != -1) {
-                if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + " current value = " + currentValue
-                        + " for key : " + key);
+                if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + " current value = " + currentValue + " for key : " + key);
                 for (int i = 0; i < vals.length; i++) {
                     if (vals[i] == -1 && currentValue > -1) {
                         if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + "; Zone " + clients[i].getZone()
-                                + " had a value = -1 so setting it to current value = "
-                                + currentValue + " for key : " + key);
+                                + " had a value = -1 so setting it to current value = " + currentValue + " for key : " + key);
                         clients[i].incr(canonicalKey, 0, currentValue, timeToLive);
                     } else if (vals[i] != currentValue) {
                         if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + "; Zone " + clients[i].getZone()
-                                + " had a value of " + vals[i]
-                                        + " so setting it to current value = " + currentValue + " for key : " + key);
+                                + " had a value of " + vals[i] + " so setting it to current value = " + currentValue + " for key : " + key);
                         clients[i].set(canonicalKey, String.valueOf(currentValue), timeToLive);
                     }
                 }

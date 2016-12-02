@@ -38,7 +38,6 @@ import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.ServerGroupCircularIterator;
 import com.netflix.servo.monitor.Monitors;
 import com.netflix.servo.tag.TagList;
-import com.netflix.servo.tag.BasicTag;
 
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
@@ -441,8 +440,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 // 12/5/2015 - Should we even do this anymore
                 for (Entry<InetSocketAddress, Long> entry : connectionObserver.getInActiveServers().entrySet()) {
                     if ((currentTime - entry.getValue().longValue()) > 1200000 && !discoveredHostsInServerGroup.contains(entry.getKey())) {
-                        if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
-                                + "; instance : " + entry.getKey()
+                        if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup + "; instance : " + entry.getKey()
                                 + " not found in discovery and will shutdown the client and init it again.");
                         EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged", tags).set(Long.valueOf(2));
                         return true;
@@ -795,19 +793,28 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 final int rSize = client.getReadQueueLength();
                 EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-ReadQueueSize", client.getTagList()).set(Long.valueOf(rSize));
                 if(refreshConnectionOnReadQueueFull.get()) {
-                    if(rSize > refreshConnectionOnReadQueueFullSize.get().intValue()) {
-                        try {
-                            EVCacheMetricsFactory.getCounter(_appName , null, serverGroup.getName(), "EVCacheClientPool-REFRESH_ON_QUEUE_FULL", new BasicTag("Id", String.valueOf(client.getId()))).increment();
-                            refresh();
-                        } catch (IOException e) {
-                            log.error("Exception while refreshing queue", e);
+                    final Collection<MemcachedNode> allNodes = client.getNodeLocator().getAll();
+                    for (MemcachedNode node : allNodes) {
+                        if (node instanceof EVCacheNodeImpl) {
+                            final EVCacheNodeImpl evcNode = ((EVCacheNodeImpl) node);
+                            if(evcNode.getReadQueueSize() >= refreshConnectionOnReadQueueFullSize.get().intValue()) {
+                                EVCacheMetricsFactory.getCounter("EVCacheClientPool-REFRESH_ON_QUEUE_FULL", evcNode.getBaseTags()).increment();
+                                client.getEVCacheMemcachedClient().reconnectNode(evcNode);
+                            }
                         }
                     }
+//                    if(rSize > refreshConnectionOnReadQueueFullSize.get().intValue()) {
+//                        try {
+//                            EVCacheMetricsFactory.getCounter(_appName , null, serverGroup.getName(), "EVCacheClientPool-REFRESH_ON_QUEUE_FULL", new BasicTag("Id", String.valueOf(client.getId()))).increment();
+//                            refresh();
+//                        } catch (IOException e) {
+//                            log.error("Exception while refreshing queue", e);
+//                        }
+//                    }
                 }
             }
         }
     }
-    
 
     public void pingServers() {
         try {
