@@ -3,6 +3,7 @@ package com.netflix.evcache.pool;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -22,7 +23,6 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.DynamicIntProperty;
-import com.netflix.discovery.shared.Pair;
 import com.netflix.evcache.EVCacheException;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheReadQueueException;
@@ -485,7 +485,7 @@ public class EVCacheClient {
             }
 
             final List<String> allKeys = new ArrayList<>();
-            final Map<ChunkInfo, Pair<List<String>, byte[]>> responseMap = new HashMap<>();
+            final Map<ChunkInfo, SimpleEntry<List<String>, byte[]>> responseMap = new HashMap<>();
             for (Entry<String, CachedData> entry : metadataMap.entrySet()) {
                 final String firstKey = entry.getKey();
                 final String metadata = (String) decodingTranscoder.decode(entry.getValue());
@@ -502,18 +502,18 @@ public class EVCacheClient {
                     }
 
                     final byte[] data = new byte[(ci.getChunks() - 2) * ci.getChunkSize() + ci.getLastChunk()];
-                    responseMap.put(ci, new Pair<>(ciKeys, data));
+                    responseMap.put(ci, new SimpleEntry<>(ciKeys, data));
                 }
             }
 
             final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(allKeys, chunkingTranscoder, null, "GetChunksOperation")
                     .getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, false, false);
 
-            for (Entry<ChunkInfo, Pair<List<String>, byte[]>> entry : responseMap.entrySet()) {
+            for (Entry<ChunkInfo, SimpleEntry<List<String>, byte[]>> entry : responseMap.entrySet()) {
                 final ChunkInfo ci = entry.getKey();
-                final Pair<List<String>, byte[]> pair = entry.getValue();
-                final List<String> ciKeys = pair.first();
-                byte[] data = pair.second();
+                final SimpleEntry<List<String>, byte[]> pair = entry.getValue();
+                final List<String> ciKeys = pair.getKey();
+                byte[] data = pair.getValue();
                 int index = 0;
                 for (int i = 0; i < ciKeys.size(); i++) {
                     final String _key = ciKeys.get(i);
@@ -585,7 +585,7 @@ public class EVCacheClient {
                 }
 
                 final List<String> allKeys = new ArrayList<>();
-                final Map<ChunkInfo, Pair<List<String>, byte[]>> responseMap = new HashMap<>();
+                final Map<ChunkInfo, SimpleEntry<List<String>, byte[]>> responseMap = new HashMap<>();
                 for (Entry<String, CachedData> entry : metadataMap.entrySet()) {
                     final String firstKey = entry.getKey();
                     final String metadata = (String) decodingTranscoder.decode(entry.getValue());
@@ -602,18 +602,18 @@ public class EVCacheClient {
                         }
 
                         final byte[] data = new byte[(ci.getChunks() - 2) * ci.getChunkSize() + ci.getLastChunk()];
-                        responseMap.put(ci, new Pair<>(ciKeys, data));
+                        responseMap.put(ci, new SimpleEntry<>(ciKeys, data));
                     }
                 }
 
                 return evcacheMemcachedClient.asyncGetBulk(allKeys, chunkingTranscoder, null, "GetChunksOperation")
                     .getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, false, false, scheduler)
                     .map(dataMap -> {
-                        for (Entry<ChunkInfo, Pair<List<String>, byte[]>> entry : responseMap.entrySet()) {
+                        for (Entry<ChunkInfo, SimpleEntry<List<String>, byte[]>> entry : responseMap.entrySet()) {
                             final ChunkInfo ci = entry.getKey();
-                            final Pair<List<String>, byte[]> pair = entry.getValue();
-                            final List<String> ciKeys = pair.first();
-                            byte[] data = pair.second();
+                            final SimpleEntry<List<String>, byte[]> pair = entry.getValue();
+                            final List<String> ciKeys = pair.getKey();
+                            byte[] data = pair.getValue();
                             int index = 0;
                             for (int i = 0; i < ciKeys.size(); i++) {
                                 final String _key = ciKeys.get(i);

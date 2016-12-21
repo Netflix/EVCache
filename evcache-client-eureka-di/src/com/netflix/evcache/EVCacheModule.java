@@ -3,6 +3,8 @@ package com.netflix.evcache;
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.evcache.pool.EVCacheNodeList;
+import com.netflix.evcache.pool.eureka.EurekaEVCacheNodeListProvider;
 
 @Singleton
 public class EVCacheModule extends AbstractModule {
@@ -16,6 +18,7 @@ public class EVCacheModule extends AbstractModule {
 
         // Make sure connection factory provider Module is initialized in your Module when you init EVCacheModule 
         // bind(IConnectionFactoryProvider.class).toProvider(DefaultFactoryProvider.class);
+        bind(EVCacheNodeList.class).toProvider(EurekaEVCacheNodeListProvider.class);
     }
 
     @Override

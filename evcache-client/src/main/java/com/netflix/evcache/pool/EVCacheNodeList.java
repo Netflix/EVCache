@@ -17,6 +17,6 @@ public interface EVCacheNodeList {
      *
      *  TODO : Add a fallback to get the list say from PersistedProperties
      */
-    public abstract Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances() throws IOException;
+    public abstract Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances(String appName) throws IOException;
 
 }

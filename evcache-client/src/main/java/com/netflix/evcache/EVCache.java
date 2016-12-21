@@ -5,7 +5,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Future;
 
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1139,7 +1139,6 @@ public interface EVCache {
          * Returns a newly created {@code EVCache} based on the contents of the
          * {@code Builder}.
          */
-        @SuppressWarnings("deprecation")
         public EVCache build() {
             if (_poolManager == null) {
                 _poolManager = EVCacheClientPoolManager.getInstance();

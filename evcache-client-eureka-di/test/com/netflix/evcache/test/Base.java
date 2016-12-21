@@ -1,48 +1,40 @@
 package com.netflix.evcache.test;
 
 
+import com.google.inject.Injector;
+import com.netflix.appinfo.ApplicationInfoManager;
+import com.netflix.config.ConfigurationManager;
+import com.netflix.discovery.guice.EurekaModule;
+import com.netflix.evcache.EVCache;
+import com.netflix.evcache.EVCacheLatch;
+import com.netflix.evcache.EVCacheModule;
+import com.netflix.evcache.EVCacheLatch.Policy;
+import com.netflix.evcache.connection.ConnectionModule;
+import com.netflix.evcache.operation.EVCacheLatchImpl;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.governator.guice.LifecycleInjector;
+import com.netflix.governator.guice.LifecycleInjectorBuilder;
+import com.netflix.governator.lifecycle.LifecycleManager;
+import com.netflix.spectator.nflx.SpectatorModule;
+
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.log4j.Appender;
-import org.apache.log4j.BasicConfigurator;
-import org.apache.log4j.ConsoleAppender;
-import org.apache.log4j.Layout;
-import org.apache.log4j.Level;
-import org.apache.log4j.PatternLayout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
-
-import com.netflix.config.ConfigurationManager;
-import com.netflix.evcache.EVCache;
-import com.netflix.evcache.EVCacheLatch;
-import com.netflix.evcache.EVCacheLatch.Policy;
-import com.netflix.evcache.operation.EVCacheLatchImpl;
-import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.evcache.pool.EVCacheClientPoolManager;
-
 import rx.Scheduler;
 
 @SuppressWarnings("unused")
 public abstract class Base  {
 
-    static {
-        BasicConfigurator.configure();
-        final Layout LAYOUT = new PatternLayout("%d{ISO8601} %-5p [%c{1}:%M:%L] %m%n");
-        final Appender STDOUT = new ConsoleAppender(LAYOUT, ConsoleAppender.SYSTEM_OUT);
-        final org.apache.log4j.Logger ROOT_LOGGER = org.apache.log4j.Logger.getRootLogger();
-        ROOT_LOGGER.removeAllAppenders();
-        ROOT_LOGGER.setLevel(Level.WARN);
-        ROOT_LOGGER.addAppender(STDOUT);
-    }
-
     private static final Logger log = LoggerFactory.getLogger(Base.class);
     protected EVCache evCache = null;
+    protected Injector injector = null;
     protected EVCacheClientPoolManager manager = null;
 
     protected Properties getProps() {
@@ -64,7 +56,7 @@ public abstract class Base  {
         props.setProperty("eureka.appid", "clatency");
         props.setProperty("eureka.serviceUrl.default","http://${@region}.discovery${@environment}.netflix.net:7001/discovery/v2/");
         props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheNodeLocator", "ERROR");
-        props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheClientUtil", "ERROR");
+        props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheClientUtil", "DEBUG");
 
         return props;
     }
@@ -78,19 +70,31 @@ public abstract class Base  {
 
         try {
             ConfigurationManager.loadProperties(props);
+
+            LifecycleInjectorBuilder builder = LifecycleInjector.builder();
+            builder.withModules(
+                    new EurekaModule(),
+                    new EVCacheModule(), 
+                    new ConnectionModule(),
+                    new SpectatorModule()
+                    );
+
+            injector = builder.build().createInjector();
+            LifecycleManager lifecycleManager = injector.getInstance(LifecycleManager.class);
+
+            lifecycleManager.start();
+            injector.getInstance(ApplicationInfoManager.class);
+            final EVCacheModule lib = injector.getInstance(EVCacheModule.class);
+            manager = injector.getInstance(EVCacheClientPoolManager.class);
         } catch (Throwable e) {
             e.printStackTrace();
             log.error(e.getMessage(), e);
         }
-    }
 
-    @AfterSuite
-    public void shutdown() {
-        manager.shutdown();
     }
 
     protected EVCache.Builder getNewBuilder() {
-        final EVCache.Builder evCacheBuilder = new EVCache.Builder();
+        final EVCache.Builder evCacheBuilder = injector.getInstance(EVCache.Builder.class);
         if(log.isDebugEnabled()) log.debug("evCacheBuilder : " + evCacheBuilder);
         return evCacheBuilder;
     }

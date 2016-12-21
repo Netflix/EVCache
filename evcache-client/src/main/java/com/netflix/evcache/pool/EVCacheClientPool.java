@@ -680,7 +680,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         final Operation op = EVCacheMetricsFactory.getOperation("EVCacheClientPool-" + _appName + "-refresh");
         if (log.isDebugEnabled()) log.debug("refresh APP : " + _appName + "; force : " + force);
         try {
-            final Map<ServerGroup, EVCacheServerGroupConfig> instances = provider.discoverInstances();
+            final Map<ServerGroup, EVCacheServerGroupConfig> instances = provider.discoverInstances(_appName);
             if (log.isDebugEnabled()) log.debug("instances : " + instances);
             // if no instances are found check to see if a clean up is needed
             // and bail immediately.
@@ -744,8 +744,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     final int poolSize = _poolSize.get();
                     final List<EVCacheClient> newClients = new ArrayList<EVCacheClient>(poolSize);
                     for (int i = 0; i < poolSize; i++) {
-                        final int maxQueueSize = ConfigurationManager.getConfigInstance().getInt(_appName
-                                + ".max.queue.length", 16384);
+                        final int maxQueueSize = ConfigurationManager.getConfigInstance().getInt(_appName + ".max.queue.length", 16384);
                         EVCacheClient client;
                         try {
                             client = new EVCacheClient(_appName, zone, i, config, memcachedSAInServerGroup, maxQueueSize, 
@@ -803,14 +802,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                             }
                         }
                     }
-//                    if(rSize > refreshConnectionOnReadQueueFullSize.get().intValue()) {
-//                        try {
-//                            EVCacheMetricsFactory.getCounter(_appName , null, serverGroup.getName(), "EVCacheClientPool-REFRESH_ON_QUEUE_FULL", new BasicTag("Id", String.valueOf(client.getId()))).increment();
-//                            refresh();
-//                        } catch (IOException e) {
-//                            log.error("Exception while refreshing queue", e);
-//                        }
-//                    }
                 }
             }
         }
@@ -1026,8 +1017,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 + ",\n\tlocalServerGroupIterator=" + localServerGroupIterator + ",\n\t_poolSize=" + _poolSize
                 + ",\n\t_readTimeout=" + _readTimeout + ",\n\t_bulkReadTimeout=" + _bulkReadTimeout
                 + ",\n\tlogOperations=" + logOperations + ",\n\t_opQueueMaxBlockTime="
-                + _opQueueMaxBlockTime + ",\n\t_operationTimeout=" + _operationTimeout + ",\n\t_maxReadQueueSize="
-                + _maxReadQueueSize // + ",\n\tinjectionPoint=" + injectionPoint
+                + _opQueueMaxBlockTime + ",\n\t_operationTimeout=" + _operationTimeout 
+                + ",\n\t_maxReadQueueSize=" + _maxReadQueueSize 
                 + ",\n\t_pingServers=" + _pingServers + ",\n\twriteOnlyFastPropertyMap=" + writeOnlyFastPropertyMap
                 + ",\n\tnumberOfModOps=" + numberOfModOps.get()
                 + ",\n\t_shutdown=" + _shutdown + ",\n\tmemcachedInstancesByServerGroup="

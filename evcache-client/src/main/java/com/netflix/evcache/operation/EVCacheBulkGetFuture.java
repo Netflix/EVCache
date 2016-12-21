@@ -95,7 +95,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
             }
             if (!gcPause) {
                 long gcDuration = System.currentTimeMillis() - startTime;
-                EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DelayProbablyDueToGCPause", DataSourceType.COUNTER).increment(gcDuration);
+                EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-UnknownPause", DataSourceType.COUNTER).increment(gcDuration);
             }
             // redo the same op once more since there was a chance of gc pause
             if (gcPause) {

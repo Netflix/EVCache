@@ -10,6 +10,7 @@ import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicLongProperty;
 import com.netflix.config.DynamicPropertyFactory;
 import com.netflix.config.DynamicStringProperty;
+import com.netflix.config.DynamicStringSetProperty;
 import com.netflix.config.Property;
 import com.netflix.servo.monitor.MonitorConfig;
 import com.netflix.servo.tag.Tag;
@@ -61,6 +62,14 @@ public class EVCacheConfig {
 
         prop = DynamicPropertyFactory.getInstance().getBooleanProperty(name, defaultValue);
         fastPropMap.put(name, prop);
+        return prop;
+    }
+    
+    public DynamicStringSetProperty getDynamicStringSetProperty(String propertyName, String defaultValue) {
+        DynamicStringSetProperty prop = (DynamicStringSetProperty) fastPropMap.get(propertyName);
+        if (prop != null) return prop;
+        prop = new DynamicStringSetProperty(propertyName, defaultValue);
+        fastPropMap.put(propertyName, prop);
         return prop;
     }
 

@@ -2,12 +2,8 @@ package com.netflix.evcache.pool;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.List;
 
-import com.netflix.appinfo.InstanceInfo;
 import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.discovery.DiscoveryClient;
-import com.netflix.discovery.shared.Application;
 import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.MemcachedNode;
@@ -15,16 +11,14 @@ import net.spy.memcached.util.DefaultKetamaNodeLocatorConfiguration;
 
 public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLocatorConfiguration {
 
-    private final String appId;
-    private final ServerGroup serverGroup;
-    private final EVCacheClientPoolManager poolManager;
+    protected final String appId;
+    protected final ServerGroup serverGroup;
 
-    private final ChainedDynamicProperty.IntProperty bucketSize;
+    protected final ChainedDynamicProperty.IntProperty bucketSize;
 
-    public EVCacheKetamaNodeLocatorConfiguration(String appId, ServerGroup serverGroup, EVCacheClientPoolManager poolManager) {
+    public EVCacheKetamaNodeLocatorConfiguration(String appId, ServerGroup serverGroup) {
         this.appId = appId;
         this.serverGroup = serverGroup;
-        this.poolManager = poolManager;
         bucketSize = EVCacheConfig.getInstance().getChainedIntProperty(appId + "." + serverGroup.getName() + ".bucket.size",appId + ".bucket.size", super.getNodeRepetitions());
     }
 
@@ -43,8 +37,9 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
      *
      * @param node - The MemcachedNode which we're interested in
      * @return The socket address of the given node format is of the following
-     * format "publicHostname/privateIp:port" (ex -
-     ec2-174-129-159-31.compute-1.amazonaws.com/10.125.47.114:11211)
+     *  For ec2 classic instances - "publicHostname/privateIp:port" (ex - ec2-174-129-159-31.compute-1.amazonaws.com/10.125.47.114:11211)
+     *  For ec2 vpc instances - "privateIp/privateIp:port" (ex - 10.125.47.114/10.125.47.114:11211)
+     *  privateIp is also known as local ip 
      */
     @Override
     protected String getSocketAddressForNode(MemcachedNode node) {
@@ -53,22 +48,7 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
             final SocketAddress socketAddress = node.getSocketAddress();
             if(socketAddress instanceof InetSocketAddress) {
                 final InetSocketAddress isa = (InetSocketAddress)socketAddress;
-                if(poolManager.getDiscoveryClient() != null ) {
-                    final DiscoveryClient mgr = poolManager.getDiscoveryClient();
-                    final Application app = mgr.getApplication(appId);
-                    final List<InstanceInfo> instances = app.getInstances();
-                    for(InstanceInfo info : instances) {
-                        final String hostName = info.getHostName();
-                        if(hostName.equalsIgnoreCase(isa.getHostName())) {
-                            final String ip = info.getIPAddr();
-                            final String port = info.getMetadata().get("evcache.port");
-                            result = hostName + '/' + ip + ':' + ((port != null) ? port : "11211");
-                            break;
-                        }
-                    }
-                } else {
-                    result = ((InetSocketAddress)socketAddress).getHostName() + '/' + ((InetSocketAddress)socketAddress).getAddress().getHostAddress() + ":11211";
-                }
+                result = isa.getHostName() + '/' + isa.getAddress().getHostAddress() + ":11211";
             } else {
                 result=String.valueOf(socketAddress);
                 if (result.startsWith("/")) {

@@ -10,10 +10,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Level;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
@@ -26,36 +26,35 @@ import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import rx.schedulers.Schedulers;
 
 @SuppressWarnings({"deprecation", "unused"})
-public class SimpleEVCacheTest extends Base {
-    private static final Logger log = LogManager.getLogger(SimpleEVCacheTest.class);
+public class SimpleEurekaEVCacheTest extends Base {
+    private static final Logger log = LoggerFactory.getLogger(SimpleEurekaEVCacheTest.class);
 
     private ThreadPoolExecutor pool = null;
 
     public static void main(String args[]) {
-        SimpleEVCacheTest test = new SimpleEVCacheTest();
-        //System.setProperty("EVCACHE-NODES",args[0]);
+        SimpleEurekaEVCacheTest test = new SimpleEurekaEVCacheTest();
         test.setProps();
         test.testAll();
     }
 
     @BeforeSuite
     public void setProps() {
-        BasicConfigurator.configure();
-        Logger.getRootLogger().setLevel(Level.INFO);
-        Logger.getLogger(SimpleEVCacheTest.class).setLevel(Level.DEBUG);
-        Logger.getLogger(Base.class).setLevel(Level.DEBUG);
-        Logger.getLogger(EVCacheImpl.class).setLevel(Level.ERROR);
-        Logger.getLogger(EVCacheClient.class).setLevel(Level.DEBUG);
-        Logger.getLogger(EVCacheClientPool.class).setLevel(Level.DEBUG);
-        System.setProperty("EVCACHE_TEST.use.simple.node.list.provider", "true");
-        System.setProperty("EVCACHE_TEST-NODES", "EVCACHE_TEST-1=100.67.72.124:11211;EVCACHE_TEST-2=100.67.71.172:11211;");
-        System.setProperty("EVCACHE_TEST.EVCacheClientPool.readTimeout", "100000");
-        System.setProperty("EVCACHE_TEST.EVCacheClientPool.bulkReadTimeout", "10000");
-        System.setProperty("EVCACHE_TEST..max.read.queue.length", "100");
-        System.setProperty("EVCACHE_TEST.operation.timeout", "10000");
-        System.setProperty("EVCACHE_TEST.throw.exception", "false");
-        System.setProperty("EVCACHE_TEST.chunk.data", "false");
-        //System.setProperty("EVCACHE_TEST.chunk.size", "1180");
+        
+        org.apache.log4j.Logger.getLogger(SimpleEurekaEVCacheTest.class).setLevel(Level.DEBUG);
+        org.apache.log4j.Logger.getLogger(Base.class).setLevel(Level.DEBUG);
+        org.apache.log4j.Logger.getLogger(EVCacheImpl.class).setLevel(Level.ERROR);
+        org.apache.log4j.Logger.getLogger(EVCacheClient.class).setLevel(Level.ERROR);
+        org.apache.log4j.Logger.getLogger(EVCacheClientPool.class).setLevel(Level.ERROR);
+        System.setProperty("evcache.use.simple.node.list.provider", "true");
+        System.setProperty("EVCACHE_AB.EVCacheClientPool.readTimeout", "100000");
+        System.setProperty("EVCACHE_AB.EVCacheClientPool.bulkReadTimeout", "10000");
+        System.setProperty("EVCACHE_AB.max.read.queue.length", "100");
+        System.setProperty("EVCACHE_AB.operation.timeout", "10000");
+        System.setProperty("EVCACHE_AB.throw.exception", "false");
+        System.setProperty("EVCACHE_AB.chunk.data", "false");
+        System.setProperty("NETFLIX_ENVIRONMENT", "test");
+        System.setProperty("EC2_REGION", "us-east-1");
+        System.setProperty("evcache.thread.daemon", "true");
 
         int maxThreads = 2;
         final BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>(100000);
@@ -64,18 +63,18 @@ public class SimpleEVCacheTest extends Base {
 
     }
 
-    public SimpleEVCacheTest() {
+    public SimpleEurekaEVCacheTest() {
     }
 
     @BeforeSuite(dependsOnMethods = { "setProps" })
     public void setupClusterDetails() {
-        System.setProperty("EVCACHE-NODES","evcache-useast1d-v000=100.66.36.72:11211");
         manager = EVCacheClientPoolManager.getInstance();
     }
     
     public void testAll() {
         try {
-            EVCacheClientPoolManager.getInstance().initEVCache("EVCACHE_TEST");
+            setupClusterDetails();
+            EVCacheClientPoolManager.getInstance().initEVCache("EVCACHE_AB");
             testEVCache();
 
             int i = 1;
@@ -83,24 +82,28 @@ public class SimpleEVCacheTest extends Base {
             while (flag) {
                 try {
                     testAdd();
-//                    testInsert();
+                    testInsert();
+                    testInsertAsync();
 ////                    testAppend();
-//                    testGet();
-//                    testGetObservable();
-//                    testGetAndTouch();
-//                    testBulk();
-//                    testBulkAndTouch();
-//                    testAppendOrAdd();
-//                    if(i++ % 5 == 0) testDelete();
-                    //Thread.sleep(3000);
+                    testGet();
+                    testGetObservable();
+                    testGetAndTouch();
+                    testBulk();
+                    testBulkAndTouch();
+                    testAppendOrAdd();
+                    if(i++ % 5 == 0) testDelete();
+                    Thread.sleep(1000);
+                    if (i > 100) break;
                 } catch (Exception e) {
-                    log.error(e);
+                    log.error("Exception", e);
                 }
                 //Thread.sleep(3000);
             }
+            Thread.sleep(100);
         } catch (Exception e) {
-            log.error(e);
+            log.error("Exception", e);
         }
+        shutdown();
     }
     
     public void testGetForKey(String key) throws Exception {
@@ -118,7 +121,7 @@ public class SimpleEVCacheTest extends Base {
 
     @Test
     public void testEVCache() {
-        this.evCache = (new EVCache.Builder()).setAppName("EVCACHE_TEST").setCachePrefix(null).enableRetry().build();
+        this.evCache = (new EVCache.Builder()).setAppName("EVCACHE_AB").setCachePrefix(null).enableRetry().build();
         assertNotNull(evCache);
     }
 
@@ -212,6 +215,7 @@ public class SimpleEVCacheTest extends Base {
     public void testInsertAsync() throws Exception {
         for (int i = 0; i < 10; i++) {
             boolean flag = insertAsync(i, evCache);
+            if(log.isDebugEnabled()) log.debug("SET : async : i: " + i + " flag = " + flag);
             assertTrue(flag, "SET ASYNC : Following Index failed - " + i + " for evcache - " + evCache);
         }
     }
@@ -232,10 +236,10 @@ public class SimpleEVCacheTest extends Base {
         String val = "val_" + i;
         String key = "key_" + i;
         Future<Boolean>[] statuses = gCache.set(key, val, 24 * 60 * 60);
-        for(Future<Boolean> status : statuses) {
-            assertTrue(status.get(), "SET ASYNC : Following Index failed - " + i + " for evcache - " + evCache);
-        }
-        pool.submit(new StatusChecker(key, statuses));
+//        for(Future<Boolean> status : statuses) {
+//            assertTrue(status.get(), "SET ASYNC : Following Index failed - " + i + " for evcache - " + evCache);
+//        }
+//        pool.submit(new StatusChecker(key, statuses));
         return true;
     }
 
@@ -277,9 +281,15 @@ public class SimpleEVCacheTest extends Base {
                     if (log.isDebugEnabled()) log.debug("SET : key : " + key + "; success = " + s.get());
                 }
             } catch (Exception e) {
-                log.error(e);
+                log.error("Exception", e);
             }
         }
     }
 
+    @AfterSuite
+    public void shutdown() {
+        pool.shutdown();
+        super.shutdown();
+    }
+    
 }

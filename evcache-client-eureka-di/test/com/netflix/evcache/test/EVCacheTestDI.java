@@ -19,7 +19,7 @@ import rx.schedulers.Schedulers;
 
 public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<String> {
     private static final Logger log = LoggerFactory.getLogger(EVCacheTestDI.class);
-    private int loops = 10;
+    private int loops = 1;
 
     public static void main(String args[]) {
         try {
@@ -35,27 +35,27 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
 
     protected Properties getProps() {
         Properties props = super.getProps();
-        props.setProperty("EVCACHE.us-east-1d.EVCacheClientPool.writeOnly", "false");
-        props.setProperty("EVCACHE.EVCacheClientPool.poolSize", "1");
-        props.setProperty("EVCACHE.ping.servers", "false");
-        props.setProperty("EVCACHE.cid.throw.exception", "true");
-        props.setProperty("EVCACHE.EVCacheClientPool.readTimeout", "500");
-        props.setProperty("EVCACHE.EVCacheClientPool.bulkReadTimeout", "500");
-        props.setProperty("EVCACHE.evcache.max.read.queue.length", "20");
-        props.setProperty("EVCacheClientPoolManager.log.apps", "EVCACHE");
-        props.setProperty("EVCACHE.fallback.zone", "true");
-        props.setProperty("EVCACHE.enable.throttling", "false");
-        props.setProperty("EVCACHE.throttle.time", "0");
-        props.setProperty("EVCACHE.throttle.percent", "0");
-        props.setProperty("EVCACHE.log.operation", "1000");
-        props.setProperty("EVCACHE.EVCacheClientPool.validate.input.queue", "true");
+        props.setProperty("EVCACHE_CCS.us-east-1d.EVCacheClientPool.writeOnly", "false");
+        props.setProperty("EVCACHE_CCS.EVCacheClientPool.poolSize", "1");
+        props.setProperty("EVCACHE_CCS.ping.servers", "false");
+        props.setProperty("EVCACHE_CCS.cid.throw.exception", "true");
+        props.setProperty("EVCACHE_CCS.EVCacheClientPool.readTimeout", "500");
+        props.setProperty("EVCACHE_CCS.EVCacheClientPool.bulkReadTimeout", "500");
+        props.setProperty("EVCACHE_CCS.max.read.queue.length", "20");
+        props.setProperty("EVCacheClientPoolManager.log.apps", "EVCACHE_CCS");
+        props.setProperty("EVCACHE_CCS.fallback.zone", "true");
+        props.setProperty("EVCACHE_CCS.enable.throttling", "false");
+        props.setProperty("EVCACHE_CCS.throttle.time", "0");
+        props.setProperty("EVCACHE_CCS.throttle.percent", "0");
+        props.setProperty("EVCACHE_CCS.log.operation", "1000");
+        props.setProperty("EVCACHE_CCS.EVCacheClientPool.validate.input.queue", "true");
 
         return props;
     }
 
     @Test
     public void testEVCache() {
-        this.evCache = getNewBuilder().setAppName("EVCACHE").setCachePrefix("cid").enableRetry().build();
+        this.evCache = getNewBuilder().setAppName("EVCACHE_CCS").setCachePrefix("cid").enableRetry().build();
         assertNotNull(evCache);
     }
 
@@ -90,6 +90,13 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
     }
 
     @Test(dependsOnMethods = { "testKeySizeCheck" })
+    public void testTouch() throws Exception {
+        for (int i = 0; i < loops; i++) {
+            touch(i, evCache);
+        }
+    }
+
+    @Test(dependsOnMethods = { "testTouch" })
     public void testDelete() throws Exception {
         for (int i = 0; i < loops; i++) {
             delete(i, evCache);
@@ -99,7 +106,7 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
     @Test(dependsOnMethods = { "testDelete" })
     public void testAdd() throws Exception {
         for (int i = 0; i < loops; i++) {
-            assertTrue(add(i, evCache));
+            add(i, evCache);
         }
     }
 
@@ -240,23 +247,27 @@ public class EVCacheTestDI extends Base implements EVCacheGetOperationListener<S
             testEVCache();
             testDelete();
             testAdd();
-            Thread.sleep(5000);
-            testInsertBinary();
-            testInsert();
+            Thread.sleep(500);
+//            testInsertBinary();
+//            testInsert();
 
             int i = 0;
-            while (i++ < loops) {
+            while (i++ < loops*1000) {
                 try {
-                    testInsert();
-                    testGet();
-                    testGetAndTouch();
-                    testBulk();
-                    testBulkAndTouch();
-                    testGetObservable();
-                    testGetAndTouchObservable();
-                    waitForCallbacks();
-                    testAppendOrAdd();
+//                    testGet();
+//                    testGetAndTouch();
+//                    testBulk();
+//                    testBulkAndTouch();
+//                    testGetObservable();
+//                    testGetAndTouchObservable();
+//                    waitForCallbacks();
+//                    testAppendOrAdd();
+//                    testTouch();
                     //testDelete();
+                    //testInsert();
+                    //if(i % 2 == 0) testDelete();
+                    testAdd();
+
                     Thread.sleep(10000);
                 } catch (Throwable e) {
                     log.error(e.getMessage(), e);

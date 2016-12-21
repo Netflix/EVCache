@@ -14,11 +14,8 @@ import javax.management.ObjectName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.appinfo.ApplicationInfoManager;
-import com.netflix.appinfo.InstanceInfo;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.ServerGroup;
-import com.netflix.servo.monitor.Counter;
 import com.netflix.servo.monitor.Monitors;
 import com.netflix.servo.tag.BasicTag;
 import com.netflix.servo.tag.Tag;
@@ -28,7 +25,6 @@ import net.spy.memcached.ConnectionObserver;
 public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheConnectionObserverMBean {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheConnectionObserver.class);
-    private final InstanceInfo instanceInfo;
     private final String appName;
     private final ServerGroup serverGroup;
     private final int id;
@@ -41,9 +37,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
 
     private final String monitorName;
 
-    @SuppressWarnings("deprecation")
     public EVCacheConnectionObserver(String appName, ServerGroup serverGroup, int id) {
-        this.instanceInfo = ApplicationInfoManager.getInstance().getInfo();
         this.appName = appName;
         this.serverGroup = serverGroup;
         this.evCacheActiveSet = Collections.newSetFromMap(new ConcurrentHashMap<SocketAddress, Boolean>());
@@ -63,10 +57,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         final InetSocketAddress inetAdd = (InetSocketAddress) sa;
         evCacheActiveStringSet.put(inetAdd, Long.valueOf(System.currentTimeMillis()));
         evCacheInActiveStringSet.remove(inetAdd);
-        if (instanceInfo != null) {
-            if (log.isDebugEnabled()) log.debug(appName + ":CONNECTION ESTABLISHED : From " + instanceInfo.getHostName()
-                    + " to " + address + " was established after " + reconnectCount + " retries");
-        }
+        if (log.isDebugEnabled()) log.debug(appName + ":CONNECTION ESTABLISHED : To " + address + " was established after " + reconnectCount + " retries");
         if(log.isTraceEnabled()) log.trace("Stack", new Exception());
         EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-CONNECT");
         connectCount++;
@@ -79,10 +70,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         final InetSocketAddress inetAdd = (InetSocketAddress) sa;
         evCacheInActiveStringSet.put(inetAdd, Long.valueOf(System.currentTimeMillis()));
         evCacheActiveStringSet.remove(inetAdd);
-        if (instanceInfo != null) {
-            if (log.isDebugEnabled()) log.debug(appName + ":CONNECTION LOST : From " + instanceInfo.getHostName()
-                    + " to " + address);
-        }
+        if (log.isDebugEnabled()) log.debug(appName + ":CONNECTION LOST : To " + address);
         if(log.isTraceEnabled()) log.trace("Stack", new Exception());
         final Tag tag = new BasicTag("HOST", inetAdd.getAddress().getHostAddress());
         EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-CONNECTION_LOST", tag).increment();
@@ -166,8 +154,8 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
     }
 
     public String toString() {
-        return "EVCacheConnectionObserver [instanceInfo=" + instanceInfo
-                + ", appName=" + appName + ", ServerGroup=" + serverGroup.toString() + ", id=" + id
+        return "EVCacheConnectionObserver [" 
+                + "AppName=" + appName + ", ServerGroup=" + serverGroup.toString() + ", id=" + id
                 + ", evCacheActiveSet=" + evCacheActiveSet
                 + ", evCacheInActiveSet=" + evCacheInActiveSet
                 + ", evCacheActiveStringSet=" + evCacheActiveStringSet

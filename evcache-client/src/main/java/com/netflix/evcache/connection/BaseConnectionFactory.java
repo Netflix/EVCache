@@ -58,8 +58,8 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public NodeLocator createLocator(List<MemcachedNode> list) {
-        this.locator = new EVCacheNodeLocator(appName, serverGroup, list, DefaultHashAlgorithm.KETAMA_HASH,
-                new EVCacheKetamaNodeLocatorConfiguration(appName, serverGroup, poolManager));
+        this.locator = new EVCacheNodeLocator(appName, serverGroup, list, 
+                DefaultHashAlgorithm.KETAMA_HASH, new EVCacheKetamaNodeLocatorConfiguration(appName, serverGroup));
         return locator;
     }
 

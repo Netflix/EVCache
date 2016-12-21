@@ -58,7 +58,9 @@ public class EVCacheClientUtil {
         class SimpleThreadFactory implements ThreadFactory {
             private final AtomicInteger counter = new AtomicInteger(); 
             public Thread newThread(Runnable r) {
-              return new Thread(r, "EVCacheClientUtil-AddFixUp-" + counter.getAndIncrement());
+                final Thread t = new Thread(r, "EVCacheClientUtil-AddFixUp-" + counter.getAndIncrement());
+                t.setDaemon(true);
+                return t;
             }
           }
 

@@ -7,7 +7,6 @@ sourceSets.test.java.srcDir 'src/test/java'
 
 repositories {
         mavenLocal()
-        jcenter()
         mavenCentral() // maven { url 'http://jcenter.bintray.com' }
 }
 
@@ -21,17 +20,16 @@ test {
 
 dependencies {
         compile group:"net.spy",                      name:"spymemcached",                     version:"2.11.4"
-        compile group:"com.google.inject",            name:"guice",                            version:"4.1.0"
-        compile group:"org.json",                     name:"json",                             version:"latest.release"
         compile group:"com.google.code.findbugs",     name:"annotations",                      version:"latest.release"
-        compile group:"com.netflix.archaius",         name:"archaius-core",                    version:"0.+"
-        //compile group:"com.netflix.servo",            name:"servo-core",                     version:"latest.release"
+        compile group:"com.netflix.archaius",         name:"archaius2-core",                   version:"latest.release"
+        compile group:"com.netflix.governator",       name:"governator",                       version:"latest.release"
+        compile group:"com.netflix.eureka",           name:"eureka-client",                    version:"1.5.6"
+        compile group:"com.netflix.servo",            name:"servo-core",                       version:"latest.release"
         compile group:"com.netflix.spectator",        name:"spectator-api",                    version:"latest.release"
-        //compile group:"com.netflix.spectator",        name:"spectator-ext-log4j2",             version:"latest.release"
+        compile group:"com.netflix.spectator",        name:"spectator-nflx-plugin",            version:"latest.release"
         compile group:"io.reactivex",                 name:"rxjava",                           version:"latest.release"
         compile group:"org.slf4j",                    name:"slf4j-log4j12",                    version:"latest.release"
         compile group:"org.slf4j",                    name:"slf4j-api",                        version:"latest.release"
-        compile group:"org.apache.httpcomponents",    name:"httpclient",                       version:"latest.release"
 
         testCompile group:"org.testng",               name:"testng",                           version:"latest.release"
         testCompile group:"org.mockito",              name:"mockito-all",                      version:"latest.release"

@@ -13,21 +13,16 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-import javax.inject.Inject;
-import javax.inject.Provider;
 import javax.inject.Singleton;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.netflix.appinfo.ApplicationInfoManager;
 import com.netflix.config.ConfigurationManager;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicStringProperty;
-import com.netflix.discovery.DiscoveryClient;
-import com.netflix.discovery.DiscoveryManager;
-import com.netflix.evcache.connection.DefaultFactoryProvider;
+import com.netflix.evcache.connection.ConnectionFactoryProvider;
 import com.netflix.evcache.connection.IConnectionFactoryProvider;
 import com.netflix.evcache.event.EVCacheEventListener;
 import com.netflix.evcache.util.EVCacheConfig;
@@ -60,9 +55,7 @@ import com.netflix.evcache.util.EVCacheConfig;
  * @author smadappa
  *
  */
-@SuppressWarnings("deprecation")
-@edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "DM_CONVERT_CASE",
-        "ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD" })
+@edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "DM_CONVERT_CASE", "ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD" })
 @Singleton
 public class EVCacheClientPoolManager {
     private static final Logger log = LoggerFactory.getLogger(EVCacheClientPoolManager.class);
@@ -70,19 +63,16 @@ public class EVCacheClientPoolManager {
     private final DynamicIntProperty defaultRefreshInterval = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheClientPoolManager.refresh.interval", 60);
     private static final DynamicStringProperty logEnabledApps = EVCacheConfig.getInstance().getDynamicStringProperty("EVCacheClientPoolManager.log.apps", "*");
 
-    @Deprecated
     private volatile static EVCacheClientPoolManager instance;
 
     private final Map<String, EVCacheClientPool> poolMap = new ConcurrentHashMap<String, EVCacheClientPool>();
     private final Map<EVCacheClientPool, ScheduledFuture<?>> scheduledTaskMap = new HashMap<EVCacheClientPool, ScheduledFuture<?>>();
     private final ScheduledThreadPoolExecutor _scheduler;
-    private final DiscoveryClient discoveryClient;
-    private final ApplicationInfoManager applicationInfoManager;
     private final List<EVCacheEventListener> evcacheEventListenerList;
-    private final Provider<IConnectionFactoryProvider> connectionFactoryprovider;
+    private final IConnectionFactoryProvider connectionFactoryProvider;
+    private final EVCacheNodeList evcacheNodeList;
 
-    @Inject
-    public EVCacheClientPoolManager(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient, Provider<IConnectionFactoryProvider> connectionFactoryprovider) {
+    public EVCacheClientPoolManager(IConnectionFactoryProvider connectionFactoryprovider, EVCacheNodeList evcacheNodeList) {
         instance = this;
         
         try {
@@ -91,26 +81,23 @@ public class EVCacheClientPoolManager {
             log.info("Default evcache configuration not loaded", e);
         }
 
-        this.applicationInfoManager = applicationInfoManager;
-        this.discoveryClient = discoveryClient;
-        this.connectionFactoryprovider = connectionFactoryprovider;
+        this.connectionFactoryProvider = connectionFactoryprovider;
+        this.evcacheNodeList = evcacheNodeList;
         this.evcacheEventListenerList = new ArrayList<EVCacheEventListener>();
-        final int poolSize = EVCacheConfig.getInstance().getDynamicIntProperty("default.refresher.poolsize", 1).get();
-        //final int poolSize = ConfigurationManager.getConfigInstance().getInt("default.refresher.poolsize", 1);
 
-        final ThreadFactory factory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat(
-                "EVCacheClientPoolManager_refresher-%d").build();
-        _scheduler = new ScheduledThreadPoolExecutor(poolSize, factory);
+        final int poolSize = EVCacheConfig.getInstance().getDynamicIntProperty("default.refresher.poolsize", 1).get();
+        final ThreadFactory factory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat("EVCacheClientPoolManager_refresher-%d").build();
         defaultRefreshInterval.addCallback(new Runnable() {
             public void run() {
                 refreshScheduler();
             }
         });
+        _scheduler = new ScheduledThreadPoolExecutor(poolSize, factory);
         initAtStartup();
     }
 
     public IConnectionFactoryProvider getConnectionFactoryProvider() {
-        return connectionFactoryprovider.get();
+        return connectionFactoryProvider;
     }
 
     public void addEVCacheEventListener(EVCacheEventListener listener) {
@@ -135,36 +122,18 @@ public class EVCacheClientPoolManager {
         }
     }
 
-    /**
-     * @deprecated. Please use DependencyInjection (@Inject) to obtain
-     * {@link EVCacheClientPoolManager}. The use of this can result in
-     * unintended behavior where you will not be able to talk to evcache
-     * instances.
-     */
-    @Deprecated
     public static EVCacheClientPoolManager getInstance() {
         if (instance == null) {
-            new EVCacheClientPoolManager(null, null, new DefaultFactoryProvider());
+            new EVCacheClientPoolManager(new ConnectionFactoryProvider(), new SimpleNodeListProvider());
             if (!EVCacheConfig.getInstance().getDynamicBooleanProperty("evcache.use.simple.node.list.provider", false).get()) {
-                log.warn("Please make sure EVCacheClientPoolManager is injected first. This is not the appropriate way to init EVCacheClientPoolManager."
+                if(log.isDebugEnabled()) log.debug("Please make sure EVCacheClientPoolManager is injected first. This is not the appropriate way to init EVCacheClientPoolManager."
                         + " If you are using simple node list provider please set evcache.use.simple.node.list.provider property to true.", new Exception());
             }
         }
         return instance;
     }
 
-    public ApplicationInfoManager getApplicationInfoManager() {
-        return this.applicationInfoManager;
-    }
-
-    public DiscoveryClient getDiscoveryClient() {
-        DiscoveryClient client = discoveryClient;
-        if (client == null) client = DiscoveryManager.getInstance().getDiscoveryClient();
-        return client;
-    }
-
     public void initAtStartup() {
-        //final String appsToInit = ConfigurationManager.getConfigInstance().getString("evcache.appsToInit");
         final String appsToInit = EVCacheConfig.getInstance().getDynamicStringProperty("evcache.appsToInit", "").get();
         if (appsToInit != null && appsToInit.length() > 0) {
             final StringTokenizer apps = new StringTokenizer(appsToInit, ",");
@@ -188,21 +157,14 @@ public class EVCacheClientPoolManager {
                 "param app name null or space");
         final String APP = getAppName(app);
         if (poolMap.containsKey(APP)) return;
-        final EVCacheNodeList provider;
-        if (EVCacheConfig.getInstance().getChainedBooleanProperty(APP + ".use.simple.node.list.provider", "evcache.use.simple.node.list.provider", false).get()) {
-            provider = new SimpleNodeListProvider(APP + "-NODES");
-        } else {
-            provider = new DiscoveryNodeListProvider(applicationInfoManager, discoveryClient, APP);
-        }
 
-        final EVCacheClientPool pool = new EVCacheClientPool(APP, provider, this);
+        final EVCacheClientPool pool = new EVCacheClientPool(APP, evcacheNodeList, this);
         scheduleRefresh(pool);
         poolMap.put(APP, pool);
     }
 
     private void scheduleRefresh(EVCacheClientPool pool) {
-        final ScheduledFuture<?> task = _scheduler.scheduleWithFixedDelay(pool, 30, defaultRefreshInterval.get(),
-                TimeUnit.SECONDS);
+        final ScheduledFuture<?> task = _scheduler.scheduleWithFixedDelay(pool, 30, defaultRefreshInterval.get(), TimeUnit.SECONDS);
         scheduledTaskMap.put(pool, task);
     }
 
