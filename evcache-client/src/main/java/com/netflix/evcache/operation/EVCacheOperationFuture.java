@@ -17,8 +17,8 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
-import com.netflix.servo.annotations.DataSourceType;
 import com.sun.management.GcInfo;
 
 import net.spy.memcached.MemcachedConnection;
@@ -53,17 +53,17 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     private final CountDownLatch latch;
     private final AtomicReference<T> objRef;
     private Operation op;
-    private final String appName;
-    private final ServerGroup serverGroup;
     private final String key;
+    private final long start;
+    private final EVCacheClient client;
 
-    public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout, ExecutorService service, String appName, ServerGroup serverGroup, String metricName) {
+    public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout, ExecutorService service, EVCacheClient client, String metricName) {
         super(k, l, oref, opTimeout, service);
         this.latch = l;
         this.objRef = oref;
-        this.appName = appName;
-        this.serverGroup = serverGroup;
         this.key = k;
+        this.client = client;
+        this.start = System.currentTimeMillis();
     }
 
     public Operation getOperation() {
@@ -76,7 +76,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     }
 
     public String getApp() {
-        return appName;
+        return client.getAppName();
     }
 
     public String getKey() {
@@ -84,11 +84,11 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     }
 
     public String getZone() {
-        return (serverGroup == null ? "NA" : serverGroup.getZone());
+        return client.getZone();
     }
 
     public ServerGroup getServerGroup() {
-        return serverGroup;
+        return client.getServerGroup();
     }
 
     public EVCacheOperationFuture<T> addListener(EVCacheGetOperationListener<T> listener) {
@@ -146,29 +146,29 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                     if (gcStartTime > startTime) {
                         gcPause = true;
                         final long gcDuration = lastGcInfo.getDuration();
-                        EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DelayDueToGCPause", DataSourceType.COUNTER).increment(gcDuration);
+                        EVCacheMetricsFactory.getInstance().getCounter(getApp() + "-DelayDueToGCPause", client.getTagList()).increment(gcDuration);
                         if (log.isDebugEnabled()) log.debug("Total duration due to gc event = " + gcDuration
                                 + " msec.");
                         break;
                     }
                 }
             }
-            if (!gcPause) {
-                final long gcDuration = System.currentTimeMillis() - startTime;
-                gcPause = (gcDuration > units.toMillis(duration) + 10);
-                if (gcPause) {
-                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DelayProbablyDueToGCPause", DataSourceType.COUNTER).increment(gcDuration);
-                }
-            }
+            if (!gcPause) 
             // redo the same op once more since there was a chance of gc pause
             if (gcPause) {
                 status = latch.await(duration, units);
                 if (log.isDebugEnabled()) log.debug("Retry status : " + status);
 
                 if (status) {
-                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DelayDueToGCPause-Success", DataSourceType.COUNTER).increment();
+                    EVCacheMetricsFactory.getInstance().getCounter(getApp() + "-DelayDueToGCPause-Success", client.getTagList()).increment();
                 } else {
-                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DelayDueToGCPause-Fail", DataSourceType.COUNTER).increment();
+                    EVCacheMetricsFactory.getInstance().getCounter(getApp() + "-DelayDueToGCPause-Fail", client.getTagList()).increment();
+                }
+            } else {
+                final long gcDuration = System.currentTimeMillis() - startTime;
+                gcPause = (gcDuration > units.toMillis(duration) + 10);
+                if (gcPause) {
+                    EVCacheMetricsFactory.getInstance().getCounter(getApp() + "-UnknownPause", client.getTagList()).increment(gcDuration);
                 }
             }
         }
@@ -177,7 +177,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
             // whenever timeout occurs, continuous timeout counter will increase by 1.
             MemcachedConnection.opTimedOut(op);
             if (op != null) op.timeOut();
-            if (!hasZF) EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-get-CheckedOperationTimeout", DataSourceType.COUNTER).increment();
+            if (!hasZF) EVCacheMetricsFactory.getInstance().getCounter(getApp() + "-get-CheckedOperationTimeout", client.getTagList()).increment();
             if (throwException) {
                 throw new CheckedOperationTimeoutException("Timed out waiting for operation", op);
             }
@@ -192,7 +192,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
             }
         }
         if (isCancelled()) {
-            if (hasZF) EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-get-Cancelled", DataSourceType.COUNTER).increment();
+            if (hasZF) EVCacheMetricsFactory.getInstance().getCounter(getApp() + "-get-Cancelled", client.getTagList()).increment();
             if (throwException) {
                 throw new ExecutionException(new CancellationException("Cancelled"));
             }
@@ -222,12 +222,12 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
             // whenever timeout occurs, continuous timeout counter will increase by 1.
             MemcachedConnection.opTimedOut(op);
             if (op != null) op.timeOut();
-            if (!hasZF) EVCacheMetricsFactory.increment(appName + "-get-CheckedOperationTimeout");
+            if (!hasZF) EVCacheMetricsFactory.getInstance().increment(getApp() + "-get-CheckedOperationTimeout", client.getTagList());
             if (throwException) {
                 subscriber.onError(new CheckedOperationTimeoutException("Timed out waiting for operation", op));
             } else {
                 if (isCancelled()) {
-                    if (hasZF) EVCacheMetricsFactory.increment(appName + "-Cancelled");
+                    if (hasZF) EVCacheMetricsFactory.getInstance().increment(getApp()+ "-get-Cancelled", client.getTagList());
                 }
                 subscriber.onSuccess(objRef.get());
             }
@@ -265,6 +265,9 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         if(log.isDebugEnabled()) log.debug("Operation cancelled", new Exception());
         return super.cancel();
     }
-    
+
+    public long getStartTime() {
+        return start;
+    }
 
 }

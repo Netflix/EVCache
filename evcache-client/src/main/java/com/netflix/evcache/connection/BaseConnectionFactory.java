@@ -11,6 +11,8 @@ import java.util.concurrent.BlockingQueue;
 
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.evcache.EVCacheTranscoder;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheKetamaNodeLocatorConfiguration;
 import com.netflix.evcache.pool.EVCacheNodeLocator;
@@ -40,26 +42,26 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     protected final ServerGroup serverGroup;
     protected EVCacheNodeLocator locator;
     protected final long startTime;
-    protected final EVCacheClientPoolManager poolManager;
+    protected final EVCacheClient client;
     protected final ChainedDynamicProperty.StringProperty failureMode;
-    
+
     BaseConnectionFactory(String appName, int len, long operationTimeout, long opMaxBlockTime, int id,
-            ServerGroup serverGroup, EVCacheClientPoolManager poolManager) {
+            ServerGroup serverGroup, EVCacheClient client) {
         super(len, BinaryConnectionFactory.DEFAULT_READ_BUFFER_SIZE, DefaultHashAlgorithm.KETAMA_HASH);
         this.appName = appName;
         this.operationTimeout = operationTimeout;
         this.opMaxBlockTime = opMaxBlockTime;
         this.id = id;
         this.serverGroup = serverGroup;
-        this.poolManager = poolManager;
+        this.client = client;
         this.startTime = System.currentTimeMillis();
         this.failureMode = EVCacheConfig.getInstance().getChainedStringProperty(this.serverGroup.getName() + ".failure.mode", appName + ".failure.mode", "Retry");
         this.name = appName + "-" + serverGroup.getName() + "-" + id;
     }
 
     public NodeLocator createLocator(List<MemcachedNode> list) {
-        this.locator = new EVCacheNodeLocator(appName, serverGroup, list, DefaultHashAlgorithm.KETAMA_HASH,
-                new EVCacheKetamaNodeLocatorConfiguration(appName, serverGroup, poolManager));
+        this.locator = new EVCacheNodeLocator(appName, serverGroup, list, 
+                DefaultHashAlgorithm.KETAMA_HASH, new EVCacheKetamaNodeLocatorConfiguration(appName, serverGroup));
         return locator;
     }
 
@@ -92,7 +94,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
         boolean doAuth = false;
         final EVCacheNodeImpl node = new EVCacheNodeImpl(sa, c, bufSize, createReadOperationQueue(),
                 createWriteOperationQueue(), createOperationQueue(),
-                opMaxBlockTime, doAuth, getOperationTimeout(), getAuthWaitTime(), this, appName, id, serverGroup,
+                opMaxBlockTime, doAuth, getOperationTimeout(), getAuthWaitTime(), this, client,
                 startTime);
         return node;
     }
@@ -152,8 +154,16 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     public String toString() {
         return name;
     }
-    
+
     public EVCacheClientPoolManager getEVCacheClientPoolManager() {
-        return this.poolManager;
+        return this.client.getPool().getEVCacheClientPoolManager();
+    }
+
+    public EVCacheClientPool getEVCacheClientPool() {
+        return this.client.getPool();
+    }
+
+    public EVCacheClient getEVCacheClient() {
+        return this.client;
     }
 }

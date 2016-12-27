@@ -103,7 +103,7 @@ public class EVCacheFutures implements ListenableFuture<Boolean, OperationComple
         return serverGroup.getZone();
     }
 
-    public String getReplicaSetNamae() {
+    public String getServerGroupName() {
         return serverGroup.getName();
     }
 
@@ -113,7 +113,7 @@ public class EVCacheFutures implements ListenableFuture<Boolean, OperationComple
         sb.append("EVCacheFutures [futures=[");
         for (OperationFuture<Boolean> future : futures)
             sb.append(future);
-        sb.append("], app=").append(app).append(", ReplicaSet=").append(serverGroup.toString()).append("]");
+        sb.append("], app=").append(app).append(", ServerGroup=").append(serverGroup.toString()).append("]");
         return sb.toString();
     }
 

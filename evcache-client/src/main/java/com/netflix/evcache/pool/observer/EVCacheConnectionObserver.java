@@ -14,24 +14,16 @@ import javax.management.ObjectName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.appinfo.ApplicationInfoManager;
-import com.netflix.appinfo.InstanceInfo;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
-import com.netflix.evcache.pool.ServerGroup;
-import com.netflix.servo.monitor.Counter;
-import com.netflix.servo.monitor.Monitors;
-import com.netflix.servo.tag.BasicTag;
-import com.netflix.servo.tag.Tag;
+import com.netflix.evcache.pool.EVCacheClient;
 
 import net.spy.memcached.ConnectionObserver;
 
 public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheConnectionObserverMBean {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheConnectionObserver.class);
-    private final InstanceInfo instanceInfo;
-    private final String appName;
-    private final ServerGroup serverGroup;
-    private final int id;
+    private final EVCacheClient client;
+    
     private long lostCount = 0;
     private long connectCount = 0;
     private final Set<SocketAddress> evCacheActiveSet;
@@ -39,19 +31,12 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
     private final Map<InetSocketAddress, Long> evCacheActiveStringSet;
     private final Map<InetSocketAddress, Long> evCacheInActiveStringSet;
 
-    private final String monitorName;
-
-    @SuppressWarnings("deprecation")
-    public EVCacheConnectionObserver(String appName, ServerGroup serverGroup, int id) {
-        this.instanceInfo = ApplicationInfoManager.getInstance().getInfo();
-        this.appName = appName;
-        this.serverGroup = serverGroup;
+    public EVCacheConnectionObserver(EVCacheClient client) {
+    	this.client = client;
         this.evCacheActiveSet = Collections.newSetFromMap(new ConcurrentHashMap<SocketAddress, Boolean>());
         this.evCacheInActiveSet = Collections.newSetFromMap(new ConcurrentHashMap<SocketAddress, Boolean>());
         this.evCacheActiveStringSet = new ConcurrentHashMap<InetSocketAddress, Long>();
         this.evCacheInActiveStringSet = new ConcurrentHashMap<InetSocketAddress, Long>();
-        this.id = id;
-        monitorName = appName + "_" + serverGroup.getName() + "_" + id + "_connections";
 
         setupMonitoring(false);
     }
@@ -63,12 +48,9 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         final InetSocketAddress inetAdd = (InetSocketAddress) sa;
         evCacheActiveStringSet.put(inetAdd, Long.valueOf(System.currentTimeMillis()));
         evCacheInActiveStringSet.remove(inetAdd);
-        if (instanceInfo != null) {
-            if (log.isDebugEnabled()) log.debug(appName + ":CONNECTION ESTABLISHED : From " + instanceInfo.getHostName()
-                    + " to " + address + " was established after " + reconnectCount + " retries");
-        }
+        if (log.isDebugEnabled()) log.debug(client.getAppName() + ":CONNECTION ESTABLISHED : To " + address + " was established after " + reconnectCount + " retries");
         if(log.isTraceEnabled()) log.trace("Stack", new Exception());
-        EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-CONNECT");
+        EVCacheMetricsFactory.getInstance().increment(client.getAppName() + "-CONNECT", client.getTagList());
         connectCount++;
     }
 
@@ -79,13 +61,9 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         final InetSocketAddress inetAdd = (InetSocketAddress) sa;
         evCacheInActiveStringSet.put(inetAdd, Long.valueOf(System.currentTimeMillis()));
         evCacheActiveStringSet.remove(inetAdd);
-        if (instanceInfo != null) {
-            if (log.isDebugEnabled()) log.debug(appName + ":CONNECTION LOST : From " + instanceInfo.getHostName()
-                    + " to " + address);
-        }
+        if (log.isDebugEnabled()) log.debug(client.getAppName() + ":CONNECTION LOST : To " + address);
         if(log.isTraceEnabled()) log.trace("Stack", new Exception());
-        final Tag tag = new BasicTag("HOST", inetAdd.getAddress().getHostAddress());
-        EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-CONNECTION_LOST", tag).increment();
+        EVCacheMetricsFactory.getInstance().increment(client.getAppName()+ "-CONNECTION_LOST", client.getTagList());
         lostCount++;
     }
 
@@ -123,8 +101,8 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
 
     private void setupMonitoring(boolean shutdown) {
         try {
-            final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + appName
-                    + ",SubGroup=pool,SubSubGroup=" + serverGroup.getName() + ",SubSubSubGroup=" + id);
+            final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + client.getAppName()
+                    + ",SubGroup=pool,SubSubGroup=" + client.getServerGroupName()+ ",SubSubSubGroup=" + client.getId());
             final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
             if (mbeanServer.isRegistered(mBeanName)) {
                 if (log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanName
@@ -133,9 +111,6 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
             }
             if (!shutdown) {
                 mbeanServer.registerMBean(this, mBeanName);
-                Monitors.registerObject(this);
-            } else {
-                Monitors.unregisterObject(this);
             }
         } catch (Exception e) {
             if (log.isWarnEnabled()) log.warn(e.getMessage(), e);
@@ -145,8 +120,8 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
     private void unRegisterInActiveNodes() {
         try {
             for (SocketAddress sa : evCacheInActiveSet) {
-                final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + appName
-                        + ",SubGroup=pool" + ",SubSubGroup=" + serverGroup.getName() + ",SubSubSubGroup=" + id
+                final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + client.getAppName()
+                        + ",SubGroup=pool" + ",SubSubGroup=" + client.getServerGroupName() + ",SubSubSubGroup=" + client.getId()
                         + ",SubSubSubSubGroup=" + ((InetSocketAddress) sa).getHostName());
                 final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
                 if (mbeanServer.isRegistered(mBeanName)) {
@@ -166,25 +141,29 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
     }
 
     public String toString() {
-        return "EVCacheConnectionObserver [instanceInfo=" + instanceInfo
-                + ", appName=" + appName + ", ServerGroup=" + serverGroup.toString() + ", id=" + id
+        return "EVCacheConnectionObserver [" 
+                + "EVCacheClient=" + client 
                 + ", evCacheActiveSet=" + evCacheActiveSet
                 + ", evCacheInActiveSet=" + evCacheInActiveSet
                 + ", evCacheActiveStringSet=" + evCacheActiveStringSet
                 + ", evCacheInActiveStringSet=" + evCacheInActiveStringSet
-                + ", monitorName=" + monitorName + "]";
+                + "]";
     }
 
     public String getAppName() {
-        return appName;
+        return client.getAppName();
     }
 
     public String getServerGroup() {
-        return serverGroup.toString();
+        return client.getServerGroup().toString();
     }
 
     public int getId() {
-        return id;
+        return client.getId();
+    }
+    
+    public EVCacheClient getClient() {
+    	return client;
     }
 
 }

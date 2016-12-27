@@ -7,17 +7,11 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheStats;
 import com.google.common.cache.Weigher;
 import com.netflix.config.DynamicIntProperty;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
-import com.netflix.servo.DefaultMonitorRegistry;
-import com.netflix.servo.MonitorRegistry;
-import com.netflix.servo.annotations.DataSourceType;
-import com.netflix.servo.monitor.Monitor;
-import com.netflix.servo.monitor.MonitorConfig;
-import com.netflix.servo.monitor.MonitorConfig.Builder;
-import com.netflix.servo.monitor.StepCounter;
-import com.netflix.servo.tag.Tag;
 
 import net.spy.memcached.transcoders.Transcoder;
 
@@ -56,18 +50,6 @@ public class EVCacheInMemoryCache<T> {
         setupCache();
     }
 
-    private void register(Monitor<?> monitor) {
-        final MonitorRegistry registry = DefaultMonitorRegistry.getInstance();
-        if (registry.isRegistered(monitor)) registry.unregister(monitor);
-        // This will ensure old cache values are unregistered
-        registry.register(monitor);
-    }
-
-    private MonitorConfig getMonitorConfig(String appName, String metric, Tag tag) {
-        final Builder builder = MonitorConfig.builder("EVCacheInMemoryCache" + "-" + appName + "-" + metric).withTag(tag);
-        return builder.build();
-    }
-
     private void setupCache() {
         try {
             final Cache<String, T> currentCache = this.cache;
@@ -91,131 +73,20 @@ public class EVCacheInMemoryCache<T> {
             log.error(e.getMessage(), e);
         }
     }
+    
+    private long getSize() {
+        final long size = cache.size();
+        final CacheStats stats = cache.stats();
+        EVCacheMetricsFactory.getInstance().getRegistry().counter("EVCacheInMemoryCache-" + appName + "-hits").increment(stats.hitCount());
+        EVCacheMetricsFactory.getInstance().getRegistry().counter("EVCacheInMemoryCache-" + appName + "-miss").increment(stats.missCount());
+        EVCacheMetricsFactory.getInstance().getRegistry().counter("EVCacheInMemoryCache-" + appName + "-evictions").increment(stats.evictionCount());
+        EVCacheMetricsFactory.getInstance().getRegistry().counter("EVCacheInMemoryCache-" + appName + "-requests").increment(stats.requestCount());
+        EVCacheMetricsFactory.getInstance().getRegistry().gauge("EVCacheInMemoryCache-" + appName + "-hitrate", stats, CacheStats::hitRate);
+        return size;
+    }
 
     private void setupMonitoring(final String appName) {
-        final StepCounter sizeCounter = new StepCounter(getMonitorConfig(appName, "size", DataSourceType.GAUGE)) {
-            @Override
-            public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Long.valueOf(cache.size());
-            }
-
-            @Override
-            public Number getValue(int pollerIndex) {
-                return getValue();
-            }
-        };
-        register(sizeCounter);
-
-        register(new Monitor<Number>() {
-            final MonitorConfig config;
-
-            {
-                config = getMonitorConfig(appName, "requests", DataSourceType.COUNTER);
-            }
-
-            @Override
-            public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Long.valueOf(cache.stats().requestCount());
-            }
-
-            @Override
-            public Number getValue(int pollerIndex) {
-                return getValue();
-            }
-
-            @Override
-            public MonitorConfig getConfig() {
-                return config;
-            }
-        });
-
-        final StepCounter hitrateCounter = new StepCounter(getMonitorConfig(appName, "hitrate", DataSourceType.GAUGE)) {
-            @Override
-            public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().hitRate());
-            }
-
-            @Override
-            public Number getValue(int pollerIndex) {
-                return getValue();
-            }
-        };
-        register(hitrateCounter);
-
-        register(new Monitor<Number>() {
-            final MonitorConfig config;
-
-            {
-                config = getMonitorConfig(appName, "hits", DataSourceType.COUNTER);
-            }
-
-            @Override
-            public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().hitCount());
-            }
-
-            @Override
-            public Number getValue(int pollerIndex) {
-                return getValue();
-            }
-
-            @Override
-            public MonitorConfig getConfig() {
-                return config;
-            }
-        });
-
-        register(new Monitor<Number>() {
-            final MonitorConfig config;
-
-            {
-                config = getMonitorConfig(appName, "miss", DataSourceType.COUNTER);
-            }
-
-            @Override
-            public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().missCount());
-            }
-
-            @Override
-            public Number getValue(int pollerIndex) {
-                return getValue();
-            }
-
-            @Override
-            public MonitorConfig getConfig() {
-                return config;
-            }
-        });
-
-        register(new Monitor<Number>() {
-            final MonitorConfig config;
-
-            {
-                config = getMonitorConfig(appName, "evictions", DataSourceType.COUNTER);
-            }
-
-            @Override
-            public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().evictionCount());
-            }
-
-            @Override
-            public Number getValue(int pollerIndex) {
-                return getValue();
-            }
-
-            @Override
-            public MonitorConfig getConfig() {
-                return config;
-            }
-        });
+        EVCacheMetricsFactory.getInstance().getRegistry().gauge("EVCacheInMemoryCache" + "-" + appName + "-size", this, EVCacheInMemoryCache::getSize);
     }
 
     public T get(String key) {

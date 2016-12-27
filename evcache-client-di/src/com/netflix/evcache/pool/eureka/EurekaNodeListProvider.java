@@ -1,4 +1,4 @@
-package com.netflix.evcache.pool;
+package com.netflix.evcache.pool.eureka;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -24,26 +24,24 @@ import com.netflix.config.DynamicStringSetProperty;
 import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.shared.Application;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.pool.EVCacheNodeList;
+import com.netflix.evcache.pool.EVCacheServerGroupConfig;
+import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
-import com.netflix.servo.tag.BasicTagList;
+import com.netflix.spectator.api.BasicTag;
 
-public class DiscoveryNodeListProvider implements EVCacheNodeList {
+public class EurekaNodeListProvider implements EVCacheNodeList {
     public static final String DEFAULT_PORT = "11211";
 
-    private static Logger log = LoggerFactory.getLogger(DiscoveryNodeListProvider.class);
+    private static Logger log = LoggerFactory.getLogger(EurekaNodeListProvider.class);
     private final DiscoveryClient _discoveryClient;
-    private final String _appName;
     private final ApplicationInfoManager applicationInfoManager;
     private final Map<String, ChainedDynamicProperty.BooleanProperty> useRendBatchPortMap = new HashMap<String, ChainedDynamicProperty.BooleanProperty>();
-    private final DynamicStringSetProperty ignoreHosts;
+    private DynamicStringSetProperty ignoreHosts = null;
 
-    public DiscoveryNodeListProvider(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient,
-            String appName) {
+    public EurekaNodeListProvider(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient) {
         this.applicationInfoManager = applicationInfoManager;
         this._discoveryClient = discoveryClient;
-        this._appName = appName;
-        ignoreHosts = new DynamicStringSetProperty(appName + ".ignore.hosts", "");
-
     }
 
     /*
@@ -52,8 +50,7 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
      * @see com.netflix.evcache.pool.EVCacheNodeList#discoverInstances()
      */
     @Override
-    public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances() throws IOException {
-
+    public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances(String _appName) throws IOException {
         if ((applicationInfoManager.getInfo().getStatus() == InstanceStatus.DOWN)) {
             return Collections.<ServerGroup, EVCacheServerGroupConfig> emptyMap();
         }
@@ -84,12 +81,12 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             // We checked above if this instance is Amazon so no need to do a instanceof check
             final String zone = amznInfo.get(AmazonInfo.MetaDataKey.availabilityZone);
             if(zone == null) {
-                EVCacheMetricsFactory.increment(_appName, null, "EVCacheClient-DiscoveryNodeListProvider-NULL_ZONE");
+                EVCacheMetricsFactory.getInstance().increment("EVCacheClient-DiscoveryNodeListProvider-NULL_ZONE", Collections.singletonList(new BasicTag("APP", _appName)));
                 continue;
             }
             final String asgName = iInfo.getASGName();
             if(asgName == null) {
-                EVCacheMetricsFactory.increment(_appName, null, "EVCacheClient-DiscoveryNodeListProvider-NULL_SERVER_GROUP");
+                EVCacheMetricsFactory.getInstance().increment("EVCacheClient-DiscoveryNodeListProvider-NULL_SERVER_GROUP", Collections.singletonList(new BasicTag("APP", _appName)));
                 continue;
             }
 
@@ -117,7 +114,7 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                 instances = new HashSet<InetSocketAddress>();
                 config = new EVCacheServerGroupConfig(serverGroup, instances, rendPort, udsproxyMemcachedPort, udsproxyMementoPort);
                 instancesSpecific.put(serverGroup, config);
-                EVCacheMetricsFactory.getLongGauge(_appName + "-port", BasicTagList.of("ServerGroup", asgName, "APP", _appName)).set(Long.valueOf(port));
+                EVCacheMetricsFactory.getInstance().getRegistry().gauge(EVCacheMetricsFactory.getInstance().getRegistry().createId(_appName + "-port", "ServerGroup", asgName, "APP", _appName), Long.valueOf(port));
             }
 
             /* Don't try to use downed instances */
@@ -156,6 +153,8 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             final String vpcId = amznInfo.get(AmazonInfo.MetaDataKey.vpcId);
             final String localIp = amznInfo.get(AmazonInfo.MetaDataKey.localIpv4);
             if (log.isDebugEnabled()) log.debug("myZone - " + myZone + "; zone : " + zone + "; myRegion : " + myRegion + "; region : " + region + "; host : " + host + "; vpcId : " + vpcId);
+            
+            if(ignoreHosts == null) ignoreHosts = EVCacheConfig.getInstance().getDynamicStringSetProperty(_appName + ".ignore.hosts", "");
             if(localIp != null && ignoreHosts.get().contains(localIp)) continue;
             if(host != null && ignoreHosts.get().contains(host)) continue;
 
@@ -168,7 +167,6 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                         + "; App Name : " + _appName + "; Zone : " + zone + "; myZone - " + myZone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
             } else {
                 if(host != null && host.startsWith("ec2")) {
-
                     final InetAddress inetAddress = (localIp != null) ? InetAddress.getByAddress(host, InetAddresses.forString(localIp).getAddress()) : InetAddress.getByName(host);
                     address = new InetSocketAddress(inetAddress, port);
                     if (log.isDebugEnabled()) log.debug("myZone - " + myZone + ". host : " + host

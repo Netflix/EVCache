@@ -1,6 +1,5 @@
 package com.netflix.evcache.util;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -10,16 +9,14 @@ import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicLongProperty;
 import com.netflix.config.DynamicPropertyFactory;
 import com.netflix.config.DynamicStringProperty;
+import com.netflix.config.DynamicStringSetProperty;
 import com.netflix.config.Property;
-import com.netflix.servo.monitor.MonitorConfig;
-import com.netflix.servo.tag.Tag;
-import com.netflix.servo.tag.TagList;
 
 public class EVCacheConfig {
 
     private static final EVCacheConfig INSTANCE = new EVCacheConfig();
     private final Map<String, Property<?>> fastPropMap = new ConcurrentHashMap<String, Property<?>>();
-    private final Map<String, MonitorConfig> monitorConfigMap = new HashMap<String, MonitorConfig>();
+//    private final Map<String, MonitorConfig> monitorConfigMap = new HashMap<String, MonitorConfig>();
 
     private EVCacheConfig() {
     }
@@ -63,6 +60,14 @@ public class EVCacheConfig {
         fastPropMap.put(name, prop);
         return prop;
     }
+    
+    public DynamicStringSetProperty getDynamicStringSetProperty(String propertyName, String defaultValue) {
+        DynamicStringSetProperty prop = (DynamicStringSetProperty) fastPropMap.get(propertyName);
+        if (prop != null) return prop;
+        prop = new DynamicStringSetProperty(propertyName, defaultValue);
+        fastPropMap.put(propertyName, prop);
+        return prop;
+    }
 
     public ChainedDynamicProperty.BooleanProperty getChainedBooleanProperty(String overrideKey, String primaryKey,
             Boolean defaultValue) {
@@ -99,22 +104,22 @@ public class EVCacheConfig {
         return prop;
     }
 
-    public MonitorConfig getMonitorConfig(final String metricName, final Tag tag) {
-        return this.getMonitorConfig(metricName, tag, null);
-    }
-
-    public MonitorConfig getMonitorConfig(final String metricName, final Tag tag, final TagList tagList) {
-        MonitorConfig mc = monitorConfigMap.get(metricName);
-        if (mc != null) return mc;
-
-        final MonitorConfig.Builder monitorConfig = MonitorConfig.builder(metricName);
-        if (tagList != null) monitorConfig.withTags(tagList);
-        if (tag != null) monitorConfig.withTag(tag);
-        mc = monitorConfig.build();
-        monitorConfigMap.put(metricName, mc);
-        return mc;
-    }
-
+//    public MonitorConfig getMonitorConfig(final String metricName, final Tag tag) {
+//        return this.getMonitorConfig(metricName, tag, null);
+//    }
+//
+//    public MonitorConfig getMonitorConfig(final String metricName, final Tag tag, final TagList tagList) {
+//        MonitorConfig mc = monitorConfigMap.get(metricName);
+//        if (mc != null) return mc;
+//
+//        final MonitorConfig.Builder monitorConfig = MonitorConfig.builder(metricName);
+//        if (tagList != null) monitorConfig.withTags(tagList);
+//        if (tag != null) monitorConfig.withTag(tag);
+//        mc = monitorConfig.build();
+//        monitorConfigMap.put(metricName, mc);
+//        return mc;
+//    }
+//
 //    public DistributionSummary getDistributionSummary(String name) {
 //        final Registry registry = Spectator.globalRegistry(); //_poolManager.getRegistry();
 //        if (registry != null) {

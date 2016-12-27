@@ -5,7 +5,7 @@ import net.spy.memcached.transcoders.BaseSerializingTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
 
 /**
- * A local transocder used only by EVCache client to ensure we don't try to deserialize chunks
+ * A local transcoder used only by EVCache client to ensure we don't try to deserialize chunks
  * 
  * @author smadappa
  *
