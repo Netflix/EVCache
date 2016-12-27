@@ -73,6 +73,7 @@ public class EVCacheClientPoolManager {
     private final IConnectionFactoryProvider connectionFactoryProvider;
     private final EVCacheNodeList evcacheNodeList;
 
+
     @Inject
     public EVCacheClientPoolManager(IConnectionFactoryProvider connectionFactoryprovider, EVCacheNodeList evcacheNodeList) {
         instance = this;

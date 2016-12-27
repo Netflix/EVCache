@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClient;
-
 import net.spy.memcached.ConnectionObserver;
 
 public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheConnectionObserverMBean {
