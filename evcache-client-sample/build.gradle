@@ -2,6 +2,8 @@ apply plugin: 'java'
 
 repositories {
         jcenter()
+        mavenLocal()
+        mavenCentral()
 }
 
 configurations.all {
@@ -12,6 +14,7 @@ configurations.all {
 
 dependencies {
     compile project(':evcache-client')
+    compile project(':evcache-client-di')
 }
 
 task (runSample , dependsOn: 'classes' , type:JavaExec) {
