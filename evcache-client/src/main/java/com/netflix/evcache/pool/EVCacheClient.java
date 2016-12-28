@@ -117,14 +117,13 @@ public class EVCacheClient {
         this.chunkingTranscoder = new ChunkTranscoder();
         this.maxWriteQueueSize = maxQueueSize;
         this.ignoreTouch = EVCacheConfig.getInstance().getChainedBooleanProperty(appName + "." + this.serverGroup.getName() + ".ignore.touch", appName + ".ignore.touch", false);
-
-        this.connectionFactory = pool.getEVCacheClientPoolManager().getConnectionFactoryProvider().getConnectionFactory(appName, id, serverGroup, this);
-        this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, appName, zone, id, serverGroup, this);
-        this.connectionObserver = new EVCacheConnectionObserver(this);
-        this.evcacheMemcachedClient.addObserver(connectionObserver);
-
         this.decodingTranscoder = new SerializingTranscoder(Integer.MAX_VALUE);
         decodingTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
+
+        this.connectionFactory = pool.getEVCacheClientPoolManager().getConnectionFactoryProvider().getConnectionFactory(this);
+        this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, this);
+        this.connectionObserver = new EVCacheConnectionObserver(this);
+        this.evcacheMemcachedClient.addObserver(connectionObserver);
     }
 
     private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys) throws EVCacheException {
@@ -231,8 +230,7 @@ public class EVCacheClient {
             if (metadataMap.containsKey(key)) {
                 return new ChunkDetails(null, null, false, metadataMap.get(key));
             } else if (metadataMap.containsKey(firstKey)) {
-                final ChunkInfo ci = getChunkInfo(firstKey, (String) decodingTranscoder.decode(metadataMap.get(
-                        firstKey)));
+                final ChunkInfo ci = getChunkInfo(firstKey, (String) decodingTranscoder.decode(metadataMap.get(firstKey)));
                 if (ci == null) return null;
 
                 final List<String> keys = new ArrayList<>();
@@ -263,8 +261,7 @@ public class EVCacheClient {
                 if (metadataMap.containsKey(key)) {
                     return new ChunkDetails(null, null, false, metadataMap.get(key));
                 } else if (metadataMap.containsKey(firstKey)) {
-                    final ChunkInfo ci = getChunkInfo(firstKey, (String) decodingTranscoder.decode(metadataMap.get(
-                        firstKey)));
+                    final ChunkInfo ci = getChunkInfo(firstKey, (String) decodingTranscoder.decode(metadataMap.get(firstKey)));
                     if (ci == null) return null;
 
                     final List<String> keys = new ArrayList<>();

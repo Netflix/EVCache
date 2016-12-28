@@ -12,11 +12,11 @@ import net.spy.memcached.MemcachedNode;
 
 public class DIEVCacheKetamaNodeLocatorConfiguration extends EVCacheKetamaNodeLocatorConfiguration {
 
-    private final DIEVCacheClientConfiguration poolManager;
+	private final DiscoveryClient discoveryClient;
 
-    public DIEVCacheKetamaNodeLocatorConfiguration(String appId, ServerGroup serverGroup, DIEVCacheClientConfiguration poolManager) {
-        super(appId, serverGroup);
-        this.poolManager = poolManager;
+    public DIEVCacheKetamaNodeLocatorConfiguration(EVCacheClient client, DiscoveryClient discoveryClient) {
+        super(client);
+        this.discoveryClient = discoveryClient;
     }
 
     /**
@@ -34,9 +34,8 @@ public class DIEVCacheKetamaNodeLocatorConfiguration extends EVCacheKetamaNodeLo
             final SocketAddress socketAddress = node.getSocketAddress();
             if(socketAddress instanceof InetSocketAddress) {
                 final InetSocketAddress isa = (InetSocketAddress)socketAddress;
-                if(poolManager.getDiscoveryClient() != null ) {
-                    final DiscoveryClient mgr = poolManager.getDiscoveryClient();
-                    final Application app = mgr.getApplication(appId);
+                if(discoveryClient != null ) {
+                    final Application app = discoveryClient.getApplication(client.getAppName());
                     final List<InstanceInfo> instances = app.getInstances();
                     for(InstanceInfo info : instances) {
                         final String hostName = info.getHostName();
@@ -63,6 +62,6 @@ public class DIEVCacheKetamaNodeLocatorConfiguration extends EVCacheKetamaNodeLo
 
     @Override
     public String toString() {
-        return "DIEVCacheKetamaNodeLocatorConfiguration [" + super.toString() + ", PoolManager=" + poolManager + "]";
+        return "DIEVCacheKetamaNodeLocatorConfiguration [" + super.toString() + ", DiscoveryClient=" + discoveryClient + "]";
     }
 }

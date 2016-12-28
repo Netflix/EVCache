@@ -11,15 +11,12 @@ import net.spy.memcached.util.DefaultKetamaNodeLocatorConfiguration;
 
 public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLocatorConfiguration {
 
-    protected final String appId;
-    protected final ServerGroup serverGroup;
-
+    protected final EVCacheClient client;
     protected final ChainedDynamicProperty.IntProperty bucketSize;
 
-    public EVCacheKetamaNodeLocatorConfiguration(String appId, ServerGroup serverGroup) {
-        this.appId = appId;
-        this.serverGroup = serverGroup;
-        bucketSize = EVCacheConfig.getInstance().getChainedIntProperty(appId + "." + serverGroup.getName() + ".bucket.size",appId + ".bucket.size", super.getNodeRepetitions());
+    public EVCacheKetamaNodeLocatorConfiguration(EVCacheClient client) {
+    	this.client = client;
+        bucketSize = EVCacheConfig.getInstance().getChainedIntProperty(client.getAppName() + "." + client.getServerGroupName() + ".bucket.size", client.getAppName()+ ".bucket.size", super.getNodeRepetitions());
     }
 
     /**
@@ -62,6 +59,6 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
 
     @Override
     public String toString() {
-        return "EVCacheKetamaNodeLocatorConfiguration [app=" + appId + ", ServerGroup=" + serverGroup + ", BucketSize=" + getNodeRepetitions() + "]";
+        return "EVCacheKetamaNodeLocatorConfiguration [EVCacheClient=" + client + ", BucketSize=" + getNodeRepetitions() + "]";
     }
 }

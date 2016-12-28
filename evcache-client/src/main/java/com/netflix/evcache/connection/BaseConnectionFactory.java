@@ -35,33 +35,30 @@ import net.spy.memcached.transcoders.Transcoder;
 public class BaseConnectionFactory extends BinaryConnectionFactory {
 
     protected final String name;
-    protected final String appName;
     protected final long operationTimeout;
     protected final long opMaxBlockTime;
-    protected final int id;
-    protected final ServerGroup serverGroup;
     protected EVCacheNodeLocator locator;
     protected final long startTime;
     protected final EVCacheClient client;
     protected final ChainedDynamicProperty.StringProperty failureMode;
 
-    BaseConnectionFactory(String appName, int len, long operationTimeout, long opMaxBlockTime, int id,
-            ServerGroup serverGroup, EVCacheClient client) {
+    BaseConnectionFactory(EVCacheClient client, int len, long operationTimeout, long opMaxBlockTime) {
         super(len, BinaryConnectionFactory.DEFAULT_READ_BUFFER_SIZE, DefaultHashAlgorithm.KETAMA_HASH);
-        this.appName = appName;
         this.operationTimeout = operationTimeout;
         this.opMaxBlockTime = opMaxBlockTime;
-        this.id = id;
-        this.serverGroup = serverGroup;
         this.client = client;
         this.startTime = System.currentTimeMillis();
-        this.failureMode = EVCacheConfig.getInstance().getChainedStringProperty(this.serverGroup.getName() + ".failure.mode", appName + ".failure.mode", "Retry");
+
+        final String appName = client.getAppName();
+        final int id = client.getId();
+        final ServerGroup serverGroup = client.getServerGroup();
+        this.failureMode = EVCacheConfig.getInstance().getChainedStringProperty(serverGroup.getName() + ".failure.mode", appName + ".failure.mode", "Retry");
         this.name = appName + "-" + serverGroup.getName() + "-" + id;
     }
 
     public NodeLocator createLocator(List<MemcachedNode> list) {
-        this.locator = new EVCacheNodeLocator(appName, serverGroup, list, 
-                DefaultHashAlgorithm.KETAMA_HASH, new EVCacheKetamaNodeLocatorConfiguration(appName, serverGroup));
+        this.locator = new EVCacheNodeLocator(client, list, 
+                DefaultHashAlgorithm.KETAMA_HASH, new EVCacheKetamaNodeLocatorConfiguration(client));
         return locator;
     }
 
@@ -140,15 +137,15 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public int getId() {
-        return this.id;
+        return client.getId();
     }
 
     public String getZone() {
-        return this.serverGroup.getZone();
+        return client.getServerGroup().getZone();
     }
 
     public String getReplicaSetName() {
-        return this.serverGroup.getName();
+        return client.getServerGroup().getName();
     }
 
     public String toString() {

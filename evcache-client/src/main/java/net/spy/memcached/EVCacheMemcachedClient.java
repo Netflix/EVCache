@@ -28,7 +28,6 @@ import com.netflix.evcache.operation.EVCacheBulkGetFuture;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.DistributionSummary;
 import com.netflix.spectator.api.Timer;
@@ -56,25 +55,18 @@ import net.spy.memcached.util.StringUtils;
 public class EVCacheMemcachedClient extends MemcachedClient {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheMemcachedClient.class);
-    private final int id;
     private final String appName;
-    private final String zone;
     private final ChainedDynamicProperty.IntProperty readTimeout;
-    private final ServerGroup serverGroup;
     private final EVCacheClient client;
     private DistributionSummary getDataSize, bulkDataSize, getAndTouchDataSize;
     private DynamicLongProperty mutateOperationTimeout;
 
     public EVCacheMemcachedClient(ConnectionFactory cf, List<InetSocketAddress> addrs,
-            ChainedDynamicProperty.IntProperty readTimeout, String appName, String zone, int id,
-            ServerGroup serverGroup, EVCacheClient client) throws IOException {
+            ChainedDynamicProperty.IntProperty readTimeout, EVCacheClient client) throws IOException {
         super(cf, addrs);
-        this.id = id;
-        this.appName = appName;
-        this.zone = zone;
         this.readTimeout = readTimeout;
-        this.serverGroup = serverGroup;
         this.client = client;
+        this.appName = client.getAppName();
     }
 
     public NodeLocator getNodeLocator() {
@@ -505,7 +497,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     }
 
     public String toString() {
-        return appName + "_" + zone + " _" + id;
+        return appName + "-" + client.getZone() + "-" + client.getId();
     }
 
     @SuppressWarnings("unchecked")

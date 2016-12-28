@@ -5,13 +5,14 @@ import com.google.inject.Singleton;
 
 @Singleton
 public class ConnectionModule extends AbstractModule {
+	
     public ConnectionModule() {
     }
 
     @Override
     // Make sure this is done
     protected void configure() {
-        bind(IConnectionFactoryProvider.class).toProvider(DIConnectionFactoryProvider.class); 
+        bind(IConnectionFactoryProvider.class).toProvider(DIConnectionFactoryProvider.class);
     }
 
     @Override
