@@ -18,7 +18,7 @@ import com.netflix.evcache.operation.EVCacheOperationFuture;
 import rx.schedulers.Schedulers;
 
 public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener<String> {
-    private static final Logger log = LoggerFactory.getLogger(EVCacheTestDIOld.class);
+    private static final Logger log = LoggerFactory.getLogger(EVCacheTestDI.class);
     private int loops = 1;
 
     public static void main(String args[]) {
