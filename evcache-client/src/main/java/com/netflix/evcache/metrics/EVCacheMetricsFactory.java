@@ -54,6 +54,14 @@ public final class EVCacheMetricsFactory {
         return INSTANCE;
     }
 
+    public Map<String, Counter> getAllCounters() {
+        return counterMap;
+    }
+    
+    public Map<String, Timer> getAllTimers() {
+        return timerMap;
+    }
+    
     public Map<String, Number> getAllMonitor() {
         return monitorMap;
     }
@@ -138,7 +146,7 @@ public final class EVCacheMetricsFactory {
 
         writeLock.lock();
         try {
-            if (monitorMap.containsKey(name))
+            if (timerMap.containsKey(name))
                 return timerMap.get(name);
             else {
                 Id id = getRegistry().createId(metric);
@@ -152,81 +160,6 @@ public final class EVCacheMetricsFactory {
         }
     }
 
-//    public PercentileTimer getPercentileTimer(String appName, ServerGroup serverGroup, String metric) {
-//        final String serverGroupName = (serverGroup != null ? serverGroup.getName() : "");
-//        final String metricName = getMetricName(appName, null, metric);
-//        final String name = metricName + serverGroupName + "type=PercentileTimer";
-//        final PercentileTimer duration = (PercentileTimer) monitorMap.get(name);
-//        if (duration != null) return duration;
-//
-//        writeLock.lock();
-//        try {
-//            if (monitorMap.containsKey(name))
-//                return (PercentileTimer) monitorMap.get(name);
-//            else {
-//                final StatsConfig statsConfig = new StatsConfig.Builder().withPercentiles(new double[] { 95, 99 })
-//                        .withPublishMax(true).withPublishMin(true)
-//                        .withPublishMean(true).withPublishCount(true).withSampleSize(sampleSize.get()).build();
-//                final PercentileTimer _duration = new PercentileTimer(getMonitorConfig(metricName, appName, null, serverGroupName,
-//                        metric), statsConfig, TimeUnit.MILLISECONDS);
-//                monitorMap.put(name, _duration);
-//                DefaultMonitorRegistry.getInstance().register(_duration);
-//                return _duration;
-//            }
-//        } finally {
-//            writeLock.unlock();
-//        }
-//    }
-//
-//    public String getMetricName(String appName, String cacheName, String metric) {
-//        return appName + (cacheName == null ? "-" : "-" + cacheName + "-") + metric;
-//    }
-//
-//    public MonitorConfig getMonitorConfig(String appName, String cacheName, String metric) {
-//        return getMonitorConfig(getMetricName(appName, cacheName, metric), appName, cacheName, metric);
-//    }
-//
-//    public MonitorConfig getMonitorConfig(String name, String appName, String cacheName, String metric) {
-//        Builder builder = MonitorConfig.builder(name).withTag("APP", appName).withTag("METRIC", metric);
-//        if (cacheName != null && cacheName.length() > 0) {
-//            builder = builder.withTag("CACHE", cacheName);
-//        }
-//        return builder.build();
-//    }
-//
-//    public MonitorConfig getMonitorConfig(String name, String appName, String cacheName, String serverGroup, String metric) {
-//        Builder builder = MonitorConfig.builder(name).withTag("APP", appName).withTag("METRIC", metric);
-//        if (cacheName != null && cacheName.length() > 0) {
-//            builder = builder.withTag("CACHE", cacheName);
-//        }
-//        if (serverGroup != null && serverGroup.length() > 0) {
-//            builder = builder.withTag("ServerGroup", serverGroup);
-//        }
-//        return builder.build();
-//    }
-//
-//    public Timer getPercentileTimer(String name) {
-//        Timer timer = timerMap.get(name);
-//        if (timer != null) return timer;
-//        writeLock.lock();
-//        try {
-//            if (timerMap.containsKey(name)) {
-//                return timerMap.get(name);
-//            } else {
-//                final StatsConfig statsConfig = new StatsConfig.Builder().withPercentiles(new double[] { 95, 99 })
-//                        .withPublishMax(true).withPublishMin(true).withPublishMean(true)
-//                        .withPublishCount(true).withSampleSize(sampleSize.get()).build();
-//                final MonitorConfig monitorConfig = MonitorConfig.builder(name).build();
-//                timer = new PercentileTimer(monitorConfig, statsConfig, TimeUnit.MILLISECONDS);
-//                DefaultMonitorRegistry.getInstance().register(timer);
-//                timerMap.put(name, timer);
-//                return timer;
-//            }
-//        } finally {
-//            writeLock.unlock();
-//        }
-//    }
-//
     public DistributionSummary getDistributionSummary(String name, Collection<Tag> tags) {
         final String metricName = (tags != null ) ? name + tags.toString() : name;
         final DistributionSummary _ds = distributionSummaryMap.get(metricName);
