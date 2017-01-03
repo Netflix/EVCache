@@ -8,15 +8,16 @@ import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.ConnectionFactory;
 
-public class DIConnectionFactoryProvider extends ConnectionFactoryProvider implements Provider<IConnectionFactoryProvider> {
+public class DIConnectionFactoryBuilderProvider extends ConnectionFactoryBuilder implements Provider<IConnectionBuilder> {
 
-	private final DiscoveryClient discoveryClient;
-	@Inject
-	public DIConnectionFactoryProvider(DiscoveryClient discoveryClient) {
-		this.discoveryClient = discoveryClient;
-	}
+    private final DiscoveryClient discoveryClient;
+
+    @Inject
+    public DIConnectionFactoryBuilderProvider(DiscoveryClient discoveryClient) {
+        this.discoveryClient = discoveryClient;
+    }
     @Override
-    public ConnectionFactoryProvider get() {
+    public ConnectionFactoryBuilder get() {
         return this;
     }
 

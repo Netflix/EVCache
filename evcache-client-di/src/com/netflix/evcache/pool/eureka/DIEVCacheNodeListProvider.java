@@ -11,7 +11,7 @@ public class DIEVCacheNodeListProvider implements Provider<EVCacheNodeList> {
 
     private final DiscoveryClient discoveryClient;
     private final ApplicationInfoManager applicationInfoManager;
-    
+
     @Inject
     public DIEVCacheNodeListProvider(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient) {
         this.applicationInfoManager = applicationInfoManager;

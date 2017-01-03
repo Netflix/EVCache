@@ -4,7 +4,7 @@ import com.netflix.evcache.pool.EVCacheClient;
 
 import net.spy.memcached.ConnectionFactory;
 
-public interface IConnectionFactoryProvider {
+public interface IConnectionBuilder {
 
     ConnectionFactory getConnectionFactory(EVCacheClient client);
 

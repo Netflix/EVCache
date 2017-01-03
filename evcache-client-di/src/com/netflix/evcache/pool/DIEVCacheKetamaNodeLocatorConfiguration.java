@@ -12,7 +12,7 @@ import net.spy.memcached.MemcachedNode;
 
 public class DIEVCacheKetamaNodeLocatorConfiguration extends EVCacheKetamaNodeLocatorConfiguration {
 
-	private final DiscoveryClient discoveryClient;
+    private final DiscoveryClient discoveryClient;
 
     public DIEVCacheKetamaNodeLocatorConfiguration(EVCacheClient client, DiscoveryClient discoveryClient) {
         super(client);

@@ -4,15 +4,15 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
 
 @Singleton
-public class ConnectionModule extends AbstractModule {
-	
-    public ConnectionModule() {
+public class DIConnectionModule extends AbstractModule {
+
+    public DIConnectionModule() {
     }
 
     @Override
     // Make sure this is done
     protected void configure() {
-        bind(IConnectionFactoryProvider.class).toProvider(DIConnectionFactoryProvider.class);
+        bind(IConnectionBuilder.class).toProvider(DIConnectionFactoryBuilderProvider.class);
     }
 
     @Override

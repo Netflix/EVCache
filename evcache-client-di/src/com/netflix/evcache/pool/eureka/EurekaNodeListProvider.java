@@ -153,7 +153,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
             final String vpcId = amznInfo.get(AmazonInfo.MetaDataKey.vpcId);
             final String localIp = amznInfo.get(AmazonInfo.MetaDataKey.localIpv4);
             if (log.isDebugEnabled()) log.debug("myZone - " + myZone + "; zone : " + zone + "; myRegion : " + myRegion + "; region : " + region + "; host : " + host + "; vpcId : " + vpcId);
-            
+
             if(ignoreHosts == null) ignoreHosts = EVCacheConfig.getInstance().getDynamicStringSetProperty(_appName + ".ignore.hosts", "");
             if(localIp != null && ignoreHosts.get().contains(localIp)) continue;
             if(host != null && ignoreHosts.get().contains(host)) continue;

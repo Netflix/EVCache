@@ -23,8 +23,8 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.config.ConfigurationManager;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicStringProperty;
-import com.netflix.evcache.connection.ConnectionFactoryProvider;
-import com.netflix.evcache.connection.IConnectionFactoryProvider;
+import com.netflix.evcache.connection.ConnectionFactoryBuilder;
+import com.netflix.evcache.connection.IConnectionBuilder;
 import com.netflix.evcache.event.EVCacheEventListener;
 import com.netflix.evcache.util.EVCacheConfig;
 
@@ -70,12 +70,12 @@ public class EVCacheClientPoolManager {
     private final Map<EVCacheClientPool, ScheduledFuture<?>> scheduledTaskMap = new HashMap<EVCacheClientPool, ScheduledFuture<?>>();
     private final ScheduledThreadPoolExecutor _scheduler;
     private final List<EVCacheEventListener> evcacheEventListenerList;
-    private final IConnectionFactoryProvider connectionFactoryProvider;
+    private final IConnectionBuilder connectionFactoryProvider;
     private final EVCacheNodeList evcacheNodeList;
 
 
     @Inject
-    public EVCacheClientPoolManager(IConnectionFactoryProvider connectionFactoryprovider, EVCacheNodeList evcacheNodeList) {
+    public EVCacheClientPoolManager(IConnectionBuilder connectionFactoryprovider, EVCacheNodeList evcacheNodeList) {
         instance = this;
         
         try {
@@ -99,7 +99,7 @@ public class EVCacheClientPoolManager {
         initAtStartup();
     }
 
-    public IConnectionFactoryProvider getConnectionFactoryProvider() {
+    public IConnectionBuilder getConnectionFactoryProvider() {
         return connectionFactoryProvider;
     }
 
@@ -127,7 +127,7 @@ public class EVCacheClientPoolManager {
 
     public static EVCacheClientPoolManager getInstance() {
         if (instance == null) {
-            new EVCacheClientPoolManager(new ConnectionFactoryProvider(), new SimpleNodeListProvider());
+            new EVCacheClientPoolManager(new ConnectionFactoryBuilder(), new SimpleNodeListProvider());
             if (!EVCacheConfig.getInstance().getDynamicBooleanProperty("evcache.use.simple.node.list.provider", false).get()) {
                 if(log.isDebugEnabled()) log.debug("Please make sure EVCacheClientPoolManager is injected first. This is not the appropriate way to init EVCacheClientPoolManager."
                         + " If you are using simple node list provider please set evcache.use.simple.node.list.provider property to true.", new Exception());

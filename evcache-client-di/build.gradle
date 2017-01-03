@@ -19,6 +19,7 @@ test {
 }
 
 dependencies {
+        compile project(':evcache-client')
         compile group:"net.spy",                      name:"spymemcached",                     version:"2.11.4"
         compile group:"com.google.code.findbugs",     name:"annotations",                      version:"latest.release"
         compile group:"com.netflix.archaius",         name:"archaius2-core",                   version:"latest.release"

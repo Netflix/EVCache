@@ -1,24 +1,6 @@
 package com.netflix.evcache.test;
 
 
-import com.google.inject.Injector;
-import com.netflix.appinfo.ApplicationInfoManager;
-import com.netflix.config.ConfigurationManager;
-import com.netflix.discovery.guice.EurekaModule;
-import com.netflix.evcache.EVCache;
-import com.netflix.evcache.EVCacheLatch;
-import com.netflix.evcache.EVCacheModule;
-import com.netflix.evcache.EVCacheLatch.Policy;
-import com.netflix.evcache.connection.ConnectionModule;
-import com.netflix.evcache.operation.EVCacheLatchImpl;
-import com.netflix.evcache.pool.DIEVCacheClientConfiguration;
-import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.evcache.pool.EVCacheClientPoolManager;
-import com.netflix.governator.guice.LifecycleInjector;
-import com.netflix.governator.guice.LifecycleInjectorBuilder;
-import com.netflix.governator.lifecycle.LifecycleManager;
-import com.netflix.spectator.nflx.SpectatorModule;
-
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Properties;
@@ -28,6 +10,24 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeSuite;
+
+import com.google.inject.Injector;
+import com.netflix.appinfo.ApplicationInfoManager;
+import com.netflix.config.ConfigurationManager;
+import com.netflix.discovery.guice.EurekaModule;
+import com.netflix.evcache.EVCache;
+import com.netflix.evcache.EVCacheLatch;
+import com.netflix.evcache.EVCacheLatch.Policy;
+import com.netflix.evcache.EVCacheModule;
+import com.netflix.evcache.connection.DIConnectionModule;
+import com.netflix.evcache.operation.EVCacheLatchImpl;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.governator.guice.LifecycleInjector;
+import com.netflix.governator.guice.LifecycleInjectorBuilder;
+import com.netflix.governator.lifecycle.LifecycleManager;
+import com.netflix.spectator.nflx.SpectatorModule;
+
 import rx.Scheduler;
 
 @SuppressWarnings("unused")
@@ -76,7 +76,7 @@ public abstract class DIBase  {
             builder.withModules(
                     new EurekaModule(),
                     new EVCacheModule(), 
-                    new ConnectionModule(),
+                    new DIConnectionModule(),
                     new SpectatorModule()
                     );
 

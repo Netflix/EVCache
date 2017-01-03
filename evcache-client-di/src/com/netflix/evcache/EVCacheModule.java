@@ -2,7 +2,7 @@ package com.netflix.evcache;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
-import com.netflix.evcache.connection.ConnectionModule;
+import com.netflix.evcache.connection.DIConnectionModule;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheNodeList;
 import com.netflix.evcache.pool.eureka.DIEVCacheNodeListProvider;
@@ -16,7 +16,7 @@ public class EVCacheModule extends AbstractModule {
     @Override
     protected void configure() {
         // Make sure connection factory provider Module is initialized in your Module when you init EVCacheModule 
-        install(new ConnectionModule());
+        install(new DIConnectionModule());
         bind(EVCacheNodeList.class).toProvider(DIEVCacheNodeListProvider.class);
 
         bind(EVCacheClientPoolManager.class).asEagerSingleton();
