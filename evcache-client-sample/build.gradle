@@ -13,8 +13,8 @@ configurations.all {
 }
 
 dependencies {
-    compile project(':evcache-client')
-    compile project(':evcache-client-di')
+    compile project(':evcache-core')
+    compile project(':evcache-di')
 }
 
 task (runSample , dependsOn: 'classes' , type:JavaExec) {
