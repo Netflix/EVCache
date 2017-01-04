@@ -249,7 +249,7 @@ final public class EVCacheImpl implements EVCache {
                             break;
                         }
                     }
-                    increment("RETRY_" + ((data == null) ? "MISS" : "HIT"));
+                    increment("GET-RETRY_" + ((data == null) ? "MISS" : "HIT"));
                 }
             }
             increment("GetCall");
@@ -329,7 +329,7 @@ final public class EVCacheImpl implements EVCache {
                 if (fbClients != null && !fbClients.isEmpty()) {
                     return Observable.concat(Observable.from(fbClients).map(
                             fbClient -> getData(fbClients.indexOf(fbClient), fbClients.size(), fbClient, canonicalKey, tc, throwEx, throwExc, false, scheduler) //TODO : for the last one make sure to pass throwExc
-                            .doOnSuccess(fbData -> increment("RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
+                            .doOnSuccess(fbData -> increment("GET-RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
                             .toObservable()))
                             .firstOrDefault(null, fbData -> (fbData != null)).toSingle();
                 }
@@ -496,7 +496,7 @@ final public class EVCacheImpl implements EVCache {
                 if (fbClients != null && !fbClients.isEmpty()) {
                     return Observable.concat(Observable.from(fbClients).map(
                             fbClient -> getData(fbClients.indexOf(fbClient), fbClients.size(), fbClient, canonicalKey, tc, throwEx, throwExc, false, scheduler) //TODO : for the last one make sure to pass throwExc
-                            .doOnSuccess(fbData -> increment("RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
+                            .doOnSuccess(fbData -> increment("GET-RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
                             .toObservable()))
                             .firstOrDefault(null, fbData -> (fbData != null)).toSingle();
                 }
@@ -605,7 +605,7 @@ final public class EVCacheImpl implements EVCache {
                         break;
                     }
                 }
-                increment("RETRY_" + ((data == null) ? "MISS" : "HIT"));
+                increment("GET-RETRY_" + ((data == null) ? "MISS" : "HIT"));
             }
 
             increment("GetCall");
@@ -856,7 +856,6 @@ final public class EVCacheImpl implements EVCache {
         try {
             final boolean hasZF = hasZoneFallbackForBulk();
             boolean throwEx = hasZF ? false : throwExc;
-            increment("BULK_GET");
             Map<String, T> retMap = getBulkData(client, canonicalKeys, tc, throwEx, hasZF);
             List<EVCacheClient> fbClients = null;
             if (hasZF) {
@@ -870,7 +869,7 @@ final public class EVCacheImpl implements EVCache {
                             if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + canonicalKeys + (log.isTraceEnabled() ? "], Value [" + retMap : "") + "], zone : " + fbClient.getZone());
                             if (retMap != null && !retMap.isEmpty()) break;
                         }
-                        increment("BULK_GET-FULL_RETRY-" + ((retMap == null || retMap.isEmpty()) ? "MISS" : "HIT"));
+                        increment("BULK-FULL_RETRY-" + ((retMap == null || retMap.isEmpty()) ? "MISS" : "HIT"));
                     }
                 }
 
@@ -906,7 +905,7 @@ final public class EVCacheImpl implements EVCache {
                                 }
                             }
                         }
-                        if (retMap.size() > initRetMapSize) increment("BULK_GET-PARTIAL_RETRY-" + (retMap.isEmpty() ? "MISS" : "HIT"));
+                        if (retMap.size() > initRetMapSize) increment("BULK-PARTIAL_RETRY-" + (retMap.isEmpty() ? "MISS" : "HIT"));
                     }
                     if (log.isDebugEnabled() && shouldLog() && retMap.size() == keys.size()) log.debug("Fallback SUCCESS for APP " + _appName + ",  retMap [" + retMap + "]");
                 }
