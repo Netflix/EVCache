@@ -249,7 +249,7 @@ final public class EVCacheImpl implements EVCache {
                             break;
                         }
                     }
-                    increment("GET-RETRY_" + ((data == null) ? "MISS" : "HIT"));
+                    increment("RETRY_" + ((data == null) ? "MISS" : "HIT"));
                 }
             }
             increment("GetCall");
@@ -329,7 +329,7 @@ final public class EVCacheImpl implements EVCache {
                 if (fbClients != null && !fbClients.isEmpty()) {
                     return Observable.concat(Observable.from(fbClients).map(
                             fbClient -> getData(fbClients.indexOf(fbClient), fbClients.size(), fbClient, canonicalKey, tc, throwEx, throwExc, false, scheduler) //TODO : for the last one make sure to pass throwExc
-                            .doOnSuccess(fbData -> increment("GET-RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
+                            .doOnSuccess(fbData -> increment("RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
                             .toObservable()))
                             .firstOrDefault(null, fbData -> (fbData != null)).toSingle();
                 }
@@ -496,7 +496,7 @@ final public class EVCacheImpl implements EVCache {
                 if (fbClients != null && !fbClients.isEmpty()) {
                     return Observable.concat(Observable.from(fbClients).map(
                             fbClient -> getData(fbClients.indexOf(fbClient), fbClients.size(), fbClient, canonicalKey, tc, throwEx, throwExc, false, scheduler) //TODO : for the last one make sure to pass throwExc
-                            .doOnSuccess(fbData -> increment("GET-RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
+                            .doOnSuccess(fbData -> increment("RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
                             .toObservable()))
                             .firstOrDefault(null, fbData -> (fbData != null)).toSingle();
                 }
@@ -605,7 +605,7 @@ final public class EVCacheImpl implements EVCache {
                         break;
                     }
                 }
-                increment("GET-RETRY_" + ((data == null) ? "MISS" : "HIT"));
+                increment("RETRY_" + ((data == null) ? "MISS" : "HIT"));
             }
 
             increment("GetCall");

@@ -88,9 +88,9 @@ public final class EVCacheMetricsFactory {
                     gauge = (AtomicLong)monitorMap.get(name);
                 } else {
                     if(tags != null) {
-                        gauge = getRegistry().gauge(name, tags, new AtomicLong());
+                        gauge = getRegistry().gauge(cName, tags, new AtomicLong());
                     } else {
-                        gauge = getRegistry().gauge(name, new AtomicLong());
+                        gauge = getRegistry().gauge(cName, new AtomicLong());
                     }
                     monitorMap.put(name, gauge);
                 }
@@ -111,9 +111,9 @@ public final class EVCacheMetricsFactory {
                     counter = counterMap.get(name);
                 } else {
                     if(tags != null) {
-                        counter = getRegistry().counter(name, tags);
+                        counter = getRegistry().counter(cName, tags);
                     } else {
-                        counter = getRegistry().counter(name);
+                        counter = getRegistry().counter(cName);
                     }
                     counterMap.put(name, counter);
                 }

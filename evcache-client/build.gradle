@@ -38,3 +38,7 @@ dependencies {
 javadoc {
     failOnError = false
 }
+
+jar {
+    baseName = "evcache-core"
+}

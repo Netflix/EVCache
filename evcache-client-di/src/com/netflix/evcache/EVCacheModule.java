@@ -20,7 +20,6 @@ public class EVCacheModule extends AbstractModule {
         bind(EVCacheNodeList.class).toProvider(DIEVCacheNodeListProvider.class);
 
         bind(EVCacheClientPoolManager.class).asEagerSingleton();
-        //bind(DIEVCacheClientConfiguration.class).asEagerSingleton(); //TODO : remove this and remove the class
     }
 
     @Override

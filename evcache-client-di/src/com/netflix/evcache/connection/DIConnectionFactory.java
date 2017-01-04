@@ -14,6 +14,7 @@ import net.spy.memcached.NodeLocator;
 public class DIConnectionFactory extends BaseConnectionFactory {
 
     private final DiscoveryClient discoveryClient;
+    
     DIConnectionFactory(EVCacheClient client, DiscoveryClient discoveryClient, int len, long operationTimeout, long opMaxBlockTime) {
         super(client, len, operationTimeout, opMaxBlockTime);
         this.discoveryClient = discoveryClient;
