@@ -31,6 +31,10 @@ dependencies {
         
 }
 
+ buildDeb {
+    requires('nflx-rend-http')
+}
+
 eclipse {
     classpath {
        downloadSources=true
