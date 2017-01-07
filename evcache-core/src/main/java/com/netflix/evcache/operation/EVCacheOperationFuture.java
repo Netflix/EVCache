@@ -91,6 +91,10 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         return client.getServerGroup();
     }
 
+    public EVCacheClient getEVCacheClient() {
+        return client;
+    }
+
     public EVCacheOperationFuture<T> addListener(EVCacheGetOperationListener<T> listener) {
         super.addToListeners(listener);
         return this;

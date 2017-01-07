@@ -83,7 +83,7 @@ final public class EVCacheImpl implements EVCache {
         this._transcoder = transcoder;
         this._zoneFallback = enableZoneFallback;
         this._throwException = throwException;
-        
+
         tags = new ArrayList<Tag>(2);
         tags.add(new BasicTag("APP", _appName));
         if(_cacheName != null) tags.add(new BasicTag("CACHE", _cacheName));
@@ -477,7 +477,7 @@ final public class EVCacheImpl implements EVCache {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : [" + canonicalKey + (log.isTraceEnabled() ? "], Value [" + value : "]") );
             if (value != null) {
                 try {
-                	touchData(canonicalKey, key, timeToLive);
+                    touchData(canonicalKey, key, timeToLive);
                 } catch (Exception e) {
                     throw sneakyThrow(new EVCacheException("Exception performing touch for APP " + _appName + ", key = " + canonicalKey, e));
                 }
@@ -513,7 +513,7 @@ final public class EVCacheImpl implements EVCache {
                 }
                 // touch all copies
                 try {
-                	touchData(canonicalKey, key, timeToLive);
+                    touchData(canonicalKey, key, timeToLive);
                 } catch (Exception e) {
                     throw sneakyThrow(new EVCacheException("Exception performing touch for APP " + _appName + ", key = " + canonicalKey, e));
                 }
@@ -646,7 +646,7 @@ final public class EVCacheImpl implements EVCache {
         }
     }
 
-	@Override
+    @Override
     public Future<Boolean>[] touch(String key, int timeToLive) throws EVCacheException {
         final EVCacheLatch latch = this.touch(key, timeToLive, null);
         if (latch == null) return new EVCacheFuture[0];
@@ -658,16 +658,17 @@ final public class EVCacheImpl implements EVCache {
             if (future instanceof EVCacheFuture) {
                 eFutures[i] = (EVCacheFuture) future;
             } else if (future instanceof EVCacheOperationFuture) {
-                eFutures[i] = new EVCacheFuture(futures.get(i), key, _appName, ((EVCacheOperationFuture<Boolean>) futures.get(i)).getServerGroup());
+                final EVCacheOperationFuture<Boolean> evfuture = (EVCacheOperationFuture<Boolean>)future;
+                eFutures[i] = new EVCacheFuture(future, key, _appName, evfuture.getServerGroup(), evfuture.getEVCacheClient());
             } else {
-                eFutures[i] = new EVCacheFuture(futures.get(i), key, _appName, null);
+                eFutures[i] = new EVCacheFuture(future, key, _appName, null);
             }
         }
         return eFutures;
-	}
+    }
 
 
-	public <T> EVCacheLatch touch(String key, int timeToLive, Policy policy) throws EVCacheException {
+    public <T> EVCacheLatch touch(String key, int timeToLive, Policy policy) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException();
 
         final boolean throwExc = doThrowException();
@@ -717,14 +718,14 @@ final public class EVCacheImpl implements EVCache {
             if (log.isDebugEnabled() && shouldLog()) log.debug("TOUCH : APP " + _appName + " for key : " + canonicalKey + " with ttl : " + timeToLive);
         }
     }
-    
+
     private EVCacheFuture[] touchData(String canonicalKey, String key, int timeToLive) throws Exception {
-    	final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
-    	return touchData(canonicalKey, key, timeToLive, clients);
+        final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
+        return touchData(canonicalKey, key, timeToLive, clients);
     }
-    
+
     private EVCacheFuture[] touchData(String canonicalKey, String key, int timeToLive, EVCacheClient[] clients) throws Exception {
-    	return touchData(canonicalKey, key, timeToLive, clients, null);
+        return touchData(canonicalKey, key, timeToLive, clients, null);
     }
 
     private EVCacheFuture[] touchData(String canonicalKey, String key, int timeToLive, EVCacheClient[] clients, EVCacheLatch latch ) throws Exception {
@@ -732,9 +733,9 @@ final public class EVCacheImpl implements EVCache {
         int index = 0;
         for (EVCacheClient client : clients) {
             final Future<Boolean> future = client.touch(canonicalKey, timeToLive, latch);
-            futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
+            futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup(), client);
         }
-    	return futures;
+        return futures;
     }
 
     public <T> Future<T> getAsynchronous(String key) throws EVCacheException {
@@ -1001,10 +1002,10 @@ final public class EVCacheImpl implements EVCache {
             if (future instanceof EVCacheFuture) {
                 eFutures[i] = (EVCacheFuture) future;
             } else if (future instanceof EVCacheOperationFuture) {
-                eFutures[i] = new EVCacheFuture(futures.get(i), key, _appName, ((EVCacheOperationFuture<T>) futures.get(
-                        i)).getServerGroup());
+                final EVCacheOperationFuture<Boolean> evfuture = (EVCacheOperationFuture<Boolean>)future;
+                eFutures[i] = new EVCacheFuture(future, key, _appName, evfuture.getServerGroup(), evfuture.getEVCacheClient());
             } else {
-                eFutures[i] = new EVCacheFuture(futures.get(i), key, _appName, null);
+                eFutures[i] = new EVCacheFuture(future, key, _appName, null);
             }
         }
         return eFutures;
@@ -1145,7 +1146,7 @@ final public class EVCacheImpl implements EVCache {
                     if (cd != null) EVCacheMetricsFactory.getInstance().getDistributionSummary(_appName + "-AppendData-Size", tags).record(cd.getData().length);
                 }
                 final Future<Boolean> future = client.append(canonicalKey, cd);
-                futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
+                futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup(), client);
             }
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
@@ -1180,7 +1181,7 @@ final public class EVCacheImpl implements EVCache {
     }
 
     public EVCacheFuture[] delete(String key) throws EVCacheException {
-    	final EVCacheLatch latch = this.delete(key, null);
+        final EVCacheLatch latch = this.delete(key, null);
         if (latch == null) return new EVCacheFuture[0];
         final List<Future<Boolean>> futures = latch.getAllFutures();
         if (futures == null || futures.isEmpty()) return new EVCacheFuture[0];
@@ -1190,17 +1191,18 @@ final public class EVCacheImpl implements EVCache {
             if (future instanceof EVCacheFuture) {
                 eFutures[i] = (EVCacheFuture) future;
             } else if (future instanceof EVCacheOperationFuture) {
-                eFutures[i] = new EVCacheFuture(futures.get(i), key, _appName, ((EVCacheOperationFuture<Boolean>) futures.get(i)).getServerGroup());
+                final EVCacheOperationFuture<Boolean> evfuture = (EVCacheOperationFuture<Boolean>)future;
+                eFutures[i] = new EVCacheFuture(future, key, _appName, evfuture.getServerGroup(), evfuture.getEVCacheClient());
             } else {
-                eFutures[i] = new EVCacheFuture(futures.get(i), key, _appName, null);
+                eFutures[i] = new EVCacheFuture(future, key, _appName, null);
             }
         }
         return eFutures;
 
     }
-    
-	@Override
-	public <T> EVCacheLatch delete(String key, Policy policy) throws EVCacheException {
+
+    @Override
+    public <T> EVCacheLatch delete(String key, Policy policy) throws EVCacheException {
         if (key == null) throw new IllegalArgumentException("Key cannot be null");
 
         final boolean throwExc = doThrowException();
@@ -1259,9 +1261,9 @@ final public class EVCacheImpl implements EVCache {
             timer.record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("DELETE : APP " + _appName + " Took " + duration + " milliSec for key : " + key);
         }
-	}
+    }
 
-    
+
 
     public int getDefaultTTL() {
         return _timeToLive;
@@ -1335,7 +1337,7 @@ final public class EVCacheImpl implements EVCache {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             timer.record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("INCR : APP " + _appName + ", Took " + duration
-            + " milliSec for key : " + key);
+                    + " milliSec for key : " + key);
         }
     }
 
@@ -1462,7 +1464,7 @@ final public class EVCacheImpl implements EVCache {
 
         final Timer timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(_metricPrefix + "LatencyReplace", tags);
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
-        
+
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
         try {
             final EVCacheFuture[] futures = new EVCacheFuture[clients.length];
@@ -1482,7 +1484,7 @@ final public class EVCacheImpl implements EVCache {
                     if (cd != null)  EVCacheMetricsFactory.getInstance().getDistributionSummary(_appName + "-ReplaceData-Size", tags).record(cd.getData().length);
                 }
                 final Future<Boolean> future = client.replace(canonicalKey, cd, timeToLive, latch);
-                futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
+                futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup(), client);
                 if (_useInMemoryCache.get()) {
                     getInMemoryCache().put(canonicalKey, value);
                 }
@@ -1668,7 +1670,7 @@ final public class EVCacheImpl implements EVCache {
             if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Took " + duration + " milliSec for key : " + canonicalKey);
         }
     }
-    
+
     public <T> boolean add(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
         final EVCacheLatch latch = add(key, value, tc, timeToLive, Policy.NONE);
         try {
