@@ -15,19 +15,22 @@ configurations.all {
     exclude group:'amazon', module: 'aws-java-sdk'
 }
 
+dependencyRecommendations {
+    mavenBom module: 'netflix:runtime-platform-recommendations:latest.release'
+}
 dependencies {
-        compile group:"com.netflix.evcache",          name:"evcache-client",                  version:"latest.release"
-        compile group:"com.netflix.governator",       name:"governator",                      version:"latest.release"
-        compile group:"com.netflix.governator",       name:"governator-archaius",             version:"latest.release"
-        compile group:"com.netflix.governator",       name:"governator-servlet",              version:"latest.release"
-        compile group:"com.sun.jersey",               name:"jersey-servlet",                  version:"1.19.+"
-        compile group:"com.sun.jersey.contribs",      name:"jersey-guice",                    version:"1.19.+"
-        compile group:"com.netflix.karyon",           name:"karyon2-admin-web",               version:"latest.release"
+        compile 'com.netflix.evcache:evcache-client'
+        compile 'com.netflix.governator:governator'
+        compile 'com.netflix.governator:governator-archaius'
+        compile 'com.netflix.governator:governator-servlet'
+        compile 'com.sun.jersey:jersey-servlet'
+        compile 'com.sun.jersey.contribs:jersey-guice'
+       // compile 'com.netflix.karyon:karyon2-admin-web'
         
-        compile group:"netflix",                         name:"platform",               version:"latest.release"
-        compile group:"netflix",                         name:"evcache-client2",        version:"latest.candidate"
-        compile group:"netflix",                         name:"base-server",            version:"latest.release"
-        compile group:"netflix",                         name:"nflibrary",              version:"latest.release"
+        compile 'netflix:platform'
+        compile group:"netflix",    name:"evcache-client2",        version:"latest.candidate"
+        compile 'netflix:base-server'
+        compile 'netflix:nflibrary'
 }
 
  buildDeb {
