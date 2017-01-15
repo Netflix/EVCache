@@ -289,14 +289,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
                     EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DeleteOperation-SUCCESS", DataSourceType.COUNTER).increment();
                 } else {
-                    Tag tag = null;
-                    final MemcachedNode node = getEVCacheNode(key);
-                    if (node.getSocketAddress() instanceof InetSocketAddress) {
-                        tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
-                    }
-                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DeleteOperation-"+ status.getStatusCode().name(), tag).increment();
+                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DeleteOperation-"+ status.getStatusCode().name(), DataSourceType.COUNTER).increment();
                 }
-
             }
 
             @Override
@@ -334,12 +328,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 } else if (status.getStatusCode().equals(StatusCode.ERR_NOT_FOUND) ) {
                     EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-TouchOperation-"+status.getStatusCode().name(), DataSourceType.COUNTER).increment();
                 } else {
-                    Tag tag = null;
-                    final MemcachedNode node = getEVCacheNode(key);
-                    if (node.getSocketAddress() instanceof InetSocketAddress) {
-                        tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
-                    }
-                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-TouchOperation-"+status.getStatusCode().name(), tag).increment();
+                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-TouchOperation-"+status.getStatusCode().name(), DataSourceType.COUNTER).increment();
                 }
             }
 
@@ -477,21 +466,21 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                     EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-" + operationStr + "Operation-SUCCESS");
                 } else if (val.getStatusCode().equals(StatusCode.TIMEDOUT)) {
-                    Tag tag = null;
-                    final MemcachedNode node = getEVCacheNode(key);
-                    if (node.getSocketAddress() instanceof InetSocketAddress) {
-                        tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
-                    }
-                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-" + operationStr + "Operation-TIMEDOUT", tag).increment();
+//                    Tag tag = null;
+//                    final MemcachedNode node = getEVCacheNode(key);
+//                    if (node.getSocketAddress() instanceof InetSocketAddress) {
+//                        tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
+//                    }
+                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-" + operationStr + "Operation-TIMEDOUT", DataSourceType.COUNTER).increment();
                 } else if (val.getStatusCode().equals(StatusCode.ERR_NOT_FOUND) || val.getStatusCode().equals(StatusCode.ERR_EXISTS)) {
                     EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-" + operationStr + "Operation-" + val.getStatusCode().name());
                 } else {
-                    Tag tag = null;
-                    final MemcachedNode node = getEVCacheNode(key);
-                    if (node.getSocketAddress() instanceof InetSocketAddress) {
-                        tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
-                    }
-                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-" + operationStr + "Operation-" + val.getStatusCode().name(), tag).increment();
+//                    Tag tag = null;
+//                    final MemcachedNode node = getEVCacheNode(key);
+//                    if (node.getSocketAddress() instanceof InetSocketAddress) {
+//                        tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
+//                    }
+                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-" + operationStr + "Operation-" + val.getStatusCode().name(), DataSourceType.COUNTER).increment();
                 }
                 rv.set(val.isSuccess(), val);
             }
