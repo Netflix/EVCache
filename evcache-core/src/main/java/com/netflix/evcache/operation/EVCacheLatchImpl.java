@@ -294,5 +294,9 @@ public class EVCacheLatchImpl implements EVCacheLatch {
         }
         return count;
     }
+    
+    public boolean isFastFailure() {
+        return (totalFutureCount == 0); 
+    }
 
 }

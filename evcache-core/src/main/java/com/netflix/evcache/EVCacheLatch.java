@@ -156,4 +156,11 @@ public interface EVCacheLatch extends OperationCompletionListener {
      * @return the Latch.
      */
     Policy getPolicy();
+
+    /**
+     * Returns {@code true} if the operation is a Fast failure i.e. the operation was not even performed.
+     *
+     * @return {@code true} upon fast failure else false.
+     */
+    boolean isFastFailure();
 }
