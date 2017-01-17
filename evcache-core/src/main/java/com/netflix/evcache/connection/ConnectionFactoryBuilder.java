@@ -1,7 +1,7 @@
 package com.netflix.evcache.connection;
 
-import com.netflix.config.ConfigurationManager;
 import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.ConnectionFactory;
 
@@ -12,9 +12,9 @@ public class ConnectionFactoryBuilder implements IConnectionBuilder {
 
     public ConnectionFactory getConnectionFactory(EVCacheClient client) {
     	final String appName = client.getAppName();
-        final int maxQueueSize = ConfigurationManager.getConfigInstance().getInt(appName + ".max.queue.length", 16384);
-        final int operationTimeout = ConfigurationManager.getConfigInstance().getInt(appName + ".operation.timeout", 2500);
-        final int opQueueMaxBlockTime = ConfigurationManager.getConfigInstance().getInt(appName + ".operation.QueueMaxBlockTime", 10);
+        final int maxQueueSize = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".max.queue.length", 16384).get();
+        final int operationTimeout = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".operation.timeout", 2500).get();
+        final int opQueueMaxBlockTime = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".operation.QueueMaxBlockTime", 10).get();
 
         return new BaseConnectionFactory(client, maxQueueSize, operationTimeout, opQueueMaxBlockTime);
     }
