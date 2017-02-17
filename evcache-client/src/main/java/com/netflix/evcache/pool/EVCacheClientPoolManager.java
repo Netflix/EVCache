@@ -13,6 +13,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.inject.Singleton;
@@ -106,7 +108,6 @@ public class EVCacheClientPoolManager {
                 refreshScheduler();
             }
         });
-        initAtStartup();
     }
 
     public IConnectionFactoryProvider getConnectionFactoryProvider() {
@@ -145,6 +146,7 @@ public class EVCacheClientPoolManager {
     public static EVCacheClientPoolManager getInstance() {
         if (instance == null) {
             new EVCacheClientPoolManager(null, null, new DefaultFactoryProvider());
+            instance.initAtStartup();
             if (!EVCacheConfig.getInstance().getDynamicBooleanProperty("evcache.use.simple.node.list.provider", false).get()) {
                 log.warn("Please make sure EVCacheClientPoolManager is injected first. This is not the appropriate way to init EVCacheClientPoolManager."
                         + " If you are using simple node list provider please set evcache.use.simple.node.list.provider property to true.", new Exception());
@@ -163,6 +165,7 @@ public class EVCacheClientPoolManager {
         return client;
     }
 
+    @PostConstruct
     public void initAtStartup() {
         //final String appsToInit = ConfigurationManager.getConfigInstance().getString("evcache.appsToInit");
         final String appsToInit = EVCacheConfig.getInstance().getDynamicStringProperty("evcache.appsToInit", "").get();
@@ -211,7 +214,7 @@ public class EVCacheClientPoolManager {
      * created then will return the existing instance. If not one will be
      * created and returned.
      * 
-     * @param app
+     * @param _app
      *            - name of the evcache app
      * @return the Pool for the give app.
      * @throws IOException
@@ -228,6 +231,7 @@ public class EVCacheClientPoolManager {
         return new HashMap<String, EVCacheClientPool>(poolMap);
     }
 
+    @PreDestroy
     public void shutdown() {
         _scheduler.shutdown();
         for (EVCacheClientPool pool : poolMap.values()) {
