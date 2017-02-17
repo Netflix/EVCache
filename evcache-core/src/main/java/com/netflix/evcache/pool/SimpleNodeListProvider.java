@@ -145,7 +145,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
                 final InetSocketAddress address = new InetSocketAddress(inetAddress, port);
                 config.getInetSocketAddress().add(address);
             }
-            if (log.isDebugEnabled()) log.debug("Returining : " + serverGroupMap);
+            if (log.isDebugEnabled()) log.debug("Returning : " + serverGroupMap);
             return serverGroupMap;
         } catch (Exception e) {
             if (log.isDebugEnabled()) log.debug("URL : " + url + "; Timeout " + timeout, e);

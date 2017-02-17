@@ -838,7 +838,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     public void refreshAsync(MemcachedNode node) {
         EVCacheMetricsFactory.getInstance().increment("EVCacheClientPool-refreshAsync");
-        if (log.isWarnEnabled()) log.warn("Pool is being refresh as the EVCacheNode is not available. " + node.toString());
+        if (log.isWarnEnabled()) log.warn("Pool is being refreshed as the EVCacheNode is not available. " + node.toString());
         Thread t = new Thread() {
             public void run() {
                 try {

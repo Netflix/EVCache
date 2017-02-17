@@ -1,5 +1,8 @@
 package com.netflix.evcache;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
 import com.netflix.evcache.connection.DIConnectionModule;
@@ -18,8 +21,17 @@ public class EVCacheModule extends AbstractModule {
         // Make sure connection factory provider Module is initialized in your Module when you init EVCacheModule 
         install(new DIConnectionModule());
         bind(EVCacheNodeList.class).toProvider(DIEVCacheNodeListProvider.class);
-
         bind(EVCacheClientPoolManager.class).asEagerSingleton();
+    }
+
+    @PostConstruct
+    public void init() {
+        EVCacheClientPoolManager.getInstance().initAtStartup();
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        EVCacheClientPoolManager.getInstance().shutdown();
     }
 
     @Override

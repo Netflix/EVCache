@@ -194,9 +194,11 @@ public class EVCacheClientPoolManager {
     }
 
     public void shutdown() {
-        _scheduler.shutdown();
-        for (EVCacheClientPool pool : poolMap.values()) {
-            pool.shutdown();
+        if(!_scheduler.isShutdown()) {
+            _scheduler.shutdown();
+            for (EVCacheClientPool pool : poolMap.values()) {
+                pool.shutdown();
+            }
         }
     }
 

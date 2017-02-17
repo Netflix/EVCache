@@ -159,7 +159,8 @@ public class EVCacheClient {
             final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
             if (!evcNode.isAvailable()) {
                 EVCacheMetricsFactory.getInstance().getCounter("EVCacheClient-" + appName + "-INACTIVE_NODE", evcNode.getTags()).increment();
-                pool.refreshAsync(evcNode);
+                //pool.refreshAsync(evcNode);
+                getEVCacheMemcachedClient().reconnectNode(evcNode);
             }
 
             int i = 0;
