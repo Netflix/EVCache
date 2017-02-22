@@ -56,15 +56,19 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
                 if(poolManager.getDiscoveryClient() != null ) {
                     final DiscoveryClient mgr = poolManager.getDiscoveryClient();
                     final Application app = mgr.getApplication(appId);
-                    final List<InstanceInfo> instances = app.getInstances();
-                    for(InstanceInfo info : instances) {
-                        final String hostName = info.getHostName();
-                        if(hostName.equalsIgnoreCase(isa.getHostName())) {
-                            final String ip = info.getIPAddr();
-                            final String port = info.getMetadata().get("evcache.port");
-                            result = hostName + '/' + ip + ':' + ((port != null) ? port : "11211");
-                            break;
-                        }
+                    if(app != null) {
+	                    final List<InstanceInfo> instances = app.getInstances();
+	                    for(InstanceInfo info : instances) {
+	                        final String hostName = info.getHostName();
+	                        if(hostName.equalsIgnoreCase(isa.getHostName())) {
+	                            final String ip = info.getIPAddr();
+	                            final String port = info.getMetadata().get("evcache.port");
+	                            result = hostName + '/' + ip + ':' + ((port != null) ? port : "11211");
+	                            break;
+	                        }
+	                    }
+                    } else {
+                    	result = ((InetSocketAddress)socketAddress).getHostName() + '/' + ((InetSocketAddress)socketAddress).getAddress().getHostAddress() + ":11211";
                     }
                 } else {
                     result = ((InetSocketAddress)socketAddress).getHostName() + '/' + ((InetSocketAddress)socketAddress).getAddress().getHostAddress() + ":11211";
