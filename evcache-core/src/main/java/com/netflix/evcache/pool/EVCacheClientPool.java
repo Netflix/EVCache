@@ -66,6 +66,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private final DynamicIntProperty _maxReadQueueSize;
     private final DynamicIntProperty reconcileInterval;
     private final DynamicIntProperty _maxRetries;
+    private final DynamicBooleanProperty _disableAsyncRefresh;
 
     private final BooleanProperty _pingServers;
     
@@ -155,6 +156,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this.logOperations = config.getDynamicIntProperty(appName + ".log.operation", 0);
         this.logOperationCalls = new DynamicStringSetProperty(appName + ".log.operation.calls", "SET,DELETE,GMISS,TMISS,BMISS_ALL,TOUCH,REPLACE");
         this.reconcileInterval = config.getDynamicIntProperty(appName + ".reconcile.interval", 600000);
+        
+        this._disableAsyncRefresh = config.getDynamicBooleanProperty(_appName + ".disable.async.refresh", Boolean.FALSE);
 
         final Map<String, String> map = new HashMap<String, String>();
         map.put("APP", _appName);
@@ -837,6 +840,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public void refreshAsync(MemcachedNode node) {
+        if(_disableAsyncRefresh.get()) return;
         EVCacheMetricsFactory.getInstance().increment("EVCacheClientPool-refreshAsync");
         if (log.isWarnEnabled()) log.warn("Pool is being refreshed as the EVCacheNode is not available. " + node.toString());
         Thread t = new Thread() {
