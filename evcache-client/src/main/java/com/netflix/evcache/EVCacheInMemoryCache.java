@@ -1,5 +1,8 @@
 package com.netflix.evcache;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -7,7 +10,11 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.Weigher;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListenableFutureTask;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.servo.DefaultMonitorRegistry;
@@ -31,14 +38,22 @@ public class EVCacheInMemoryCache<T> {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheInMemoryCache.class);
     private final DynamicIntProperty _cacheDuration; // The key will be cached for this long
+    private final DynamicIntProperty _refreshDuration;
     private final DynamicIntProperty _cacheSize; // This many items will be cached
-//    private final DynamicLongProperty _cacheWeight; // This is the max size in bytes 
+    private final DynamicIntProperty _poolSize; // This many threads will be initialized to fetch data from evcache async
     private final String appName;
 
-    private Cache<String, T> cache;
+    private LoadingCache<String, T> cache;
+    private ExecutorService pool;
+    
+    private final Transcoder<T> tc;
+    private final EVCacheImpl impl;
 
-    public EVCacheInMemoryCache(String appName) {
+    public EVCacheInMemoryCache(String appName, Transcoder<T> tc, EVCacheImpl impl) {
         this.appName = appName;
+        this.tc = tc;
+        this.impl = impl;
+
         this._cacheDuration = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.cache.duration.ms", 20);
         this._cacheDuration.addCallback(new Runnable() {
             public void run() {
@@ -46,14 +61,30 @@ public class EVCacheInMemoryCache<T> {
             }
         });
 
+        this._refreshDuration = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.refresh.duration.ms", 0);
+        this._refreshDuration.addCallback(new Runnable() {
+            public void run() {
+                setupCache();
+            }
+        });
+
         this._cacheSize = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.cache.size", 100);
-//        this._cacheWeight = EVCacheConfig.getInstance().getDynamicLongProperty(appName + ".inmemory.cache.weight", 0); //
         this._cacheSize.addCallback(new Runnable() {
             public void run() {
                 setupCache();
             }
         });
         setupCache();
+
+        this._poolSize = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".thread.pool.size", 5);
+        this._poolSize.addCallback(new Runnable() {
+            public void run() {
+            	ExecutorService oldPool = pool;
+            	pool = Executors.newFixedThreadPool(_poolSize.get());
+            	oldPool.shutdown();
+            }
+        });
+        pool = Executors.newFixedThreadPool(_poolSize.get());
     }
 
     private void register(Monitor<?> monitor) {
@@ -78,11 +109,31 @@ public class EVCacheInMemoryCache<T> {
             if(_cacheDuration.get() > 0) {
                 builder = builder.expireAfterWrite(_cacheDuration.get(), TimeUnit.MILLISECONDS);
             }
-//            if(_cacheWeight.get() > 0) {
-//                builder = builder.maximumWeight(_cacheWeight.get());
-//            }
+            if(_refreshDuration.get() > 0) {
+            	builder = builder.refreshAfterWrite(_refreshDuration.get(), TimeUnit.MILLISECONDS);
+            }
             setupMonitoring(appName);
-            this.cache = builder.build();
+            this.cache = builder.build(
+                    new CacheLoader<String, T>() {
+                        public T load(String key) { // no checked exception
+	                          try {
+								return impl.doGet(key, tc);
+							} catch (EVCacheException e) {
+								log.error("Exception", e);
+							}
+	                          return null;
+                        }
+
+                        public ListenableFuture<T> reload(final String key, T prev) {
+                            ListenableFutureTask<T> task = ListenableFutureTask.create(new Callable<T>() {
+                              public T call() {
+                                return load(key);
+                              }
+                            });
+                            pool.execute(task);
+                            return task;
+                          }
+                      });
             if(currentCache != null) {
                 currentCache.invalidateAll();
                 currentCache.cleanUp();
@@ -220,7 +271,7 @@ public class EVCacheInMemoryCache<T> {
 
     public T get(String key) {
         if (cache == null) return null;
-        final T val = cache.getIfPresent(key);
+        final T val = cache.getUnchecked(key);
         if (log.isDebugEnabled()) log.debug("GET : appName : " + appName + "; Key : " + key + "; val : " + val);
         return val;
     }
@@ -235,28 +286,5 @@ public class EVCacheInMemoryCache<T> {
         if (cache == null) return;
         cache.invalidate(key);
         if (log.isDebugEnabled()) log.debug("DEL : appName : " + appName + "; Key : " + key);
-    }
-    
-    static class DataWeigher implements Weigher<Object, Object> {
-        
-        private Transcoder<?> transcoder;
-        
-        DataWeigher() {
-            
-        }
-
-        public Transcoder<?> getTranscoder() {
-            return transcoder;
-        }
-
-        public void setTranscoder(Transcoder<?> transcoder) {
-            this.transcoder = transcoder;
-        }
-
-        public int weigh(Object key, Object value) {
-            // TODO Auto-generated method stub
-            return 0;
-        }
-        
     }
 }
