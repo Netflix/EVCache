@@ -188,7 +188,7 @@ final public class EVCacheImpl implements EVCache {
     }
 
     private <T> EVCacheInMemoryCache<T> getInMemoryCache(Transcoder<T> tc) {
-        if (cache == null) cache = new EVCacheInMemoryCache<T>(_appName, tc, this);
+        if (cache == null) cache = _poolManager.createInMemoryCache(_appName, tc, this);
         return (EVCacheInMemoryCache<T>) cache;
     }
 
