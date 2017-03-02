@@ -29,10 +29,14 @@ import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicStringProperty;
 import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.DiscoveryManager;
+import com.netflix.evcache.EVCacheImpl;
+import com.netflix.evcache.EVCacheInMemoryCache;
 import com.netflix.evcache.connection.DefaultFactoryProvider;
 import com.netflix.evcache.connection.IConnectionFactoryProvider;
 import com.netflix.evcache.event.EVCacheEventListener;
 import com.netflix.evcache.util.EVCacheConfig;
+
+import net.spy.memcached.transcoders.Transcoder;
 
 /**
  * A manager that holds Pools for each EVCache app. When this class is
@@ -259,4 +263,18 @@ public class EVCacheClientPoolManager {
         return app;
     }
 
+    private final Map<String, EVCacheInMemoryCache<?>> inMemoryMap = new ConcurrentHashMap<String, EVCacheInMemoryCache<?>>();    
+    public <T> EVCacheInMemoryCache<T> createInMemoryCache(String appName, Transcoder<T> tc, EVCacheImpl impl) {
+    	EVCacheInMemoryCache<T> cache = (EVCacheInMemoryCache<T>) inMemoryMap.get(appName);
+    	if(cache == null) {
+    		cache = new EVCacheInMemoryCache<T>(appName, tc, impl);
+    		inMemoryMap.put(appName, cache);
+    	}
+        return cache;
+    }
+
+    public <T> EVCacheInMemoryCache<T> getInMemoryCache(String appName) {
+    	return (EVCacheInMemoryCache<T>) inMemoryMap.get(appName);
+    }
+    
 }
