@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
@@ -208,7 +209,19 @@ final public class EVCacheImpl implements EVCache {
         if (null == key) throw new IllegalArgumentException("Key cannot be null");
         if (_useInMemoryCache.get()) {
         	final String canonicalKey = getCanonicalizedKey(key);
-            T value = (T) getInMemoryCache(tc).get(canonicalKey);
+            T value = null;
+			try {
+				value = (T) getInMemoryCache(tc).get(canonicalKey);
+			} catch (ExecutionException e) {
+				if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
+				final boolean throwExc = doThrowException();
+				if(throwExc) {
+					if(e.getCause() instanceof EVCacheException) {
+						throw (EVCacheException)e.getCause();
+					} 
+					throw new EVCacheException("ExecutionException", e);
+				}
+			}
             if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + canonicalKey + (log.isTraceEnabled() ? "; value : " + value : ""));
             if (value != null) return value;
         }
@@ -501,7 +514,18 @@ final public class EVCacheImpl implements EVCache {
         if (_useInMemoryCache.get()) {
             final String canonicalKey = getCanonicalizedKey(key);
             final boolean throwExc = doThrowException();
-            T value = (T) getInMemoryCache(tc).get(canonicalKey);
+            T value = null;
+			try {
+				value = (T) getInMemoryCache(tc).get(canonicalKey);
+			} catch (ExecutionException e) {
+				if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
+				if(throwExc) {
+					if(e.getCause() instanceof EVCacheException) {
+						throw (EVCacheException)e.getCause();
+					} 
+					throw new EVCacheException("ExecutionException", e);
+				}
+			}
             if (value != null) {
             	try {
 					touchData(canonicalKey, key, timeToLive);

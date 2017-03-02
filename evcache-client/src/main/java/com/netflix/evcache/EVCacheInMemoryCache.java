@@ -3,6 +3,7 @@ package com.netflix.evcache;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -148,7 +149,7 @@ public class EVCacheInMemoryCache<T> {
 	                          try {
 								return impl.doGet(key, tc);
 							} catch (EVCacheException e) {
-								log.error("EVCacheException", e);
+								log.error("EVCacheException while loading key -> "+ key, e);
 								throw e;
 							}
                         }
@@ -165,7 +166,7 @@ public class EVCacheInMemoryCache<T> {
     	                        	    }
     									return t;
     								} catch (EVCacheException e) {
-    									log.error("EVCacheException", e);
+    									log.error("EVCacheException while reloading key -> "+ key, e);
     									EVCacheMetricsFactory.increment(appName, null, null, "EVCacheInMemoryCache" + "-" + appName + "-Reload-Fail");
                                     	return prev;
     								}
@@ -422,11 +423,24 @@ public class EVCacheInMemoryCache<T> {
         };
         register(loadExceptionRate);
 
+        final StepCounter averageLoadTime = new StepCounter(getMonitorConfig(appName, "averageLoadTime-ms", DataSourceType.GAUGE)) {
+            @Override
+            public Number getValue() {
+                if (cache == null) return Long.valueOf(0);
+                return Double.valueOf(cache.stats().averageLoadPenalty()/1000000);
+            }
+
+            @Override
+            public Number getValue(int pollerIndex) {
+                return getValue();
+            }
+        };
+        register(averageLoadTime);
     }
 
-    public T get(String key) {
+    public T get(String key) throws ExecutionException {
         if (cache == null) return null;
-        final T val = cache.getUnchecked(key);
+        final T val = cache.get(key);
         if (log.isDebugEnabled()) log.debug("GET : appName : " + appName + "; Key : " + key + "; val : " + val);
         return val;
     }
