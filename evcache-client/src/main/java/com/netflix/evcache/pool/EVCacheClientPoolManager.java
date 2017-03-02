@@ -108,6 +108,7 @@ public class EVCacheClientPoolManager {
                 refreshScheduler();
             }
         });
+        initAtStartup();
     }
 
     public IConnectionFactoryProvider getConnectionFactoryProvider() {
@@ -146,7 +147,6 @@ public class EVCacheClientPoolManager {
     public static EVCacheClientPoolManager getInstance() {
         if (instance == null) {
             new EVCacheClientPoolManager(null, null, new DefaultFactoryProvider());
-            instance.initAtStartup();
             if (!EVCacheConfig.getInstance().getDynamicBooleanProperty("evcache.use.simple.node.list.provider", false).get()) {
                 log.warn("Please make sure EVCacheClientPoolManager is injected first. This is not the appropriate way to init EVCacheClientPoolManager."
                         + " If you are using simple node list provider please set evcache.use.simple.node.list.provider property to true.", new Exception());
@@ -165,7 +165,10 @@ public class EVCacheClientPoolManager {
         return client;
     }
 
-    @PostConstruct
+    /**
+     * TODO Move to @PostConstruct, so that a non-static EVCacheConfig can be injected by DI, so that Configuration
+     *      subsystem can be properly setup via the DI system.
+     */
     public void initAtStartup() {
         //final String appsToInit = ConfigurationManager.getConfigInstance().getString("evcache.appsToInit");
         final String appsToInit = EVCacheConfig.getInstance().getDynamicStringProperty("evcache.appsToInit", "").get();
