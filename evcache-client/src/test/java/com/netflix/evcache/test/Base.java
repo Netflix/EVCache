@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import rx.Scheduler;
 
@@ -35,6 +36,7 @@ public abstract class Base  {
     private static final Logger log = LoggerFactory.getLogger(Base.class);
     protected EVCache evCache = null;
     protected Injector injector = null;
+    protected LifecycleManager lifecycleManager = null;
     protected EVCacheClientPoolManager manager = null;
 
     protected Properties getProps() {
@@ -77,7 +79,7 @@ public abstract class Base  {
                     );
 
             injector = builder.build().createInjector();
-            LifecycleManager lifecycleManager = injector.getInstance(LifecycleManager.class);
+            lifecycleManager = injector.getInstance(LifecycleManager.class);
 
             lifecycleManager.start();
             injector.getInstance(ApplicationInfoManager.class);
@@ -88,6 +90,11 @@ public abstract class Base  {
             log.error(e.getMessage(), e);
         }
 
+    }
+
+    @AfterSuite
+    public void shutdownEnv() {
+        lifecycleManager.close();
     }
 
     protected EVCache.Builder getNewBuilder() {
