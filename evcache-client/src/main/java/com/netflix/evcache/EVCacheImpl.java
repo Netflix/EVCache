@@ -207,8 +207,8 @@ final public class EVCacheImpl implements EVCache {
 
     public <T> T get(String key, Transcoder<T> tc) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException("Key cannot be null");
+    	final String canonicalKey = getCanonicalizedKey(key);
         if (_useInMemoryCache.get()) {
-        	final String canonicalKey = getCanonicalizedKey(key);
             T value = null;
 			try {
 				value = (T) getInMemoryCache(tc).get(canonicalKey);
@@ -225,13 +225,12 @@ final public class EVCacheImpl implements EVCache {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + canonicalKey + (log.isTraceEnabled() ? "; value : " + value : ""));
             if (value != null) return value;
         }
-        return doGet(key, tc);
+        return doGet(canonicalKey, tc);
     }
 
 
-    <T> T doGet(String key , Transcoder<T> tc) throws EVCacheException {   
+    <T> T doGet(String canonicalKey , Transcoder<T> tc) throws EVCacheException {   
         final boolean throwExc = doThrowException();
-        final String canonicalKey = getCanonicalizedKey(key);
         EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
             increment("NULL_CLIENT");
@@ -512,8 +511,8 @@ final public class EVCacheImpl implements EVCache {
     @Override
     public <T> T getAndTouch(String key, int timeToLive, Transcoder<T> tc) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException("Key cannot be null");
+        final String canonicalKey = getCanonicalizedKey(key);
         if (_useInMemoryCache.get()) {
-            final String canonicalKey = getCanonicalizedKey(key);
             final boolean throwExc = doThrowException();
             T value = null;
 			try {
@@ -536,11 +535,10 @@ final public class EVCacheImpl implements EVCache {
                 return value;
             }
         }
-        return doGet(key, tc);
+        return doGetAndTouch(canonicalKey, key, timeToLive, tc);
     }
     
-    <T> T doGetAndTouch(String key, int timeToLive, Transcoder<T> tc) throws EVCacheException {
-        final String canonicalKey = getCanonicalizedKey(key);
+    <T> T doGetAndTouch(String canonicalKey, String key, int timeToLive, Transcoder<T> tc) throws EVCacheException {
         final boolean throwExc = doThrowException();
         EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
@@ -549,12 +547,12 @@ final public class EVCacheImpl implements EVCache {
             return null; // Fast failure
         }
 
-        final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key), Call.GET_AND_TOUCH);
+        final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(canonicalKey), Call.GET_AND_TOUCH);
         if (event != null) {
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
-                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + canonicalKey);
                     return null;
                 }
             } catch(EVCacheException ex) {
