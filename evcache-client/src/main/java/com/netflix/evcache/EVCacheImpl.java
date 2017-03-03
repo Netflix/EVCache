@@ -229,8 +229,9 @@ final public class EVCacheImpl implements EVCache {
     }
 
 
-    <T> T doGet(String canonicalKey , Transcoder<T> tc) throws EVCacheException {   
+    <T> T doGet(String key , Transcoder<T> tc) throws EVCacheException {   
         final boolean throwExc = doThrowException();
+        final String canonicalKey = getCanonicalizedKey(key);
         EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
             increment("NULL_CLIENT");
@@ -539,7 +540,6 @@ final public class EVCacheImpl implements EVCache {
     }
     
     <T> T doGetAndTouch(String key, int timeToLive, Transcoder<T> tc) throws EVCacheException {
-
         final String canonicalKey = getCanonicalizedKey(key);
         final boolean throwExc = doThrowException();
         EVCacheClient client = _pool.getEVCacheClientForRead();
