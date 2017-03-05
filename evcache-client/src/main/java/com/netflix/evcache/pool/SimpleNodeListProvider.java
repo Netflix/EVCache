@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.net.InetAddresses;
+import com.netflix.evcache.util.EVCacheConfig;
 
 public class SimpleNodeListProvider implements EVCacheNodeList {
 
@@ -36,7 +37,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
      */
     @Override
     public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances() throws IOException {
-        final String nodeListString = System.getProperty(propertyName);
+        final String nodeListString = EVCacheConfig.getInstance().getDynamicStringProperty(propertyName, "").get();
         if (log.isDebugEnabled()) log.debug("List of Nodes = " + nodeListString);
 
         if (nodeListString != null && nodeListString.length() > 0) {
