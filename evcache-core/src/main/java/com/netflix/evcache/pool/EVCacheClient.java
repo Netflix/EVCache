@@ -1042,7 +1042,11 @@ public class EVCacheClient {
     }
 
     public <T> Future<Boolean> touch(String key, int timeToLive, EVCacheLatch latch) throws Exception {
-    	if(ignoreTouch.get()) return new SuccessFuture();
+    	if(ignoreTouch.get()) {
+    		final ListenableFuture<Boolean, OperationCompletionListener> sf = new SuccessFuture();
+    		if (latch != null && latch instanceof EVCacheLatchImpl && !isInWriteOnly()) ((EVCacheLatchImpl) latch).addFuture(sf);
+    		return sf;
+    	}
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         if (!ensureWriteQueueSize(node, key)) {
             final ListenableFuture<Boolean, OperationCompletionListener> defaultFuture = (ListenableFuture<Boolean, OperationCompletionListener>) getDefaultFuture();
@@ -1202,7 +1206,7 @@ public class EVCacheClient {
         return this.evcacheMemcachedClient.getNodeLocator();
     }
     
-    static class SuccessFuture implements Future<Boolean>{
+    static class SuccessFuture implements ListenableFuture<Boolean, OperationCompletionListener> {
 
 		@Override
 		public boolean cancel(boolean mayInterruptIfRunning) {
@@ -1229,6 +1233,16 @@ public class EVCacheClient {
 				throws InterruptedException, ExecutionException, TimeoutException {
 			return Boolean.TRUE;
 		}
+
+        @Override
+        public Future<Boolean> addListener(OperationCompletionListener listener) {
+            return this;
+        }
+
+        @Override
+        public Future<Boolean> removeListener(OperationCompletionListener listener) {
+            return this;
+        }		
     }
 
     static class DefaultFuture implements ListenableFuture<Boolean, OperationCompletionListener> {

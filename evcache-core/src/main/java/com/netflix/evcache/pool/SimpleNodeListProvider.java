@@ -76,7 +76,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
     @Override
     public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances(String appName) throws IOException {
         final String propertyName = appName + "-NODES";
-        final String nodeListString = System.getProperty(propertyName);
+        final String nodeListString = EVCacheConfig.getInstance().getDynamicStringProperty(propertyName, "").get();
         if (log.isDebugEnabled()) log.debug("List of Nodes = " + nodeListString);
         if(nodeListString != null && nodeListString.length() > 0) return bootstrapFromSystemProperty(nodeListString);
         
@@ -85,6 +85,12 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
         return Collections.<ServerGroup, EVCacheServerGroupConfig> emptyMap();
     }
 
+    /**
+     * Netflix specific impl so we can load from eureka. 
+     * @param appName
+     * @return
+     * @throws IOException
+     */
     private Map<ServerGroup, EVCacheServerGroupConfig> bootstrapFromEureka(String appName) throws IOException {
         
         if(env == null || region == null) return Collections.<ServerGroup, EVCacheServerGroupConfig> emptyMap();

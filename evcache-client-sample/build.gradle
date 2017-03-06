@@ -14,7 +14,7 @@ configurations.all {
 
 dependencies {
     compile project(':evcache-core')
-    compile project(':evcache-di')
+    compile project(':evcache-client')
 }
 
 task (runSample , dependsOn: 'classes' , type:JavaExec) {

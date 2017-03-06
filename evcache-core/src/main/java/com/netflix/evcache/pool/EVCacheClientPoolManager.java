@@ -13,6 +13,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
@@ -23,10 +25,14 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.config.ConfigurationManager;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicStringProperty;
+import com.netflix.evcache.EVCacheImpl;
+import com.netflix.evcache.EVCacheInMemoryCache;
 import com.netflix.evcache.connection.ConnectionFactoryBuilder;
 import com.netflix.evcache.connection.IConnectionBuilder;
 import com.netflix.evcache.event.EVCacheEventListener;
 import com.netflix.evcache.util.EVCacheConfig;
+
+import net.spy.memcached.transcoders.Transcoder;
 
 /**
  * A manager that holds Pools for each EVCache app. When this class is
@@ -176,7 +182,7 @@ public class EVCacheClientPoolManager {
      * created then will return the existing instance. If not one will be
      * created and returned.
      * 
-     * @param app
+     * @param _app
      *            - name of the evcache app
      * @return the Pool for the give app.
      * @throws IOException
@@ -193,6 +199,7 @@ public class EVCacheClientPoolManager {
         return new HashMap<String, EVCacheClientPool>(poolMap);
     }
 
+    @PreDestroy
     public void shutdown() {
         if(!_scheduler.isShutdown()) {
             _scheduler.shutdown();
@@ -220,4 +227,18 @@ public class EVCacheClientPoolManager {
         return _app;
     }
 
+    private final Map<String, EVCacheInMemoryCache<?>> inMemoryMap = new ConcurrentHashMap<String, EVCacheInMemoryCache<?>>();    
+    public <T> EVCacheInMemoryCache<T> createInMemoryCache(String appName, Transcoder<T> tc, EVCacheImpl impl) {
+    	EVCacheInMemoryCache<T> cache = (EVCacheInMemoryCache<T>) inMemoryMap.get(appName);
+    	if(cache == null) {
+    		cache = new EVCacheInMemoryCache<T>(appName, tc, impl);
+    		inMemoryMap.put(appName, cache);
+    	}
+        return cache;
+    }
+
+    public <T> EVCacheInMemoryCache<T> getInMemoryCache(String appName) {
+    	return (EVCacheInMemoryCache<T>) inMemoryMap.get(appName);
+    }
+    
 }

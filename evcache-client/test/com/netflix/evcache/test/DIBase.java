@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 
 import com.google.inject.Injector;
@@ -36,6 +37,7 @@ public abstract class DIBase  {
     private static final Logger log = LoggerFactory.getLogger(DIBase.class);
     protected EVCache evCache = null;
     protected Injector injector = null;
+    protected LifecycleManager lifecycleManager = null;
     protected EVCacheClientPoolManager manager = null;
 
     protected Properties getProps() {
@@ -81,7 +83,7 @@ public abstract class DIBase  {
                     );
 
             injector = builder.build().createInjector();
-            LifecycleManager lifecycleManager = injector.getInstance(LifecycleManager.class);
+            lifecycleManager = injector.getInstance(LifecycleManager.class);
 
             lifecycleManager.start();
             injector.getInstance(ApplicationInfoManager.class);
@@ -92,6 +94,11 @@ public abstract class DIBase  {
             log.error(e.getMessage(), e);
         }
 
+    }
+
+    @AfterSuite
+    public void shutdownEnv() {
+        lifecycleManager.close();
     }
 
     protected EVCache.Builder getNewBuilder() {
