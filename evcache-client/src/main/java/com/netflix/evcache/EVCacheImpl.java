@@ -522,9 +522,12 @@ final public class EVCacheImpl implements EVCache {
 			try {
 				value = (T) getInMemoryCache(tc).get(canonicalKey);
 			} catch (ExecutionException e) {
-				if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
 				if(throwExc) {
+					if(e.getCause() instanceof DataNotFoundException) {
+						return null;
+					}
 					if(e.getCause() instanceof EVCacheException) {
+						if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
 						throw (EVCacheException)e.getCause();
 					} 
 					throw new EVCacheException("ExecutionException", e);
