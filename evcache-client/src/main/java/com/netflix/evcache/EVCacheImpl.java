@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.DynamicBooleanProperty;
+import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.event.EVCacheEventListener;
@@ -213,10 +214,13 @@ final public class EVCacheImpl implements EVCache {
 			try {
 				value = (T) getInMemoryCache(tc).get(canonicalKey);
 			} catch (ExecutionException e) {
-				if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
 				final boolean throwExc = doThrowException();
 				if(throwExc) {
+					if(e.getCause() instanceof DataNotFoundException) {
+						return null;
+					}
 					if(e.getCause() instanceof EVCacheException) {
+						if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
 						throw (EVCacheException)e.getCause();
 					} 
 					throw new EVCacheException("ExecutionException", e);
@@ -1701,5 +1705,4 @@ final public class EVCacheImpl implements EVCache {
             if (log.isDebugEnabled() && shouldLog()) log.debug("ADD : APP " + _appName + ", Took " + op.getDuration() + " milliSec for key : " + canonicalKey);
         }
     }
-
 }

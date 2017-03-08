@@ -145,12 +145,19 @@ public class EVCacheInMemoryCache<T> {
         	initRefreshPool();
         	final LoadingCache<String, T> newCache = builder.build(
                     new CacheLoader<String, T>() {
-                        public T load(String key) throws  EVCacheException { 
+                        public T load(String key) throws EVCacheException { 
 	                          try {
-								return impl.doGet(key, tc);
+	                        	  final T t = impl.doGet(key, tc);
+	                        	  if(t == null) throw new  DataNotFoundException("Data for key : " + key + " could not be loaded as it was not found in EVCache");
+	                        	  return t;
+							} catch (DataNotFoundException e) {
+								throw e;
 							} catch (EVCacheException e) {
 								log.error("EVCacheException while loading key -> "+ key, e);
 								throw e;
+							} catch (Exception e) {
+								log.error("EVCacheException while loading key -> "+ key, e);
+								throw new EVCacheException("key : " + key + " could not be loaded", e);
 							}
                         }
 
@@ -461,4 +468,12 @@ public class EVCacheInMemoryCache<T> {
     	if (cache == null) return Collections.<String, T>emptyMap();
     	return cache.asMap();
     }
+
+    public static final class DataNotFoundException extends EVCacheException {
+		private static final long serialVersionUID = 1800185311509130263L;
+
+		public DataNotFoundException(String message) {
+          super(message);
+        }
+      }
 }
