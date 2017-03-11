@@ -12,6 +12,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -263,12 +265,17 @@ public class EVCacheClientPoolManager {
         return app;
     }
 
+    private WriteLock writeLock = new ReentrantReadWriteLock().writeLock();
     private final Map<String, EVCacheInMemoryCache<?>> inMemoryMap = new ConcurrentHashMap<String, EVCacheInMemoryCache<?>>();    
     public <T> EVCacheInMemoryCache<T> createInMemoryCache(String appName, Transcoder<T> tc, EVCacheImpl impl) {
     	EVCacheInMemoryCache<T> cache = (EVCacheInMemoryCache<T>) inMemoryMap.get(appName);
     	if(cache == null) {
-    		cache = new EVCacheInMemoryCache<T>(appName, tc, impl);
-    		inMemoryMap.put(appName, cache);
+    		writeLock.lock();
+    		if((cache = getInMemoryCache(appName)) == null) {
+	    		cache = new EVCacheInMemoryCache<T>(appName, tc, impl);
+	    		inMemoryMap.put(appName, cache);
+    		}
+    		writeLock.unlock();
     	}
         return cache;
     }

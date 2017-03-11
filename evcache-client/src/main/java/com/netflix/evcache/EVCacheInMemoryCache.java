@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
+import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
@@ -165,18 +166,23 @@ public class EVCacheInMemoryCache<T> {
                             ListenableFutureTask<T> task = ListenableFutureTask.create(new Callable<T>() {
                               public T call() {
     	                          try {
-    	                        	    final T t = load(key);
-    	                        	    if(t == null) {
-    	                        	    	EVCacheMetricsFactory.increment(appName, null, null, "EVCacheInMemoryCache" + "-" + appName + "-Reload-NotFound");
-    	                        	    } else {
-    	                        	    	EVCacheMetricsFactory.increment(appName, null, null, "EVCacheInMemoryCache" + "-" + appName + "-Reload-Success");
-    	                        	    }
-    									return t;
-    								} catch (EVCacheException e) {
-    									log.error("EVCacheException while reloading key -> "+ key, e);
-    									EVCacheMetricsFactory.increment(appName, null, null, "EVCacheInMemoryCache" + "-" + appName + "-Reload-Fail");
-                                    	return prev;
-    								}
+  	                        	    T t = load(key);
+  	                        	    if(t != null && t.equals(prev)) {
+  	                        	    	EVCacheMetricsFactory.increment(appName, null, null, "EVCacheInMemoryCache" + "-" + appName + "-Reload-UsePrevious");
+  	                        	    	t = prev;
+  	                        	    }
+  	                        	    if(t == null) {
+  	                        	    	EVCacheMetricsFactory.increment(appName, null, null, "EVCacheInMemoryCache" + "-" + appName + "-Reload-NotFound");
+  	                        	    	return prev;
+  	                        	    } else {
+  	                        	    	EVCacheMetricsFactory.increment(appName, null, null, "EVCacheInMemoryCache" + "-" + appName + "-Reload-Success");
+  	                        	    }
+  									return t;
+  								} catch (EVCacheException e) {
+  									log.error("EVCacheException while reloading key -> "+ key, e);
+  									EVCacheMetricsFactory.increment(appName, null, null, "EVCacheInMemoryCache" + "-" + appName + "-Reload-Fail");
+                                  	return prev;
+  								}
                               }
                             });
                             pool.execute(task);
@@ -195,12 +201,21 @@ public class EVCacheInMemoryCache<T> {
         }
     }
 
+    private LoadingCache<String, T> getCache() {
+    	return cache;
+    }
+    
+    private CacheStats getStats() {
+    	return cache.stats();
+    }
+
     private void setupMonitoring(final String appName) {
         final StepCounter sizeCounter = new StepCounter(getMonitorConfig(appName, "size", DataSourceType.GAUGE)) {
             @Override
             public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Long.valueOf(cache.size());
+                if (getCache() == null) return Long.valueOf(0);
+                log.debug("Current size is : " + getCache().size());
+                return Long.valueOf(getCache().size());
             }
 
             @Override
@@ -219,8 +234,8 @@ public class EVCacheInMemoryCache<T> {
 
             @Override
             public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Long.valueOf(cache.stats().requestCount());
+                if (getCache() == null) return Long.valueOf(0);
+                return Long.valueOf(getStats().requestCount());
             }
 
             @Override
@@ -237,8 +252,8 @@ public class EVCacheInMemoryCache<T> {
         final StepCounter hitrateCounter = new StepCounter(getMonitorConfig(appName, "hitrate", DataSourceType.GAUGE)) {
             @Override
             public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().hitRate());
+                if (getCache() == null) return Long.valueOf(0);
+                return Double.valueOf(getStats().hitRate());
             }
 
             @Override
@@ -257,8 +272,8 @@ public class EVCacheInMemoryCache<T> {
 
             @Override
             public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().hitCount());
+                if (getCache() == null) return Long.valueOf(0);
+                return Double.valueOf(getStats().hitCount());
             }
 
             @Override
@@ -281,8 +296,8 @@ public class EVCacheInMemoryCache<T> {
 
             @Override
             public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().missCount());
+                if (getCache() == null) return Long.valueOf(0);
+                return Double.valueOf(getStats().missCount());
             }
 
             @Override
@@ -305,8 +320,8 @@ public class EVCacheInMemoryCache<T> {
 
             @Override
             public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().evictionCount());
+                if (getCache() == null) return Long.valueOf(0);
+                return Double.valueOf(getStats().evictionCount());
             }
 
             @Override
@@ -329,8 +344,8 @@ public class EVCacheInMemoryCache<T> {
 
             @Override
             public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().loadExceptionCount());
+                if (getCache() == null) return Long.valueOf(0);
+                return Double.valueOf(getStats().loadExceptionCount());
             }
 
             @Override
@@ -353,8 +368,8 @@ public class EVCacheInMemoryCache<T> {
 
             @Override
             public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().loadCount());
+                if (getCache() == null) return Long.valueOf(0);
+                return Double.valueOf(getStats().loadCount());
             }
 
             @Override
@@ -377,8 +392,8 @@ public class EVCacheInMemoryCache<T> {
 
             @Override
             public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().loadSuccessCount());
+                if (getCache() == null) return Long.valueOf(0);
+                return Double.valueOf(getStats().loadSuccessCount());
             }
 
             @Override
@@ -401,8 +416,8 @@ public class EVCacheInMemoryCache<T> {
 
             @Override
             public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().totalLoadTime()/1000000);
+                if (getCache() == null) return Long.valueOf(0);
+                return Double.valueOf(getStats().totalLoadTime()/1000000);
             }
 
             @Override
@@ -419,8 +434,8 @@ public class EVCacheInMemoryCache<T> {
         final StepCounter loadExceptionRate = new StepCounter(getMonitorConfig(appName, "loadExceptionRate", DataSourceType.GAUGE)) {
             @Override
             public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().loadExceptionRate());
+                if (getCache() == null) return Long.valueOf(0);
+                return Double.valueOf(getStats().loadExceptionRate());
             }
 
             @Override
@@ -433,8 +448,8 @@ public class EVCacheInMemoryCache<T> {
         final StepCounter averageLoadTime = new StepCounter(getMonitorConfig(appName, "averageLoadTime-ms", DataSourceType.GAUGE)) {
             @Override
             public Number getValue() {
-                if (cache == null) return Long.valueOf(0);
-                return Double.valueOf(cache.stats().averageLoadPenalty()/1000000);
+                if (getCache() == null) return Long.valueOf(0);
+                return Double.valueOf(getStats().averageLoadPenalty()/1000000);
             }
 
             @Override
