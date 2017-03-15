@@ -167,10 +167,6 @@ public class EVCacheInMemoryCache<T> {
                               public T call() {
     	                          try {
   	                        	    T t = load(key);
-  	                        	    if(t != null && t.equals(prev)) {
-  	                        	    	EVCacheMetricsFactory.increment(appName, null, null, "EVCacheInMemoryCache" + "-" + appName + "-Reload-UsePrevious");
-  	                        	    	t = prev;
-  	                        	    }
   	                        	    if(t == null) {
   	                        	    	EVCacheMetricsFactory.increment(appName, null, null, "EVCacheInMemoryCache" + "-" + appName + "-Reload-NotFound");
   	                        	    	return prev;

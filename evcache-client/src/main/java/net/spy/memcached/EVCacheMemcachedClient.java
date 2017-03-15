@@ -359,7 +359,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                     operationDuration.stop();
                     if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
-                            + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration(TimeUnit.MILLISECONDS)));
+                            + "; Message : " + val.getMessage() + "; Elapsed Time - " + (operationDuration.getDuration(TimeUnit.MILLISECONDS)));
 
                     EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-AoA-AppendOperation-SUCCESS", DataSourceType.COUNTER).increment();
                     rv.set(val.isSuccess(), val);
@@ -381,7 +381,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                         public void receivedStatus(OperationStatus val) {
                             operationDuration.stop();
                             if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Ad Operation): " + key + "; Status : " + val.getStatusCode().name()
-                                    + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration(TimeUnit.MILLISECONDS)));
+                                    + "; Message : " + val.getMessage() + "; Elapsed Time - " + (operationDuration.getDuration(TimeUnit.MILLISECONDS)));
                             rv.set(val.isSuccess(), val);
                             if(val.isSuccess()) {
                                 appendSuccess = true;
@@ -393,7 +393,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                                     public void receivedStatus(OperationStatus val) {
                                         if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                                             if (log.isDebugEnabled()) log.debug("AddOrAppend Retry append Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
-                                                    + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration(TimeUnit.MILLISECONDS)));
+                                                    + "; Message : " + val.getMessage() + "; Elapsed Time - " + (operationDuration.getDuration(TimeUnit.MILLISECONDS)));
 
                                             EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-AoA-RetryAppendOperation-SUCCESS", DataSourceType.COUNTER).increment();
                                             rv.set(val.isSuccess(), val);
@@ -461,25 +461,15 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             public void receivedStatus(OperationStatus val) {
                 operationDuration.stop();
                 if (log.isDebugEnabled()) log.debug("Storing Key : " + key + "; Status : " + val.getStatusCode().name()
-                        + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration(TimeUnit.MILLISECONDS)));
+                        + "; Message : " + val.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS));
 
                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                     EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-" + operationStr + "Operation-SUCCESS");
                 } else if (val.getStatusCode().equals(StatusCode.TIMEDOUT)) {
-//                    Tag tag = null;
-//                    final MemcachedNode node = getEVCacheNode(key);
-//                    if (node.getSocketAddress() instanceof InetSocketAddress) {
-//                        tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
-//                    }
                     EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-" + operationStr + "Operation-TIMEDOUT", DataSourceType.COUNTER).increment();
                 } else if (val.getStatusCode().equals(StatusCode.ERR_NOT_FOUND) || val.getStatusCode().equals(StatusCode.ERR_EXISTS)) {
                     EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-" + operationStr + "Operation-" + val.getStatusCode().name());
                 } else {
-//                    Tag tag = null;
-//                    final MemcachedNode node = getEVCacheNode(key);
-//                    if (node.getSocketAddress() instanceof InetSocketAddress) {
-//                        tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
-//                    }
                     EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-" + operationStr + "Operation-" + val.getStatusCode().name(), DataSourceType.COUNTER).increment();
                 }
                 rv.set(val.isSuccess(), val);
@@ -520,7 +510,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         } finally {
             operationDuration.stop();
             if (log.isDebugEnabled()) log.debug("Increment Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp 
-                    + "; val : " + val + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration(TimeUnit.MILLISECONDS)));
+                    + "; val : " + val + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS));
         }
         return val;
     }
@@ -534,7 +524,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         } finally {
             operationDuration.stop();
             if (log.isDebugEnabled()) log.debug("decrement Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp 
-                    + "; val : " + val + "; Elapsed Time - " + (System.currentTimeMillis() - operationDuration.getDuration(TimeUnit.MILLISECONDS)));
+                    + "; val : " + val + "; Elapsed Time - " + (operationDuration.getDuration(TimeUnit.MILLISECONDS)));
         }
         return val;
     }
