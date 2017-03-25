@@ -62,6 +62,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     private final DynamicIntProperty logOperations;
     private final DynamicStringSetProperty logOperationCalls;
+    private final DynamicStringSetProperty cloneWrite;
 
     private final DynamicIntProperty _opQueueMaxBlockTime; // Timeout for adding an operation
     private final DynamicIntProperty _operationTimeout;// Timeout for write operation
@@ -157,6 +158,12 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this.logOperations = config.getDynamicIntProperty(appName + ".log.operation", 0);
         this.logOperationCalls = new DynamicStringSetProperty(appName + ".log.operation.calls", "SET,DELETE,GMISS,TMISS,BMISS_ALL,TOUCH,REPLACE");
         this.reconcileInterval = config.getDynamicIntProperty(appName + ".reconcile.interval", 600000);
+        this.cloneWrite = new DynamicStringSetProperty(appName + ".clone.writes.to", "");
+        this.cloneWrite.addCallback(new Runnable() {
+            public void run() {
+            	setupClones();
+            }
+        });
 
         final Map<String, String> map = new HashMap<String, String>();
         map.put("APP", _appName);
@@ -165,6 +172,12 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         setupMonitoring();
         refreshPool();
         if (log.isInfoEnabled()) log.info(toString());
+    }
+
+    private void setupClones() {
+    	for(String cloneApp : cloneWrite.get()) {
+    		manager.initEVCache(cloneApp);
+    	}
     }
 
     private void clearState() {
@@ -295,7 +308,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
         return Collections.<EVCacheClient> emptyList();
     }
-    
+
     public boolean isInWriteOnly(ServerGroup serverGroup) {
           if (memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
               return false;
@@ -330,7 +343,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
-    public EVCacheClient[] getEVCacheClientForWrite() {
+    EVCacheClient[] getAllWriteClients() {
         try {
             final EVCacheClient[] clientArr = new EVCacheClient[memcachedWriteInstancesByServerGroup.size()];
             int i = 0;
@@ -345,6 +358,31 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 }
             }
             return clientArr;
+        } catch (Throwable t) {
+            log.error("Exception trying to get an array of writable EVCache Instances", t);
+            return new EVCacheClient[0];
+        }
+    }
+
+
+    public EVCacheClient[] getEVCacheClientForWrite() {
+        try {
+            if((cloneWrite.get().size() == 0)) {
+                return getAllWriteClients();
+            } else {
+                final List<EVCacheClient> evcacheClientList = new ArrayList<EVCacheClient>();
+                final EVCacheClient[] clientArr = getAllWriteClients();
+                for(EVCacheClient client : clientArr) {
+                    evcacheClientList.add(client);
+                }
+                for(String cloneApp : cloneWrite.get()) {
+                    final EVCacheClient[] cloneWriteArray = manager.getEVCacheClientPool(cloneApp).getAllWriteClients();
+                    for(int j = 0; j < cloneWriteArray.length; j++) {
+                        evcacheClientList.add(cloneWriteArray[j]);
+                    }
+                }
+                return evcacheClientList.toArray(new EVCacheClient[0]);
+            }
         } catch (Throwable t) {
             log.error("Exception trying to get an array of writable EVCache Instances", t);
             return new EVCacheClient[0];
