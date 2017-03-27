@@ -10,6 +10,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 import com.netflix.config.ChainedDynamicProperty;
+import com.netflix.config.DynamicIntProperty;
 import com.netflix.evcache.EVCacheTranscoder;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheKetamaNodeLocatorConfiguration;
@@ -34,7 +35,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
 
     protected final String name;
     protected final String appName;
-    protected final long operationTimeout;
+    protected final DynamicIntProperty operationTimeout;
     protected final long opMaxBlockTime;
     protected final int id;
     protected final ServerGroup serverGroup;
@@ -43,11 +44,11 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     protected final EVCacheClientPoolManager poolManager;
     protected final ChainedDynamicProperty.StringProperty failureMode;
     
-    BaseConnectionFactory(String appName, int len, long operationTimeout, long opMaxBlockTime, int id,
+    BaseConnectionFactory(String appName, int len, DynamicIntProperty _operationTimeout, long opMaxBlockTime, int id,
             ServerGroup serverGroup, EVCacheClientPoolManager poolManager) {
         super(len, BinaryConnectionFactory.DEFAULT_READ_BUFFER_SIZE, DefaultHashAlgorithm.KETAMA_HASH);
         this.appName = appName;
-        this.operationTimeout = operationTimeout;
+        this.operationTimeout = _operationTimeout;
         this.opMaxBlockTime = opMaxBlockTime;
         this.id = id;
         this.serverGroup = serverGroup;
@@ -98,7 +99,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public long getOperationTimeout() {
-        return operationTimeout;
+        return operationTimeout.get();
     }
 
     public BlockingQueue<Operation> createReadOperationQueue() {
