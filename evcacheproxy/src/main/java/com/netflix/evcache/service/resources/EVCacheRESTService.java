@@ -65,7 +65,7 @@ public class EVCacheRESTService {
     }
 
     @POST
-    @Path("{appId}/bulk")
+    @Path("bulk/{appId}")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
     public Response bulkPostOperation(final InputStream in, @PathParam("appId") String pAppId) {
@@ -108,7 +108,7 @@ public class EVCacheRESTService {
     }
 
     @PUT
-    @Path("{appId}/bulk")
+    @Path("bulk/{appId}")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
     public Response bulkPutOperation(final InputStream in, @PathParam("appId") String pAppId) {
