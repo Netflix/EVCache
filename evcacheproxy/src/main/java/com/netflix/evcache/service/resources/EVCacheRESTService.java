@@ -68,7 +68,50 @@ public class EVCacheRESTService {
     @Path("{appId}/bulk")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
-    public Response bulkSetOperation(final InputStream in, @PathParam("appId") String pAppId) {
+    public Response bulkPostOperation(final InputStream in, @PathParam("appId") String pAppId) {
+        JSONArray dataJSON = null;
+        try {
+            final String appId = pAppId.toUpperCase();
+            final String Json = IOUtils.toString(in);
+            if(Json.isEmpty() || Json == null) {
+                logger.error("Unable to deserialize json");
+                return Response.serverError().build();
+            }
+            JSONObject jsonObject = (JSONObject) JSONSerializer.toJSON(Json);
+            if(jsonObject == null || jsonObject.isEmpty()) {
+                logger.error("Unable to deserialize json");
+                return Response.serverError().build();
+            }
+            String ttl = (String) jsonObject.get("ttl");
+            String flag = (String) jsonObject.get("flag");
+            dataJSON = (JSONArray) jsonObject.get("keys");
+            if(dataJSON.isEmpty() || dataJSON.size() == 0) {
+                logger.error("No Keys to set for this request");
+                return Response.serverError().build();
+            }
+            for(int indx = 0 ; indx < dataJSON.size() ; indx ++) {
+                if(logger.isDebugEnabled()) logger.debug(dataJSON.get(indx).toString());
+                JSONObject obj = dataJSON.getJSONObject(indx);
+                final String key = obj.getString("key");
+                final byte[] data = obj.getString("value").getBytes();
+                Response response = setData(appId, ttl, flag, key, data);
+                if(response.getStatus() >= 400) return Response.serverError().build();
+            }
+        } catch (EVCacheException e) {
+            logger.error("EVCacheException", e);
+            return Response.serverError().build();
+        } catch (Throwable t) {
+            logger.error("Throwable", t);
+            return Response.serverError().build();
+        }
+        return Response.ok("Bulk Set Operation was successful").build();
+    }
+
+    @PUT
+    @Path("{appId}/bulk")
+    @Consumes({MediaType.APPLICATION_OCTET_STREAM})
+    @Produces(MediaType.TEXT_PLAIN)
+    public Response bulkPutOperation(final InputStream in, @PathParam("appId") String pAppId) {
         JSONArray dataJSON = null;
         try {
             final String appId = pAppId.toUpperCase();
