@@ -5,9 +5,15 @@ apply plugin: 'war'
 apply plugin: 'eclipse'
 apply plugin: 'java'
 
+
 nebula {
     moduleEmail = 'dlevcachedev@netflix.com'
     moduleOwner = 'EVCache Team'
+}
+
+repositories {
+        mavenLocal()
+        mavenCentral() // maven { url 'http://jcenter.bintray.com' }
 }
 
 configurations.all {
@@ -19,16 +25,16 @@ dependencyRecommendations {
     mavenBom module: 'netflix:runtime-platform-recommendations:latest.release'
 }
 dependencies {
+        compile "net.sf.json-lib:json-lib:2.4:jdk15"
         compile 'com.netflix.evcache:evcache-client'
         compile 'com.netflix.governator:governator'
         compile 'com.netflix.governator:governator-archaius'
         compile 'com.netflix.governator:governator-servlet'
         compile 'com.sun.jersey:jersey-servlet'
         compile 'com.sun.jersey.contribs:jersey-guice'
-       // compile 'com.netflix.karyon:karyon2-admin-web'
         
         compile 'netflix:platform'
-        compile group:"netflix",    name:"evcache-client2",        version:"latest.candidate"
+        compile 'netflix:evcache-client2'
         compile 'netflix:base-server'
         compile 'netflix:nflibrary'
 }
