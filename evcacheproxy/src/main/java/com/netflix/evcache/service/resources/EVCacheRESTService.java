@@ -50,11 +50,12 @@ public class EVCacheRESTService {
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
     public Response setOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
-                                 @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag) {
+                                 @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag,
+                                 @DefaultValue("false") @QueryParam("async") String async) {
         try {
             final String appId = pAppId.toUpperCase();
             final byte[] bytes = IOUtils.toByteArray(in);
-            return setData(appId, ttl, flag, key, bytes);
+            return setData(appId, ttl, flag, key, bytes, Boolean.valueOf(async).booleanValue());
         } catch (EVCacheException e) {
             logger.error("EVCacheException", e);
             return Response.serverError().build();
@@ -68,50 +69,19 @@ public class EVCacheRESTService {
     @Path("bulk/{appId}")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
-    public Response bulkPostOperation(final InputStream in, @PathParam("appId") String pAppId) {
-        JSONArray dataJSON = null;
-        try {
-            final String appId = pAppId.toUpperCase();
-            final String Json = IOUtils.toString(in);
-            if(Json.isEmpty() || Json == null) {
-                logger.error("Unable to deserialize json");
-                return Response.serverError().build();
-            }
-            JSONObject jsonObject = (JSONObject) JSONSerializer.toJSON(Json);
-            if(jsonObject == null || jsonObject.isEmpty()) {
-                logger.error("Unable to deserialize json");
-                return Response.serverError().build();
-            }
-            String ttl = (String) jsonObject.get("ttl");
-            String flag = (String) jsonObject.get("flag");
-            dataJSON = (JSONArray) jsonObject.get("keys");
-            if(dataJSON.isEmpty() || dataJSON.size() == 0) {
-                logger.error("No Keys to set for this request");
-                return Response.serverError().build();
-            }
-            for(int indx = 0 ; indx < dataJSON.size() ; indx ++) {
-                if(logger.isDebugEnabled()) logger.debug(dataJSON.get(indx).toString());
-                JSONObject obj = dataJSON.getJSONObject(indx);
-                final String key = obj.getString("key");
-                final byte[] data = obj.getString("value").getBytes();
-                Response response = setData(appId, ttl, flag, key, data);
-                if(response.getStatus() >= 400) return Response.serverError().build();
-            }
-        } catch (EVCacheException e) {
-            logger.error("EVCacheException", e);
-            return Response.serverError().build();
-        } catch (Throwable t) {
-            logger.error("Throwable", t);
-            return Response.serverError().build();
-        }
-        return Response.ok("Bulk Set Operation was successful").build();
+    public Response bulkPostOperation(final InputStream in, @PathParam("appId") String pAppId, @DefaultValue("false") @QueryParam("async") String async) {
+    	return processBulkSetOperation(in, pAppId, Boolean.valueOf(async).booleanValue());
     }
-
+    
     @PUT
     @Path("bulk/{appId}")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
-    public Response bulkPutOperation(final InputStream in, @PathParam("appId") String pAppId) {
+    public Response bulkPutOperation(final InputStream in, @PathParam("appId") String pAppId, @DefaultValue("false") @QueryParam("async") String async) {
+    	return processBulkSetOperation(in, pAppId, Boolean.valueOf(async).booleanValue());
+    }
+    
+    private Response processBulkSetOperation(final InputStream in, final String pAppId, final boolean async) {
         JSONArray dataJSON = null;
         try {
             final String appId = pAppId.toUpperCase();
@@ -137,7 +107,7 @@ public class EVCacheRESTService {
                 JSONObject obj = dataJSON.getJSONObject(indx);
                 final String key = obj.getString("key");
                 final byte[] data = obj.getString("value").getBytes();
-                Response response = setData(appId, ttl, flag, key, data);
+                Response response = setData(appId, ttl, flag, key, data, async);
                 if(response.getStatus() >= 400) return Response.serverError().build();
             }
         } catch (EVCacheException e) {
@@ -147,19 +117,20 @@ public class EVCacheRESTService {
             logger.error("Throwable", t);
             return Response.serverError().build();
         }
-        return Response.ok("Bulk Set Operation was successful").build();
+        return Response.ok("Bulk Set Operation was successful").build();    	
     }
-    
+
     @PUT
     @Path("{appId}/{key}")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
     public Response putOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
-                                 @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag) {
+                                 @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag, 
+                                 @DefaultValue("false") @QueryParam("async") String async) {
         try {
             final String appId = pAppId.toUpperCase();
             final byte[] bytes = IOUtils.toByteArray(in);
-           	return setData(appId, ttl, flag, key, bytes);
+           	return setData(appId, ttl, flag, key, bytes, Boolean.valueOf(async).booleanValue());
         } catch (EVCacheException e) {
         	logger.error("EVCacheException", e);
             return Response.serverError().build();
@@ -169,7 +140,7 @@ public class EVCacheRESTService {
         }
     }
 
-    private Response setData(String appId, String ttl, String flag, String key, byte[] bytes) throws EVCacheException, InterruptedException {
+    private Response setData(String appId, String ttl, String flag, String key, byte[] bytes, boolean async) throws EVCacheException, InterruptedException {
         final EVCache evcache = getEVCache(appId);
         if (ttl == null) {
             return Response.status(400).type(MediaType.TEXT_PLAIN).entity("Please specify ttl for the key " + key + " as query parameter \n").build();
@@ -182,6 +153,8 @@ public class EVCacheRESTService {
         } else {
         	latch = evcache.set(key, bytes, timeToLive, Policy.ALL_MINUS_1);
         }
+        
+        if(async) return Response.status(202).build();
         
         if(latch != null) {
         	final boolean status = latch.await(2500, TimeUnit.MILLISECONDS);
