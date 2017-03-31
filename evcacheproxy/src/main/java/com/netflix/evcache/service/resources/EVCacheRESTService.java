@@ -90,26 +90,31 @@ public class EVCacheRESTService {
                 logger.error("Unable to deserialize json");
                 return Response.serverError().build();
             }
-            JSONObject jsonObject = (JSONObject) JSONSerializer.toJSON(Json);
+            final JSONObject jsonObject = (JSONObject) JSONSerializer.toJSON(Json);
             if(jsonObject == null || jsonObject.isEmpty()) {
                 logger.error("Unable to deserialize json");
                 return Response.serverError().build();
             }
-            String ttl = (String) jsonObject.get("ttl");
-            String flag = (String) jsonObject.get("flag");
+            final String ttl = (String) jsonObject.get("ttl");
+            final String flag = (String) jsonObject.get("flag");
             dataJSON = (JSONArray) jsonObject.get("keys");
             if(dataJSON.isEmpty() || dataJSON.size() == 0) {
                 logger.error("No Keys to set for this request");
                 return Response.serverError().build();
             }
-            for(int indx = 0 ; indx < dataJSON.size() ; indx ++) {
+            String errorKeys = "";
+            for(int indx = 0 ; indx < dataJSON.size() ; indx++) {
                 if(logger.isDebugEnabled()) logger.debug(dataJSON.get(indx).toString());
-                JSONObject obj = dataJSON.getJSONObject(indx);
+                final JSONObject obj = dataJSON.getJSONObject(indx);
                 final String key = obj.getString("key");
                 final byte[] data = obj.getString("value").getBytes();
-                Response response = setData(appId, ttl, flag, key, data, async);
-                if(response.getStatus() >= 400) return Response.serverError().build();
+                final Response response = setData(appId, ttl, flag, key, data, async);
+                if(response.getStatus() >= 400) {
+                	errorKeys += key +";";
+                }
             }
+            if(errorKeys.length() > 0) return Response.notModified(errorKeys).build();
+            if(async) return Response.status(202).build(); 
         } catch (EVCacheException e) {
             logger.error("EVCacheException", e);
             return Response.serverError().build();
