@@ -1,5 +1,7 @@
 package com.netflix.evcache.service.resources;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.netflix.evcache.EVCache;
@@ -38,6 +40,8 @@ public class EVCacheRESTService {
     private final EVCache.Builder builder;
     private final Map<String, EVCache> evCacheMap;
     private final RESTServiceTranscoder evcacheTranscoder = new RESTServiceTranscoder();
+    private final ObjectMapper mapper = new ObjectMapper();
+
 
     @Inject
     public EVCacheRESTService(EVCache.Builder builder) {
@@ -80,40 +84,26 @@ public class EVCacheRESTService {
     public Response bulkPutOperation(final InputStream in, @PathParam("appId") String pAppId, @DefaultValue("false") @QueryParam("async") String async) {
     	return processBulkSetOperation(in, pAppId, Boolean.valueOf(async).booleanValue());
     }
-    
+
     private Response processBulkSetOperation(final InputStream in, final String pAppId, final boolean async) {
-        JSONArray dataJSON = null;
         try {
+        	long start = System.currentTimeMillis();
             final String appId = pAppId.toUpperCase();
-            final String Json = IOUtils.toString(in);
-            if(Json.isEmpty() || Json == null) {
-                logger.error("Unable to deserialize json");
-                return Response.serverError().build();
-            }
-            final JSONObject jsonObject = (JSONObject) JSONSerializer.toJSON(Json);
-            if(jsonObject == null || jsonObject.isEmpty()) {
-                logger.error("Unable to deserialize json");
-                return Response.serverError().build();
-            }
-            final String ttl = (String) jsonObject.get("ttl");
-            final String flag = (String) jsonObject.get("flag");
-            dataJSON = (JSONArray) jsonObject.get("keys");
-            if(dataJSON.isEmpty() || dataJSON.size() == 0) {
-                logger.error("No Keys to set for this request");
-                return Response.serverError().build();
-            }
-            String errorKeys = "";
-            for(int indx = 0 ; indx < dataJSON.size() ; indx++) {
-                if(logger.isDebugEnabled()) logger.debug(dataJSON.get(indx).toString());
-                final JSONObject obj = dataJSON.getJSONObject(indx);
-                final String key = obj.getString("key");
-                final byte[] data = obj.getString("value").getBytes();
+            JsonNode jsonObject = mapper.readTree(in);
+            if(logger.isDebugEnabled()) logger.debug("Time to deserialize - " + (System.currentTimeMillis() - start));
+            final String ttl = jsonObject.get("ttl").asText("");
+            final String flag = jsonObject.has("flag") ? jsonObject.get("flag").asText("") : null;
+            final StringBuilder errorKeys = new StringBuilder();
+            for(JsonNode obj :jsonObject.get("keys")) {
+                final String key = obj.get("key").asText();
+                final byte[] data = obj.get("value").asText().getBytes();
                 final Response response = setData(appId, ttl, flag, key, data, async);
-                if(response.getStatus() >= 400) {
-                	errorKeys += key +";";
+                if(!(response.getStatus() >= 200 && response.getStatus() < 300)) {
+                	errorKeys.append(key +";");
                 }
             }
-            if(errorKeys.length() > 0) return Response.notModified(errorKeys).build();
+            if(logger.isDebugEnabled()) logger.debug("total Time taken for op - " + (System.currentTimeMillis() - start));
+            if(errorKeys.length() > 0) return Response.notModified(errorKeys.toString()).build();
             if(async) return Response.status(202).build(); 
         } catch (EVCacheException e) {
             logger.error("EVCacheException", e);
@@ -122,7 +112,7 @@ public class EVCacheRESTService {
             logger.error("Throwable", t);
             return Response.serverError().build();
         }
-        return Response.ok("Bulk Set Operation was successful").build();    	
+        return Response.ok("Bulk Set Operation was successful.").build();    	
     }
 
     @PUT
