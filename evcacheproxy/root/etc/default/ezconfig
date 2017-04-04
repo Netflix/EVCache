@@ -7,5 +7,5 @@ JAVA_FRAME_POINTER = enabled
 TOMCAT_AJPPROTOCOL=org.apache.coyote.ajp.AjpProtocol
 # For reference
 #APACHE_LOGFORMAT = %{%Y-%m-%d %T}t\t%a\t%{NFLX-Forwarded-For}i; %{X-Forwarded-For}i\t%m\t%U\t\"%q\"\t%s\t%b\t\"%{User-agent}i\"\t\"%{Cookie}i\"\t\"%{Referer}i\"\t\"%{UNIQUE_ID}e\"\t%D\t%O\t\"\"\t\"%{X-Netflix.request.uuid}i\"
-APACHE_LOGFORMAT = "%{%Y-%m-%d %T}t\t\"%{X-Forwarded-For}i\"\t%m\t%U\t\"%q\"\t%s\t\"%{User-agent}i\"\tbytes[%I+%O=%S]\ttime=%D" 
+APACHE_LOGFORMAT = %{%Y-%m-%d %T}t\t\"%{X-Forwarded-For}i\"\t%m\t%U\t\"%q\"\t%s\t\"%{User-agent}i\"\tbytes[%I+%O=%S]\ttime=%D
 
