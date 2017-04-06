@@ -10,6 +10,12 @@ import com.netflix.evcache.EVCacheException;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.service.transcoder.RESTServiceTranscoder;
+import com.netflix.servo.DefaultMonitorRegistry;
+import com.netflix.servo.annotations.DataSourceType;
+import com.netflix.servo.monitor.DynamicGauge;
+import com.netflix.servo.monitor.LongGauge;
+import com.netflix.servo.monitor.MonitorConfig;
+import com.netflix.servo.monitor.StepCounter;
 import com.netflix.util.concurrent.NFExecutorPool;
 
 import net.sf.json.JSONArray;
@@ -56,10 +62,9 @@ public class EVCacheRESTService {
         this.builder = builder;
         this.evCacheMap = new HashMap<>();
 
-        
         final int poolSize = DynamicPropertyFactory.getInstance().getIntProperty("EVCacheRESTService.async.pool.size", 10).get();
 
-        final BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>(10000);
+        final BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>(1000);
         this.pool = new NFExecutorPool("EVCacheRESTService-asyncBulkProcessor", poolSize, poolSize * 2, 30, TimeUnit.SECONDS, queue);
         pool.prestartAllCoreThreads();
         pool.setRejectedExecutionHandler(new RejectedExecutionHandler() {
@@ -69,6 +74,21 @@ public class EVCacheRESTService {
 				
 			}
 		});
+        
+        final MonitorConfig config = MonitorConfig.builder("EVCacheRESTService.queue.size").withTag(DataSourceType.GAUGE).build();
+        
+        final LongGauge sizeCounter = new LongGauge(config) {
+            @Override
+            public Number getValue() {
+            	return Integer.valueOf(pool.getQueue().size());
+            }
+
+            @Override
+            public Number getValue(int pollerIndex) {
+                return getValue();
+            }
+        };
+        DefaultMonitorRegistry.getInstance().register(sizeCounter);
     }
 
     @POST
