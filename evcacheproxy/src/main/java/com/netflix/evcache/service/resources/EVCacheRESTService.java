@@ -4,11 +4,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import com.netflix.config.DynamicPropertyFactory;
 import com.netflix.evcache.EVCache;
 import com.netflix.evcache.EVCacheException;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.service.transcoder.RESTServiceTranscoder;
+import com.netflix.util.concurrent.NFExecutorPool;
+
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import net.sf.json.JSONSerializer;
@@ -24,8 +27,11 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 
@@ -43,11 +49,26 @@ public class EVCacheRESTService {
     private final RESTServiceTranscoder evcacheTranscoder = new RESTServiceTranscoder();
     private final ObjectMapper mapper = new ObjectMapper();
     private static final Queue<BulkQueue> bulkqueue = new LinkedBlockingQueue<>();
+    private final NFExecutorPool pool;
 
     @Inject
     public EVCacheRESTService(EVCache.Builder builder) {
         this.builder = builder;
         this.evCacheMap = new HashMap<>();
+
+        
+        final int poolSize = DynamicPropertyFactory.getInstance().getIntProperty("EVCacheRESTService.async.pool.size", 10).get();
+
+        final BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>(10000);
+        this.pool = new NFExecutorPool("EVCacheRESTService-asyncBulkProcessor", poolSize, poolSize * 2, 30, TimeUnit.SECONDS, queue);
+        pool.prestartAllCoreThreads();
+        pool.setRejectedExecutionHandler(new RejectedExecutionHandler() {
+			@Override
+			public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+				r.run();
+				
+			}
+		});
     }
 
     @POST
@@ -90,40 +111,32 @@ public class EVCacheRESTService {
         try {
         	long start = System.currentTimeMillis();
             final String appId = pAppId.toUpperCase();
-            String input = IOUtils.toString(in);
+            String input = IOUtils.toString(in, "UTF-8");
             if(input.isEmpty() || input.length() == 0) {
                 return Response.notModified("Input is empty").build();
             }
             if(async) {
-                JsonNode jsonObject = mapper.readTree(input);
-                final String ttl = jsonObject.get("ttl").asText("");
-                if (ttl == null) {
-                    return Response.status(400).type(MediaType.TEXT_PLAIN).entity("Please specify ttl \n").build();
-                }
                 // Add to input queue and process
-                final BulkQueue inputQueue = new BulkQueue();
-                inputQueue.setAppId(appId);
-                inputQueue.setInput(input);
-                inputQueue.setTtl(ttl);
-                bulkqueue.add(inputQueue);
+                final BulkQueue op = new BulkQueue(appId, input);
+                pool.submit(op);
                 return Response.status(202).build();
+            } else {
+	            JsonNode jsonObject = mapper.readTree(input);
+	            if(logger.isDebugEnabled()) logger.debug("Time to deserialize - " + (System.currentTimeMillis() - start));
+	            final String ttl = jsonObject.get("ttl").asText("");
+	            final String flag = jsonObject.has("flag") ? jsonObject.get("flag").asText("") : null;
+	            final StringBuilder errorKeys = new StringBuilder();
+	            for(JsonNode obj :jsonObject.get("keys")) {
+	                final String key = obj.get("key").asText();
+	                final byte[] data = obj.get("value").asText().getBytes();
+	                final Response response = setData(appId, ttl, flag, key, data, async);
+	                if(!(response.getStatus() >= 200 && response.getStatus() < 300)) {
+	                	errorKeys.append(key +";");
+	                }
+	            }
+	            if(logger.isDebugEnabled()) logger.debug("total Time taken for op - " + (System.currentTimeMillis() - start));
+	            if(errorKeys.length() > 0) return Response.notModified(errorKeys.toString()).build();
             }
-            JsonNode jsonObject = mapper.readTree(input);
-            if(logger.isDebugEnabled()) logger.debug("Time to deserialize - " + (System.currentTimeMillis() - start));
-            final String ttl = jsonObject.get("ttl").asText("");
-            final String flag = jsonObject.has("flag") ? jsonObject.get("flag").asText("") : null;
-            final StringBuilder errorKeys = new StringBuilder();
-            for(JsonNode obj :jsonObject.get("keys")) {
-                final String key = obj.get("key").asText();
-                final byte[] data = obj.get("value").asText().getBytes();
-                final Response response = setData(appId, ttl, flag, key, data, async);
-                if(!(response.getStatus() >= 200 && response.getStatus() < 300)) {
-                	errorKeys.append(key +";");
-                }
-            }
-            if(logger.isDebugEnabled()) logger.debug("total Time taken for op - " + (System.currentTimeMillis() - start));
-            if(errorKeys.length() > 0) return Response.notModified(errorKeys.toString()).build();
-            if(async) return Response.status(202).build(); 
         } catch (EVCacheException e) {
             logger.error("EVCacheException", e);
             return Response.serverError().build();
