@@ -23,7 +23,9 @@ import javax.ws.rs.core.Response;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 
@@ -36,12 +38,11 @@ import java.util.concurrent.TimeUnit;
 public class EVCacheRESTService {
 
     private Logger logger = LoggerFactory.getLogger(EVCacheRESTService.class);
-
     private final EVCache.Builder builder;
     private final Map<String, EVCache> evCacheMap;
     private final RESTServiceTranscoder evcacheTranscoder = new RESTServiceTranscoder();
     private final ObjectMapper mapper = new ObjectMapper();
-
+    private static final Queue<BulkQueue> bulkqueue = new LinkedBlockingQueue<>();
 
     @Inject
     public EVCacheRESTService(EVCache.Builder builder) {
@@ -89,7 +90,25 @@ public class EVCacheRESTService {
         try {
         	long start = System.currentTimeMillis();
             final String appId = pAppId.toUpperCase();
-            JsonNode jsonObject = mapper.readTree(in);
+            String input = IOUtils.toString(in);
+            if(input.isEmpty() || input.length() == 0) {
+                return Response.notModified("Input is empty").build();
+            }
+            if(async) {
+                JsonNode jsonObject = mapper.readTree(input);
+                final String ttl = jsonObject.get("ttl").asText("");
+                if (ttl == null) {
+                    return Response.status(400).type(MediaType.TEXT_PLAIN).entity("Please specify ttl for the key " + key + " as query parameter \n").build();
+                }
+                // Add to input queue and process
+                final BulkQueue inputQueue = new BulkQueue();
+                inputQueue.setAppId(appId);
+                inputQueue.setInput(input);
+                inputQueue.setTtl(ttl);
+                bulkqueue.add(inputQueue);
+                return Response.status(202).build();
+            }
+            JsonNode jsonObject = mapper.readTree(input);
             if(logger.isDebugEnabled()) logger.debug("Time to deserialize - " + (System.currentTimeMillis() - start));
             final String ttl = jsonObject.get("ttl").asText("");
             final String flag = jsonObject.has("flag") ? jsonObject.get("flag").asText("") : null;
