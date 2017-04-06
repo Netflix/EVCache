@@ -98,7 +98,7 @@ public class EVCacheRESTService {
                 JsonNode jsonObject = mapper.readTree(input);
                 final String ttl = jsonObject.get("ttl").asText("");
                 if (ttl == null) {
-                    return Response.status(400).type(MediaType.TEXT_PLAIN).entity("Please specify ttl for the key " + key + " as query parameter \n").build();
+                    return Response.status(400).type(MediaType.TEXT_PLAIN).entity("Please specify ttl \n").build();
                 }
                 // Add to input queue and process
                 final BulkQueue inputQueue = new BulkQueue();
