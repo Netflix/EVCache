@@ -1,5 +1,32 @@
 package com.netflix.evcache.service.resources;
 
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
+import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
@@ -12,33 +39,11 @@ import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.service.transcoder.RESTServiceTranscoder;
 import com.netflix.servo.DefaultMonitorRegistry;
 import com.netflix.servo.annotations.DataSourceType;
-import com.netflix.servo.monitor.DynamicGauge;
 import com.netflix.servo.monitor.LongGauge;
 import com.netflix.servo.monitor.MonitorConfig;
-import com.netflix.servo.monitor.StepCounter;
 import com.netflix.util.concurrent.NFExecutorPool;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
 import net.spy.memcached.CachedData;
-import org.apache.commons.io.IOUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -54,7 +59,6 @@ public class EVCacheRESTService {
     private final Map<String, EVCache> evCacheMap;
     private final RESTServiceTranscoder evcacheTranscoder = new RESTServiceTranscoder();
     private final ObjectMapper mapper = new ObjectMapper();
-    private static final Queue<BulkProcessor> bulkqueue = new LinkedBlockingQueue<>();
     private final NFExecutorPool pool;
 
     @Inject
@@ -68,19 +72,19 @@ public class EVCacheRESTService {
         this.pool = new NFExecutorPool("EVCacheRESTService-asyncBulkProcessor", poolSize, poolSize * 2, 30, TimeUnit.SECONDS, queue);
         pool.prestartAllCoreThreads();
         pool.setRejectedExecutionHandler(new RejectedExecutionHandler() {
-			@Override
-			public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-				r.run();
-				
-			}
-		});
-        
+            @Override
+            public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+                r.run();
+
+            }
+        });
+
         final MonitorConfig config = MonitorConfig.builder("EVCacheRESTService.queue.size").withTag(DataSourceType.GAUGE).build();
-        
+
         final LongGauge sizeCounter = new LongGauge(config) {
             @Override
             public Number getValue() {
-            	return Integer.valueOf(pool.getQueue().size());
+                return Integer.valueOf(pool.getQueue().size());
             }
 
             @Override
@@ -96,8 +100,8 @@ public class EVCacheRESTService {
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
     public Response setOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
-                                 @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag,
-                                 @DefaultValue("false") @QueryParam("async") String async) {
+            @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag,
+            @DefaultValue("false") @QueryParam("async") String async) {
         try {
             final String appId = pAppId.toUpperCase();
             final byte[] bytes = IOUtils.toByteArray(in);
@@ -116,15 +120,15 @@ public class EVCacheRESTService {
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
     public Response bulkPostOperation(final InputStream in, @PathParam("appId") String pAppId, @DefaultValue("false") @QueryParam("async") String async) {
-    	return processBulkSetOperation(in, pAppId, Boolean.valueOf(async).booleanValue());
+        return processBulkSetOperation(in, pAppId, Boolean.valueOf(async).booleanValue());
     }
-    
+
     @PUT
     @Path("bulk/{appId}")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
     public Response bulkPutOperation(final InputStream in, @PathParam("appId") String pAppId, @DefaultValue("false") @QueryParam("async") String async) {
-    	return processBulkSetOperation(in, pAppId, Boolean.valueOf(async).booleanValue());
+        return processBulkSetOperation(in, pAppId, Boolean.valueOf(async).booleanValue());
     }
 
     private Response processBulkSetOperation(final InputStream in, final String pAppId, final boolean async) {
@@ -140,7 +144,7 @@ public class EVCacheRESTService {
                 pool.submit(op);
                 return Response.status(202).build();
             } else {
-            	return bulkSetProcessor(input, appId, async);
+                return bulkSetProcessor(input, appId, async);
             }
         } catch (EVCacheException e) {
             logger.error("EVCacheException", e);
@@ -150,9 +154,9 @@ public class EVCacheRESTService {
             return Response.serverError().build();
         }
     }
-    
+
     private Response bulkSetProcessor(String input, String appId, boolean async) throws Exception {
-    	long start = System.currentTimeMillis();
+        long start = System.currentTimeMillis();
         JsonNode jsonObject = mapper.readTree(input);
         if(logger.isDebugEnabled()) logger.debug("Time to deserialize - " + (System.currentTimeMillis() - start));
         final String ttl = jsonObject.get("ttl").asText("");
@@ -163,13 +167,13 @@ public class EVCacheRESTService {
             final byte[] data = obj.get("value").asText().getBytes();
             final Response response = setData(appId, ttl, flag, key, data, async);
             if(!(response.getStatus() >= 200 && response.getStatus() < 300)) {
-            	errorKeys.append(key +";");
+                errorKeys.append(key +";");
             }
         }
         if(logger.isDebugEnabled()) logger.debug("total Time taken for op - " + (System.currentTimeMillis() - start));
         if(errorKeys.length() > 0) return Response.notModified(errorKeys.toString()).build();
         return Response.ok("Bulk Set Operation was successful.").build();
-    	
+
     }
 
     @PUT
@@ -177,17 +181,17 @@ public class EVCacheRESTService {
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
     public Response putOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
-                                 @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag, 
-                                 @DefaultValue("false") @QueryParam("async") String async) {
+            @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag, 
+            @DefaultValue("false") @QueryParam("async") String async) {
         try {
             final String appId = pAppId.toUpperCase();
             final byte[] bytes = IOUtils.toByteArray(in);
-           	return setData(appId, ttl, flag, key, bytes, Boolean.valueOf(async).booleanValue());
+            return setData(appId, ttl, flag, key, bytes, Boolean.valueOf(async).booleanValue());
         } catch (EVCacheException e) {
-        	logger.error("EVCacheException", e);
+            logger.error("EVCacheException", e);
             return Response.serverError().build();
         } catch (Throwable t) {
-        	logger.error("Throwable", t);
+            logger.error("Throwable", t);
             return Response.serverError().build();
         }
     }
@@ -200,29 +204,29 @@ public class EVCacheRESTService {
         final int timeToLive = Integer.valueOf(ttl).intValue();
         EVCacheLatch latch = null; 
         if(flag != null && flag.length() > 0) {
-        	final CachedData cd = new CachedData(Integer.parseInt(flag), bytes, Integer.MAX_VALUE);
-        	latch = evcache.set(key, evcacheTranscoder.encode(cd), timeToLive, Policy.ALL_MINUS_1);
+            final CachedData cd = new CachedData(Integer.parseInt(flag), bytes, Integer.MAX_VALUE);
+            latch = evcache.set(key, evcacheTranscoder.encode(cd), timeToLive, Policy.ALL_MINUS_1);
         } else {
-        	latch = evcache.set(key, bytes, timeToLive, Policy.ALL_MINUS_1);
+            latch = evcache.set(key, bytes, timeToLive, Policy.ALL_MINUS_1);
         }
-        
+
         if(async) return Response.status(202).build();
-        
+
         if(latch != null) {
-        	final boolean status = latch.await(2500, TimeUnit.MILLISECONDS);
-        	if(status) {
-        		return Response.ok("Set Operation for Key - " + key + " was successful. \n").build(); 
-        	} else {
-        		if(latch.getCompletedCount() > 0) {
-        			if(latch.getSuccessCount() == 0){
-        				return Response.serverError().build();
-        			} else if(latch.getSuccessCount() > 0 ) {
-        				return Response.ok("Set Operation for Key - " + key + " was successful in " + latch.getSuccessCount() + " Server Groups. \n").build();
-        			}
-        		} else {
-        			return Response.serverError().build();
-        		}
-        	}
+            final boolean status = latch.await(2500, TimeUnit.MILLISECONDS);
+            if(status) {
+                return Response.ok("Set Operation for Key - " + key + " was successful. \n").build(); 
+            } else {
+                if(latch.getCompletedCount() > 0) {
+                    if(latch.getSuccessCount() == 0){
+                        return Response.serverError().build();
+                    } else if(latch.getSuccessCount() > 0 ) {
+                        return Response.ok("Set Operation for Key - " + key + " was successful in " + latch.getSuccessCount() + " Server Groups. \n").build();
+                    }
+                } else {
+                    return Response.serverError().build();
+                }
+            }
         }
         return Response.serverError().build();
     }
@@ -231,7 +235,7 @@ public class EVCacheRESTService {
     @Path("incr/{appId}/{key}")
     @Produces({MediaType.TEXT_PLAIN})
     public Response incrOperation(@PathParam("appId") String appId, @PathParam("key") String key, @DefaultValue("1") @QueryParam("by") String byStr, 
-    		@DefaultValue("1") @QueryParam("def") String defStr, @DefaultValue("0") @QueryParam("ttl") String ttlStr) {
+            @DefaultValue("1") @QueryParam("def") String defStr, @DefaultValue("0") @QueryParam("ttl") String ttlStr) {
         appId = appId.toUpperCase();
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
@@ -242,7 +246,7 @@ public class EVCacheRESTService {
             final long val = evCache.incr(key, by, def, ttl);
             return Response.status(200).type(MediaType.TEXT_PLAIN).entity(String.valueOf(val)).build();
         } catch (EVCacheException e) {
-        	logger.error("EVCacheException", e);
+            logger.error("EVCacheException", e);
             return Response.serverError().build();
         }
     }
@@ -252,7 +256,7 @@ public class EVCacheRESTService {
     @Path("decr/{appId}/{key}")
     @Produces({MediaType.TEXT_PLAIN})
     public Response decrOperation(@PathParam("appId") String appId, @PathParam("key") String key, @DefaultValue("1") @QueryParam("by") String byStr, 
-    		@DefaultValue("1") @QueryParam("def") String defStr, @DefaultValue("0") @QueryParam("ttl") String ttlStr) {
+            @DefaultValue("1") @QueryParam("def") String defStr, @DefaultValue("0") @QueryParam("ttl") String ttlStr) {
         appId = appId.toUpperCase();
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
@@ -267,7 +271,7 @@ public class EVCacheRESTService {
             return Response.serverError().build();
         }
     }
-    
+
     @GET
     @Path("{appId}/{key}")
     @Produces({MediaType.APPLICATION_OCTET_STREAM})
@@ -287,7 +291,7 @@ public class EVCacheRESTService {
                 return Response.status(200).type(MediaType.APPLICATION_OCTET_STREAM).entity(bytes).build();
             }
         } catch (EVCacheException e) {
-        	logger.error("EVCacheException", e);
+            logger.error("EVCacheException", e);
             return Response.serverError().build();
 
         }
@@ -309,7 +313,7 @@ public class EVCacheRESTService {
             }
             return Response.ok("Deleted Operation for Key - " + key + " was successful. \n").build();
         } catch (EVCacheException e) {
-        	logger.error("EVCacheException", e);
+            logger.error("EVCacheException", e);
             return Response.serverError().build();
         }
     }
@@ -328,12 +332,12 @@ public class EVCacheRESTService {
         private final String input;
 
         public BulkProcessor(String appId, String input) {
-    		this.appId = appId;
-    		this.input = input;
-    	}
+            this.appId = appId;
+            this.input = input;
+        }
 
 
-    	public String getAppId() {
+        public String getAppId() {
             return appId;
         }
 
@@ -344,14 +348,14 @@ public class EVCacheRESTService {
 
 
 
-    	@Override
-    	public void run() {
-    		try {
-				bulkSetProcessor(input, appId, true);
-			} catch (Exception e) {
-				logger.error("Exception processing the json", e);
-			}
-    	}
+        @Override
+        public void run() {
+            try {
+                bulkSetProcessor(input, appId, true);
+            } catch (Exception e) {
+                logger.error("Exception processing the json", e);
+            }
+        }
     }
 
 }
