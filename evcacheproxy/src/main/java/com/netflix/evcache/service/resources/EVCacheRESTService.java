@@ -48,7 +48,7 @@ public class EVCacheRESTService {
     private final Map<String, EVCache> evCacheMap;
     private final RESTServiceTranscoder evcacheTranscoder = new RESTServiceTranscoder();
     private final ObjectMapper mapper = new ObjectMapper();
-    private static final Queue<BulkQueue> bulkqueue = new LinkedBlockingQueue<>();
+    private static final Queue<BulkProcessor> bulkqueue = new LinkedBlockingQueue<>();
     private final NFExecutorPool pool;
 
     @Inject
@@ -109,7 +109,6 @@ public class EVCacheRESTService {
 
     private Response processBulkSetOperation(final InputStream in, final String pAppId, final boolean async) {
         try {
-        	long start = System.currentTimeMillis();
             final String appId = pAppId.toUpperCase();
             String input = IOUtils.toString(in, "UTF-8");
             if(input.isEmpty() || input.length() == 0) {
@@ -117,25 +116,11 @@ public class EVCacheRESTService {
             }
             if(async) {
                 // Add to input queue and process
-                final BulkQueue op = new BulkQueue(appId, input);
+                final BulkProcessor op = new BulkProcessor(appId, input);
                 pool.submit(op);
                 return Response.status(202).build();
             } else {
-	            JsonNode jsonObject = mapper.readTree(input);
-	            if(logger.isDebugEnabled()) logger.debug("Time to deserialize - " + (System.currentTimeMillis() - start));
-	            final String ttl = jsonObject.get("ttl").asText("");
-	            final String flag = jsonObject.has("flag") ? jsonObject.get("flag").asText("") : null;
-	            final StringBuilder errorKeys = new StringBuilder();
-	            for(JsonNode obj :jsonObject.get("keys")) {
-	                final String key = obj.get("key").asText();
-	                final byte[] data = obj.get("value").asText().getBytes();
-	                final Response response = setData(appId, ttl, flag, key, data, async);
-	                if(!(response.getStatus() >= 200 && response.getStatus() < 300)) {
-	                	errorKeys.append(key +";");
-	                }
-	            }
-	            if(logger.isDebugEnabled()) logger.debug("total Time taken for op - " + (System.currentTimeMillis() - start));
-	            if(errorKeys.length() > 0) return Response.notModified(errorKeys.toString()).build();
+            	return bulkSetProcessor(input, appId, async);
             }
         } catch (EVCacheException e) {
             logger.error("EVCacheException", e);
@@ -144,7 +129,27 @@ public class EVCacheRESTService {
             logger.error("Throwable", t);
             return Response.serverError().build();
         }
-        return Response.ok("Bulk Set Operation was successful.").build();    	
+    }
+    
+    private Response bulkSetProcessor(String input, String appId, boolean async) throws Exception {
+    	long start = System.currentTimeMillis();
+        JsonNode jsonObject = mapper.readTree(input);
+        if(logger.isDebugEnabled()) logger.debug("Time to deserialize - " + (System.currentTimeMillis() - start));
+        final String ttl = jsonObject.get("ttl").asText("");
+        final String flag = jsonObject.has("flag") ? jsonObject.get("flag").asText("") : null;
+        final StringBuilder errorKeys = new StringBuilder();
+        for(JsonNode obj :jsonObject.get("keys")) {
+            final String key = obj.get("key").asText();
+            final byte[] data = obj.get("value").asText().getBytes();
+            final Response response = setData(appId, ttl, flag, key, data, async);
+            if(!(response.getStatus() >= 200 && response.getStatus() < 300)) {
+            	errorKeys.append(key +";");
+            }
+        }
+        if(logger.isDebugEnabled()) logger.debug("total Time taken for op - " + (System.currentTimeMillis() - start));
+        if(errorKeys.length() > 0) return Response.notModified(errorKeys.toString()).build();
+        return Response.ok("Bulk Set Operation was successful.").build();
+    	
     }
 
     @PUT
@@ -296,4 +301,37 @@ public class EVCacheRESTService {
         evCacheMap.put(appId, evCache);
         return evCache;
     }
+
+    class BulkProcessor  implements Runnable {
+
+        private final String appId;
+        private final String input;
+
+        public BulkProcessor(String appId, String input) {
+    		this.appId = appId;
+    		this.input = input;
+    	}
+
+
+    	public String getAppId() {
+            return appId;
+        }
+
+
+        public String getInput() {
+            return input;
+        }
+
+
+
+    	@Override
+    	public void run() {
+    		try {
+				bulkSetProcessor(input, appId, true);
+			} catch (Exception e) {
+				logger.error("Exception processing the json", e);
+			}
+    	}
+    }
+
 }
