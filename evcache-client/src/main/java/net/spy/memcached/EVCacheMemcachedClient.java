@@ -32,8 +32,6 @@ import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.Stopwatch;
-import com.netflix.servo.tag.BasicTag;
-import com.netflix.servo.tag.Tag;
 import com.netflix.spectator.api.DistributionSummary;
 
 import net.spy.memcached.internal.GetFuture;
@@ -67,11 +65,13 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private final EVCacheClient client;
     private DistributionSummary getDataSize, bulkDataSize, getAndTouchDataSize;
     private DynamicLongProperty mutateOperationTimeout;
+    private final ConnectionFactory connectionFactory;
 
     public EVCacheMemcachedClient(ConnectionFactory cf, List<InetSocketAddress> addrs,
             ChainedDynamicProperty.IntProperty readTimeout, String appName, String zone, int id,
             ServerGroup serverGroup, EVCacheClient client) throws IOException {
         super(cf, addrs);
+        this.connectionFactory = cf;
         this.id = id;
         this.appName = appName;
         this.zone = zone;
@@ -222,7 +222,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
     public <T> EVCacheOperationFuture<CASValue<T>> asyncGetAndTouch(final String key, final int exp, final Transcoder<T> tc) {
         final CountDownLatch latch = new CountDownLatch(1);
-        final EVCacheOperationFuture<CASValue<T>> rv = new EVCacheOperationFuture<CASValue<T>>(key, latch, new AtomicReference<CASValue<T>>(null), operationTimeout, executorService, appName, serverGroup, "GetAndTouchOperation");
+        final EVCacheOperationFuture<CASValue<T>> rv = new EVCacheOperationFuture<CASValue<T>>(key, latch, new AtomicReference<CASValue<T>>(null), connectionFactory.getOperationTimeout(), executorService, appName, serverGroup, "GetAndTouchOperation");
         final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "GetAndTouchOperation").start();
         Operation op = opFact.getAndTouch(key, exp, new GetAndTouchOperation.Callback() {
             private CASValue<T> val = null;
@@ -278,7 +278,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
     public OperationFuture<Boolean> delete(String key, EVCacheLatch evcacheLatch) {
         final CountDownLatch latch = new CountDownLatch(1);
-        final OperationFuture<Boolean> rv = new OperationFuture<Boolean>(key, latch, operationTimeout, executorService);
+        final OperationFuture<Boolean> rv = new OperationFuture<Boolean>(key, latch, connectionFactory.getOperationTimeout(), executorService);
         final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "DeleteOperation").start();
 
         final DeleteOperation.Callback callback = new DeleteOperation.Callback() {
@@ -314,7 +314,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
     public <T> OperationFuture<Boolean> touch(final String key, final int exp, EVCacheLatch evcacheLatch) {
         final CountDownLatch latch = new CountDownLatch(1);
-        final OperationFuture<Boolean> rv = new OperationFuture<Boolean>(key, latch, operationTimeout, executorService);
+        final OperationFuture<Boolean> rv = new OperationFuture<Boolean>(key, latch, connectionFactory.getOperationTimeout(), executorService);
         final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "TouchOperation").start();
 
         Operation op = opFact.touch(key, exp, new OperationCallback() {
@@ -347,7 +347,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
     public <T> OperationFuture<Boolean> asyncAppendOrAdd(final String key, int exp, CachedData co, EVCacheLatch evcacheLatch) {
         final CountDownLatch latch = new CountDownLatch(1);
-        final OperationFuture<Boolean> rv = new EVCacheOperationFuture<Boolean>(key, latch, new AtomicReference<Boolean>(null), operationTimeout, executorService, appName, serverGroup, "LatencyAoA" );
+        final OperationFuture<Boolean> rv = new EVCacheOperationFuture<Boolean>(key, latch, new AtomicReference<Boolean>(null), connectionFactory.getOperationTimeout(), executorService, appName, serverGroup, "LatencyAoA" );
         final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, "AoAOperation").start();
 
         Operation op = opFact.cat(ConcatenationType.append, 0, key, co.getData(),
@@ -453,7 +453,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         } else {
             operationStr = "Replace";
         }
-        final OperationFuture<Boolean> rv = new EVCacheOperationFuture<Boolean>(key, latch, new AtomicReference<Boolean>(null), operationTimeout, executorService, appName, serverGroup, "Latency" + operationStr);
+        final OperationFuture<Boolean> rv = new EVCacheOperationFuture<Boolean>(key, latch, new AtomicReference<Boolean>(null), connectionFactory.getOperationTimeout(), executorService, appName, serverGroup, "Latency" + operationStr);
         Operation op = opFact.store(storeType, key, co.getFlags(), exp, co.getData(), new StoreOperation.Callback() {
             final Stopwatch operationDuration = EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, operationStr + "Operation").start();
 
@@ -545,7 +545,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         }));
         try {
             if(mutateOperationTimeout == null) {
-                mutateOperationTimeout = EVCacheConfig.getInstance().getDynamicLongProperty("evache.mutate.timeout", operationTimeout);
+                mutateOperationTimeout = EVCacheConfig.getInstance().getDynamicLongProperty("evache.mutate.timeout", connectionFactory.getOperationTimeout());
             }
 
             if (!latch.await(mutateOperationTimeout.get(), TimeUnit.MILLISECONDS)) {
