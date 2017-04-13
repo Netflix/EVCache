@@ -54,7 +54,7 @@ import net.spy.memcached.CachedData;
 @Path("/evcrest/v1.0")
 public class EVCacheRESTService {
 
-    private Logger logger = LoggerFactory.getLogger(EVCacheRESTService.class);
+    private static final Logger logger = LoggerFactory.getLogger(EVCacheRESTService.class);
     private final EVCache.Builder builder;
     private final Map<String, EVCache> evCacheMap;
     private final RESTServiceTranscoder evcacheTranscoder = new RESTServiceTranscoder();
@@ -162,9 +162,15 @@ public class EVCacheRESTService {
         final String ttl = jsonObject.get("ttl").asText("");
         final String flag = jsonObject.has("flag") ? jsonObject.get("flag").asText("") : "0" ;
         final StringBuilder errorKeys = new StringBuilder();
-        for(JsonNode obj :jsonObject.get("keys")) {
+        for(JsonNode obj : jsonObject.get("keys")) {
             final String key = obj.get("key").asText();
-            final byte[] data = obj.get("value").asText().getBytes();
+            final JsonNode val = obj.get("value");
+            final byte[] data; 
+            if(val.isTextual()) {
+                data = val.asText().getBytes();
+            } else {
+                data = val.toString().getBytes();
+            }
             final Response response = setData(appId, ttl, flag, key, data, async);
             if(!(response.getStatus() >= 200 && response.getStatus() < 300)) {
                 errorKeys.append(key +";");
@@ -357,5 +363,17 @@ public class EVCacheRESTService {
             }
         }
     }
+
+    /*
+    public static void main(String args[]) {
+        EVCacheRESTService rest = new EVCacheRESTService(null);
+        try {
+            rest.bulkSetProcessor("{\"ttl\": \"300\",\"keys\": [{\"key\": \"bulk-test-1\",\"ttl\": \"300\",\"value\": \"Fremont\"}, {\"key\": \"bulk-test-2\",\"ttl\": \"300\",\"value\": { \"city\": \"sanjose\", \"state\": \"ca\"}} ] }", "EVCACHE", false);
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+    */
 
 }
