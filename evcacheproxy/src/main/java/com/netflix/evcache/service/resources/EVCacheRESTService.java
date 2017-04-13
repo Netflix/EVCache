@@ -160,7 +160,7 @@ public class EVCacheRESTService {
         JsonNode jsonObject = mapper.readTree(input);
         if(logger.isDebugEnabled()) logger.debug("Time to deserialize - " + (System.currentTimeMillis() - start));
         final String ttl = jsonObject.get("ttl").asText("");
-        final String flag = jsonObject.has("flag") ? jsonObject.get("flag").asText("") : null;
+        final String flag = jsonObject.has("flag") ? jsonObject.get("flag").asText("") : "0" ;
         final StringBuilder errorKeys = new StringBuilder();
         for(JsonNode obj :jsonObject.get("keys")) {
             final String key = obj.get("key").asText();

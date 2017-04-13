@@ -12,7 +12,6 @@ import com.google.inject.Injector;
 import com.google.inject.servlet.ServletModule;
 import com.netflix.evcache.EVCacheClientLibrary;
 import com.netflix.evcache.service.resources.EVCacheRESTService;
-import com.netflix.evcservice.service.StatusPage;
 import com.netflix.server.base.BaseHealthCheckServlet;
 import com.netflix.server.base.BaseStatusPage;
 import com.netflix.server.base.NFFilter;
