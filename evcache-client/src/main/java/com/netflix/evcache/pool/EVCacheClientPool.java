@@ -16,6 +16,9 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -25,6 +28,7 @@ import javax.management.ObjectName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.ChainedDynamicProperty.BooleanProperty;
 import com.netflix.config.ConfigurationManager;
@@ -74,6 +78,9 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     
     private final ChainedDynamicProperty.BooleanProperty refreshConnectionOnReadQueueFull;
     private final ChainedDynamicProperty.IntProperty refreshConnectionOnReadQueueFullSize;
+
+    private ThreadPoolExecutor refreshAsnycPool = null;
+    private final DynamicBooleanProperty _disableAsyncRefresh;
 
     @SuppressWarnings("serial")
     private final Map<ServerGroup, BooleanProperty> writeOnlyFastPropertyMap = new ConcurrentHashMap<ServerGroup, BooleanProperty>() {
@@ -153,6 +160,12 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         });
         this._maxReadQueueSize = config.getDynamicIntProperty(appName + ".max.read.queue.length", 5);
         this._retryAcrossAllReplicas = config.getDynamicBooleanProperty(_appName + ".retry.all.copies", Boolean.FALSE);
+        this._disableAsyncRefresh = config.getDynamicBooleanProperty(_appName + ".disable.async.refresh", Boolean.FALSE);
+        this._disableAsyncRefresh.addCallback(new Runnable() {
+            public void run() {
+                updateAsyncRefresh();
+            }
+        });
         this._maxRetries = config.getDynamicIntProperty(_appName + ".max.retry.count", 1);
 
         this.logOperations = config.getDynamicIntProperty(appName + ".log.operation", 0);
@@ -889,19 +902,19 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     public void refreshAsync(MemcachedNode node) {
         EVCacheMetricsFactory.increment(_appName, null, "EVCacheClientPool-refreshAsync");
-        if (log.isWarnEnabled()) log.warn("Pool is being refresh as the EVCacheNode is not available. " + node
-                .toString());
-        Thread t = new Thread() {
-            public void run() {
-                try {
-                    refresh(true);
-                } catch (Exception e) {
-                    log.error(e.getMessage(), e);
+        if (log.isWarnEnabled()) log.warn("Pool is being refresh as the EVCacheNode is not available. " + node.toString());
+        if(!_disableAsyncRefresh.get() && refreshAsnycPool != null) {
+            refreshAsnycPool.submit(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        refresh(true);
+                    } catch (Exception e) {
+                        log.error(e.getMessage(), e);
+                    }
                 }
-            }
-        };
-        t.setName("PoolRefresher-@" + System.currentTimeMillis() + "-by-" + node.getSocketAddress());
-        t.start();
+            });
+        }
     }
 
     public void run() {
@@ -1023,6 +1036,18 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return instanceMap;
     }
 
+    private void updateAsyncRefresh() {
+        if(_disableAsyncRefresh.get()) {
+            if(refreshAsnycPool != null) {
+                refreshAsnycPool.shutdown();
+                refreshAsnycPool = null;
+            }
+        } else {
+            final ThreadFactory factory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat( "EVCacheClientPool_refreshAsync-%d").build();
+            refreshAsnycPool = new ThreadPoolExecutor(1,2,30, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(10), factory, new ThreadPoolExecutor.DiscardPolicy());
+        } 
+    }
+    
     public void refreshPool() {
         try {
             refresh(true);
