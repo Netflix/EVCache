@@ -167,9 +167,9 @@ public class EVCacheRESTService {
             final JsonNode val = obj.get("value");
             final byte[] data; 
             if(val.isTextual()) {
-                data = val.asText().getBytes();
+                data = mapper.writeValueAsBytes(val);
             } else {
-                data = val.toString().getBytes();
+                data = mapper.writeValueAsBytes(val);
             }
             final Response response = setData(appId, ttl, flag, key, data, async);
             if(!(response.getStatus() >= 200 && response.getStatus() < 300)) {
@@ -216,18 +216,16 @@ public class EVCacheRESTService {
             latch = evcache.set(key, bytes, timeToLive, Policy.ALL_MINUS_1);
         }
 
-        if(async) return Response.status(202).build();
-
         if(latch != null) {
             final boolean status = latch.await(2500, TimeUnit.MILLISECONDS);
             if(status) {
-                return Response.ok("Set Operation for Key - " + key + " was successful. \n").build(); 
+                return Response.status(202).build();
             } else {
                 if(latch.getCompletedCount() > 0) {
                     if(latch.getSuccessCount() == 0){
                         return Response.serverError().build();
                     } else if(latch.getSuccessCount() > 0 ) {
-                        return Response.ok("Set Operation for Key - " + key + " was successful in " + latch.getSuccessCount() + " Server Groups. \n").build();
+                        return Response.status(202).build();
                     }
                 } else {
                     return Response.serverError().build();
