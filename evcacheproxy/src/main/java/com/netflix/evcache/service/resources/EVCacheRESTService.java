@@ -216,16 +216,18 @@ public class EVCacheRESTService {
             latch = evcache.set(key, bytes, timeToLive, Policy.ALL_MINUS_1);
         }
 
+        if(async) return Response.status(202).build();
+
         if(latch != null) {
             final boolean status = latch.await(2500, TimeUnit.MILLISECONDS);
             if(status) {
-                return Response.status(202).build();
+                return Response.ok("Set Operation for Key - " + key + " was successful. \n").build();
             } else {
                 if(latch.getCompletedCount() > 0) {
                     if(latch.getSuccessCount() == 0){
                         return Response.serverError().build();
                     } else if(latch.getSuccessCount() > 0 ) {
-                        return Response.status(202).build();
+                        return Response.ok("Set Operation for Key - " + key + " was successful in " + latch.getSuccessCount() + " Server Groups. \n").build();
                     }
                 } else {
                     return Response.serverError().build();
