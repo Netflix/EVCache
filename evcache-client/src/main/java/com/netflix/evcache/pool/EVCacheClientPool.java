@@ -769,8 +769,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 boolean instanceChangeInServerGroup = force;
                 if (instanceChangeInServerGroup) {
                     if (log.isWarnEnabled()) log.warn("FORCE REFRESH :: AppName :" + _appName + "; ServerGroup : "
-                            + serverGroup + "; Changed : "
-                            + instanceChangeInServerGroup);
+                            + serverGroup + "; Changed : " + instanceChangeInServerGroup);
                 } else {
                     instanceChangeInServerGroup = haveInstancesInServerGroupChanged(serverGroup, discoveredHostsInServerGroup);
                     if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
@@ -818,8 +817,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             // Check to see if a zone has been removed, if so remove them from
             // the active list
             if (memcachedInstancesByServerGroup.size() > instances.size()) {
-                if (log.isDebugEnabled()) log.debug("\n\tAppName :" + _appName + ";\n\tServerGroup Discovered : "
-                        + instances.keySet()
+                if (log.isDebugEnabled()) log.debug("\n\tAppName :" + _appName + ";\n\tServerGroup Discovered : " + instances.keySet()
                         + ";\n\tCurrent ServerGroup in EVCache Client : " + memcachedInstancesByServerGroup.keySet());
                 cleanupMemcachedInstances(false);
             }
@@ -908,7 +906,9 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 @Override
                 public void run() {
                     try {
-                        refresh(true);
+                        boolean force = (System.currentTimeMillis() - lastReconcileTime) > ( manager.getDefaultRefreshInterval().get() * 1000 ) ? true : false;
+                        if(!force) force = !node.isActive();
+                        refresh(force);
                     } catch (Exception e) {
                         log.error(e.getMessage(), e);
                     }
@@ -1044,7 +1044,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             }
         } else {
             final ThreadFactory factory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat( "EVCacheClientPool_refreshAsync-%d").build();
-            refreshAsnycPool = new ThreadPoolExecutor(1,2,30, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(10), factory, new ThreadPoolExecutor.DiscardPolicy());
+            refreshAsnycPool = new ThreadPoolExecutor(1,1,30, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(10), factory, new ThreadPoolExecutor.DiscardPolicy());
         } 
     }
     

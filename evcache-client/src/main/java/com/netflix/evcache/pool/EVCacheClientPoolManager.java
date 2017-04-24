@@ -258,6 +258,10 @@ public class EVCacheClientPoolManager {
         return defaultReadTimeout;
     }
 
+    public DynamicIntProperty getDefaultRefreshInterval() {
+        return defaultRefreshInterval;
+    }
+
     private String getAppName(String _app) {
         _app = _app.toUpperCase();
         final String app = ConfigurationManager.getConfigInstance().getString("EVCacheClientPoolManager." + _app + ".alias", _app).toUpperCase();
