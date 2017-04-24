@@ -4,6 +4,7 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -64,7 +65,7 @@ public class EVCacheRESTService {
     @Inject
     public EVCacheRESTService(EVCache.Builder builder) {
         this.builder = builder;
-        this.evCacheMap = new HashMap<>();
+        this.evCacheMap = new ConcurrentHashMap<String, EVCache>();
 
         final int poolSize = DynamicPropertyFactory.getInstance().getIntProperty("EVCacheRESTService.async.pool.size", 10).get();
 
