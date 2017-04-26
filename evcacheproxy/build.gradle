@@ -34,7 +34,7 @@ dependencies {
         compile 'com.sun.jersey.contribs:jersey-guice'
         
         compile 'netflix:platform'
-        compile 'netflix:evcache-client2'
+        compile 'netflix:evcache-client2:latest.candidate'
         compile 'netflix:base-server'
         compile 'netflix:nflibrary'
 }
