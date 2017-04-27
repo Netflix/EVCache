@@ -1,7 +1,6 @@
 package com.netflix.evcache.service.resources;
 
 import java.io.InputStream;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -168,7 +167,7 @@ public class EVCacheRESTService {
             final JsonNode val = obj.get("value");
             final byte[] data; 
             if(val.isTextual()) {
-                data = mapper.writeValueAsBytes(val);
+                data = val.asText().getBytes();
             } else {
                 data = mapper.writeValueAsBytes(val);
             }
