@@ -15,16 +15,18 @@
  */
 package com.netflix.evcache.pool;
 
-import org.apache.commons.lang3.reflect.FieldUtils;
-import org.testng.annotations.Test;
+import static org.mockito.Mockito.mock;
+import static org.testng.Assert.assertSame;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static org.mockito.Mockito.mock;
-import static org.testng.Assert.assertSame;
+import org.apache.commons.lang3.reflect.FieldUtils;
+import org.testng.annotations.Test;
 
 /**
  * @author Scott Mansfield
@@ -38,7 +40,8 @@ public class EVCacheClientPoolTest {
         // set up the object under test
         EVCacheNodeList evCacheNodeList = mock(EVCacheNodeList.class);
         EVCacheClientPoolManager evCacheClientPoolManager = mock(EVCacheClientPoolManager.class);
-        EVCacheClientPool evCacheClientPool = new EVCacheClientPool("in a unit test", evCacheNodeList, evCacheClientPoolManager);
+        
+        EVCacheClientPool evCacheClientPool = new EVCacheClientPool("in a unit test", evCacheNodeList, (ThreadPoolExecutor)Executors.newSingleThreadExecutor(), evCacheClientPoolManager);
         FieldUtils.writeField(evCacheClientPool, "numberOfModOps", new AtomicLong(0xFFFF_FFFF_FFFF_FFFFL), true);
 
         // Set up the method arguments
