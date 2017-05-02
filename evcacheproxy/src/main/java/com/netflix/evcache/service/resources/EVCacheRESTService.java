@@ -9,11 +9,13 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.GZIPInputStream;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -119,21 +121,24 @@ public class EVCacheRESTService {
     @Path("bulk/{appId}")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
-    public Response bulkPostOperation(final InputStream in, @PathParam("appId") String pAppId, @DefaultValue("false") @QueryParam("async") String async) {
-        return processBulkSetOperation(in, pAppId, Boolean.valueOf(async).booleanValue());
+    public Response bulkPostOperation(final InputStream in, @PathParam("appId") String pAppId, @DefaultValue("false") @QueryParam("async") String async, @DefaultValue("") @HeaderParam("Content-Encoding") String encoding) {
+        return processBulkSetOperation(in, pAppId, Boolean.valueOf(async).booleanValue(), encoding);
     }
 
     @PUT
     @Path("bulk/{appId}")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
-    public Response bulkPutOperation(final InputStream in, @PathParam("appId") String pAppId, @DefaultValue("false") @QueryParam("async") String async) {
-        return processBulkSetOperation(in, pAppId, Boolean.valueOf(async).booleanValue());
+    public Response bulkPutOperation(final InputStream in, @PathParam("appId") String pAppId, @DefaultValue("false") @QueryParam("async") String async, @DefaultValue("") @HeaderParam("Content-Encoding") String encoding) {
+        return processBulkSetOperation(in, pAppId, Boolean.valueOf(async).booleanValue(), encoding);
     }
 
-    private Response processBulkSetOperation(final InputStream in, final String pAppId, final boolean async) {
+    private Response processBulkSetOperation(InputStream in, final String pAppId, final boolean async, final String cEndoding) {
         try {
             final String appId = pAppId.toUpperCase();
+            if(cEndoding.equals("gzip")) {
+                in = new GZIPInputStream(in); 
+            }
             String input = IOUtils.toString(in, "UTF-8");
             if(input.isEmpty() || input.length() == 0) {
                 return Response.notModified("Input is empty").build();
