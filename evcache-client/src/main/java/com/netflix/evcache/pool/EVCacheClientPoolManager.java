@@ -8,14 +8,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -70,7 +71,7 @@ import net.spy.memcached.transcoders.Transcoder;
  */
 @SuppressWarnings("deprecation")
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "DM_CONVERT_CASE",
-        "ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD" })
+"ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD" })
 @Singleton
 public class EVCacheClientPoolManager {
     private static final Logger log = LoggerFactory.getLogger(EVCacheClientPoolManager.class);
@@ -84,6 +85,7 @@ public class EVCacheClientPoolManager {
     private final Map<String, EVCacheClientPool> poolMap = new ConcurrentHashMap<String, EVCacheClientPool>();
     private final Map<EVCacheClientPool, ScheduledFuture<?>> scheduledTaskMap = new HashMap<EVCacheClientPool, ScheduledFuture<?>>();
     private final ScheduledThreadPoolExecutor _scheduler;
+    private final ThreadPoolExecutor refreshAsnycPool; 
     private final DiscoveryClient discoveryClient;
     private final ApplicationInfoManager applicationInfoManager;
     private final List<EVCacheEventListener> evcacheEventListenerList;
@@ -92,7 +94,7 @@ public class EVCacheClientPoolManager {
     @Inject
     public EVCacheClientPoolManager(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient, Provider<IConnectionFactoryProvider> connectionFactoryprovider) {
         instance = this;
-        
+
         try {
             ConfigurationManager.loadCascadedPropertiesFromResources("evcache");
         } catch (IOException e) {
@@ -104,10 +106,11 @@ public class EVCacheClientPoolManager {
         this.connectionFactoryprovider = connectionFactoryprovider;
         this.evcacheEventListenerList = new ArrayList<EVCacheEventListener>();
         final int poolSize = EVCacheConfig.getInstance().getDynamicIntProperty("default.refresher.poolsize", 1).get();
-        //final int poolSize = ConfigurationManager.getConfigInstance().getInt("default.refresher.poolsize", 1);
 
-        final ThreadFactory factory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat(
-                "EVCacheClientPoolManager_refresher-%d").build();
+        final ThreadFactory asyncFactory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat( "EVCacheClientPool-AsyncPoolRefresher-%d").build();
+        this.refreshAsnycPool = new ThreadPoolExecutor(1,1,30, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(10), asyncFactory, new ThreadPoolExecutor.DiscardPolicy());        
+
+        final ThreadFactory factory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat("EVCacheClientPoolManager-refresher-%d").build();
         _scheduler = new ScheduledThreadPoolExecutor(poolSize, factory);
         defaultRefreshInterval.addCallback(new Runnable() {
             public void run() {
@@ -207,7 +210,7 @@ public class EVCacheClientPoolManager {
             provider = new DiscoveryNodeListProvider(applicationInfoManager, discoveryClient, APP);
         }
 
-        final EVCacheClientPool pool = new EVCacheClientPool(APP, provider, this);
+        final EVCacheClientPool pool = new EVCacheClientPool(APP, provider, refreshAsnycPool, this);
         scheduleRefresh(pool);
         poolMap.put(APP, pool);
     }
@@ -270,22 +273,24 @@ public class EVCacheClientPoolManager {
     }
 
     private WriteLock writeLock = new ReentrantReadWriteLock().writeLock();
-    private final Map<String, EVCacheInMemoryCache<?>> inMemoryMap = new ConcurrentHashMap<String, EVCacheInMemoryCache<?>>();    
+    private final Map<String, EVCacheInMemoryCache<?>> inMemoryMap = new ConcurrentHashMap<String, EVCacheInMemoryCache<?>>();
+    @SuppressWarnings("unchecked")
     public <T> EVCacheInMemoryCache<T> createInMemoryCache(String appName, Transcoder<T> tc, EVCacheImpl impl) {
-    	EVCacheInMemoryCache<T> cache = (EVCacheInMemoryCache<T>) inMemoryMap.get(appName);
-    	if(cache == null) {
-    		writeLock.lock();
-    		if((cache = getInMemoryCache(appName)) == null) {
-	    		cache = new EVCacheInMemoryCache<T>(appName, tc, impl);
-	    		inMemoryMap.put(appName, cache);
-    		}
-    		writeLock.unlock();
-    	}
+        EVCacheInMemoryCache<T> cache = (EVCacheInMemoryCache<T>) inMemoryMap.get(appName);
+        if(cache == null) {
+            writeLock.lock();
+            if((cache = getInMemoryCache(appName)) == null) {
+                cache = new EVCacheInMemoryCache<T>(appName, tc, impl);
+                inMemoryMap.put(appName, cache);
+            }
+            writeLock.unlock();
+        }
         return cache;
     }
 
+    @SuppressWarnings("unchecked")
     public <T> EVCacheInMemoryCache<T> getInMemoryCache(String appName) {
-    	return (EVCacheInMemoryCache<T>) inMemoryMap.get(appName);
+        return (EVCacheInMemoryCache<T>) inMemoryMap.get(appName);
     }
-    
+
 }
