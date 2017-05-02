@@ -41,7 +41,7 @@ public class EVCacheClientPoolTest {
         EVCacheNodeList evCacheNodeList = mock(EVCacheNodeList.class);
         EVCacheClientPoolManager evCacheClientPoolManager = mock(EVCacheClientPoolManager.class);
         
-        EVCacheClientPool evCacheClientPool = new EVCacheClientPool("in a unit test", evCacheNodeList, (ThreadPoolExecutor)Executors.newSingleThreadExecutor(), evCacheClientPoolManager);
+        EVCacheClientPool evCacheClientPool = new EVCacheClientPool("in a unit test", evCacheNodeList, (ThreadPoolExecutor)Executors.newFixedThreadPool(1), evCacheClientPoolManager);
         FieldUtils.writeField(evCacheClientPool, "numberOfModOps", new AtomicLong(0xFFFF_FFFF_FFFF_FFFFL), true);
 
         // Set up the method arguments
