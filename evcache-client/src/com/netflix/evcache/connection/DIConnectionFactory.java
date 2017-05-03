@@ -2,6 +2,7 @@ package com.netflix.evcache.connection;
 
 import java.util.List;
 
+import com.netflix.config.DynamicIntProperty;
 import com.netflix.discovery.DiscoveryClient;
 import com.netflix.evcache.pool.DIEVCacheKetamaNodeLocatorConfiguration;
 import com.netflix.evcache.pool.EVCacheClient;
@@ -15,7 +16,7 @@ public class DIConnectionFactory extends BaseConnectionFactory {
 
     private final DiscoveryClient discoveryClient;
     
-    DIConnectionFactory(EVCacheClient client, DiscoveryClient discoveryClient, int len, long operationTimeout, long opMaxBlockTime) {
+    DIConnectionFactory(EVCacheClient client, DiscoveryClient discoveryClient, int len, DynamicIntProperty operationTimeout, long opMaxBlockTime) {
         super(client, len, operationTimeout, opMaxBlockTime);
         this.discoveryClient = discoveryClient;
     }

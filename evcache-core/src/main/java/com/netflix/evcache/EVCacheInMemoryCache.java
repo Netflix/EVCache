@@ -10,7 +10,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
-import java.util.function.ToDoubleFunction;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +19,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
-import com.google.common.cache.Weigher;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -130,10 +128,17 @@ public class EVCacheInMemoryCache<T> {
                     new CacheLoader<String, T>() {
                         public T load(String key) throws  EVCacheException { 
 	                          try {
-								return impl.doGet(key, tc);
+	                        	  final T t = impl.doGet(key, tc);
+	                        	  if(t == null) throw new  DataNotFoundException("Data for key : " + key + " could not be loaded as it was not found in EVCache");
+	                        	  return t;
+							} catch (DataNotFoundException e) {
+								throw e;
 							} catch (EVCacheException e) {
 								log.error("EVCacheException while loading key -> "+ key, e);
 								throw e;
+							} catch (Exception e) {
+								log.error("EVCacheException while loading key -> "+ key, e);
+								throw new EVCacheException("key : " + key + " could not be loaded", e);
 							}
                         }
 
@@ -141,18 +146,19 @@ public class EVCacheInMemoryCache<T> {
                             ListenableFutureTask<T> task = ListenableFutureTask.create(new Callable<T>() {
                               public T call() {
     	                          try {
-    	                        	    final T t = load(key);
-    	                        	    if(t == null) {
-    	                        	    	EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-NotFound");
-    	                        	    } else {
-    	                        	    	EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-Success");
-    	                        	    }
-    									return t;
-    								} catch (EVCacheException e) {
-    									log.error("EVCacheException while reloading key -> "+ key, e);
-    									EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-Fail");
-                                    	return prev;
-    								}
+  	                        	    final T t = load(key);
+  	                        	    if(t == null) {
+  	                        	    	EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-NotFound");
+  	                        	    	return prev;
+  	                        	    } else {
+  	                        	    	EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-Success");
+  	                        	    }
+  									return t;
+  								} catch (EVCacheException e) {
+  									log.error("EVCacheException while reloading key -> "+ key, e);
+  									EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-Fail");
+                                  	return prev;
+  								}
                               }
                             });
                             pool.execute(task);
@@ -216,4 +222,12 @@ public class EVCacheInMemoryCache<T> {
     	if (cache == null) return Collections.<String, T>emptyMap();
     	return cache.asMap();
     }
+
+    public static final class DataNotFoundException extends EVCacheException {
+		private static final long serialVersionUID = 1800185311509130263L;
+
+		public DataNotFoundException(String message) {
+          super(message);
+        }
+      }
 }

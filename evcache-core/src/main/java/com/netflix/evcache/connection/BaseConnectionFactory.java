@@ -10,6 +10,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 import com.netflix.config.ChainedDynamicProperty;
+import com.netflix.config.DynamicIntProperty;
 import com.netflix.evcache.EVCacheTranscoder;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPool;
@@ -35,16 +36,16 @@ import net.spy.memcached.transcoders.Transcoder;
 public class BaseConnectionFactory extends BinaryConnectionFactory {
 
     protected final String name;
-    protected final long operationTimeout;
+    protected final DynamicIntProperty operationTimeout;
     protected final long opMaxBlockTime;
     protected EVCacheNodeLocator locator;
     protected final long startTime;
     protected final EVCacheClient client;
     protected final ChainedDynamicProperty.StringProperty failureMode;
 
-    BaseConnectionFactory(EVCacheClient client, int len, long operationTimeout, long opMaxBlockTime) {
+    BaseConnectionFactory(EVCacheClient client, int len, DynamicIntProperty _operationTimeout, long opMaxBlockTime) {
         super(len, BinaryConnectionFactory.DEFAULT_READ_BUFFER_SIZE, DefaultHashAlgorithm.KETAMA_HASH);
-        this.operationTimeout = operationTimeout;
+        this.operationTimeout = _operationTimeout;
         this.opMaxBlockTime = opMaxBlockTime;
         this.client = client;
         this.startTime = System.currentTimeMillis();
@@ -97,7 +98,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public long getOperationTimeout() {
-        return operationTimeout;
+        return operationTimeout.get();
     }
 
     public BlockingQueue<Operation> createReadOperationQueue() {

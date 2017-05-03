@@ -6,6 +6,8 @@ import javax.annotation.PreDestroy;
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
 import com.netflix.evcache.connection.DIConnectionModule;
+import com.netflix.evcache.event.hotkey.HotKeyListener;
+import com.netflix.evcache.event.throttle.ThrottleListener;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheNodeList;
 import com.netflix.evcache.pool.eureka.DIEVCacheNodeListProvider;
@@ -22,7 +24,11 @@ public class EVCacheModule extends AbstractModule {
         install(new DIConnectionModule());
         bind(EVCacheNodeList.class).toProvider(DIEVCacheNodeListProvider.class);
         bind(EVCacheClientPoolManager.class).asEagerSingleton();
+        
+        bind(HotKeyListener.class).asEagerSingleton();
+        bind(ThrottleListener.class).asEagerSingleton();
     }
+        
 
     @PostConstruct
     public void init() {

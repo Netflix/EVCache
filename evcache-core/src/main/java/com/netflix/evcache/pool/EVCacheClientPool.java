@@ -16,6 +16,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -60,18 +61,21 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     private final DynamicIntProperty logOperations;
     private final DynamicStringSetProperty logOperationCalls;
+    private final DynamicStringSetProperty cloneWrite;
 
     private final DynamicIntProperty _opQueueMaxBlockTime; // Timeout for adding an operation
     private final DynamicIntProperty _operationTimeout;// Timeout for write operation
     private final DynamicIntProperty _maxReadQueueSize;
     private final DynamicIntProperty reconcileInterval;
     private final DynamicIntProperty _maxRetries;
-    private final DynamicBooleanProperty _disableAsyncRefresh;
 
     private final BooleanProperty _pingServers;
     
     private final ChainedDynamicProperty.BooleanProperty refreshConnectionOnReadQueueFull;
     private final ChainedDynamicProperty.IntProperty refreshConnectionOnReadQueueFullSize;
+
+    private final ThreadPoolExecutor asyncRefreshExecutor;
+    private final DynamicBooleanProperty _disableAsyncRefresh;
 
     @SuppressWarnings("serial")
     private final Map<ServerGroup, BooleanProperty> writeOnlyFastPropertyMap = new ConcurrentHashMap<ServerGroup, BooleanProperty>() {
@@ -100,9 +104,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private ServerGroupCircularIterator memcachedFallbackReadInstances = new ServerGroupCircularIterator(Collections.<ServerGroup> emptySet());
     private final EVCacheNodeList provider;
 
-    EVCacheClientPool(final String appName, final EVCacheNodeList provider, final EVCacheClientPoolManager manager) {
+    EVCacheClientPool(final String appName, final EVCacheNodeList provider, final ThreadPoolExecutor asyncRefreshExecutor, final EVCacheClientPoolManager manager) {
         this._appName = appName;
         this.provider = provider;
+        this.asyncRefreshExecutor = asyncRefreshExecutor;
         this.manager = manager;
 
         String ec2Zone = System.getenv("EC2_AVAILABILITY_ZONE");
@@ -114,21 +119,21 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this._poolSize.addCallback(new Runnable() {
             public void run() {
                 clearState();
-                refreshPool();
+                refreshPool(true, true);
             }
         });
         this._readTimeout = new ChainedDynamicProperty.IntProperty(appName + ".EVCacheClientPool.readTimeout", EVCacheClientPoolManager.getDefaultReadTimeout());
         this._readTimeout.addCallback(new Runnable() {
             public void run() {
                 clearState();
-                refreshPool();
+                refreshPool(true, true);
             }
         });
         this._bulkReadTimeout = new ChainedDynamicProperty.IntProperty(appName + ".EVCacheClientPool.bulkReadTimeout", _readTimeout);
         this._bulkReadTimeout.addCallback(new Runnable() {
             public void run() {
                 clearState();
-                refreshPool();
+                refreshPool(true, true);
             }
         });
 
@@ -139,14 +144,14 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this._opQueueMaxBlockTime.addCallback(new Runnable() {
             public void run() {
                 clearState();
-                refreshPool();
+                refreshPool(true, true);
             }
         });
         this._operationTimeout = config.getDynamicIntProperty(appName + ".operation.timeout", 2500);
         this._operationTimeout.addCallback(new Runnable() {
             public void run() {
                 clearState();
-                refreshPool();
+                refreshPool(true, true);
             }
         });
         this._maxReadQueueSize = config.getDynamicIntProperty(appName + ".max.read.queue.length", 5);
@@ -155,17 +160,28 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
         this.logOperations = config.getDynamicIntProperty(appName + ".log.operation", 0);
         this.logOperationCalls = new DynamicStringSetProperty(appName + ".log.operation.calls", "SET,DELETE,GMISS,TMISS,BMISS_ALL,TOUCH,REPLACE");
-        this.reconcileInterval = config.getDynamicIntProperty(appName + ".reconcile.interval", 600000);
-        
+        this.reconcileInterval = config.getDynamicIntProperty(appName + ".reconcile.interval", 600000);        
         this._disableAsyncRefresh = config.getDynamicBooleanProperty(_appName + ".disable.async.refresh", Boolean.FALSE);
+        this.cloneWrite = new DynamicStringSetProperty(appName + ".clone.writes.to", "");
+        this.cloneWrite.addCallback(new Runnable() {
+            public void run() {
+            	setupClones();
+            }
+        });
 
         final Map<String, String> map = new HashMap<String, String>();
         map.put("APP", _appName);
 
         this._pingServers = config.getChainedBooleanProperty(appName + ".ping.servers", "evcache.ping.servers", false); 
         setupMonitoring();
-        refreshPool();
+        refreshPool(false, true);
         if (log.isInfoEnabled()) log.info(toString());
+    }
+
+    private void setupClones() {
+    	for(String cloneApp : cloneWrite.get()) {
+    		manager.initEVCache(cloneApp);
+    	}
     }
 
     private void clearState() {
@@ -181,6 +197,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : "
                     + memcachedReadInstancesByServerGroup);
+            if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
             return null;
         }
 
@@ -296,7 +313,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
         return Collections.<EVCacheClient> emptyList();
     }
-    
+
     public boolean isInWriteOnly(ServerGroup serverGroup) {
           if (memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
               return false;
@@ -331,7 +348,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
-    public EVCacheClient[] getEVCacheClientForWrite() {
+    EVCacheClient[] getAllWriteClients() {
         try {
             final EVCacheClient[] clientArr = new EVCacheClient[memcachedWriteInstancesByServerGroup.size()];
             int i = 0;
@@ -346,6 +363,31 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 }
             }
             return clientArr;
+        } catch (Throwable t) {
+            log.error("Exception trying to get an array of writable EVCache Instances", t);
+            return new EVCacheClient[0];
+        }
+    }
+
+
+    public EVCacheClient[] getEVCacheClientForWrite() {
+        try {
+            if((cloneWrite.get().size() == 0)) {
+                return getAllWriteClients();
+            } else {
+                final List<EVCacheClient> evcacheClientList = new ArrayList<EVCacheClient>();
+                final EVCacheClient[] clientArr = getAllWriteClients();
+                for(EVCacheClient client : clientArr) {
+                    evcacheClientList.add(client);
+                }
+                for(String cloneApp : cloneWrite.get()) {
+                    final EVCacheClient[] cloneWriteArray = manager.getEVCacheClientPool(cloneApp).getAllWriteClients();
+                    for(int j = 0; j < cloneWriteArray.length; j++) {
+                        evcacheClientList.add(cloneWriteArray[j]);
+                    }
+                }
+                return evcacheClientList.toArray(new EVCacheClient[0]);
+            }
         } catch (Throwable t) {
             log.error("Exception trying to get an array of writable EVCache Instances", t);
             return new EVCacheClient[0];
@@ -718,8 +760,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 boolean instanceChangeInServerGroup = force;
                 if (instanceChangeInServerGroup) {
                     if (log.isWarnEnabled()) log.warn("FORCE REFRESH :: AppName :" + _appName + "; ServerGroup : "
-                            + serverGroup + "; Changed : "
-                            + instanceChangeInServerGroup);
+                            + serverGroup + "; Changed : " + instanceChangeInServerGroup);
                 } else {
                     instanceChangeInServerGroup = haveInstancesInServerGroupChanged(serverGroup, discoveredHostsInServerGroup);
                     if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
@@ -765,8 +806,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             // Check to see if a zone has been removed, if so remove them from
             // the active list
             if (memcachedInstancesByServerGroup.size() > instances.size()) {
-                if (log.isDebugEnabled()) log.debug("\n\tAppName :" + _appName + ";\n\tServerGroup Discovered : "
-                        + instances.keySet()
+                if (log.isDebugEnabled()) log.debug("\n\tAppName :" + _appName + ";\n\tServerGroup Discovered : " + instances.keySet()
                         + ";\n\tCurrent ServerGroup in EVCache Client : " + memcachedInstancesByServerGroup.keySet());
                 cleanupMemcachedInstances(false);
             }
@@ -840,20 +880,13 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public void refreshAsync(MemcachedNode node) {
-        if(_disableAsyncRefresh.get()) return;
-        EVCacheMetricsFactory.getInstance().increment("EVCacheClientPool-refreshAsync");
-        if (log.isWarnEnabled()) log.warn("Pool is being refreshed as the EVCacheNode is not available. " + node.toString());
-        Thread t = new Thread() {
-            public void run() {
-                try {
-                    refresh(true);
-                } catch (Exception e) {
-                    log.error(e.getMessage(), e);
-                }
-            }
-        };
-        t.setName("PoolRefresher-@" + System.currentTimeMillis() + "-by-" + node.getSocketAddress());
-        t.start();
+        if (log.isInfoEnabled()) log.info("Pool is being refresh as the EVCacheNode is not available. " + node.toString());
+        if(!_disableAsyncRefresh.get()) {
+            EVCacheMetricsFactory.getInstance().increment("EVCacheClientPool-" + _appName +"-refreshAsync");
+            boolean force = (System.currentTimeMillis() - lastReconcileTime) > ( manager.getDefaultRefreshInterval().get() * 1000 ) ? true : false;
+            if(!force) force = !node.isActive();
+            refreshPool(true, force);
+        }
     }
 
     public void run() {
@@ -973,8 +1006,26 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public void refreshPool() {
+        refreshPool(false, true);
+    }
+
+    public void refreshPool(boolean async, boolean force) {
+        if (log.isDebugEnabled()) log.debug("Refresh Pool : async : " + async + "; force : " + force);
         try {
-            refresh(true);
+            if(async) {
+                asyncRefreshExecutor.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            refresh(force);
+                        } catch (Exception e) {
+                            log.error(e.getMessage(), e);
+                        }
+                    }
+                });
+            } else {
+                refresh(force);
+            }
         } catch (Throwable t) {
             if (log.isDebugEnabled()) log.debug("Error Refreshing EVCache Instance list from MBean : " + _appName, t);
         }

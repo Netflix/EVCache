@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.DynamicBooleanProperty;
+import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.event.EVCacheEventListener;
@@ -205,10 +206,13 @@ final public class EVCacheImpl implements EVCache {
 			try {
 				value = (T) getInMemoryCache(tc).get(canonicalKey);
 			} catch (ExecutionException e) {
-				if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
 				final boolean throwExc = doThrowException();
 				if(throwExc) {
+					if(e.getCause() instanceof DataNotFoundException) {
+						return null;
+					}
 					if(e.getCause() instanceof EVCacheException) {
+						if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
 						throw (EVCacheException)e.getCause();
 					} 
 					throw new EVCacheException("ExecutionException", e);
@@ -258,6 +262,19 @@ final public class EVCacheImpl implements EVCache {
                     for (int i = 0; i < fbClients.size(); i++) {
                         final EVCacheClient fbClient = fbClients.get(i);
                         if(i >= fbClients.size() - 1) throwEx = throwExc;
+                        if (event != null) {
+                            try {
+                                if (shouldThrottle(event)) {
+                                    increment("THROTTLED");
+                                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + canonicalKey);
+                                    return null;
+                                }
+                            } catch(EVCacheException ex) {
+                                if(throwExc) throw ex;
+                                increment("THROTTLED");
+                                return null;
+                            }
+                        }
                         data = getData(fbClient, canonicalKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
                         if (log.isDebugEnabled() && shouldLog()) log.debug("Retry for APP " + _appName + ", key [" + canonicalKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + fbClient.getServerGroup());
                         if (data != null) {
@@ -517,9 +534,12 @@ final public class EVCacheImpl implements EVCache {
 			try {
 				value = (T) getInMemoryCache(tc).get(canonicalKey);
 			} catch (ExecutionException e) {
-				if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
 				if(throwExc) {
+					if(e.getCause() instanceof DataNotFoundException) {
+						return null;
+					}
 					if(e.getCause() instanceof EVCacheException) {
+						if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
 						throw (EVCacheException)e.getCause();
 					} 
 					throw new EVCacheException("ExecutionException", e);
@@ -575,6 +595,19 @@ final public class EVCacheImpl implements EVCache {
                 for (int i = 0; i < fbClients.size(); i++) {
                     final EVCacheClient fbClient = fbClients.get(i);
                     if(i >= fbClients.size() - 1) throwEx = throwExc;
+                    if (event != null) {
+                        try {
+                            if (shouldThrottle(event)) {
+                                increment("THROTTLED");
+                                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + canonicalKey);
+                                return null;
+                            }
+                        } catch(EVCacheException ex) {
+                            if(throwExc) throw ex;
+                            increment("THROTTLED");
+                            return null;
+                        }
+                    }
                     data = getData(fbClient, canonicalKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
                     if (log.isDebugEnabled() && shouldLog()) log.debug("GetAndTouch Retry for APP " + _appName + ", key [" + canonicalKey + (log.isTraceEnabled() ? "], Value [" + data : "")  + "], ServerGroup : " + fbClient.getServerGroup());
                     if (data != null) {
@@ -839,6 +872,20 @@ final public class EVCacheImpl implements EVCache {
                         for (int i = 0; i < fbClients.size(); i++) {
                             final EVCacheClient fbClient = fbClients.get(i);
                             if(i >= fbClients.size() - 1) throwEx = throwExc;
+                            if (event != null) {
+                                try {
+                                    if (shouldThrottle(event)) {
+                                        increment("THROTTLED");
+                                        if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + canonicalKeys);
+                                        return null;
+                                    }
+                                } catch(EVCacheException ex) {
+                                    if(throwExc) throw ex;
+                                    increment("THROTTLED");
+                                    return null;
+                                }
+                            }
+                           
                             retMap = getBulkData(fbClient, canonicalKeys, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
                             if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + canonicalKeys + (log.isTraceEnabled() ? "], Value [" + retMap : "") + "], zone : " + fbClient.getZone());
                             if (retMap != null && !retMap.isEmpty()) break;
@@ -862,6 +909,20 @@ final public class EVCacheImpl implements EVCache {
                     if (fbClients != null && !fbClients.isEmpty()) {
                         for (int ind = 0; ind < fbClients.size(); ind++) {
                             final EVCacheClient fbClient = fbClients.get(ind);
+                            if (event != null) {
+                                try {
+                                    if (shouldThrottle(event)) {
+                                        increment("THROTTLED");
+                                        if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & keys " + retryKeys);
+                                        return null;
+                                    }
+                                } catch(EVCacheException ex) {
+                                    if(throwExc) throw ex;
+                                    increment("THROTTLED");
+                                    return null;
+                                }
+                            }
+                            
                             final Map<String, T> fbRetMap = getBulkData(fbClient, retryKeys, tc, false, hasZF);
                             if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + retryKeys + "], Fallback Server Group : " + fbClient .getServerGroup().getName());
                             for (Map.Entry<String, T> i : fbRetMap.entrySet()) {
@@ -1714,5 +1775,4 @@ final public class EVCacheImpl implements EVCache {
             if (log.isDebugEnabled() && shouldLog()) log.debug("ADD : APP " + _appName + ", Took " + duration + " milliSec for key : " + canonicalKey);
         }
     }
-
 }

@@ -60,10 +60,12 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private final EVCacheClient client;
     private DistributionSummary getDataSize, bulkDataSize, getAndTouchDataSize;
     private DynamicLongProperty mutateOperationTimeout;
+    private final ConnectionFactory connectionFactory;
 
     public EVCacheMemcachedClient(ConnectionFactory cf, List<InetSocketAddress> addrs,
             ChainedDynamicProperty.IntProperty readTimeout, EVCacheClient client) throws IOException {
         super(cf, addrs);
+        this.connectionFactory = cf;
         this.readTimeout = readTimeout;
         this.client = client;
         this.appName = client.getAppName();
@@ -387,7 +389,6 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                                         if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                                             if (log.isDebugEnabled()) log.debug("AddOrAppend Retry append Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
                                                     + "; Message : " + val.getMessage() + "; Elapsed Time - " + duration);
-
                                             EVCacheMetricsFactory.getInstance().getCounter(appName + "-AoA-RetryAppendOperation-SUCCESS", client.getTagList()).increment();
                                             rv.set(val.isSuccess(), val);
                                         } else {
@@ -460,20 +461,10 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                     EVCacheMetricsFactory.getInstance().increment(appName + "-" + operationStr + "Operation-SUCCESS");
                 } else if (val.getStatusCode().equals(StatusCode.TIMEDOUT)) {
-//                    Tag tag = null;
-//                    final MemcachedNode node = getEVCacheNode(key);
-//                    if (node.getSocketAddress() instanceof InetSocketAddress) {
-//                        tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
-//                    }
                     EVCacheMetricsFactory.getInstance().getCounter(appName + "-" + operationStr + "Operation-TIMEDOUT", client.getTagList()).increment();
                 } else if (val.getStatusCode().equals(StatusCode.ERR_NOT_FOUND) || val.getStatusCode().equals(StatusCode.ERR_EXISTS)) {
                     EVCacheMetricsFactory.getInstance().increment(appName + "-" + operationStr + "Operation-" + val.getStatusCode().name());
                 } else {
-//                    Tag tag = null;
-//                    final MemcachedNode node = getEVCacheNode(key);
-//                    if (node.getSocketAddress() instanceof InetSocketAddress) {
-//                        tag = new BasicTag("HOST", ((InetSocketAddress) node.getSocketAddress()).getHostName());
-//                    }
                     EVCacheMetricsFactory.getInstance().getCounter(appName + "-" + operationStr + "Operation-" + val.getStatusCode().name(), client.getTagList()).increment();
                 }
                 rv.set(val.isSuccess(), val);
@@ -553,7 +544,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         }));
         try {
             if(mutateOperationTimeout == null) {
-                mutateOperationTimeout = EVCacheConfig.getInstance().getDynamicLongProperty("evache.mutate.timeout", operationTimeout);
+                mutateOperationTimeout = EVCacheConfig.getInstance().getDynamicLongProperty("evache.mutate.timeout", connectionFactory.getOperationTimeout());
             }
 
             if (!latch.await(mutateOperationTimeout.get(), TimeUnit.MILLISECONDS)) {
