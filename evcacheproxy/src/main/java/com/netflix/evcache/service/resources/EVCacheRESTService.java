@@ -141,12 +141,12 @@ public class EVCacheRESTService {
     private Response processBulkSetOperation(InputStream in, final String pAppId, final boolean async, final String cEndoding) {
         try {
             final String appId = pAppId.toUpperCase();
-            final StringBuilder sb = new StringBuilder();
             final String input;
             if(cEndoding.equals("gzip")) {
                 InflaterInputStream inflaterInputStream = new InflaterInputStream(new ByteArrayInputStream(IOUtils.toByteArray(in)), new Inflater(false));
                 BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inflaterInputStream , "UTF-8"));
                 String read;
+                final StringBuilder sb = new StringBuilder();
                 while ((read = bufferedReader.readLine()) != null) {
                     sb.append(read);
                 }
