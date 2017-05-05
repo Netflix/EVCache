@@ -1,6 +1,9 @@
 package com.netflix.evcache.service.resources;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -10,6 +13,8 @@ import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -136,10 +141,19 @@ public class EVCacheRESTService {
     private Response processBulkSetOperation(InputStream in, final String pAppId, final boolean async, final String cEndoding) {
         try {
             final String appId = pAppId.toUpperCase();
+            final String input;
             if(cEndoding.equals("gzip")) {
-                in = new GZIPInputStream(in); 
+                InflaterInputStream inflaterInputStream = new InflaterInputStream(new ByteArrayInputStream(IOUtils.toByteArray(in)), new Inflater(false));
+                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inflaterInputStream , "UTF-8"));
+                String read;
+                final StringBuilder sb = new StringBuilder();
+                while ((read = bufferedReader.readLine()) != null) {
+                    sb.append(read);
+                }
+                 input = sb.toString();
+            } else {
+                 input = IOUtils.toString(in, "UTF-8");
             }
-            String input = IOUtils.toString(in, "UTF-8");
             if(input.isEmpty() || input.length() == 0) {
                 return Response.notModified("Input is empty").build();
             }
