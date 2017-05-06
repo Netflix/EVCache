@@ -788,8 +788,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     final int poolSize = _poolSize.get();
                     final List<EVCacheClient> newClients = new ArrayList<EVCacheClient>(poolSize);
                     for (int i = 0; i < poolSize; i++) {
-                        final int maxQueueSize = ConfigurationManager.getConfigInstance().getInt(_appName
-                                + ".max.queue.length", 16384);
+                        final int maxQueueSize = EVCacheConfig.getInstance().getDynamicIntProperty(_appName
+                                + ".max.queue.length", 16384).get();
                         EVCacheClient client;
                         try {
                             client = new EVCacheClient(_appName, zone, i, config, memcachedSAInServerGroup, maxQueueSize, 

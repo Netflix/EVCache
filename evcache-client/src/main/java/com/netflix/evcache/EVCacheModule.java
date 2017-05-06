@@ -2,6 +2,7 @@ package com.netflix.evcache;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
+import com.netflix.archaius.api.annotations.ConfigurationSource;
 import com.netflix.evcache.event.hotkey.HotKeyListener;
 import com.netflix.evcache.event.throttle.ThrottleListener;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
@@ -12,8 +13,15 @@ public class EVCacheModule extends AbstractModule {
     public EVCacheModule() {
     }
 
+    @Singleton
+    @ConfigurationSource("evcache")
+    public static class EVCacheModuleConfigLoader {
+    }
+
+
     @Override
     protected void configure() {
+        bind(EVCacheModuleConfigLoader.class).asEagerSingleton();
         bind(EVCacheClientPoolManager.class).asEagerSingleton();
         
         bind(HotKeyListener.class).asEagerSingleton();

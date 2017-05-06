@@ -94,13 +94,6 @@ public class EVCacheClientPoolManager {
     @Inject
     public EVCacheClientPoolManager(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient, Provider<IConnectionFactoryProvider> connectionFactoryprovider) {
         instance = this;
-
-        try {
-            ConfigurationManager.loadCascadedPropertiesFromResources("evcache");
-        } catch (IOException e) {
-            log.info("Default evcache configuration not loaded", e);
-        }
-
         this.applicationInfoManager = applicationInfoManager;
         this.discoveryClient = discoveryClient;
         this.connectionFactoryprovider = connectionFactoryprovider;
@@ -267,7 +260,7 @@ public class EVCacheClientPoolManager {
 
     private String getAppName(String _app) {
         _app = _app.toUpperCase();
-        final String app = ConfigurationManager.getConfigInstance().getString("EVCacheClientPoolManager." + _app + ".alias", _app).toUpperCase();
+        final String app = EVCacheConfig.getInstance().getDynamicStringProperty("EVCacheClientPoolManager." + _app + ".alias", _app).get().toUpperCase();
         if (log.isDebugEnabled()) log.debug("Original App Name : " + _app + "; Alias App Name : " + app);
         return app;
     }
