@@ -140,8 +140,18 @@ public interface EVCacheLatch extends OperationCompletionListener {
      * on the Specified Policy before the latch can be released.
      *
      * @return the expected success count
+     * @deprecated replaced by {@link #getExpectedCompleteCount()}
      */
     int getExpectedSuccessCount();
+
+
+    /**
+     * Returns the number of Tasks that need to be successfully completed based
+     * on the Specified Policy before the latch can be released.
+     *
+     * @return the expected success count
+     */
+    int getExpectedCompleteCount();
 
     /**
      * Returns the current number of Tasks that are successful .

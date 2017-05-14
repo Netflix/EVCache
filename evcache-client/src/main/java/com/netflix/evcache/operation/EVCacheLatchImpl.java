@@ -10,6 +10,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.netflix.evcache.EVCacheLatch;
+import com.netflix.evcache.event.EVCacheEvent;
+import com.netflix.evcache.event.EVCacheEventListener;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.ServerGroup;
 
 import net.spy.memcached.internal.ListenableFuture;
 import net.spy.memcached.internal.OperationCompletionListener;
@@ -18,7 +22,7 @@ import net.spy.memcached.internal.OperationFuture;
 public class EVCacheLatchImpl implements EVCacheLatch {
     private static final Logger log = LoggerFactory.getLogger(EVCacheLatchImpl.class);
 
-    private final int expectedSuccessCount;
+    private final int expectedCompleteCount;
     private final CountDownLatch latch;
     private final List<Future<Boolean>> futures;
     private final Policy policy;
@@ -26,15 +30,17 @@ public class EVCacheLatchImpl implements EVCacheLatch {
 
     private final String appName;
 
+    private EVCacheEvent evcacheEvent = null;
+
     public EVCacheLatchImpl(Policy policy, int _count, String appName) {
         this.policy = policy;
         this.futures = new ArrayList<Future<Boolean>>(_count);
         this.appName = appName;
         this.totalFutureCount = _count;
-        this.expectedSuccessCount = policyToCount(policy, _count);
-        this.latch = new CountDownLatch(expectedSuccessCount);
+        this.expectedCompleteCount = policyToCount(policy, _count);
+        this.latch = new CountDownLatch(expectedCompleteCount);
 
-        if (log.isDebugEnabled()) log.debug("Number of Futures = " + _count + "; Number of Futures that need to completed for Latch to be released = " + this.expectedSuccessCount);
+        if (log.isDebugEnabled()) log.debug("Number of Futures = " + _count + "; Number of Futures that need to completed for Latch to be released = " + this.expectedCompleteCount);
     }
 
     /*
@@ -113,7 +119,7 @@ public class EVCacheLatchImpl implements EVCacheLatch {
      */
     @Override
     public List<Future<Boolean>> getPendingFutures() {
-        final List<Future<Boolean>> returnFutures = new ArrayList<Future<Boolean>>(expectedSuccessCount);
+        final List<Future<Boolean>> returnFutures = new ArrayList<Future<Boolean>>(expectedCompleteCount);
         for (Future<Boolean> future : futures) {
             if (!future.isDone()) {
                 returnFutures.add(future);
@@ -139,7 +145,7 @@ public class EVCacheLatchImpl implements EVCacheLatch {
      */
     @Override
     public List<Future<Boolean>> getCompletedFutures() {
-        final List<Future<Boolean>> returnFutures = new ArrayList<Future<Boolean>>(expectedSuccessCount);
+        final List<Future<Boolean>> returnFutures = new ArrayList<Future<Boolean>>(expectedCompleteCount);
         for (Future<Boolean> future : futures) {
             if (future.isDone()) {
                 returnFutures.add(future);
@@ -173,6 +179,10 @@ public class EVCacheLatchImpl implements EVCacheLatch {
             return count;
         }
     }
+    
+    public void setEVCacheEvent(EVCacheEvent e) {
+        this.evcacheEvent = e;
+    }
 
     /*
      * (non-Javadoc)
@@ -185,6 +195,49 @@ public class EVCacheLatchImpl implements EVCacheLatch {
     public void onComplete(OperationFuture<?> future) throws Exception {
         if (log.isDebugEnabled()) log.debug("onComplete Callback. Calling Countdown. Completed Future = " + future);
         countDown();
+        if(evcacheEvent != null) { 
+            if(getCompletedCount() >= getExpectedSuccessCount()) {
+                if(evcacheEvent.getClients().size() > 0) {
+                    for(EVCacheClient client : evcacheEvent.getClients()) {
+                        final List<EVCacheEventListener> evcacheEventListenerList = client.getPool().getEVCacheClientPoolManager().getEVCacheEventListeners();
+                        for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
+                            evcacheEventListener.onComplete(evcacheEvent);
+                        }
+                        break;
+                    }
+                }
+            }
+            final int failCount = getFailureCount();
+            if(getPendingFutureCount() == 0 && failCount > 0) {
+                if(evcacheEvent.getClients().size() > 0) {
+                    for (Future<Boolean> _future : futures) {
+                        try {
+                            if (_future.isDone() && _future.get().equals(Boolean.FALSE)) {
+                                if(_future instanceof EVCacheOperationFuture) {
+                                    final EVCacheOperationFuture<Boolean> evcFuture = (EVCacheOperationFuture<Boolean>)_future;
+                                    List<ServerGroup> listOfFailedServerGroups = (List<ServerGroup>) evcacheEvent.getAttribute("FailedServerGroups");
+                                    if(listOfFailedServerGroups == null) {
+                                        listOfFailedServerGroups = new ArrayList<ServerGroup>(failCount);
+                                        evcacheEvent.setAttribute("FailedServerGroups", listOfFailedServerGroups);
+                                    }
+                                    listOfFailedServerGroups.add(evcFuture.getServerGroup());
+                                }
+                            }
+                        } catch (Exception e) {
+                            log.error(e.getMessage(), e);
+                        }
+                    }
+                    for(EVCacheClient client : evcacheEvent.getClients()) {
+                        final List<EVCacheEventListener> evcacheEventListenerList = client.getPool().getEVCacheClientPoolManager().getEVCacheEventListeners();
+                        for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
+                            evcacheEventListener.onError(evcacheEvent, null);
+                        }
+                        break;
+                    }
+
+                }
+            }
+        }
     }
 
     /*
@@ -211,11 +264,22 @@ public class EVCacheLatchImpl implements EVCacheLatch {
      * (non-Javadoc)
      * 
      * @see
+     * com.netflix.evcache.operation.EVCacheLatchI#getExpectedCompleteCount()
+     */
+    @Override
+    public int getExpectedCompleteCount() {
+        return this.expectedCompleteCount;
+    }
+
+    /*
+     * (non-Javadoc)
+     * 
+     * @see
      * com.netflix.evcache.operation.EVCacheLatchI#getExpectedSuccessCount()
      */
     @Override
     public int getExpectedSuccessCount() {
-        return this.expectedSuccessCount;
+        return this.expectedCompleteCount;
     }
 
     /*

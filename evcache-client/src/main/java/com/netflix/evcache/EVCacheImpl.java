@@ -712,7 +712,7 @@ final public class EVCacheImpl implements EVCache {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
                 event.setTTL(timeToLive);
                 event.setLatch(latch);
-                endEvent(event);
+                //endEvent(event);
             }
             return latch;
         } catch (Exception ex) {
@@ -1111,7 +1111,7 @@ final public class EVCacheImpl implements EVCache {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
                 event.setLatch(latch);
-                endEvent(event);
+                //endEvent(event);
             }
             return latch;
         } catch (Exception ex) {
@@ -1272,7 +1272,7 @@ final public class EVCacheImpl implements EVCache {
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
                 event.setLatch(latch);
-                endEvent(event);
+                //endEvent(event);
             }
             return latch;
         } catch (Exception ex) {
@@ -1509,7 +1509,7 @@ final public class EVCacheImpl implements EVCache {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
                 event.setLatch(latch);
-                endEvent(event);
+                //endEvent(event);
             }
             return latch;
         } catch (Exception ex) {
@@ -1589,7 +1589,7 @@ final public class EVCacheImpl implements EVCache {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
                 event.setLatch(latch);
-                endEvent(event);
+                //endEvent(event);
             }
             return latch;
         } catch (Exception ex) {
@@ -1748,7 +1748,7 @@ final public class EVCacheImpl implements EVCache {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
                 event.setLatch(latch);
-                endEvent(event);
+                //endEvent(event);
             }
 
             return latch;
