@@ -19,7 +19,7 @@ import net.spy.memcached.internal.ListenableFuture;
 import net.spy.memcached.internal.OperationCompletionListener;
 import net.spy.memcached.internal.OperationFuture;
 
-public class EVCacheLatchImpl implements EVCacheLatch {
+public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     private static final Logger log = LoggerFactory.getLogger(EVCacheLatchImpl.class);
 
     private final int expectedCompleteCount;
@@ -31,6 +31,7 @@ public class EVCacheLatchImpl implements EVCacheLatch {
     private final String appName;
 
     private EVCacheEvent evcacheEvent = null;
+    private boolean onCompleteDone = false;
 
     public EVCacheLatchImpl(Policy policy, int _count, String appName) {
         this.policy = policy;
@@ -195,46 +196,17 @@ public class EVCacheLatchImpl implements EVCacheLatch {
     public void onComplete(OperationFuture<?> future) throws Exception {
         if (log.isDebugEnabled()) log.debug("onComplete Callback. Calling Countdown. Completed Future = " + future);
         countDown();
-        if(evcacheEvent != null) { 
-            if(getCompletedCount() >= getExpectedSuccessCount()) {
+        if(evcacheEvent != null) {
+            if(!onCompleteDone && getCompletedCount() >= getExpectedSuccessCount()) {
                 if(evcacheEvent.getClients().size() > 0) {
                     for(EVCacheClient client : evcacheEvent.getClients()) {
                         final List<EVCacheEventListener> evcacheEventListenerList = client.getPool().getEVCacheClientPoolManager().getEVCacheEventListeners();
                         for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
                             evcacheEventListener.onComplete(evcacheEvent);
                         }
+                        onCompleteDone = true;//This ensures we fire onComplete only once
                         break;
                     }
-                }
-            }
-            final int failCount = getFailureCount();
-            if(getPendingFutureCount() == 0 && failCount > 0) {
-                if(evcacheEvent.getClients().size() > 0) {
-                    for (Future<Boolean> _future : futures) {
-                        try {
-                            if (_future.isDone() && _future.get().equals(Boolean.FALSE)) {
-                                if(_future instanceof EVCacheOperationFuture) {
-                                    final EVCacheOperationFuture<Boolean> evcFuture = (EVCacheOperationFuture<Boolean>)_future;
-                                    List<ServerGroup> listOfFailedServerGroups = (List<ServerGroup>) evcacheEvent.getAttribute("FailedServerGroups");
-                                    if(listOfFailedServerGroups == null) {
-                                        listOfFailedServerGroups = new ArrayList<ServerGroup>(failCount);
-                                        evcacheEvent.setAttribute("FailedServerGroups", listOfFailedServerGroups);
-                                    }
-                                    listOfFailedServerGroups.add(evcFuture.getServerGroup());
-                                }
-                            }
-                        } catch (Exception e) {
-                            log.error(e.getMessage(), e);
-                        }
-                    }
-                    for(EVCacheClient client : evcacheEvent.getClients()) {
-                        final List<EVCacheEventListener> evcacheEventListenerList = client.getPool().getEVCacheClientPoolManager().getEVCacheEventListeners();
-                        for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
-                            evcacheEventListener.onError(evcacheEvent, null);
-                        }
-                        break;
-                    }
-
                 }
             }
         }
@@ -357,6 +329,49 @@ public class EVCacheLatchImpl implements EVCacheLatch {
             }
         }
         return count;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public void run() {
+        if(evcacheEvent != null) {
+            int failCount = 0;
+
+            for (Future<Boolean> future : futures) {
+                boolean fail = false;
+                try {
+                    fail = future.get().equals(Boolean.FALSE);
+                } catch (Exception e) {
+                    fail = true;
+                    if(log.isDebugEnabled()) log.debug(e.getMessage(), e);
+                }
+
+                if (fail) {
+                    failCount++;
+                    if(future instanceof EVCacheOperationFuture) {
+                        final EVCacheOperationFuture<Boolean> evcFuture = (EVCacheOperationFuture<Boolean>)future;
+                        List<ServerGroup> listOfFailedServerGroups = (List<ServerGroup>) evcacheEvent.getAttribute("FailedServerGroups");
+                        if(listOfFailedServerGroups == null) {
+                            listOfFailedServerGroups = new ArrayList<ServerGroup>(failCount);
+                            evcacheEvent.setAttribute("FailedServerGroups", listOfFailedServerGroups);
+                        }
+                        listOfFailedServerGroups.add(evcFuture.getServerGroup());
+                    }
+                }
+            }
+
+            if(getPendingFutureCount() == 0 && failCount > 0) {
+                if(evcacheEvent.getClients().size() > 0) {
+                    for(EVCacheClient client : evcacheEvent.getClients()) {
+                        final List<EVCacheEventListener> evcacheEventListenerList = client.getPool().getEVCacheClientPoolManager().getEVCacheEventListeners();
+                        for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
+                            evcacheEventListener.onError(evcacheEvent, null);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
     }
 
 }

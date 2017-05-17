@@ -7,6 +7,7 @@ import java.util.Map;
 import com.netflix.evcache.EVCache.Call;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheClientPool;
 
 import net.spy.memcached.CachedData;
 
@@ -17,6 +18,7 @@ public class EVCacheEvent {
     private final Call call;
     private final String appName;
     private final String cacheName;
+    private final EVCacheClientPool pool;
 
     private Collection<EVCacheClient> clients = null;
     private Collection<String> keys = null;
@@ -27,11 +29,12 @@ public class EVCacheEvent {
 
     private Map<Object, Object> data;
 
-    public EVCacheEvent(Call call, String appName, String cacheName) {
+    public EVCacheEvent(Call call, String appName, String cacheName, EVCacheClientPool pool) {
         super();
         this.call = call;
         this.appName = appName;
         this.cacheName = cacheName;
+        this.pool = pool;
     }
 
     public Call getCall() {
@@ -44,6 +47,10 @@ public class EVCacheEvent {
 
     public String getCacheName() {
         return cacheName;
+    }
+
+    public EVCacheClientPool getEVCacheClientPool() {
+        return pool;
     }
 
     public Collection<String> getKeys() {
@@ -70,13 +77,13 @@ public class EVCacheEvent {
         this.ttl = ttl;
     }
 
-    public EVCacheLatch getLatch() {
-        return latch;
-    }
+//    public EVCacheLatch getLatch() {
+//        return latch;
+//    }
 
-    public void setLatch(EVCacheLatch latch) {
-        this.latch = latch;
-    }
+//    public void setLatch(EVCacheLatch latch) {
+//        this.latch = latch;
+//    }
 
     public CachedData getCachedData() {
         return cachedData;

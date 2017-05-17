@@ -358,7 +358,7 @@ public interface EVCache {
             throws EVCacheException;
 
     /**
-     * Set an object in the EVCACHE using the given Transcoder regardless of any
+     * Set an object in the EVCACHE using the given {@link Transcoder}regardless of any
      * existing value.
      * 
      * The <code>timeToLive</code> value is passed to memcached exactly as

@@ -60,11 +60,6 @@ public class EVCacheClient {
     private static Logger log = LoggerFactory.getLogger(EVCacheClient.class);
     private final ConnectionFactory connectionFactory;
     private final EVCacheMemcachedClient evcacheMemcachedClient;
-
-    public ConnectionFactory getConnectionFactory() {
-        return connectionFactory;
-    }
-
     private final List<InetSocketAddress> memcachedNodesInZone;
     private EVCacheConnectionObserver connectionObserver = null;
     private boolean shutdown = false;
@@ -154,10 +149,10 @@ public class EVCacheClient {
     private boolean ensureWriteQueueSize(MemcachedNode node, String key) throws EVCacheException {
         if (node instanceof EVCacheNodeImpl) {
             final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
-            if (!evcNode.isAvailable()) {
-                EVCacheMetricsFactory.getCounter("EVCacheClient-" + appName + "-INACTIVE_NODE", evcNode.getBaseTags()).increment();
-                pool.refreshAsync(evcNode);
-            }
+//            if (!evcNode.isAvailable()) {
+//                EVCacheMetricsFactory.getCounter("EVCacheClient-" + appName + "-INACTIVE_NODE", evcNode.getBaseTags()).increment();
+//                pool.refreshAsync(evcNode);
+//            }
 
             int i = 0;
             while (true) {
@@ -1131,6 +1126,10 @@ public class EVCacheClient {
 
     public EVCacheConnectionObserver getConnectionObserver() {
         return this.connectionObserver;
+    }
+
+    public ConnectionFactory getConnectionFactory() {
+        return connectionFactory;
     }
 
     public String getAppName() {

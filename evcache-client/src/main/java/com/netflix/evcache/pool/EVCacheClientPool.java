@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.ChainedDynamicProperty.BooleanProperty;
-import com.netflix.config.ConfigurationManager;
 import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicStringSetProperty;
@@ -896,7 +895,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         EVCacheMetricsFactory.increment(_appName, null, "EVCacheClientPool-refreshAsync");
         if (log.isInfoEnabled()) log.info("Pool is being refresh as the EVCacheNode is not available. " + node.toString());
         if(!_disableAsyncRefresh.get()) {
-            boolean force = (System.currentTimeMillis() - lastReconcileTime) > ( manager.getDefaultRefreshInterval().get() * 1000 ) ? true : false;
+            boolean force = (System.currentTimeMillis() - lastReconcileTime) > ( 30 * 1000 ) ? true : false;
             if(!force) force = !node.isActive();
             refreshPool(true, force);
         }

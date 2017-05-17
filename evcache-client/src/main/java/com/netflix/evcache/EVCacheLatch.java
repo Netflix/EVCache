@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import com.netflix.evcache.event.EVCacheEvent;
+
 import net.spy.memcached.internal.OperationCompletionListener;
 
 
@@ -166,4 +168,11 @@ public interface EVCacheLatch extends OperationCompletionListener {
      * @return the Latch.
      */
     Policy getPolicy();
+
+    /**
+     * The event associated with this Latch
+     *
+     * @return the EVCacheEvent associated with this latch or null if there is none.
+     */
+    void setEVCacheEvent(EVCacheEvent event);
 }
