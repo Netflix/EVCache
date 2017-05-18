@@ -113,7 +113,7 @@ public class EVCacheInMemoryCache<T> {
     }
 
     private MonitorConfig getMonitorConfig(String appName, String metric, Tag tag) {
-        final Builder builder = MonitorConfig.builder("EVCacheInMemoryCache" + "-" + appName + "-" + metric).withTag(tag);
+        final Builder builder = MonitorConfig.builder("EVCacheInMemoryCache" + "-" + appName + "-" + metric).withTag(tag).withTag(EVCacheMetricsFactory.OWNER);
         return builder.build();
     }
 
