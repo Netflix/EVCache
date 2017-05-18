@@ -63,33 +63,22 @@ public class EVCacheInMemoryCache<T> {
         this.tc = tc;
         this.impl = impl;
 
-        this._cacheDuration = EVCacheConfig.getInstance().getChainedIntProperty(appName + ".inmemory.cache.duration.ms", appName + ".inmemory.expire.after.write.duration.ms", 0);
-        this._cacheDuration.addCallback(new Runnable() {
+        final Runnable setupCache = new Runnable() {
             public void run() {
                 setupCache();
             }
-        });
+        };
+
+        this._cacheDuration = EVCacheConfig.getInstance().getChainedIntProperty(appName + ".inmemory.cache.duration.ms", appName + ".inmemory.expire.after.write.duration.ms", 0, setupCache);
 
         this._exireAfterAccessDuration = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.expire.after.access.duration.ms", 0);
-        this._exireAfterAccessDuration.addCallback(new Runnable() {
-            public void run() {
-                setupCache();
-            }
-        });
+        this._exireAfterAccessDuration.addCallback(setupCache);
 
         this._refreshDuration = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.refresh.after.write.duration.ms", 0);
-        this._refreshDuration.addCallback(new Runnable() {
-            public void run() {
-                setupCache();
-            }
-        });
+        this._refreshDuration.addCallback(setupCache);
 
         this._cacheSize = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.cache.size", 100);
-        this._cacheSize.addCallback(new Runnable() {
-            public void run() {
-                setupCache();
-            }
-        });
+        this._cacheSize.addCallback(setupCache);
 
         this._poolSize = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".thread.pool.size", 5);
         this._poolSize.addCallback(new Runnable() {
@@ -97,7 +86,7 @@ public class EVCacheInMemoryCache<T> {
             	initRefreshPool();
             }
         });
-        
+
         setupCache();
         setupMonitoring(appName);
     }

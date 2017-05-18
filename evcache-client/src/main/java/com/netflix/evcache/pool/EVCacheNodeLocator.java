@@ -56,8 +56,8 @@ public class EVCacheNodeLocator implements NodeLocator {
         this.appName = appName;
         this.serverGroup = serverGroup;
 
-        this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty("EVCacheNodeLocator." + appName+ ".hash.on.partial.key", "EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.on.partial.key", Boolean.FALSE);
-        this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty("EVCacheNodeLocator." + appName + ".hash.delimiter", "EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.delimiter", ":");
+        this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty("EVCacheNodeLocator." + appName+ ".hash.on.partial.key", "EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.on.partial.key", Boolean.FALSE, null);
+        this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty("EVCacheNodeLocator." + appName + ".hash.delimiter", "EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.delimiter", ":", null);
 
         setKetamaNodes(nodes);
     }
@@ -71,8 +71,8 @@ public class EVCacheNodeLocator implements NodeLocator {
         this.appName = appName;
         this.serverGroup = serverGroup;
 
-        this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty("EVCacheNodeLocator." + appName + ".hash.on.partial.key", "EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.on.partial.key", Boolean.FALSE);
-        this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty("EVCacheNodeLocator." + appName + ".hash.delimiter", "EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.delimiter", ":");
+        this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty("EVCacheNodeLocator." + appName + ".hash.on.partial.key", "EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.on.partial.key", Boolean.FALSE, null);
+        this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty("EVCacheNodeLocator." + appName + ".hash.delimiter", "EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.delimiter", ":", null);
     }
 
     /*

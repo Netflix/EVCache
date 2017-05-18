@@ -71,10 +71,9 @@ final public class EVCacheImpl implements EVCache {
     private final int _timeToLive; // defaults to 15 minutes
     private final EVCacheClientPool _pool;
 
-    private final ChainedDynamicProperty.BooleanProperty _throwExceptionFP, _zoneFallbackFP;
+    private final ChainedDynamicProperty.BooleanProperty _throwExceptionFP, _zoneFallbackFP, _useInMemoryCache;
     private final DynamicBooleanProperty _bulkZoneFallbackFP;
     private final DynamicBooleanProperty _bulkPartialZoneFallbackFP;
-    private final ChainedDynamicProperty.BooleanProperty _useInMemoryCache;
     private final Stats stats;
     private EVCacheInMemoryCache<?> cache;
     private EVCacheClientUtil clientUtil = null;
@@ -98,11 +97,11 @@ final public class EVCacheImpl implements EVCache {
         this._poolManager = poolManager;
         this._pool = poolManager.getEVCacheClientPool(_appName);
         final EVCacheConfig config = EVCacheConfig.getInstance();
-        _throwExceptionFP = config.getChainedBooleanProperty(_metricName + ".throw.exception", _appName + ".throw.exception", Boolean.FALSE);
-        _zoneFallbackFP = config.getChainedBooleanProperty(_metricName + ".fallback.zone", _appName + ".fallback.zone", Boolean.TRUE);
-        _bulkZoneFallbackFP = config.getDynamicBooleanProperty(_appName + ".bulk.fallback.zone", true);
-        _bulkPartialZoneFallbackFP = config.getDynamicBooleanProperty(_appName+ ".bulk.partial.fallback.zone", true);
-        _useInMemoryCache = config.getChainedBooleanProperty(_appName + ".use.inmemory.cache", "evcache.use.inmemory.cache", Boolean.FALSE);
+        _throwExceptionFP = config.getChainedBooleanProperty(_metricName + ".throw.exception", _appName + ".throw.exception", Boolean.FALSE, null);
+        _zoneFallbackFP = config.getChainedBooleanProperty(_metricName + ".fallback.zone", _appName + ".fallback.zone", Boolean.TRUE, null);
+        _bulkZoneFallbackFP = config.getDynamicBooleanProperty(_appName + ".bulk.fallback.zone", Boolean.TRUE);
+        _bulkPartialZoneFallbackFP = config.getDynamicBooleanProperty(_appName+ ".bulk.partial.fallback.zone", Boolean.TRUE);
+        _useInMemoryCache = config.getChainedBooleanProperty(_appName + ".use.inmemory.cache", "evcache.use.inmemory.cache", Boolean.FALSE, null);
         _pool.pingServers();
     }
 
