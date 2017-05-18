@@ -1,7 +1,5 @@
 package com.netflix.evcache.pool;
 
-import java.util.concurrent.BlockingQueue;
-
 public interface EVCacheScheduledExecutorMBean {
 
     boolean isShutdown();
@@ -14,7 +12,7 @@ public interface EVCacheScheduledExecutorMBean {
 
     int getMaximumPoolSize();
 
-    BlockingQueue<Runnable> getQueue();
+    int getQueueSize();
 
     int getPoolSize();
 

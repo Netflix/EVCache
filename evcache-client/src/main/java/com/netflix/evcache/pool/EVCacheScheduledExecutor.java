@@ -27,12 +27,12 @@ public class EVCacheScheduledExecutor extends ScheduledThreadPoolExecutor implem
         super(corePoolSize, handler);
         this.name = name;
 
-        maxAsyncPoolSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheThreadPool." + name + ".evcache.max.async.poolsize", maximumPoolSize);
+        maxAsyncPoolSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheScheduledExecutor." + name + ".max.size", maximumPoolSize);
         setMaximumPoolSize(maxAsyncPoolSize.get());
-        coreAsyncPoolSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheClientPoolManager." + name + ".evcache.core.async.poolsize", corePoolSize);
+        coreAsyncPoolSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheScheduledExecutor." + name + ".core.size", corePoolSize);
         setCorePoolSize(coreAsyncPoolSize.get());
         setKeepAliveTime(keepAliveTime, unit);
-        final ThreadFactory asyncFactory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat( "EVCacheThreadPool-" + name + "-%d").build();
+        final ThreadFactory asyncFactory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat( "EVCacheScheduledExecutor-" + name + "-%d").build();
         setThreadFactory(asyncFactory);
         maxAsyncPoolSize.addCallback(new Runnable() {
             public void run() {
@@ -42,6 +42,7 @@ public class EVCacheScheduledExecutor extends ScheduledThreadPoolExecutor implem
         coreAsyncPoolSize.addCallback(new Runnable() {
             public void run() {
                 setCorePoolSize(coreAsyncPoolSize.get());
+                prestartAllCoreThreads();
             }
         });
         
@@ -71,6 +72,11 @@ public class EVCacheScheduledExecutor extends ScheduledThreadPoolExecutor implem
             if (log.isDebugEnabled()) log.debug("Exception", e);
         }
         super.shutdown();
+    }
+
+    @Override
+    public int getQueueSize() {
+        return getQueue().size();
     }
 
 

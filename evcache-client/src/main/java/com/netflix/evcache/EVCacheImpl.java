@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -711,6 +712,8 @@ final public class EVCacheImpl implements EVCache {
                 event.setTTL(timeToLive);
                 //event.setLatch(latch);
                 latch.setEVCacheEvent(event);
+                final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+                latch.setScheduledFuture(scheduledFuture);
                 //endEvent(event);
             }
             return latch;
@@ -1111,7 +1114,10 @@ final public class EVCacheImpl implements EVCache {
                 event.setCachedData(cd);
                 //event.setLatch(latch);
                 latch.setEVCacheEvent(event);
-                _poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+                //_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+                final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+                latch.setScheduledFuture(scheduledFuture);
+
                 //endEvent(event);
             }
             return latch;
@@ -1274,7 +1280,8 @@ final public class EVCacheImpl implements EVCache {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
                 //event.setLatch(latch);
                 latch.setEVCacheEvent(event);
-                _poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+                final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+                latch.setScheduledFuture(scheduledFuture);
                 //endEvent(event);
             }
             return latch;
@@ -1513,7 +1520,10 @@ final public class EVCacheImpl implements EVCache {
                 event.setCachedData(cd);
                 //event.setLatch(latch);
                 latch.setEVCacheEvent(event);
-                _poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+                //_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+                final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+                latch.setScheduledFuture(scheduledFuture);
+                
                 //endEvent(event);
             }
             return latch;
@@ -1595,6 +1605,8 @@ final public class EVCacheImpl implements EVCache {
                 event.setCachedData(cd);
                 //event.setLatch(latch);
                 latch.setEVCacheEvent(event);
+                final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+                latch.setScheduledFuture(scheduledFuture);
                 //endEvent(event);
             }
             return latch;
@@ -1755,6 +1767,8 @@ final public class EVCacheImpl implements EVCache {
                 event.setCachedData(cd);
                 //event.setLatch(latch);
                 latch.setEVCacheEvent(event);
+                final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(((EVCacheLatchImpl)latch), _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+                ((EVCacheLatchImpl)latch).setScheduledFuture(scheduledFuture);
                 //endEvent(event);
             }
 

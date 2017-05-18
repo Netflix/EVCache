@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.netflix.evcache.EVCache.Call;
-import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPool;
 
@@ -24,7 +23,6 @@ public class EVCacheEvent {
     private Collection<String> keys = null;
     private Collection<String> canonicalKeys = null;
     private int ttl = 0;
-    private EVCacheLatch latch = null;
     private CachedData cachedData = null;
 
     private Map<Object, Object> data;
@@ -77,14 +75,6 @@ public class EVCacheEvent {
         this.ttl = ttl;
     }
 
-//    public EVCacheLatch getLatch() {
-//        return latch;
-//    }
-
-//    public void setLatch(EVCacheLatch latch) {
-//        this.latch = latch;
-//    }
-
     public CachedData getCachedData() {
         return cachedData;
     }
@@ -112,9 +102,43 @@ public class EVCacheEvent {
     }
 
     @Override
+    public int hashCode() {
+        return canonicalKeys.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        EVCacheEvent other = (EVCacheEvent) obj;
+        if (appName == null) {
+            if (other.appName != null)
+                return false;
+        } else if (!appName.equals(other.appName))
+            return false;
+        if (cacheName == null) {
+            if (other.cacheName != null)
+                return false;
+        } else if (!cacheName.equals(other.cacheName))
+            return false;
+        if (call != other.call)
+            return false;
+        if (canonicalKeys == null) {
+            if (other.canonicalKeys != null)
+                return false;
+        } else if (!canonicalKeys.equals(other.canonicalKeys))
+            return false;
+        return true;
+    }
+
+    @Override
     public String toString() {
         return "EVCacheEvent [call=" + call + ", appName=" + appName + ", cacheName=" + cacheName + ", clients="
-                + clients + ", keys=" + keys + ", canonicalKeys=" + canonicalKeys + ", ttl=" + ttl + ", latch=" + latch
+                + clients + ", keys=" + keys + ", canonicalKeys=" + canonicalKeys + ", ttl=" + ttl 
                 + ", cachedData=" + cachedData + ", data=" + data + "]";
     }
 

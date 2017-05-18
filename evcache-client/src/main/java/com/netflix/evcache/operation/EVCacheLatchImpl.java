@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -32,6 +33,9 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     private EVCacheEvent evcacheEvent = null;
     private boolean onCompleteDone = false;
+    private int completeCount = 0;
+    private int failureCount = 0;
+    private ScheduledFuture<?> scheduledFuture;
 
     public EVCacheLatchImpl(Policy policy, int _count, String appName) {
         this.policy = policy;
@@ -108,9 +112,8 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
      */
     @Override
     public int getCompletedCount() {
-        final int completedCount = (totalFutureCount - (int) latch.getCount());
-        if (log.isDebugEnabled()) log.debug("Completed Count = " + completedCount);
-        return completedCount;
+        if (log.isDebugEnabled()) log.debug("Completed Count = " + completeCount);
+        return completeCount;
     }
 
     /*
@@ -195,8 +198,12 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     @Override
     public void onComplete(OperationFuture<?> future) throws Exception {
         if (log.isDebugEnabled()) log.debug("onComplete Callback. Calling Countdown. Completed Future = " + future);
+        completeCount++;
         countDown();
         if(evcacheEvent != null) {
+            if(future.isDone() && future.get().equals(Boolean.FALSE)) {
+                failureCount++;
+            }
             if(!onCompleteDone && getCompletedCount() >= getExpectedSuccessCount()) {
                 if(evcacheEvent.getClients().size() > 0) {
                     for(EVCacheClient client : evcacheEvent.getClients()) {
@@ -207,6 +214,13 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                         onCompleteDone = true;//This ensures we fire onComplete only once
                         break;
                     }
+                }
+            }
+            if(onCompleteDone) {
+                if (log.isDebugEnabled()) log.debug("App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
+                if(completeCount == totalFutureCount && failureCount == 0) { // all futures are completed
+                    final boolean status = scheduledFuture.cancel(true);//evcacheEvent.getEVCacheClientPool().getEVCacheClientPoolManager().getEVCacheScheduledExecutor().remove(scheduledFuture);
+                    if (log.isDebugEnabled()) log.debug("Removing the scheduled task : " + status);
                 }
             }
         }
@@ -359,11 +373,12 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                     }
                 }
             }
-
-            if(getPendingFutureCount() == 0 && failCount > 0) {
+            if(log.isDebugEnabled()) log.debug("Fail Count : " + failCount);
+            if(failCount > 0) {
                 if(evcacheEvent.getClients().size() > 0) {
                     for(EVCacheClient client : evcacheEvent.getClients()) {
                         final List<EVCacheEventListener> evcacheEventListenerList = client.getPool().getEVCacheClientPoolManager().getEVCacheEventListeners();
+                        if(log.isDebugEnabled()) log.debug("\nClient : " + client +"\nEvcacheEventListenerList : " + evcacheEventListenerList);
                         for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
                             evcacheEventListener.onError(evcacheEvent, null);
                         }
@@ -373,5 +388,37 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             }
         }
     }
+
+    @Override
+    public int hashCode() {
+        return ((evcacheEvent == null) ? 0 : evcacheEvent.hashCode());
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        EVCacheLatchImpl other = (EVCacheLatchImpl) obj;
+        if (appName == null) {
+            if (other.appName != null)
+                return false;
+        } else if (!appName.equals(other.appName))
+            return false;
+        if (evcacheEvent == null) {
+            if (other.evcacheEvent != null)
+                return false;
+        } else if (!evcacheEvent.equals(other.evcacheEvent))
+            return false;
+        return true;
+    }
+
+    public void setScheduledFuture(ScheduledFuture<?> scheduledFuture) {
+        this.scheduledFuture = scheduledFuture;
+    }
+    
 
 }
