@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.event.EVCacheEventListener;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
 
@@ -211,6 +212,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                         for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
                             evcacheEventListener.onComplete(evcacheEvent);
                         }
+                        EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete");
                         onCompleteDone = true;//This ensures we fire onComplete only once
                         break;
                     }
@@ -221,6 +223,11 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                 if(completeCount == totalFutureCount && failureCount == 0) { // all futures are completed
                     final boolean status = scheduledFuture.cancel(true);//evcacheEvent.getEVCacheClientPool().getEVCacheClientPoolManager().getEVCacheScheduledExecutor().remove(scheduledFuture);
                     if (log.isDebugEnabled()) log.debug("Removing the scheduled task : " + status);
+                    if(status) {
+                        EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete-FutureUnregistered-SUCCESS");
+                    } else {
+                        EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete-FutureUnregistered-FAIL");
+                    }
                 }
             }
         }
@@ -375,6 +382,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             }
             if(log.isDebugEnabled()) log.debug("Fail Count : " + failCount);
             if(failCount > 0) {
+                EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-WriteFail");
                 if(evcacheEvent.getClients().size() > 0) {
                     for(EVCacheClient client : evcacheEvent.getClients()) {
                         final List<EVCacheEventListener> evcacheEventListenerList = client.getPool().getEVCacheClientPoolManager().getEVCacheEventListeners();
