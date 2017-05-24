@@ -199,8 +199,8 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     @Override
     public void onComplete(OperationFuture<?> future) throws Exception {
         if (log.isDebugEnabled()) log.debug("onComplete Callback. Calling Countdown. Completed Future = " + future);
-        completeCount++;
         countDown();
+        completeCount++;
         if(evcacheEvent != null) {
             if(future.isDone() && future.get().equals(Boolean.FALSE)) {
                 failureCount++;
