@@ -90,7 +90,7 @@ public class EVCacheClientPoolManager {
         this.discoveryClient = discoveryClient;
         this.connectionFactoryprovider = connectionFactoryprovider;
         this.evcacheEventListenerList = new ArrayList<EVCacheEventListener>();
-        this.asyncExecutor = new EVCacheScheduledExecutor(1,10,30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "async");
+        this.asyncExecutor = new EVCacheScheduledExecutor(1,Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "async");
         asyncExecutor.prestartAllCoreThreads();
 
         initAtStartup();

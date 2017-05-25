@@ -137,9 +137,10 @@ public class EVCacheEvent {
 
     @Override
     public String toString() {
-        return "EVCacheEvent [call=" + call + ", appName=" + appName + ", cacheName=" + cacheName + ", clients="
-                + clients + ", keys=" + keys + ", canonicalKeys=" + canonicalKeys + ", ttl=" + ttl 
-                + ", cachedData=" + cachedData + ", data=" + data + "]";
+        return "EVCacheEvent [call=" + call + ", appName=" + appName + ", cacheName=" + cacheName + ", Num of Clients="
+                + clients.size() + ", keys=" + keys + ", canonicalKeys=" + canonicalKeys + ", ttl=" + ttl 
+                + ", cachedData=" + (cachedData != null ? "[ Flags : " + cachedData.getFlags() + "; Data Array length : " +cachedData.getData().length + "] " : "null") 
+                + ", Attributes=" + data + "]";
     }
 
 }
