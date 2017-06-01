@@ -310,10 +310,11 @@ public class EVCacheRESTService {
                 return Response.status(404).type(MediaType.TEXT_PLAIN).entity("Key " + key + " Not Found in cache " + appId + "\n").build();
             }
             byte[] bytes = cachedData.getData();
+            int flag = cachedData.getFlags();
             if (bytes == null) {
                 return Response.status(404).type(MediaType.TEXT_PLAIN).entity("Key " + key + " Not Found in cache " + appId + "\n").build();
             } else {
-                return Response.status(200).type(MediaType.APPLICATION_OCTET_STREAM).entity(bytes).build();
+                return Response.status(200).type(MediaType.APPLICATION_OCTET_STREAM).entity(bytes).header("X-EVCache-Flags", flag).build();
             }
         } catch (EVCacheException e) {
             logger.error("EVCacheException", e);
