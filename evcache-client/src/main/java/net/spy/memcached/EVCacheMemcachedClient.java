@@ -489,7 +489,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 } else {
                     if (val.getStatusCode().equals(StatusCode.TIMEDOUT)) {
                         getCounter(operationStr + "-TIMEDOUT").increment();
+                        if (log.isInfoEnabled()) log.info("Timedout Storing Key : " + key + "; Status : " + val.getStatusCode().name()
+                                + "; Message : " + val.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS), new Exception());
                     } else {
+                        if (log.isInfoEnabled()) log.info(val.getStatusCode().name() + " Storing Key : " + key + "; Status : " + val.getStatusCode().name()
+                                + "; Message : " + val.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS), new Exception());
                         getCounter(operationStr + "-" + val.getStatusCode().name()).increment();
                     }
                 }
