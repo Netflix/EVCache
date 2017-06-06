@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.netflix.config.DynamicBooleanProperty;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.servo.annotations.DataSourceType;
@@ -72,7 +73,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         this.readQ = rq;
         this.inputQueue = iq;
         this.sendMetrics = EVCacheConfig.getInstance().getDynamicBooleanProperty("EVCacheNodeImpl." + appName + ".sendMetrics", false);
-        this.tags = BasicTagList.of("ServerGroup", _serverGroup.getName(), "APP", appName, "Id", String.valueOf(id));
+        this.tags = BasicTagList.of("ServerGroup", _serverGroup.getName(), "APP", appName, "Id", String.valueOf(id), EVCacheMetricsFactory.OWNER.getKey(), EVCacheMetricsFactory.OWNER.getValue());
         this.hostName = ((InetSocketAddress) getSocketAddress()).getHostName();
         this.metricPrefix = "EVCacheNode";
         this.baseConfig = MonitorConfig.builder(metricPrefix).build();
@@ -193,8 +194,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         try {
             final List<Monitor<?>> metrics = new ArrayList<Monitor<?>>();
             if(getContinuousTimeout() > 0) {
-                MonitorConfig monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_ContinuousTimeout",
-                        DataSourceType.GAUGE, baseTags);
+                MonitorConfig monitorConfig = EVCacheConfig.getInstance().getMonitorConfig(metricPrefix + "_ContinuousTimeout", DataSourceType.GAUGE, baseTags);
                 final LongGauge cTimeouts = new LongGauge(monitorConfig);
                 cTimeouts.set(Long.valueOf(getContinuousTimeout()));
                 metrics.add(cTimeouts);

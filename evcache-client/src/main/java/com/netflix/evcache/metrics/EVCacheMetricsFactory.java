@@ -27,6 +27,7 @@ import com.netflix.servo.stats.StatsConfig;
 import com.netflix.servo.tag.BasicTagList;
 import com.netflix.servo.tag.Tag;
 import com.netflix.servo.tag.TagList;
+import com.netflix.servo.tag.Tags;
 import com.netflix.spectator.api.DistributionSummary;
 import com.netflix.spectator.api.Id;
 import com.netflix.spectator.api.Registry;
@@ -42,6 +43,7 @@ public final class EVCacheMetricsFactory {
     private static final Lock writeLock = (new ReentrantReadWriteLock()).writeLock();
     private static final Map<String, Timer> timerMap = new HashMap<String, Timer>();
     private static final DynamicIntProperty sampleSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCache.metrics.sample.size", 100);
+    public static final Tag OWNER = Tags.newTag("owner", "evcache");
 
     public static Operation getOperation(String name) {
         return getOperation(name, null, null, Operation.TYPE.MILLI);
@@ -95,7 +97,7 @@ public final class EVCacheMetricsFactory {
                 if (monitorMap.containsKey(name)) {
                     gauge = (LongGauge) monitorMap.get(name);
                 } else {
-                    gauge = new LongGauge(MonitorConfig.builder(name).build());
+                    gauge = new LongGauge(MonitorConfig.builder(name).withTag(OWNER).build());
                     monitorMap.put(name, gauge);
                     DefaultMonitorRegistry.getInstance().register(gauge);
                 }
@@ -115,7 +117,7 @@ public final class EVCacheMetricsFactory {
                 if (monitorMap.containsKey(name)) {
                     gauge = (LongGauge) monitorMap.get(name);
                 } else {
-                    gauge = new LongGauge(MonitorConfig.builder(cName).withTags(tag).build());
+                    gauge = new LongGauge(MonitorConfig.builder(cName).withTags(tag).withTag(OWNER).build());
                     monitorMap.put(name, gauge);
                     DefaultMonitorRegistry.getInstance().register(gauge);
                 }
@@ -136,7 +138,7 @@ public final class EVCacheMetricsFactory {
                 if (monitorMap.containsKey(name)) {
                     counter = (Counter) monitorMap.get(name);
                 } else {
-                    counter = new BasicCounter(MonitorConfig.builder(cName).withTag(tag).build());
+                    counter = new BasicCounter(MonitorConfig.builder(cName).withTag(OWNER).withTag(tag).build());
                     monitorMap.put(name, counter);
                     DefaultMonitorRegistry.getInstance().register(counter);
                 }
@@ -156,7 +158,7 @@ public final class EVCacheMetricsFactory {
                 if (monitorMap.containsKey(name)) {
                     counter = (Counter) monitorMap.get(name);
                 } else {
-                    counter = new BasicCounter(MonitorConfig.builder(cName).withTags(tag).build());
+                    counter = new BasicCounter(MonitorConfig.builder(cName).withTag(OWNER).withTags(tag).build());
                     monitorMap.put(name, counter);
                     DefaultMonitorRegistry.getInstance().register(counter);
                 }
@@ -209,7 +211,7 @@ public final class EVCacheMetricsFactory {
                 if (monitorMap.containsKey(name)) {
                     counter = (Counter) monitorMap.get(name);
                 } else {
-                    counter = new BasicCounter(MonitorConfig.builder(metricName).build().withAdditionalTags(tags));
+                    counter = new BasicCounter(MonitorConfig.builder(metricName).withTag(OWNER).build().withAdditionalTags(tags));
                     monitorMap.put(name, counter);
                     DefaultMonitorRegistry.getInstance().register(counter);
                 }
@@ -301,7 +303,7 @@ public final class EVCacheMetricsFactory {
     }
 
     public static MonitorConfig getMonitorConfig(String name, String appName, String cacheName, String metric) {
-        Builder builder = MonitorConfig.builder(name).withTag("APP", appName).withTag("METRIC", metric);
+        Builder builder = MonitorConfig.builder(name).withTag("APP", appName).withTag("METRIC", metric).withTag(OWNER);
         if (cacheName != null && cacheName.length() > 0) {
             builder = builder.withTag("CACHE", cacheName);
         }
@@ -309,7 +311,7 @@ public final class EVCacheMetricsFactory {
     }
 
     public static MonitorConfig getMonitorConfig(String name, String appName, String cacheName, String serverGroup, String metric) {
-        Builder builder = MonitorConfig.builder(name).withTag("APP", appName).withTag("METRIC", metric);
+        Builder builder = MonitorConfig.builder(name).withTag("APP", appName).withTag("METRIC", metric).withTag(OWNER);
         if (cacheName != null && cacheName.length() > 0) {
             builder = builder.withTag("CACHE", cacheName);
         }
@@ -330,7 +332,7 @@ public final class EVCacheMetricsFactory {
                 final StatsConfig statsConfig = new StatsConfig.Builder().withPercentiles(new double[] { 95, 99 })
                         .withPublishMax(true).withPublishMin(true).withPublishMean(true)
                         .withPublishCount(true).withSampleSize(sampleSize.get()).build();
-                final MonitorConfig monitorConfig = MonitorConfig.builder(name).build();
+                final MonitorConfig monitorConfig = MonitorConfig.builder(name).withTag(OWNER).build();
                 timer = new StatsTimer(monitorConfig, statsConfig, TimeUnit.MILLISECONDS);
                 DefaultMonitorRegistry.getInstance().register(timer);
                 timerMap.put(name, timer);
@@ -348,6 +350,7 @@ public final class EVCacheMetricsFactory {
         final Registry registry = Spectator.globalRegistry(); //_poolManager.getRegistry();
         if (registry != null) {
             Id id = registry.createId(name);
+            id = id.withTag("owner", "evcache");
             id = id.withTag("APP", appName);
             if(serverGroup != null) id = id.withTag("ServerGroup", serverGroup);
             final DistributionSummary ds = registry.distributionSummary(id);

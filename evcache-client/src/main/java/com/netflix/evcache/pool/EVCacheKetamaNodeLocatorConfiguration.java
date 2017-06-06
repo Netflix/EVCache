@@ -25,7 +25,7 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
         this.appId = appId;
         this.serverGroup = serverGroup;
         this.poolManager = poolManager;
-        bucketSize = EVCacheConfig.getInstance().getChainedIntProperty(appId + "." + serverGroup.getName() + ".bucket.size",appId + ".bucket.size", super.getNodeRepetitions());
+        bucketSize = EVCacheConfig.getInstance().getChainedIntProperty(appId + "." + serverGroup.getName() + ".bucket.size",appId + ".bucket.size", super.getNodeRepetitions(), null);
     }
 
     /**

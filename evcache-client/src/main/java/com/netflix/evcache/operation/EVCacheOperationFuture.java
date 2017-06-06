@@ -57,7 +57,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     private final ServerGroup serverGroup;
     private final String key;
 
-    public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout, ExecutorService service, String appName, ServerGroup serverGroup, String metricName) {
+    public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout, ExecutorService service, String appName, ServerGroup serverGroup) {
         super(k, l, oref, opTimeout, service);
         this.latch = l;
         this.objRef = oref;

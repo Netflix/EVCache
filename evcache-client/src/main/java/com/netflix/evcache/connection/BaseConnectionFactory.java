@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.DynamicIntProperty;
@@ -54,7 +55,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
         this.serverGroup = serverGroup;
         this.poolManager = poolManager;
         this.startTime = System.currentTimeMillis();
-        this.failureMode = EVCacheConfig.getInstance().getChainedStringProperty(this.serverGroup.getName() + ".failure.mode", appName + ".failure.mode", "Retry");
+        this.failureMode = EVCacheConfig.getInstance().getChainedStringProperty(this.serverGroup.getName() + ".failure.mode", appName + ".failure.mode", "Retry", null);
         this.name = appName + "-" + serverGroup.getName() + "-" + id;
     }
 
@@ -136,6 +137,14 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
 
     public boolean shouldOptimize() {
         return true;
+    }
+
+    public boolean isDefaultExecutorService() {
+        return false;
+    }
+
+    public ExecutorService getListenerExecutorService() {
+        return poolManager.getEVCacheScheduledExecutor();
     }
 
     public int getId() {

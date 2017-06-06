@@ -4,21 +4,27 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.netflix.evcache.EVCacheLatch;
+import com.netflix.evcache.event.EVCacheEvent;
+import com.netflix.evcache.event.EVCacheEventListener;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.ServerGroup;
 
 import net.spy.memcached.internal.ListenableFuture;
 import net.spy.memcached.internal.OperationCompletionListener;
 import net.spy.memcached.internal.OperationFuture;
 
-public class EVCacheLatchImpl implements EVCacheLatch {
+public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     private static final Logger log = LoggerFactory.getLogger(EVCacheLatchImpl.class);
 
-    private final int expectedSuccessCount;
+    private final int expectedCompleteCount;
     private final CountDownLatch latch;
     private final List<Future<Boolean>> futures;
     private final Policy policy;
@@ -26,35 +32,42 @@ public class EVCacheLatchImpl implements EVCacheLatch {
 
     private final String appName;
 
+    private EVCacheEvent evcacheEvent = null;
+    private boolean onCompleteDone = false;
+    private int completeCount = 0;
+    private int failureCount = 0;
+    private ScheduledFuture<?> scheduledFuture;
+
     public EVCacheLatchImpl(Policy policy, int _count, String appName) {
         this.policy = policy;
         this.futures = new ArrayList<Future<Boolean>>(_count);
         this.appName = appName;
         this.totalFutureCount = _count;
-        this.expectedSuccessCount = policyToCount(policy, _count);
-        this.latch = new CountDownLatch(expectedSuccessCount);
+        this.expectedCompleteCount = policyToCount(policy, _count);
+        this.latch = new CountDownLatch(expectedCompleteCount);
 
-        if (log.isDebugEnabled()) log.debug("Number of Futures = " + _count + "; Number of Futures that need to completed for Latch to be released = " + this.expectedSuccessCount);
+        if (log.isDebugEnabled()) log.debug("Number of Futures = " + _count + "; Number of Futures that need to completed for Latch to be released = " + this.expectedCompleteCount);
     }
 
     /*
      * (non-Javadoc)
      * 
-     * @see com.netflix.evcache.operation.EVCacheLatchI#await(long,
-     * java.util.concurrent.TimeUnit)
+     * @see com.netflix.evcache.operation.EVCacheLatchI#await(long,java.util.concurrent.TimeUnit)
      */
     @Override
     public boolean await(long timeout, TimeUnit unit) throws InterruptedException {
-        if (log.isDebugEnabled()) log.debug("Current Latch Count = " + latch.getCount() + "; Will Start the wait");
-        return latch.await(timeout, unit);
+        if (log.isDebugEnabled()) log.debug("Current Latch Count = " + latch.getCount() + "; await for "+ timeout + " " + unit.name() + " appName : " + appName);
+        final long start = log.isDebugEnabled() ? System.currentTimeMillis() : 0;
+        final boolean awaitSuccess = latch.await(timeout, unit);
+        if (log.isDebugEnabled()) log.debug("await success = " + awaitSuccess + " after " + (System.currentTimeMillis() - start) + " msec." + " appName : " + appName + ((evcacheEvent != null) ? " keys : " + evcacheEvent.getCanonicalKeys() : ""));
+        return awaitSuccess;
     }
 
     /*
      * (non-Javadoc)
      * 
      * @see
-     * com.netflix.evcache.operation.EVCacheLatchI#addFuture(net.spy.memcached.
-     * internal.ListenableFuture)
+     * com.netflix.evcache.operation.EVCacheLatchI#addFuture(net.spy.memcached.internal.ListenableFuture)
      */
     public void addFuture(ListenableFuture<Boolean, OperationCompletionListener> future) {
         future.addListener(this);
@@ -101,9 +114,8 @@ public class EVCacheLatchImpl implements EVCacheLatch {
      */
     @Override
     public int getCompletedCount() {
-        final int completedCount = (totalFutureCount - (int) latch.getCount());
-        if (log.isDebugEnabled()) log.debug("Completed Count = " + completedCount);
-        return completedCount;
+        if (log.isDebugEnabled()) log.debug("Completed Count = " + completeCount);
+        return completeCount;
     }
 
     /*
@@ -113,7 +125,7 @@ public class EVCacheLatchImpl implements EVCacheLatch {
      */
     @Override
     public List<Future<Boolean>> getPendingFutures() {
-        final List<Future<Boolean>> returnFutures = new ArrayList<Future<Boolean>>(expectedSuccessCount);
+        final List<Future<Boolean>> returnFutures = new ArrayList<Future<Boolean>>(expectedCompleteCount);
         for (Future<Boolean> future : futures) {
             if (!future.isDone()) {
                 returnFutures.add(future);
@@ -139,7 +151,7 @@ public class EVCacheLatchImpl implements EVCacheLatch {
      */
     @Override
     public List<Future<Boolean>> getCompletedFutures() {
-        final List<Future<Boolean>> returnFutures = new ArrayList<Future<Boolean>>(expectedSuccessCount);
+        final List<Future<Boolean>> returnFutures = new ArrayList<Future<Boolean>>(expectedCompleteCount);
         for (Future<Boolean> future : futures) {
             if (future.isDone()) {
                 returnFutures.add(future);
@@ -173,18 +185,56 @@ public class EVCacheLatchImpl implements EVCacheLatch {
             return count;
         }
     }
+    
+    public void setEVCacheEvent(EVCacheEvent e) {
+        this.evcacheEvent = e;
+    }
 
     /*
      * (non-Javadoc)
      * 
-     * @see
-     * com.netflix.evcache.operation.EVCacheLatchI#onComplete(net.spy.memcached.
-     * internal.OperationFuture)
+     * @see 
+     * com.netflix.evcache.operation.EVCacheLatchI#onComplete(net.spy.memcached.internal.OperationFuture)
      */
     @Override
     public void onComplete(OperationFuture<?> future) throws Exception {
-        if (log.isDebugEnabled()) log.debug("onComplete Callback. Calling Countdown. Completed Future = " + future);
+        if (log.isDebugEnabled()) log.debug("BEGIN : onComplete - Calling Countdown. Completed Future = " + future + "; App : " + appName); 
         countDown();
+        completeCount++;
+        if(evcacheEvent != null) {
+            if (log.isDebugEnabled()) log.debug(";App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
+            if(future.isDone() && future.get().equals(Boolean.FALSE)) {
+                failureCount++;
+            }
+            if(!onCompleteDone && getCompletedCount() >= getExpectedSuccessCount()) {
+                if(evcacheEvent.getClients().size() > 0) {
+                    for(EVCacheClient client : evcacheEvent.getClients()) {
+                        final List<EVCacheEventListener> evcacheEventListenerList = client.getPool().getEVCacheClientPoolManager().getEVCacheEventListeners();
+                        for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
+                            evcacheEventListener.onComplete(evcacheEvent);
+                        }
+                        EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete");
+                        onCompleteDone = true;//This ensures we fire onComplete only once
+                        break;
+                    }
+                }
+            }
+            final boolean futureCancelled = scheduledFuture.isCancelled(); 
+            if (log.isDebugEnabled()) log.debug("App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount + "; futureCancelled : " + futureCancelled);
+            if(onCompleteDone && !futureCancelled) {
+                if(completeCount == totalFutureCount && failureCount == 0) { // all futures are completed
+                    final boolean status = scheduledFuture.cancel(true);
+                    if (log.isDebugEnabled()) log.debug("Cancelled the scheduled task : " + status);
+                    if(status) {
+                        EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete-FutureUnregistered-SUCCESS");
+                    } else {
+                        EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete-FutureUnregistered-FAIL");
+                    }
+                }
+            }
+            if (log.isDebugEnabled()) log.debug("App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
+        }
+        if (log.isDebugEnabled()) log.debug("END : onComplete - Calling Countdown. Completed Future = " + future + "; App : " + appName); 
     }
 
     /*
@@ -211,11 +261,22 @@ public class EVCacheLatchImpl implements EVCacheLatch {
      * (non-Javadoc)
      * 
      * @see
+     * com.netflix.evcache.operation.EVCacheLatchI#getExpectedCompleteCount()
+     */
+    @Override
+    public int getExpectedCompleteCount() {
+        return this.expectedCompleteCount;
+    }
+
+    /*
+     * (non-Javadoc)
+     * 
+     * @see
      * com.netflix.evcache.operation.EVCacheLatchI#getExpectedSuccessCount()
      */
     @Override
     public int getExpectedSuccessCount() {
-        return this.expectedSuccessCount;
+        return this.expectedCompleteCount;
     }
 
     /*
@@ -293,6 +354,82 @@ public class EVCacheLatchImpl implements EVCacheLatch {
             }
         }
         return count;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public void run() {
+        if(evcacheEvent != null) {
+            int failCount = 0;
+
+            for (Future<Boolean> future : futures) {
+                boolean fail = false;
+                try {
+                    fail = future.get().equals(Boolean.FALSE);
+                } catch (Exception e) {
+                    fail = true;
+                    if(log.isDebugEnabled()) log.debug(e.getMessage(), e);
+                }
+
+                if (fail) {
+                    failCount++;
+                    if(future instanceof EVCacheOperationFuture) {
+                        final EVCacheOperationFuture<Boolean> evcFuture = (EVCacheOperationFuture<Boolean>)future;
+                        List<ServerGroup> listOfFailedServerGroups = (List<ServerGroup>) evcacheEvent.getAttribute("FailedServerGroups");
+                        if(listOfFailedServerGroups == null) {
+                            listOfFailedServerGroups = new ArrayList<ServerGroup>(failCount);
+                            evcacheEvent.setAttribute("FailedServerGroups", listOfFailedServerGroups);
+                        }
+                        listOfFailedServerGroups.add(evcFuture.getServerGroup());
+                    }
+                }
+            }
+            if(log.isDebugEnabled()) log.debug("Fail Count : " + failCount);
+            if(failCount > 0) {
+                EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-WriteFail");
+                if(evcacheEvent.getClients().size() > 0) {
+                    for(EVCacheClient client : evcacheEvent.getClients()) {
+                        final List<EVCacheEventListener> evcacheEventListenerList = client.getPool().getEVCacheClientPoolManager().getEVCacheEventListeners();
+                        if(log.isDebugEnabled()) log.debug("\nClient : " + client +"\nEvcacheEventListenerList : " + evcacheEventListenerList);
+                        for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
+                            evcacheEventListener.onError(evcacheEvent, null);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
+    public int hashCode() {
+        return ((evcacheEvent == null) ? 0 : evcacheEvent.hashCode());
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        EVCacheLatchImpl other = (EVCacheLatchImpl) obj;
+        if (appName == null) {
+            if (other.appName != null)
+                return false;
+        } else if (!appName.equals(other.appName))
+            return false;
+        if (evcacheEvent == null) {
+            if (other.evcacheEvent != null)
+                return false;
+        } else if (!evcacheEvent.equals(other.evcacheEvent))
+            return false;
+        return true;
+    }
+
+    public void setScheduledFuture(ScheduledFuture<?> scheduledFuture) {
+        this.scheduledFuture = scheduledFuture;
     }
 
 }
