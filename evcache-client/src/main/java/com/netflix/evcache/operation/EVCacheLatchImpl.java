@@ -397,7 +397,11 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                         break;
                     }
                 }
+            } else {
+                EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-NoFails");
             }
+        } else {
+            EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-NoEvent");
         }
     }
 
