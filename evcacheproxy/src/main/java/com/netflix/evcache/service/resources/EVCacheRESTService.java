@@ -12,7 +12,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.zip.GZIPInputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 
@@ -44,6 +43,7 @@ import com.netflix.evcache.EVCacheException;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.service.transcoder.RESTServiceTranscoder;
+import com.netflix.evcache.service.transcoder.RawTranscoder;
 import com.netflix.servo.DefaultMonitorRegistry;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.LongGauge;
@@ -65,6 +65,7 @@ public class EVCacheRESTService {
     private final EVCache.Builder builder;
     private final Map<String, EVCache> evCacheMap;
     private final RESTServiceTranscoder evcacheTranscoder = new RESTServiceTranscoder();
+    private final RawTranscoder rawTranscoder = new RawTranscoder();
     private final ObjectMapper mapper = new ObjectMapper();
     private final NFExecutorPool pool;
 
@@ -108,11 +109,12 @@ public class EVCacheRESTService {
     @Produces(MediaType.TEXT_PLAIN)
     public Response setOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
             @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag,
-            @DefaultValue("false") @QueryParam("async") String async) {
+            @DefaultValue("false") @QueryParam("async") String async,
+            @DefaultValue("false") @QueryParam("raw") String raw) {
         try {
             final String appId = pAppId.toUpperCase();
             final byte[] bytes = IOUtils.toByteArray(in);
-            return setData(appId, ttl, flag, key, bytes, Boolean.valueOf(async).booleanValue());
+            return setData(appId, ttl, flag, key, bytes, Boolean.valueOf(async).booleanValue(), Boolean.valueOf(raw).booleanValue());
         } catch (EVCacheException e) {
             logger.error("EVCacheException", e);
             return Response.serverError().build();
@@ -190,7 +192,7 @@ public class EVCacheRESTService {
             } else {
                 data = mapper.writeValueAsBytes(val);
             }
-            final Response response = setData(appId, ttl, flag, key, data, async);
+            final Response response = setData(appId, ttl, flag, key, data, async, false);
             if(!(response.getStatus() >= 200 && response.getStatus() < 300)) {
                 errorKeys.append(key +";");
             }
@@ -207,11 +209,12 @@ public class EVCacheRESTService {
     @Produces(MediaType.TEXT_PLAIN)
     public Response putOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
             @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag, 
-            @DefaultValue("false") @QueryParam("async") String async) {
+            @DefaultValue("false") @QueryParam("async") String async, 
+            @DefaultValue("false") @QueryParam("raw") String raw) {
         try {
             final String appId = pAppId.toUpperCase();
             final byte[] bytes = IOUtils.toByteArray(in);
-            return setData(appId, ttl, flag, key, bytes, Boolean.valueOf(async).booleanValue());
+            return setData(appId, ttl, flag, key, bytes, Boolean.valueOf(async).booleanValue(), Boolean.valueOf(raw).booleanValue());
         } catch (EVCacheException e) {
             logger.error("EVCacheException", e);
             return Response.serverError().build();
@@ -221,7 +224,7 @@ public class EVCacheRESTService {
         }
     }
 
-    private Response setData(String appId, String ttl, String flag, String key, byte[] bytes, boolean async) throws EVCacheException, InterruptedException {
+    private Response setData(String appId, String ttl, String flag, String key, byte[] bytes, boolean async, boolean raw) throws EVCacheException, InterruptedException {
         final EVCache evcache = getEVCache(appId);
         if (ttl == null) {
             return Response.status(400).type(MediaType.TEXT_PLAIN).entity("Please specify ttl for the key " + key + " as query parameter \n").build();
@@ -230,9 +233,9 @@ public class EVCacheRESTService {
         EVCacheLatch latch = null; 
         if(flag != null && flag.length() > 0) {
             final CachedData cd = new CachedData(Integer.parseInt(flag), bytes, Integer.MAX_VALUE);
-            latch = evcache.set(key, evcacheTranscoder.encode(cd), timeToLive, Policy.ALL_MINUS_1);
+            latch = evcache.set(key, (raw ? cd : evcacheTranscoder.encode(cd)), timeToLive, Policy.ALL_MINUS_1);
         } else {
-            latch = evcache.set(key, bytes, timeToLive, Policy.ALL_MINUS_1);
+            latch = evcache.set(key, (raw ? new CachedData(Integer.parseInt(flag), bytes, Integer.MAX_VALUE) : bytes), timeToLive, Policy.ALL_MINUS_1);
         }
 
         if(async) return Response.status(202).build();
@@ -300,17 +303,17 @@ public class EVCacheRESTService {
     @GET
     @Path("{appId}/{key}")
     @Produces({MediaType.APPLICATION_OCTET_STREAM})
-    public Response getOperation(@PathParam("appId") String appId, @PathParam("key") String key) {
+    public Response getOperation(@PathParam("appId") String appId, @PathParam("key") String key, @DefaultValue("false") @QueryParam("raw") String raw) {
         appId = appId.toUpperCase();
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
             final EVCache evCache = getEVCache(appId);
-            CachedData cachedData = (CachedData) evCache.get(key, evcacheTranscoder);
+            final CachedData cachedData = (CachedData) evCache.get(key, (Boolean.valueOf(raw).booleanValue() ? rawTranscoder : evcacheTranscoder));
             if (cachedData == null) {
                 return Response.status(404).type(MediaType.TEXT_PLAIN).entity("Key " + key + " Not Found in cache " + appId + "\n").build();
             }
-            byte[] bytes = cachedData.getData();
-            int flag = cachedData.getFlags();
+            final byte[] bytes = cachedData.getData();
+            final int flag = cachedData.getFlags();
             if (bytes == null) {
                 return Response.status(404).type(MediaType.TEXT_PLAIN).entity("Key " + key + " Not Found in cache " + appId + "\n").build();
             } else {
