@@ -201,6 +201,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
         if (log.isDebugEnabled()) log.debug("BEGIN : onComplete - Calling Countdown. Completed Future = " + future + "; App : " + appName); 
         countDown();
         completeCount++;
+        EVCacheMetricsFactory.increment(appName, null, "EVCacheLatchImpl-OnComplete");
         if(evcacheEvent != null) {
             if (log.isDebugEnabled()) log.debug(";App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
             if(future.isDone() && future.get().equals(Boolean.FALSE)) {
@@ -213,22 +214,24 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                         for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
                             evcacheEventListener.onComplete(evcacheEvent);
                         }
-                        EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete");
+                        EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete-Done");
                         onCompleteDone = true;//This ensures we fire onComplete only once
                         break;
                     }
                 }
             }
-            final boolean futureCancelled = scheduledFuture.isCancelled(); 
-            if (log.isDebugEnabled()) log.debug("App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount + "; futureCancelled : " + futureCancelled);
-            if(onCompleteDone && !futureCancelled) {
-                if(completeCount == totalFutureCount && failureCount == 0) { // all futures are completed
-                    final boolean status = scheduledFuture.cancel(true);
-                    if (log.isDebugEnabled()) log.debug("Cancelled the scheduled task : " + status);
-                    if(status) {
-                        EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete-FutureUnregistered-SUCCESS");
-                    } else {
-                        EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete-FutureUnregistered-FAIL");
+            if(scheduledFuture != null) {
+                final boolean futureCancelled = scheduledFuture.isCancelled(); 
+                if (log.isDebugEnabled()) log.debug("App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount + "; futureCancelled : " + futureCancelled);
+                if(onCompleteDone && !futureCancelled) {
+                    if(completeCount == totalFutureCount && failureCount == 0) { // all futures are completed
+                        final boolean status = scheduledFuture.cancel(true);
+                        if (log.isDebugEnabled()) log.debug("Cancelled the scheduled task : " + status);
+                        if(status) {
+                            EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete-FutureUnregistered-SUCCESS");
+                        } else {
+                            EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete-FutureUnregistered-FAIL");
+                        }
                     }
                 }
             }
