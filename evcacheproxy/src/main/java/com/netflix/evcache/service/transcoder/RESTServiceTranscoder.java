@@ -19,7 +19,7 @@ public class RESTServiceTranscoder extends EVCacheTranscoder {
 
     public CachedData decode(CachedData d) {
         if ((d.getFlags() & COMPRESSED) != 0) {
-            d = new CachedData(d.getFlags(), super.decompress(d.getData()), d.MAX_SIZE);
+            d = new CachedData(d.getFlags() & ~COMPRESSED, super.decompress(d.getData()), d.MAX_SIZE);
         }
         return d;
     }
