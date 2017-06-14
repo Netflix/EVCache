@@ -1121,7 +1121,12 @@ public class EVCacheClient {
 
     public boolean shutdown(long timeout, TimeUnit unit) {
         shutdown = true;
-        return evcacheMemcachedClient.shutdown(timeout, unit);
+        try {
+            return evcacheMemcachedClient.shutdown(timeout, unit);
+        } catch(Throwable t) {
+            log.warn("Exception while sutting down", t);
+            return true;
+        }
     }
 
     public EVCacheConnectionObserver getConnectionObserver() {
