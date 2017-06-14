@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.DynamicIntProperty;
@@ -36,25 +37,24 @@ import net.spy.memcached.transcoders.Transcoder;
 public class BaseConnectionFactory extends BinaryConnectionFactory {
 
     protected final String name;
+    protected final String appName;
     protected final DynamicIntProperty operationTimeout;
     protected final long opMaxBlockTime;
     protected EVCacheNodeLocator locator;
     protected final long startTime;
     protected final EVCacheClient client;
     protected final ChainedDynamicProperty.StringProperty failureMode;
-
+    
     BaseConnectionFactory(EVCacheClient client, int len, DynamicIntProperty _operationTimeout, long opMaxBlockTime) {
         super(len, BinaryConnectionFactory.DEFAULT_READ_BUFFER_SIZE, DefaultHashAlgorithm.KETAMA_HASH);
-        this.operationTimeout = _operationTimeout;
         this.opMaxBlockTime = opMaxBlockTime;
+        this.operationTimeout = _operationTimeout;
         this.client = client;
         this.startTime = System.currentTimeMillis();
 
-        final String appName = client.getAppName();
-        final int id = client.getId();
-        final ServerGroup serverGroup = client.getServerGroup();
-        this.failureMode = EVCacheConfig.getInstance().getChainedStringProperty(serverGroup.getName() + ".failure.mode", appName + ".failure.mode", "Retry");
-        this.name = appName + "-" + serverGroup.getName() + "-" + id;
+        this.appName = client.getAppName();
+        this.failureMode = EVCacheConfig.getInstance().getChainedStringProperty(this.client.getServerGroupName() + ".failure.mode", appName + ".failure.mode", "Retry", null);
+        this.name = appName + "-" + client.getServerGroupName() + "-" + client.getId();
     }
 
     public NodeLocator createLocator(List<MemcachedNode> list) {
@@ -135,6 +135,14 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
 
     public boolean shouldOptimize() {
         return true;
+    }
+
+    public boolean isDefaultExecutorService() {
+        return false;
+    }
+
+    public ExecutorService getListenerExecutorService() {
+        return client.getPool().getEVCacheClientPoolManager().getEVCacheScheduledExecutor();
     }
 
     public int getId() {

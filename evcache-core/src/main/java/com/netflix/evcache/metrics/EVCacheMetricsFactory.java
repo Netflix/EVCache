@@ -1,13 +1,16 @@
 package com.netflix.evcache.metrics;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
 //import com.netflix.servo.DefaultMonitorRegistry;
 //import com.netflix.servo.annotations.DataSourceType;
@@ -100,8 +103,13 @@ public final class EVCacheMetricsFactory {
         }
         return gauge;
     }
+    
+    public Id getId(String name, List<Tag> tags) {
+        tags.add(new BasicTag("owner", "evcache"));
+        return getRegistry().createId(name, tags);
+    }
 
-    public Counter getCounter(String cName, Collection<Tag> tags) {
+    public Counter getCounter(String cName, List<Tag> tags) {
         final String name = tags != null ? cName + tags.toString() : cName;
         Counter counter = counterMap.get(name);
         if (counter == null) {
@@ -110,11 +118,11 @@ public final class EVCacheMetricsFactory {
                 if (counterMap.containsKey(name)) {
                     counter = counterMap.get(name);
                 } else {
-                    if(tags != null) {
-                        counter = getRegistry().counter(cName, tags);
-                    } else {
-                        counter = getRegistry().counter(cName);
+                    if(tags == null) {
+                        tags = new ArrayList<Tag>(1);
                     }
+                    tags.add(new BasicTag("owner", "evcache"));
+                    counter = getRegistry().counter(cName, tags);
                     counterMap.put(name, counter);
                 }
             } finally {
@@ -134,7 +142,7 @@ public final class EVCacheMetricsFactory {
         counter.increment();
     }
 
-    public void increment(String cName, Collection<Tag> tags) {
+    public void increment(String cName, List<Tag> tags) {
         final Counter counter = getCounter(cName, tags);
         counter.increment();
     }

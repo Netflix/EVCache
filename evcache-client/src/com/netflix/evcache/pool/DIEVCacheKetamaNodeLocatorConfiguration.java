@@ -28,7 +28,7 @@ public class DIEVCacheKetamaNodeLocatorConfiguration extends EVCacheKetamaNodeLo
      ec2-174-129-159-31.compute-1.amazonaws.com/10.125.47.114:11211)
      */
     @Override
-    protected String getSocketAddressForNode(MemcachedNode node) {
+    public String getKeyForNode(MemcachedNode node, int repetition) {
         String result = socketAddresses.get(node);
         if(result == null) {
             final SocketAddress socketAddress = node.getSocketAddress();

@@ -59,11 +59,6 @@ public class EVCacheClient {
     private static Logger log = LoggerFactory.getLogger(EVCacheClient.class);
     private final ConnectionFactory connectionFactory;
     private final EVCacheMemcachedClient evcacheMemcachedClient;
-
-    public ConnectionFactory getConnectionFactory() {
-        return connectionFactory;
-    }
-
     private final List<InetSocketAddress> memcachedNodesInZone;
     private EVCacheConnectionObserver connectionObserver = null;
     private boolean shutdown = false;
@@ -106,24 +101,23 @@ public class EVCacheClient {
         this.operationTimeout = operationTimeout;
         this.pool = pool;
 
-        tags = new ArrayList<Tag>(3);
-        tags.add(new BasicTag("APP", appName));
-        tags.add(new BasicTag("Id", String.valueOf(id)));
-        tags.add(new BasicTag("ServerGroup", serverGroup.getName()));
+        this.tags = new ArrayList<Tag>(3);
+        tags.add(new BasicTag("cache", appName));
+        tags.add(new BasicTag("connId", String.valueOf(id)));
+        tags.add(new BasicTag("serverGroup", serverGroup.getName()));
 
-        this.enableChunking = EVCacheConfig.getInstance().getChainedBooleanProperty(this.serverGroup.getName()+ ".chunk.data", appName + ".chunk.data", Boolean.FALSE);
-        this.chunkSize = EVCacheConfig.getInstance().getChainedIntProperty(this.serverGroup.getName() + ".chunk.size", appName + ".chunk.size", 1180);
-        this.writeBlock = EVCacheConfig.getInstance().getChainedIntProperty(appName + "." + this.serverGroup.getName() + ".write.block.duration", appName + ".write.block.duration", 25);
+        this.enableChunking = EVCacheConfig.getInstance().getChainedBooleanProperty(this.serverGroup.getName()+ ".chunk.data", appName + ".chunk.data", Boolean.FALSE, null);
+        this.chunkSize = EVCacheConfig.getInstance().getChainedIntProperty(this.serverGroup.getName() + ".chunk.size", appName + ".chunk.size", 1180, null);
+        this.writeBlock = EVCacheConfig.getInstance().getChainedIntProperty(appName + "." + this.serverGroup.getName() + ".write.block.duration", appName + ".write.block.duration", 25, null);
         this.chunkingTranscoder = new ChunkTranscoder();
         this.maxWriteQueueSize = maxQueueSize;
-        this.ignoreTouch = EVCacheConfig.getInstance().getChainedBooleanProperty(appName + "." + this.serverGroup.getName() + ".ignore.touch", appName + ".ignore.touch", false);
-        this.decodingTranscoder = new SerializingTranscoder(Integer.MAX_VALUE);
-        decodingTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
-
+        this.ignoreTouch = EVCacheConfig.getInstance().getChainedBooleanProperty(appName + "." + this.serverGroup.getName() + ".ignore.touch", appName + ".ignore.touch", false, null);
         this.connectionFactory = pool.getEVCacheClientPoolManager().getConnectionFactoryProvider().getConnectionFactory(this);
         this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, this);
         this.connectionObserver = new EVCacheConnectionObserver(this);
         this.evcacheMemcachedClient.addObserver(connectionObserver);
+        this.decodingTranscoder = new SerializingTranscoder(Integer.MAX_VALUE);
+        decodingTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
     }
 
     private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys) throws EVCacheException {
@@ -157,11 +151,12 @@ public class EVCacheClient {
     private boolean ensureWriteQueueSize(MemcachedNode node, String key) throws EVCacheException {
         if (node instanceof EVCacheNodeImpl) {
             final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
-            if (!evcNode.isAvailable()) {
-                EVCacheMetricsFactory.getInstance().getCounter("EVCacheClient-" + appName + "-INACTIVE_NODE", evcNode.getTags()).increment();
-                //pool.refreshAsync(evcNode);
-                getEVCacheMemcachedClient().reconnectNode(evcNode);
-            }
+
+//            if (!evcNode.isAvailable()) {
+//                EVCacheMetricsFactory.getInstance().getCounter("EVCacheClient-" + appName + "-INACTIVE_NODE", evcNode.getTags()).increment();
+//                pool.refreshAsync(evcNode);
+//                getEVCacheMemcachedClient().reconnectNode(evcNode);
+//            }
 
             int i = 0;
             while (true) {
@@ -1128,12 +1123,23 @@ public class EVCacheClient {
     }
 
     public boolean shutdown(long timeout, TimeUnit unit) {
+        if(shutdown) return true;
+
         shutdown = true;
-        return evcacheMemcachedClient.shutdown(timeout, unit);
+        try {
+            evcacheMemcachedClient.shutdown(timeout, unit);
+        } catch(Throwable t) {
+            log.error("Exception while shutting down", t);
+        }
+        return true;
     }
 
     public EVCacheConnectionObserver getConnectionObserver() {
         return this.connectionObserver;
+    }
+
+    public ConnectionFactory getConnectionFactory() {
+        return connectionFactory;
     }
 
     public String getAppName() {

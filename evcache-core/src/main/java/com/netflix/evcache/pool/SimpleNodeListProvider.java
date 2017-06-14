@@ -117,7 +117,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
             final JSONObject application = jsonObj.getJSONObject("application");
             final JSONArray instances = application.getJSONArray("instance");
             final Map<ServerGroup, EVCacheServerGroupConfig> serverGroupMap = new HashMap<ServerGroup, EVCacheServerGroupConfig>();
-            final ChainedDynamicProperty.BooleanProperty useBatchPort = EVCacheConfig.getInstance().getChainedBooleanProperty(appName + ".use.batch.port", "evcache.use.batch.port", Boolean.FALSE);
+            final ChainedDynamicProperty.BooleanProperty useBatchPort = EVCacheConfig.getInstance().getChainedBooleanProperty(appName + ".use.batch.port", "evcache.use.batch.port", Boolean.FALSE, null);
             for(int i = 0; i < instances.length(); i++) {
                 final JSONObject instanceObj = instances.getJSONObject(i);
                 final JSONObject metadataObj = instanceObj.getJSONObject("dataCenterInfo").getJSONObject("metadata");

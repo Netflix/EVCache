@@ -8,10 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -24,7 +21,6 @@ import javax.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.config.ConfigurationManager;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicStringProperty;
@@ -70,15 +66,14 @@ import net.spy.memcached.transcoders.Transcoder;
 public class EVCacheClientPoolManager {
     private static final Logger log = LoggerFactory.getLogger(EVCacheClientPoolManager.class);
     private static final DynamicIntProperty defaultReadTimeout = EVCacheConfig.getInstance().getDynamicIntProperty("default.read.timeout", 20);
-    private final DynamicIntProperty defaultRefreshInterval = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheClientPoolManager.refresh.interval", 60);
     private static final DynamicStringProperty logEnabledApps = EVCacheConfig.getInstance().getDynamicStringProperty("EVCacheClientPoolManager.log.apps", "*");
+    private final DynamicIntProperty defaultRefreshInterval = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheClientPoolManager.refresh.interval", 60);
 
     private volatile static EVCacheClientPoolManager instance;
 
     private final Map<String, EVCacheClientPool> poolMap = new ConcurrentHashMap<String, EVCacheClientPool>();
     private final Map<EVCacheClientPool, ScheduledFuture<?>> scheduledTaskMap = new HashMap<EVCacheClientPool, ScheduledFuture<?>>();
-    private final ScheduledThreadPoolExecutor _scheduler;
-    private final ThreadPoolExecutor refreshAsnycPool; 
+    private final EVCacheScheduledExecutor asyncExecutor; 
     private final List<EVCacheEventListener> evcacheEventListenerList;
     private final IConnectionBuilder connectionFactoryProvider;
     private final EVCacheNodeList evcacheNodeList;
@@ -97,20 +92,30 @@ public class EVCacheClientPoolManager {
         this.connectionFactoryProvider = connectionFactoryprovider;
         this.evcacheNodeList = evcacheNodeList;
         this.evcacheEventListenerList = new ArrayList<EVCacheEventListener>();
-        final int poolSize = EVCacheConfig.getInstance().getDynamicIntProperty("default.refresher.poolsize", 1).get();
 
-        final ThreadFactory asyncFactory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat( "EVCacheClientPool-AsyncPoolRefresher-%d").build();
-        this.refreshAsnycPool = new ThreadPoolExecutor(1,1,30, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(10), asyncFactory, new ThreadPoolExecutor.DiscardPolicy());        
-
-        final ThreadFactory factory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat("EVCacheClientPoolManager-refresher-%d").build();
-        _scheduler = new ScheduledThreadPoolExecutor(poolSize, factory);
+        this.asyncExecutor = new EVCacheScheduledExecutor(1,Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "async");
+        asyncExecutor.prestartAllCoreThreads();
         defaultRefreshInterval.addCallback(new Runnable() {
             public void run() {
                 refreshScheduler();
             }
         });
+
         initAtStartup();
     }
+    
+    private void refreshScheduler() {
+        for (Iterator<?> itr = scheduledTaskMap.keySet().iterator(); itr.hasNext();) {
+            final Object obj = itr.next();
+            if(obj instanceof EVCacheClientPool) {
+                final EVCacheClientPool pool = (EVCacheClientPool)obj;
+                final ScheduledFuture<?> task = scheduledTaskMap.get(pool);
+                itr.remove();
+                task.cancel(false);
+                scheduleRefresh(pool);
+            }
+        }
+    }    
 
     public IConnectionBuilder getConnectionFactoryProvider() {
         return connectionFactoryProvider;
@@ -128,16 +133,13 @@ public class EVCacheClientPoolManager {
         return this.evcacheEventListenerList;
     }
 
-    private void refreshScheduler() {
-        for (Iterator<EVCacheClientPool> itr = scheduledTaskMap.keySet().iterator(); itr.hasNext();) {
-            final EVCacheClientPool pool = itr.next();
-            final ScheduledFuture<?> task = scheduledTaskMap.get(pool);
-            itr.remove();
-            task.cancel(true);
-            scheduleRefresh(pool);
-        }
-    }
-
+    /**
+     * @deprecated. Please use DependencyInjection (@Inject) to obtain
+     * {@link EVCacheClientPoolManager}. The use of this can result in
+     * unintended behavior where you will not be able to talk to evcache
+     * instances.
+     */
+    @Deprecated
     public static EVCacheClientPoolManager getInstance() {
         if (instance == null) {
             new EVCacheClientPoolManager(new ConnectionFactoryBuilder(), new SimpleNodeListProvider());
@@ -172,13 +174,13 @@ public class EVCacheClientPoolManager {
         if (app == null || (app = app.trim()).length() == 0) throw new IllegalArgumentException("param app name null or space");
         final String APP = getAppName(app);
         if (poolMap.containsKey(APP)) return;
-        final EVCacheClientPool pool = new EVCacheClientPool(APP, evcacheNodeList, refreshAsnycPool, this);
+        final EVCacheClientPool pool = new EVCacheClientPool(APP, evcacheNodeList, asyncExecutor, this);
         scheduleRefresh(pool);
         poolMap.put(APP, pool);
     }
 
     private void scheduleRefresh(EVCacheClientPool pool) {
-        final ScheduledFuture<?> task = _scheduler.scheduleWithFixedDelay(pool, 30, defaultRefreshInterval.get(), TimeUnit.SECONDS);
+        final ScheduledFuture<?> task = asyncExecutor.scheduleWithFixedDelay(pool, 30, defaultRefreshInterval.get(), TimeUnit.SECONDS);
         scheduledTaskMap.put(pool, task);
     }
 
@@ -206,11 +208,9 @@ public class EVCacheClientPoolManager {
 
     @PreDestroy
     public void shutdown() {
-        if(!_scheduler.isShutdown()) {
-            _scheduler.shutdown();
-            for (EVCacheClientPool pool : poolMap.values()) {
-                pool.shutdown();
-            }
+        asyncExecutor.shutdown();
+        for (EVCacheClientPool pool : poolMap.values()) {
+            pool.shutdown();
         }
     }
 
@@ -226,6 +226,10 @@ public class EVCacheClientPoolManager {
 
     public DynamicIntProperty getDefaultRefreshInterval() {
         return defaultRefreshInterval;
+    }
+
+    public EVCacheScheduledExecutor getEVCacheScheduledExecutor() {
+        return asyncExecutor;
     }
 
     private String getAppName(String _app) {

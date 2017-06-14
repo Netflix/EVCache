@@ -1,8 +1,11 @@
 package com.netflix.evcache;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,6 +29,11 @@ import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Counter;
+import com.netflix.spectator.api.Gauge;
+import com.netflix.spectator.api.Id;
+import com.netflix.spectator.api.Tag;
 
 import net.spy.memcached.transcoders.Transcoder;
 
@@ -43,10 +51,12 @@ public class EVCacheInMemoryCache<T> {
     private final DynamicIntProperty _cacheSize; // This many items will be cached
     private final DynamicIntProperty _poolSize; // This many threads will be initialized to fetch data from evcache async
     private final String appName;
+    private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
+    private final Map<String, Gauge> gaugeMap = new ConcurrentHashMap<String, Gauge>();
 
     private LoadingCache<String, T> cache;
     private ExecutorService pool = null;
-    
+
     private final Transcoder<T> tc;
     private final EVCacheImpl impl;
 
@@ -54,39 +64,27 @@ public class EVCacheInMemoryCache<T> {
         this.appName = appName;
         this.tc = tc;
         this.impl = impl;
-
-        this._cacheDuration = EVCacheConfig.getInstance().getChainedIntProperty(appName + ".inmemory.cache.duration.ms", appName + ".inmemory.expire.after.write.duration.ms", 0);
-        this._cacheDuration.addCallback(new Runnable() {
+        final Runnable callback = new Runnable() {
             public void run() {
                 setupCache();
             }
-        });
+        };
+
+        this._cacheDuration = EVCacheConfig.getInstance().getChainedIntProperty(appName + ".inmemory.cache.duration.ms", appName + ".inmemory.expire.after.write.duration.ms", 0, callback);
 
         this._exireAfterAccessDuration = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.expire.after.access.duration.ms", 0);
-        this._exireAfterAccessDuration.addCallback(new Runnable() {
-            public void run() {
-                setupCache();
-            }
-        });
+        this._exireAfterAccessDuration.addCallback(callback);
 
         this._refreshDuration = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.refresh.after.write.duration.ms", 0);
-        this._refreshDuration.addCallback(new Runnable() {
-            public void run() {
-                setupCache();
-            }
-        });
+        this._refreshDuration.addCallback(callback);
 
         this._cacheSize = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.cache.size", 100);
-        this._cacheSize.addCallback(new Runnable() {
-            public void run() {
-                setupCache();
-            }
-        });
+        this._cacheSize.addCallback(callback);
 
         this._poolSize = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".thread.pool.size", 5);
         this._poolSize.addCallback(new Runnable() {
             public void run() {
-            	initRefreshPool();
+                initRefreshPool();
             }
         });
         setupCache();
@@ -95,16 +93,16 @@ public class EVCacheInMemoryCache<T> {
 
     private WriteLock writeLock = new ReentrantReadWriteLock().writeLock();
     private void initRefreshPool() {
-    	final ExecutorService oldPool = pool;
-    	writeLock.lock();
-    	try {
-    		final ThreadFactory factory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat(
-    				"EVCacheInMemoryCache-%d").build();
-    		pool = Executors.newFixedThreadPool(_poolSize.get(), factory);
-    		if(oldPool != null) oldPool.shutdown();
-    	} finally {
-    		writeLock.unlock();
-	    }
+        final ExecutorService oldPool = pool;
+        writeLock.lock();
+        try {
+            final ThreadFactory factory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat(
+                    "EVCacheInMemoryCache-%d").build();
+            pool = Executors.newFixedThreadPool(_poolSize.get(), factory);
+            if(oldPool != null) oldPool.shutdown();
+        } finally {
+            writeLock.unlock();
+        }
     }
 
 
@@ -115,88 +113,116 @@ public class EVCacheInMemoryCache<T> {
                 builder = builder.maximumSize(_cacheSize.get());
             }
             if(_exireAfterAccessDuration.get() > 0) {
-            	builder = builder.expireAfterAccess(_exireAfterAccessDuration.get(), TimeUnit.MILLISECONDS);
+                builder = builder.expireAfterAccess(_exireAfterAccessDuration.get(), TimeUnit.MILLISECONDS);
             } else if(_cacheDuration.get().intValue() > 0) {
                 builder = builder.expireAfterWrite(_cacheDuration.get(), TimeUnit.MILLISECONDS);
             }  
 
             if(_refreshDuration.get() > 0) {
-            	builder = builder.refreshAfterWrite(_refreshDuration.get(), TimeUnit.MILLISECONDS);
+                builder = builder.refreshAfterWrite(_refreshDuration.get(), TimeUnit.MILLISECONDS);
             }
-        	initRefreshPool();
-        	final LoadingCache<String, T> newCache = builder.build(
+            initRefreshPool();
+            final LoadingCache<String, T> newCache = builder.build(
                     new CacheLoader<String, T>() {
                         public T load(String key) throws  EVCacheException { 
-	                          try {
-	                        	  final T t = impl.doGet(key, tc);
-	                        	  if(t == null) throw new  DataNotFoundException("Data for key : " + key + " could not be loaded as it was not found in EVCache");
-	                        	  return t;
-							} catch (DataNotFoundException e) {
-								throw e;
-							} catch (EVCacheException e) {
-								log.error("EVCacheException while loading key -> "+ key, e);
-								throw e;
-							} catch (Exception e) {
-								log.error("EVCacheException while loading key -> "+ key, e);
-								throw new EVCacheException("key : " + key + " could not be loaded", e);
-							}
+                            try {
+                                final T t = impl.doGet(key, tc);
+                                if(t == null) throw new  DataNotFoundException("Data for key : " + key + " could not be loaded as it was not found in EVCache");
+                                return t;
+                            } catch (DataNotFoundException e) {
+                                throw e;
+                            } catch (EVCacheException e) {
+                                log.error("EVCacheException while loading key -> "+ key, e);
+                                throw e;
+                            } catch (Exception e) {
+                                log.error("EVCacheException while loading key -> "+ key, e);
+                                throw new EVCacheException("key : " + key + " could not be loaded", e);
+                            }
                         }
 
                         public ListenableFuture<T> reload(final String key, T prev) {
                             ListenableFutureTask<T> task = ListenableFutureTask.create(new Callable<T>() {
-                              public T call() {
-    	                          try {
-  	                        	    final T t = load(key);
-  	                        	    if(t == null) {
-  	                        	    	EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-NotFound");
-  	                        	    	return prev;
-  	                        	    } else {
-  	                        	    	EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-Success");
-  	                        	    }
-  									return t;
-  								} catch (EVCacheException e) {
-  									log.error("EVCacheException while reloading key -> "+ key, e);
-  									EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-Fail");
-                                  	return prev;
-  								}
-                              }
+                                public T call() {
+                                    try {
+                                        final T t = load(key);
+                                        if(t == null) {
+                                            EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-NotFound");
+                                            return prev;
+                                        } else {
+                                            EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-Success");
+                                        }
+                                        return t;
+                                    } catch (EVCacheException e) {
+                                        log.error("EVCacheException while reloading key -> "+ key, e);
+                                        EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-Fail");
+                                        return prev;
+                                    }
+                                }
                             });
                             pool.execute(task);
                             return task;
-                          }
-                      });
-        	if(cache != null) newCache.putAll(cache.asMap());
-        	final Cache<String, T> currentCache = this.cache;
-        	this.cache = newCache;
+                        }
+                    });
+            if(cache != null) newCache.putAll(cache.asMap());
+            final Cache<String, T> currentCache = this.cache;
+            this.cache = newCache;
             if(currentCache != null) {
-            	currentCache.invalidateAll();
-            	currentCache.cleanUp();
+                currentCache.invalidateAll();
+                currentCache.cleanUp();
             }
         } catch (Exception e) {
             log.error(e.getMessage(), e);
         }
     }
-    
+
     private long getSize() {
         final long size = cache.size();
         final CacheStats stats = cache.stats();
-        EVCacheMetricsFactory.getInstance().getRegistry().counter("EVCacheInMemoryCache-" + appName + "-hits").increment(stats.hitCount());
-        EVCacheMetricsFactory.getInstance().getRegistry().counter("EVCacheInMemoryCache-" + appName + "-miss").increment(stats.missCount());
-        EVCacheMetricsFactory.getInstance().getRegistry().counter("EVCacheInMemoryCache-" + appName + "-evictions").increment(stats.evictionCount());
-        EVCacheMetricsFactory.getInstance().getRegistry().counter("EVCacheInMemoryCache-" + appName + "-requests").increment(stats.requestCount());
-        EVCacheMetricsFactory.getInstance().getRegistry().gauge("EVCacheInMemoryCache-" + appName + "-hitrate", stats.hitRate());
 
-        EVCacheMetricsFactory.getInstance().getRegistry().counter("EVCacheInMemoryCache-" + appName + "-loadExceptionCount").increment(stats.loadExceptionCount());
-        EVCacheMetricsFactory.getInstance().getRegistry().counter("EVCacheInMemoryCache-" + appName + "-loadCount").increment(stats.loadCount());
-        EVCacheMetricsFactory.getInstance().getRegistry().counter("EVCacheInMemoryCache-" + appName + "-loadSuccessCount").increment(stats.loadSuccessCount());
-        EVCacheMetricsFactory.getInstance().getRegistry().counter("EVCacheInMemoryCache-" + appName + "-totalLoadTime-ms").increment(cache.stats().totalLoadTime()/1000000);
-        EVCacheMetricsFactory.getInstance().getRegistry().gauge("EVCacheInMemoryCache-" + appName + "-loadExceptionRate", stats.loadExceptionRate());
-        EVCacheMetricsFactory.getInstance().getRegistry().gauge("EVCacheInMemoryCache-" + appName + "-averageLoadTime-ms", stats.averageLoadPenalty()/1000000);
+        getCounter("hits").increment(stats.hitCount());
+        getCounter("miss").increment(stats.missCount());
+        getCounter("evictions").increment(stats.evictionCount());
+        getCounter("requests").increment(stats.requestCount());
+
+        getCounter("loadExceptionCount").increment(stats.loadExceptionCount());
+        getCounter("loadCount").increment(stats.loadCount());
+        getCounter("loadSuccessCount").increment(stats.loadSuccessCount());
+        getCounter("totalLoadTime-ms").increment(cache.stats().totalLoadTime()/1000000);
+
+        getGauge("hitrate").set(stats.hitRate());
+        getGauge("loadExceptionRate").set(stats.loadExceptionRate());
+        getGauge("averageLoadTime-ms").set(stats.averageLoadPenalty()/1000000);
         return size;
     }
 
     private void setupMonitoring(final String appName) {
         EVCacheMetricsFactory.getInstance().getRegistry().gauge("EVCacheInMemoryCache" + "-" + appName + "-size", this, EVCacheInMemoryCache::getSize);
+    }
+
+    private Counter getCounter(String name) {
+        Counter counter = counterMap.get(name);
+        if(counter != null) return counter;
+
+        final List<Tag> tags = new ArrayList<Tag>(3);
+        tags.add(new BasicTag("cache", appName));
+        tags.add(new BasicTag("metric", name));
+        counter = EVCacheMetricsFactory.getInstance().getCounter("evcache.client.inmemorycache", tags);
+        counterMap.put(name, counter);
+        return counter;
+    }
+
+    private Gauge getGauge(String name) {
+        Gauge gauge = gaugeMap.get(name);
+        if(gauge != null) return gauge;
+
+        final List<Tag> tags = new ArrayList<Tag>(3);
+        tags.add(new BasicTag("cache", appName));
+        tags.add(new BasicTag("metric", name));
+        
+        final Id id = EVCacheMetricsFactory.getInstance().getId(name, tags);
+        gauge = EVCacheMetricsFactory.getInstance().getRegistry().gauge(id);
+        gaugeMap.put(name, gauge);
+        return gauge;
     }
 
     public T get(String key) throws ExecutionException {
@@ -217,17 +243,17 @@ public class EVCacheInMemoryCache<T> {
         cache.invalidate(key);
         if (log.isDebugEnabled()) log.debug("DEL : appName : " + appName + "; Key : " + key);
     }
-    
+
     public Map<String, T> getAll() {
-    	if (cache == null) return Collections.<String, T>emptyMap();
-    	return cache.asMap();
+        if (cache == null) return Collections.<String, T>emptyMap();
+        return cache.asMap();
     }
 
     public static final class DataNotFoundException extends EVCacheException {
-		private static final long serialVersionUID = 1800185311509130263L;
+        private static final long serialVersionUID = 1800185311509130263L;
 
-		public DataNotFoundException(String message) {
-          super(message);
+        public DataNotFoundException(String message) {
+            super(message);
         }
-      }
+    }
 }

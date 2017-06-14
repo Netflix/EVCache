@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import com.netflix.evcache.event.EVCacheEvent;
+
 import net.spy.memcached.internal.OperationCompletionListener;
 
 
@@ -140,8 +142,18 @@ public interface EVCacheLatch extends OperationCompletionListener {
      * on the Specified Policy before the latch can be released.
      *
      * @return the expected success count
+     * @deprecated replaced by {@link #getExpectedCompleteCount()}
      */
     int getExpectedSuccessCount();
+
+
+    /**
+     * Returns the number of Tasks that need to be successfully completed based
+     * on the Specified Policy before the latch can be released.
+     *
+     * @return the expected success count
+     */
+    int getExpectedCompleteCount();
 
     /**
      * Returns the current number of Tasks that are successful .
@@ -163,4 +175,11 @@ public interface EVCacheLatch extends OperationCompletionListener {
      * @return {@code true} upon fast failure else false.
      */
     boolean isFastFailure();
+
+    /**
+     * The event associated with this Latch
+     *
+     * @return the EVCacheEvent associated with this latch or null if there is none.
+     */
+    void setEVCacheEvent(EVCacheEvent event);
 }

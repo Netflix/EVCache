@@ -69,38 +69,48 @@ public class EVCacheConfig {
         return prop;
     }
 
-    public ChainedDynamicProperty.BooleanProperty getChainedBooleanProperty(String overrideKey, String primaryKey,
-            Boolean defaultValue) {
+    public ChainedDynamicProperty.BooleanProperty getChainedBooleanProperty(String overrideKey, String primaryKey, Boolean defaultValue, Runnable listener) {
         final String mapKey = overrideKey + primaryKey;
         ChainedDynamicProperty.BooleanProperty prop = (ChainedDynamicProperty.BooleanProperty) fastPropMap.get(mapKey);
         if (prop != null) return prop;
 
-        prop = new ChainedDynamicProperty.BooleanProperty(overrideKey,
-                new ChainedDynamicProperty.DynamicBooleanPropertyThatSupportsNull(primaryKey, defaultValue));
+        final ChainedDynamicProperty.DynamicBooleanPropertyThatSupportsNull baseProperty = new ChainedDynamicProperty.DynamicBooleanPropertyThatSupportsNull(primaryKey, defaultValue);
+        prop = new ChainedDynamicProperty.BooleanProperty(overrideKey, baseProperty);
         fastPropMap.put(mapKey, prop);
+        if(listener != null) {
+            baseProperty.addCallback(listener);
+            prop.addCallback(listener);
+        }
         return prop;
     }
 
-    public ChainedDynamicProperty.IntProperty getChainedIntProperty(String overrideKey, String primaryKey,
-            int defaultValue) {
+    public ChainedDynamicProperty.IntProperty getChainedIntProperty(String overrideKey, String primaryKey, int defaultValue, Runnable listener) {
         final String mapKey = overrideKey + primaryKey;
         ChainedDynamicProperty.IntProperty prop = (ChainedDynamicProperty.IntProperty) fastPropMap.get(mapKey);
         if (prop != null) return prop;
 
-        prop = new ChainedDynamicProperty.IntProperty(overrideKey, new DynamicIntProperty(primaryKey, defaultValue));
+        final DynamicIntProperty baseProp = new DynamicIntProperty(primaryKey, defaultValue);
+        prop = new ChainedDynamicProperty.IntProperty(overrideKey, baseProp);
         fastPropMap.put(mapKey, prop);
+        if(listener != null) {
+            baseProp.addCallback(listener);
+            prop.addCallback(listener);
+        }
         return prop;
     }
 
-    public ChainedDynamicProperty.StringProperty getChainedStringProperty(String overrideKey, String primaryKey,
-            String defaultValue) {
+    public ChainedDynamicProperty.StringProperty getChainedStringProperty(String overrideKey, String primaryKey,String defaultValue, Runnable listener) {
         final String mapKey = overrideKey + primaryKey;
         ChainedDynamicProperty.StringProperty prop = (ChainedDynamicProperty.StringProperty) fastPropMap.get(mapKey);
         if (prop != null) return prop;
 
-        prop = new ChainedDynamicProperty.StringProperty(overrideKey, new DynamicStringProperty(primaryKey,
-                defaultValue));
+        final DynamicStringProperty baseProp = new DynamicStringProperty(primaryKey,defaultValue);
+        prop = new ChainedDynamicProperty.StringProperty(overrideKey, baseProp);
         fastPropMap.put(mapKey, prop);
+        if(listener != null) {
+            baseProp.addCallback(listener);
+            prop.addCallback(listener);
+        }
         return prop;
     }
 

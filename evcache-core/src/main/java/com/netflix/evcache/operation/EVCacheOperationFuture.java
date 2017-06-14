@@ -57,7 +57,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     private final long start;
     private final EVCacheClient client;
 
-    public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout, ExecutorService service, EVCacheClient client, String metricName) {
+    public EVCacheOperationFuture(String k, CountDownLatch l, AtomicReference<T> oref, long opTimeout, ExecutorService service, EVCacheClient client) {
         super(k, l, oref, opTimeout, service);
         this.latch = l;
         this.objRef = oref;

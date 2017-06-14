@@ -87,7 +87,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
             isServerGroupInWriteOnlyMode = EVCacheConfig.getInstance().
                     getChainedBooleanProperty(_appName + "." + serverGroup.getName() + ".EVCacheClientPool.writeOnly",
-                                              _appName + "." + serverGroup.getZone() + ".EVCacheClientPool.writeOnly", Boolean.FALSE);
+                                              _appName + "." + serverGroup.getZone() + ".EVCacheClientPool.writeOnly", Boolean.FALSE, null);
             put(serverGroup, isServerGroupInWriteOnlyMode);
             return isServerGroupInWriteOnlyMode;
         };
@@ -115,53 +115,36 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this._zone = (ec2Zone == null) ? "GLOBAL" : ec2Zone;
         final EVCacheConfig config = EVCacheConfig.getInstance();
 
+        final Runnable callback =new Runnable() {
+            public void run() {
+                clearState();
+                refreshPool(true, true);
+            }
+        }; 
         this._poolSize = config.getDynamicIntProperty(appName + ".EVCacheClientPool.poolSize", 1);
-        this._poolSize.addCallback(new Runnable() {
-            public void run() {
-                clearState();
-                refreshPool(true, true);
-            }
-        });
+        this._poolSize.addCallback(callback);
         this._readTimeout = new ChainedDynamicProperty.IntProperty(appName + ".EVCacheClientPool.readTimeout", EVCacheClientPoolManager.getDefaultReadTimeout());
-        this._readTimeout.addCallback(new Runnable() {
-            public void run() {
-                clearState();
-                refreshPool(true, true);
-            }
-        });
-        this._bulkReadTimeout = new ChainedDynamicProperty.IntProperty(appName + ".EVCacheClientPool.bulkReadTimeout", _readTimeout);
-        this._bulkReadTimeout.addCallback(new Runnable() {
-            public void run() {
-                clearState();
-                refreshPool(true, true);
-            }
-        });
+        this._readTimeout.addCallback(callback);
 
-        this.refreshConnectionOnReadQueueFull = config.getChainedBooleanProperty(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull", "EVCacheClientPool.refresh.connection.on.readQueueFull", false);
-        this.refreshConnectionOnReadQueueFullSize = config.getChainedIntProperty(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull.size", "EVCacheClientPool.refresh.connection.on.readQueueFull.size", 100);
+        this._bulkReadTimeout = new ChainedDynamicProperty.IntProperty(appName + ".EVCacheClientPool.bulkReadTimeout", _readTimeout);
+        this._bulkReadTimeout.addCallback(callback);
+
+        this.refreshConnectionOnReadQueueFull = config.getChainedBooleanProperty(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull", "EVCacheClientPool.refresh.connection.on.readQueueFull", Boolean.FALSE, null);
+        this.refreshConnectionOnReadQueueFullSize = config.getChainedIntProperty(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull.size", "EVCacheClientPool.refresh.connection.on.readQueueFull.size", 100, null);
         
         this._opQueueMaxBlockTime = config.getDynamicIntProperty(appName + ".operation.QueueMaxBlockTime", 10);
-        this._opQueueMaxBlockTime.addCallback(new Runnable() {
-            public void run() {
-                clearState();
-                refreshPool(true, true);
-            }
-        });
+        this._opQueueMaxBlockTime.addCallback(callback);
+
         this._operationTimeout = config.getDynamicIntProperty(appName + ".operation.timeout", 2500);
-        this._operationTimeout.addCallback(new Runnable() {
-            public void run() {
-                clearState();
-                refreshPool(true, true);
-            }
-        });
+        this._operationTimeout.addCallback(callback);
         this._maxReadQueueSize = config.getDynamicIntProperty(appName + ".max.read.queue.length", 5);
         this._retryAcrossAllReplicas = config.getDynamicBooleanProperty(_appName + ".retry.all.copies", Boolean.FALSE);
+        this._disableAsyncRefresh = config.getDynamicBooleanProperty(_appName + ".disable.async.refresh", Boolean.FALSE);
         this._maxRetries = config.getDynamicIntProperty(_appName + ".max.retry.count", 1);
 
         this.logOperations = config.getDynamicIntProperty(appName + ".log.operation", 0);
         this.logOperationCalls = new DynamicStringSetProperty(appName + ".log.operation.calls", "SET,DELETE,GMISS,TMISS,BMISS_ALL,TOUCH,REPLACE");
-        this.reconcileInterval = config.getDynamicIntProperty(appName + ".reconcile.interval", 600000);        
-        this._disableAsyncRefresh = config.getDynamicBooleanProperty(_appName + ".disable.async.refresh", Boolean.FALSE);
+        this.reconcileInterval = config.getDynamicIntProperty(appName + ".reconcile.interval", 600000);
         this.cloneWrite = new DynamicStringSetProperty(appName + ".clone.writes.to", "");
         this.cloneWrite.addCallback(new Runnable() {
             public void run() {
@@ -172,7 +155,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         final Map<String, String> map = new HashMap<String, String>();
         map.put("APP", _appName);
 
-        this._pingServers = config.getChainedBooleanProperty(appName + ".ping.servers", "evcache.ping.servers", false); 
+        this._pingServers = config.getChainedBooleanProperty(appName + ".ping.servers", "evcache.ping.servers", Boolean.FALSE, null); 
         setupMonitoring();
         refreshPool(false, true);
         if (log.isInfoEnabled()) log.info(toString());

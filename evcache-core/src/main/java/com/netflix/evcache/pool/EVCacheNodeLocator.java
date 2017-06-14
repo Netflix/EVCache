@@ -52,12 +52,12 @@ public class EVCacheNodeLocator implements NodeLocator {
         this.allNodes = nodes;
         this.hashingAlgorithm = alg;
         this.config = conf;
-    	this.client = client;
+        this.client = client;
 
         this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty("EVCacheNodeLocator." + client.getAppName()+ ".hash.on.partial.key", 
-        		"EVCacheNodeLocator." + client.getAppName() + "." + client.getServerGroupName() + ".hash.on.partial.key", Boolean.FALSE);
+                "EVCacheNodeLocator." + client.getAppName() + "." + client.getServerGroupName() + ".hash.on.partial.key", Boolean.FALSE, null);
         this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty("EVCacheNodeLocator." + client.getAppName() + ".hash.delimiter", 
-        		"EVCacheNodeLocator." + client.getAppName() + "." + client.getServerGroupName() + ".hash.delimiter", ":");
+                "EVCacheNodeLocator." + client.getAppName() + "." + client.getServerGroupName() + ".hash.delimiter", ":", null);
 
         setKetamaNodes(nodes);
     }
@@ -68,12 +68,12 @@ public class EVCacheNodeLocator implements NodeLocator {
         this.allNodes = an;
         this.hashingAlgorithm = alg;
         this.config = conf;
-    	this.client = client;
+        this.client = client;
 
         this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty("EVCacheNodeLocator." + client.getAppName()+ ".hash.on.partial.key", 
-        		"EVCacheNodeLocator." + client.getAppName() + "." + client.getServerGroupName() + ".hash.on.partial.key", Boolean.FALSE);
+                "EVCacheNodeLocator." + client.getAppName() + "." + client.getServerGroupName() + ".hash.on.partial.key", Boolean.FALSE, null);
         this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty("EVCacheNodeLocator." + client.getAppName() + ".hash.delimiter", 
-        		"EVCacheNodeLocator." + client.getAppName() + "." + client.getServerGroupName() + ".hash.delimiter", ":");
+                "EVCacheNodeLocator." + client.getAppName() + "." + client.getServerGroupName() + ".hash.delimiter", ":", null);
     }
 
     /*
@@ -178,7 +178,7 @@ public class EVCacheNodeLocator implements NodeLocator {
             // Ketama does some special work with md5 where it reuses chunks.
             if (hashingAlgorithm == DefaultHashAlgorithm.KETAMA_HASH) {
                 for (int i = 0; i < numReps / 4; i++) {
-                	final String hashString = config.getKeyForNode(node, i);
+                    final String hashString = config.getKeyForNode(node, i);
                     byte[] digest = DefaultHashAlgorithm.computeMd5(hashString);
                     if (log.isDebugEnabled()) log.debug("digest : " + digest);
                     for (int h = 0; h < 4; h++) {
@@ -199,9 +199,9 @@ public class EVCacheNodeLocator implements NodeLocator {
         }
         if (log.isDebugEnabled()) log.debug("NewNodeMapSize : " + newNodeMap.size() + "; MapSize : " + (numReps * nodes.size()));
         if (log.isTraceEnabled()) {
-	        for(Long key : newNodeMap.keySet()) {
-	        	if (log.isTraceEnabled()) log.trace("Hash : " + key + "; Node : " + newNodeMap.get(key));
-	        }
+            for(Long key : newNodeMap.keySet()) {
+                if (log.isTraceEnabled()) log.trace("Hash : " + key + "; Node : " + newNodeMap.get(key));
+            }
         }
         ketamaNodes = newNodeMap;
     }
@@ -211,10 +211,10 @@ public class EVCacheNodeLocator implements NodeLocator {
         setKetamaNodes(nodes);
     }
 
-	@Override
-	public String toString() {
-		return "EVCacheNodeLocator [ketamaNodes=" + ketamaNodes + ", EVCacheClient=" + client + ", partialStringHash=" + partialStringHash
-				+ ", hashDelimiter=" + hashDelimiter + ", allNodes=" + allNodes + ", hashingAlgorithm=" + hashingAlgorithm + ", config=" + config + "]";
-	}
+    @Override
+    public String toString() {
+        return "EVCacheNodeLocator [ketamaNodes=" + ketamaNodes + ", EVCacheClient=" + client + ", partialStringHash=" + partialStringHash
+                + ", hashDelimiter=" + hashDelimiter + ", allNodes=" + allNodes + ", hashingAlgorithm=" + hashingAlgorithm + ", config=" + config + "]";
+    }
 
 }

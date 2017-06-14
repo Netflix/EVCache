@@ -99,7 +99,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
 
             ChainedDynamicProperty.BooleanProperty useBatchPort = useRendBatchPortMap.get(asgName);
             if (useBatchPort == null) {
-                useBatchPort = EVCacheConfig.getInstance().getChainedBooleanProperty(_appName + ".use.batch.port", "evcache.use.batch.port", Boolean.FALSE);
+                useBatchPort = EVCacheConfig.getInstance().getChainedBooleanProperty(_appName + ".use.batch.port", "evcache.use.batch.port", Boolean.FALSE, null);
                 useRendBatchPortMap.put(asgName, useBatchPort);
             }
             final int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);

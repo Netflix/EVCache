@@ -20,7 +20,7 @@ test {
 }
 
 dependencies {
-        compile group:"net.spy",                      name:"spymemcached",                     version:"2.11.4"
+        compile group:"net.spy",                      name:"spymemcached",                     version:"2.12.2"
         compile group:"com.google.inject",            name:"guice",                            version:"4.1.0"
         compile group:"org.json",                     name:"json",                             version:"latest.release"
         compile group:"com.google.code.findbugs",     name:"annotations",                      version:"latest.release"
@@ -42,3 +42,13 @@ javadoc {
 jar {
     baseName = "evcache-core"
 }
+
+task buildZip(type: Zip) {
+    from compileJava
+    from processResources              
+    into('lib') {
+        from configurations.runtime
+    }           
+}
+
+build.dependsOn buildZip

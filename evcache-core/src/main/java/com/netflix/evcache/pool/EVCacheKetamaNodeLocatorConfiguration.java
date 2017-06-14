@@ -2,6 +2,8 @@ package com.netflix.evcache.pool;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.evcache.util.EVCacheConfig;
@@ -13,10 +15,11 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
 
     protected final EVCacheClient client;
     protected final ChainedDynamicProperty.IntProperty bucketSize;
+    protected final Map<MemcachedNode, String> socketAddresses = new HashMap<MemcachedNode, String>();
 
     public EVCacheKetamaNodeLocatorConfiguration(EVCacheClient client) {
-    	this.client = client;
-        bucketSize = EVCacheConfig.getInstance().getChainedIntProperty(client.getAppName() + "." + client.getServerGroupName() + ".bucket.size", client.getAppName()+ ".bucket.size", super.getNodeRepetitions());
+        this.client = client;
+        this.bucketSize = EVCacheConfig.getInstance().getChainedIntProperty(client.getAppName() + "." + client.getServerGroupName() + ".bucket.size", client.getAppName()+ ".bucket.size", super.getNodeRepetitions(), null);
     }
 
     /**
@@ -39,7 +42,7 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
      *  privateIp is also known as local ip 
      */
     @Override
-    protected String getSocketAddressForNode(MemcachedNode node) {
+    public String getKeyForNode(MemcachedNode node, int repetition) {
         String result = socketAddresses.get(node);
         if(result == null) {
             final SocketAddress socketAddress = node.getSocketAddress();
@@ -54,7 +57,7 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
             }
             socketAddresses.put(node, result);
         }
-        return result;
+        return result + "-" + repetition;
     }
 
     @Override

@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.Tag;
@@ -27,8 +28,7 @@ import sun.misc.Cleaner;
 import sun.nio.ch.DirectBuffer;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "FCBL_FIELD_COULD_BE_LOCAL", "EXS_EXCEPTION_SOFTENING_NO_CHECKED",
-        "REC_CATCH_EXCEPTION",
-        "SCII_SPOILED_CHILD_INTERFACE_IMPLEMENTATOR" })
+        "REC_CATCH_EXCEPTION", "SCII_SPOILED_CHILD_INTERFACE_IMPLEMENTATOR" })
 public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheNodeImplMBean {
     private static final Logger log = LoggerFactory.getLogger(EVCacheNodeImpl.class);
 
@@ -60,7 +60,6 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         this.tags = client.getTagList();
         this.hostName = ((InetSocketAddress) getSocketAddress()).getHostName();
         this.metricPrefix = "EVCacheNode";
-//        baseTags = BasicTagList.concat(tags, BasicTagList.of("HOST", hostName));
         setupMonitoring(appName);
     }
 
@@ -151,6 +150,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
             getLogger().error("Exception cleaning ByteBuffer.", t);
         }
     }
+
 //
 //    @Override
 //    public Long getValue() {
@@ -206,7 +206,6 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
 //        }
 //        return Collections.<Monitor<?>> emptyList();
 //    }
-
     public long getCreateTime() {
         return stTime;
     }
