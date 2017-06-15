@@ -1139,6 +1139,7 @@ public interface EVCache {
          * Returns a newly created {@code EVCache} based on the contents of the
          * {@code Builder}.
          */
+        @SuppressWarnings("deprecation")
         public EVCache build() {
             if (_poolManager == null) {
                 _poolManager = EVCacheClientPoolManager.getInstance();

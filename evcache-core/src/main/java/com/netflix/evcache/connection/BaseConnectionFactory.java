@@ -18,7 +18,6 @@ import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheKetamaNodeLocatorConfiguration;
 import com.netflix.evcache.pool.EVCacheNodeLocator;
-import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.BinaryConnectionFactory;

@@ -83,12 +83,6 @@ public class EVCacheClientPoolManager {
     public EVCacheClientPoolManager(IConnectionBuilder connectionFactoryprovider, EVCacheNodeList evcacheNodeList) {
         instance = this;
 
-        try {
-            ConfigurationManager.loadCascadedPropertiesFromResources("evcache");
-        } catch (IOException e) {
-            log.info("Default evcache configuration not loaded", e);
-        }
-
         this.connectionFactoryProvider = connectionFactoryprovider;
         this.evcacheNodeList = evcacheNodeList;
         this.evcacheEventListenerList = new ArrayList<EVCacheEventListener>();
@@ -142,6 +136,12 @@ public class EVCacheClientPoolManager {
     @Deprecated
     public static EVCacheClientPoolManager getInstance() {
         if (instance == null) {
+            try {
+                ConfigurationManager.loadCascadedPropertiesFromResources("evcache");
+            } catch (IOException e) {
+                log.info("Default evcache configuration not loaded", e);
+            }
+
             new EVCacheClientPoolManager(new ConnectionFactoryBuilder(), new SimpleNodeListProvider());
             if (!EVCacheConfig.getInstance().getDynamicBooleanProperty("evcache.use.simple.node.list.provider", false).get()) {
                 if(log.isDebugEnabled()) log.debug("Please make sure EVCacheClientPoolManager is injected first. This is not the appropriate way to init EVCacheClientPoolManager."

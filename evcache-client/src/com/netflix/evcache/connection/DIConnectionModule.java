@@ -10,11 +10,8 @@ public class DIConnectionModule extends AbstractModule {
     }
 
     @Override
-    // Make sure this is done
     protected void configure() {
-        if(getProvider(IConnectionBuilder.class) == null ) {
-            bind(IConnectionBuilder.class).toProvider(DIConnectionFactoryBuilderProvider.class);
-        }
+        bind(IConnectionBuilder.class).toProvider(DIConnectionFactoryBuilderProvider.class);
     }
 
     @Override
