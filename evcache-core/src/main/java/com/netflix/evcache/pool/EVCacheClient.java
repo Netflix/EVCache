@@ -100,10 +100,12 @@ public class EVCacheClient {
         this.operationTimeout = operationTimeout;
         this.pool = pool;
 
-        this.tags = new ArrayList<Tag>(3);
-        tags.add(new BasicTag("cache", appName));
-        tags.add(new BasicTag("connectionId", String.valueOf(id)));
-        tags.add(new BasicTag("serverGroup", serverGroup.getName()));
+        final List<Tag> tagList = new ArrayList<Tag>(3);
+        tagList.add(new BasicTag("cache", appName));
+        tagList.add(new BasicTag("connectionId", String.valueOf(id)));
+        tagList.add(new BasicTag("serverGroup", serverGroup.getName()));
+        
+        this.tags = Collections.<Tag>unmodifiableList(tagList); 
 
         this.enableChunking = EVCacheConfig.getInstance().getChainedBooleanProperty(this.serverGroup.getName()+ ".chunk.data", appName + ".chunk.data", Boolean.FALSE, null);
         this.chunkSize = EVCacheConfig.getInstance().getChainedIntProperty(this.serverGroup.getName() + ".chunk.size", appName + ".chunk.size", 1180, null);

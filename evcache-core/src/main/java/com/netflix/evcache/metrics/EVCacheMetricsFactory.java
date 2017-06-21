@@ -193,6 +193,9 @@ public final class EVCacheMetricsFactory {
     public static final String DATA_SIZE = "evcache.client.datasize";
     public static final String MISC = "evcache.client.misc";
     public static final String IN_MEMORY = "evcache.client.inmemorycache";
+    public static final String REPLICATION = "evcache.client.replication";
+    public static final String REPLICATION_QUEUE_FULL = "evcache.client.replication.queueFull";
+    public static final String REPLICATION_QUEUE_SYNCHRONOUS_MODE = "evcache.client.replication.synchMode";
 
     /**
      * Internal Metric Names
@@ -206,6 +209,7 @@ public final class EVCacheMetricsFactory {
     public static final String INTERNAL_READ_Q_FULL = "internal.evcache.client.call.readQueueFull";
     public static final String INTERNAL_INACTIVE_NODE = "internal.evcache.client.call.inactiveNode";
     public static final String INTERNAL_DATA_SIZE = "internal.evcache.client.dataSize";
+    public static final String INTERNAL_NOT_AVAILABLE = "internal.evcache.client.notAvailable";
 
     public static final String INTERNAL_INCORRECT_CHUNKS = "internal.evcache.client.chunking.incorrectNumOfChunks";
     public static final String INTERNAL_INVALID_CHUNK_SIZE = "internal.evcache.client.chunking.invalidChunkSize";
@@ -250,10 +254,12 @@ public final class EVCacheMetricsFactory {
     public static final String OPERATION = "operation";
     public static final String OPERATION_TYPE = "operationType";
     public static final String NUMBER_OF_ATTEMPTS = "numberOfAttempts";
+    public static final String METRIC = "metric";
 
     /**
      * Metric Tags Values  
      */
+    public static final String SIZE = "size";
     public static final String PORT = "port";
     public static final String CONNECT = "connect";
     public static final String DISCONNECT = "disconnect";
