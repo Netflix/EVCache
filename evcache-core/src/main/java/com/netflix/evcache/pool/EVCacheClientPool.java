@@ -643,13 +643,13 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                             memcachedReadInstancesByServerGroup.remove(serverGroup);
                         }
                     }
-                    EVCacheMetricsFactory.getInstance().getLongGauge(EVCacheMetricsFactory.INTERNAL_POOL_SERVER_GROUP_STATUS, client.getTagList()).set(Long.valueOf(1));
+                    EVCacheMetricsFactory.getInstance().getLongGauge(EVCacheMetricsFactory.INTERNAL_POOL_SERVERGROUP_STATUS, client.getTagList()).set(Long.valueOf(1));
                 }
             } else {
                 final List<EVCacheClient> clientsWrite = memcachedInstancesByServerGroup.get(serverGroup);
                 if (clientsWrite != null && !clientsWrite.isEmpty()) {
                     final EVCacheClient client = clientsWrite.get(0);
-                    EVCacheMetricsFactory.getInstance().getLongGauge(EVCacheMetricsFactory.INTERNAL_POOL_SERVER_GROUP_STATUS, client.getTagList()).set(Long.valueOf(0));
+                    EVCacheMetricsFactory.getInstance().getLongGauge(EVCacheMetricsFactory.INTERNAL_POOL_SERVERGROUP_STATUS, client.getTagList()).set(Long.valueOf(0));
                 }
             }
         }

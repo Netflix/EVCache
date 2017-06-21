@@ -197,6 +197,7 @@ public final class EVCacheMetricsFactory {
     /**
      * Internal Metric Names
      */
+    public static final String INTERNAL_CONFIG = "internal.evcache.client.config";
     public static final String INTERNAL_OPERATION = "internal.evcache.client.operation";
     public static final String INTERNAL_NODE_OPERATION = "internal.evcache.client.node.operations";
     public static final String INTERNAL_PAUSE = "internal.evcache.client.pause";
@@ -222,7 +223,7 @@ public final class EVCacheMetricsFactory {
     public static final String INTERNAL_POOL_WRITE_INSTANCES = "internal.evcache.client.pool.writeInstances";
     public static final String INTERNAL_POOL_RECONCILE = "internal.evcache.client.pool.reconcile";
     public static final String INTERNAL_POOL_CHANGED = "internal.evcache.client.pool.serverGroupChanged";
-    public static final String INTERNAL_POOL_SERVER_GROUP_STATUS = "internal.evcache.client.pool.serverGroup.status";
+    public static final String INTERNAL_POOL_SERVERGROUP_STATUS = "internal.evcache.client.pool.serverGroup.status";
     public static final String INTERNAL_POOL_INIT_ERROR = "internal.evcache.client.pool.init.error";
     public static final String INTERNAL_POOL_READ_Q_SIZE = "internal.evcache.client.pool.readQueue";
     public static final String INTERNAL_POOL_WRITE_Q_SIZE = "internal.evcache.client.pool.writeQueue";
@@ -269,5 +270,7 @@ public final class EVCacheMetricsFactory {
     public static final String UNKNOWN = "unknown";
     public static final String GC = "gc";
     public static final String NULL_CLIENT = "nullClient";
+    public static final String NULL_ZONE = "nullZone";
+    public static final String NULL_SERVERGROUP = "nullServerGroup";
 
 }

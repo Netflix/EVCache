@@ -3,6 +3,7 @@ package com.netflix.evcache.pool.eureka;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,6 +30,7 @@ import com.netflix.evcache.pool.EVCacheServerGroupConfig;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Tag;
 
 public class EurekaNodeListProvider implements EVCacheNodeList {
     public static final String DEFAULT_PORT = "11211";
@@ -81,12 +83,18 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
             // We checked above if this instance is Amazon so no need to do a instanceof check
             final String zone = amznInfo.get(AmazonInfo.MetaDataKey.availabilityZone);
             if(zone == null) {
-                EVCacheMetricsFactory.getInstance().increment("EVCacheClient-DiscoveryNodeListProvider-NULL_ZONE", Collections.singletonList(new BasicTag("APP", _appName)));
+                final List<Tag> tagList = new ArrayList<Tag>(6);
+                tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+                tagList.add(new BasicTag(EVCacheMetricsFactory.CAUSE, EVCacheMetricsFactory.NULL_ZONE));
+                EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_CONFIG, tagList);
                 continue;
             }
             final String asgName = iInfo.getASGName();
             if(asgName == null) {
-                EVCacheMetricsFactory.getInstance().increment("EVCacheClient-DiscoveryNodeListProvider-NULL_SERVER_GROUP", Collections.singletonList(new BasicTag("APP", _appName)));
+                final List<Tag> tagList = new ArrayList<Tag>(6);
+                tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+                tagList.add(new BasicTag(EVCacheMetricsFactory.CAUSE, EVCacheMetricsFactory.NULL_SERVERGROUP));
+                EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_CONFIG, tagList);
                 continue;
             }
 
