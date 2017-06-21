@@ -59,6 +59,7 @@ public class EVCacheInMemoryCache<T> {
 
     private final Transcoder<T> tc;
     private final EVCacheImpl impl;
+    private final Id sizeId;
 
     public EVCacheInMemoryCache(String appName, Transcoder<T> tc, EVCacheImpl impl) {
         this.appName = appName;
@@ -87,6 +88,11 @@ public class EVCacheInMemoryCache<T> {
                 initRefreshPool();
             }
         });
+        final List<Tag> tags = new ArrayList<Tag>(3);
+        tags.add(new BasicTag("cache", appName));
+        tags.add(new BasicTag("metric", "size"));
+
+        this.sizeId = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.IN_MEMORY, tags);
         setupCache();
         setupMonitoring(appName);
     }
@@ -196,7 +202,7 @@ public class EVCacheInMemoryCache<T> {
     }
 
     private void setupMonitoring(final String appName) {
-        EVCacheMetricsFactory.getInstance().getRegistry().gauge("EVCacheInMemoryCache" + "-" + appName + "-size", this, EVCacheInMemoryCache::getSize);
+        EVCacheMetricsFactory.getInstance().getRegistry().gauge(sizeId, this, EVCacheInMemoryCache::getSize);
     }
 
     private Counter getCounter(String name) {
@@ -206,7 +212,7 @@ public class EVCacheInMemoryCache<T> {
         final List<Tag> tags = new ArrayList<Tag>(3);
         tags.add(new BasicTag("cache", appName));
         tags.add(new BasicTag("metric", name));
-        counter = EVCacheMetricsFactory.getInstance().getCounter("evcache.client.inmemorycache", tags);
+        counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.IN_MEMORY, tags);
         counterMap.put(name, counter);
         return counter;
     }
@@ -218,8 +224,8 @@ public class EVCacheInMemoryCache<T> {
         final List<Tag> tags = new ArrayList<Tag>(3);
         tags.add(new BasicTag("cache", appName));
         tags.add(new BasicTag("metric", name));
-        
-        final Id id = EVCacheMetricsFactory.getInstance().getId(name, tags);
+
+        final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.IN_MEMORY, tags);
         gauge = EVCacheMetricsFactory.getInstance().getRegistry().gauge(id);
         gaugeMap.put(name, gauge);
         return gauge;

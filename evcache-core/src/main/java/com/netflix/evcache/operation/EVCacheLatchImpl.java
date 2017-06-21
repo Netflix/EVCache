@@ -18,12 +18,10 @@ import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
-import com.netflix.spectator.api.Timer;
 
 import net.spy.memcached.internal.ListenableFuture;
 import net.spy.memcached.internal.OperationCompletionListener;
 import net.spy.memcached.internal.OperationFuture;
-import net.spy.memcached.ops.OperationStatus;
 
 public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     private static final Logger log = LoggerFactory.getLogger(EVCacheLatchImpl.class);
@@ -238,10 +236,10 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
         }
         if(totalFutureCount == completeCount) {
             final List<Tag> tags = new ArrayList<Tag>(3);
-            tags.add(new BasicTag("cache", appName));
-            tags.add(new BasicTag("failCount", String.valueOf(failureCount)));
-            tags.add(new BasicTag("completeCount", String.valueOf(completeCount)));
-            EVCacheMetricsFactory.getInstance().getPercentileTimer("evcache.client.internal.latch.callback", tags).record(System.currentTimeMillis()- start, TimeUnit.MILLISECONDS);
+            tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+            tags.add(new BasicTag(EVCacheMetricsFactory.FAIL_COUNT, String.valueOf(failureCount)));
+            tags.add(new BasicTag(EVCacheMetricsFactory.COMPLETE_COUNT, String.valueOf(completeCount)));
+            EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_LATCH_CALLBACK, tags).record(System.currentTimeMillis()- start, TimeUnit.MILLISECONDS);
         }
         if (log.isDebugEnabled()) log.debug("END : onComplete - Calling Countdown. Completed Future = " + future + "; App : " + appName); 
     }
@@ -373,7 +371,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     @Override
     public void run() {
         final List<Tag> tags = new ArrayList<Tag>(3);
-        tags.add(new BasicTag("cache", appName));
+        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
 
         if(evcacheEvent != null) {
             int failCount = 0;
@@ -397,12 +395,12 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                             evcacheEvent.setAttribute("FailedServerGroups", listOfFailedServerGroups);
                         }
                         listOfFailedServerGroups.add(evcFuture.getServerGroup());
-                        tags.add(new BasicTag("failedServerGroup", evcFuture.getServerGroup().getName()));
+                        tags.add(new BasicTag(EVCacheMetricsFactory.FAILED_SERVERGROUP, evcFuture.getServerGroup().getName()));
                     }
                 }
             }
             if(log.isDebugEnabled()) log.debug("Fail Count : " + failCount);
-            tags.add(new BasicTag("failCount", String.valueOf(failCount)));
+            tags.add(new BasicTag(EVCacheMetricsFactory.FAIL_COUNT, String.valueOf(failCount)));
 
             if(failCount > 0) {
                 if(evcacheEvent.getClients().size() > 0) {
@@ -417,7 +415,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                 }
             } 
         }
-        EVCacheMetricsFactory.getInstance().getCounter("evcache.client.internal.latch.verify", tags).increment();
+        EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_LATCH_VERIFY, tags).increment();
     }
 
     @Override

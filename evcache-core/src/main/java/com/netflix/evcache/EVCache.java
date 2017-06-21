@@ -1143,7 +1143,7 @@ public interface EVCache {
         public EVCache build() {
             if (_poolManager == null) {
                 _poolManager = EVCacheClientPoolManager.getInstance();
-                if (log.isDebugEnabled()) log.debug("_poolManager - " + _poolManager + " through getInstance");
+                if (log.isInfoEnabled()) log.info("_poolManager - " + _poolManager + " through getInstance. Please consider using ");
             }
             if (_appName == null) throw new IllegalArgumentException("param appName cannot be null.");
             final EVCacheImpl cache = new EVCacheImpl(_appName, _cachePrefix, _ttl, _transcoder, _serverGroupRetry,

@@ -1,5 +1,6 @@
 package com.netflix.evcache.pool;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
@@ -21,7 +22,8 @@ import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.util.EVCacheConfig;
-import com.netflix.spectator.api.DistributionSummary;
+import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Tag;
 
 import net.spy.memcached.CachedData;
 import net.spy.memcached.internal.OperationFuture;
@@ -31,8 +33,6 @@ public class EVCacheClientUtil {
     private static Logger log = LoggerFactory.getLogger(EVCacheClientUtil.class);
     private final ChunkTranscoder ct = new ChunkTranscoder();
     private final String _appName;
-    private final DistributionSummary addDataSizeSummary;
-    private final DistributionSummary addTTLSummary;
     private final DynamicBooleanProperty fixup;
     private final DynamicIntProperty fixupPoolSize;
     private final EVCacheClientPool _pool;
@@ -41,14 +41,15 @@ public class EVCacheClientUtil {
     public EVCacheClientUtil(EVCacheClientPool pool) {
         this._pool = pool;
         this._appName = pool.getAppName();
-        this.addDataSizeSummary = EVCacheMetricsFactory.getInstance().getDistributionSummary(_appName + "-AddData-Size", null);
-        this.addTTLSummary = EVCacheMetricsFactory.getInstance().getDistributionSummary(_appName + "-AddData-TTL", null);
         this.fixup = EVCacheConfig.getInstance().getDynamicBooleanProperty(_appName + ".addOperation.fixup", Boolean.FALSE);
         this.fixupPoolSize = EVCacheConfig.getInstance().getDynamicIntProperty(_appName + ".addOperation.fixup.poolsize", 10);
 
         RejectedExecutionHandler block = new RejectedExecutionHandler() {
             public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-                EVCacheMetricsFactory.getInstance().increment(_appName + "-AddCall-FixUp-REJECTED", null);
+                final ArrayList<Tag> tags = new ArrayList<Tag>(2);
+                tags.add(new BasicTag("cache", _appName));
+                tags.add(new BasicTag("status", "rejected"));
+                EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_ADD_CALL_FIXUP, tags);
             }
         };
         
@@ -68,8 +69,6 @@ public class EVCacheClientUtil {
 
     public EVCacheLatch add(String canonicalKey, CachedData cd, int timeToLive, Policy policy) throws Exception {
         if (cd == null) return null; 
-        addDataSizeSummary.record(cd.getData().length);
-        addTTLSummary.record(timeToLive);
         
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName){
@@ -153,7 +152,7 @@ public class EVCacheClientUtil {
                                     try {
                                         client.set(canonicalKey, readData, timeToLive, null);
                                         if(log.isDebugEnabled()) log.debug("Add: Fixup for : APP " + _appName + ", key " + canonicalKey + "; ServerGroup : " + client.getServerGroupName());
-                                        EVCacheMetricsFactory.getInstance().increment(_appName + "-AddCall-FixUp", client.getTagList());
+                                        EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_ADD_CALL_FIXUP, client.getTagList());
                                     } catch (Exception e) {
                                         if(log.isDebugEnabled()) log.debug("Add: Fixup Error : APP " + _appName + ", key " + canonicalKey + "; ServerGroup : " + client.getServerGroupName(), e);
                                     }

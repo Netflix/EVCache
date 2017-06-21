@@ -5,6 +5,7 @@ import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,6 +28,8 @@ import com.google.common.net.InetAddresses;
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Tag;
 
 public class SimpleNodeListProvider implements EVCacheNodeList {
 
@@ -139,13 +142,15 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
 
                 EVCacheServerGroupConfig config = serverGroupMap.get(rSet);
                 if(config == null) {
-
                     config = new EVCacheServerGroupConfig(rSet, new HashSet<InetSocketAddress>(), Integer.parseInt(rendPortString), 
                             Integer.parseInt(rendMemcachedPortString), Integer.parseInt(rendMementoPortString));
                     serverGroupMap.put(rSet, config);
-                    EVCacheMetricsFactory.getInstance().getLongGauge(appName + "-" + asgName + "-port", null).set(Long.valueOf(port));
+                    ArrayList<Tag> tags = new ArrayList<Tag>(3);
+                    tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+                    tags.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, rSet.getName()));
+                    EVCacheMetricsFactory.getInstance().getLongGauge(EVCacheMetricsFactory.CONFIG, tags).set(Long.valueOf(port));
                 }
-                
+
                 final InetAddress add = InetAddresses.forString(localIp);
                 final InetAddress inetAddress = InetAddress.getByAddress(localIp, add.getAddress());
                 final InetSocketAddress address = new InetSocketAddress(inetAddress, port);

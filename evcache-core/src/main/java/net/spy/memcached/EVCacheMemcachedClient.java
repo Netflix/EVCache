@@ -148,7 +148,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return rv;
     }
 
-    public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys, final Transcoder<T> tc, EVCacheGetOperationListener<T> listener, String metricName) {
+    public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys, final Transcoder<T> tc, EVCacheGetOperationListener<T> listener) {
         final Map<String, Future<T>> m = new ConcurrentHashMap<String, Future<T>>();
 
         // Break the gets down into groups by key
@@ -174,7 +174,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         int initialLatchCount = chunks.isEmpty() ? 0 : 1;
         final CountDownLatch latch = new CountDownLatch(initialLatchCount);
         final Collection<Operation> ops = new ArrayList<Operation>(chunks.size());
-        final EVCacheBulkGetFuture<T> rv = new EVCacheBulkGetFuture<T>(m, ops, latch, executorService, client, metricName);
+        final EVCacheBulkGetFuture<T> rv = new EVCacheBulkGetFuture<T>(m, ops, latch, executorService, client);
         GetOperation.Callback cb = new GetOperation.Callback() {
             @Override
             @SuppressWarnings("synthetic-access")
@@ -421,7 +421,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         if(status != null) tagList.add(new BasicTag("status", status.getMessage()));
         if(hit != null) tagList.add(new BasicTag("cacheHit", hit));
 
-        timer = EVCacheMetricsFactory.getInstance().getPercentileTimer("evcache.client.internal.operation", tagList);
+        timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_OPERATION, tagList);
         timerMap.put(name, timer);
         return timer;
     }
@@ -437,7 +437,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         if(status != null) tagList.add(new BasicTag("status", status.getMessage()));
         if(hit != null) tagList.add(new BasicTag("cacheHit", hit));
 
-        EVCacheMetricsFactory.getInstance().getCounter("evcache.client.internal.misc", tagList).increment();
+        EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.MISC, tagList).increment();
     }
     
 
@@ -449,7 +449,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         tagList.addAll(client.getTagList());
         tagList.add(new BasicTag("operation", operation));
         tagList.add(new BasicTag("operationType", type));
-        distributionSummary = EVCacheMetricsFactory.getInstance().getDistributionSummary("evcache.client.datasize", tagList);
+        distributionSummary = EVCacheMetricsFactory.getInstance().getDistributionSummary(EVCacheMetricsFactory.DATA_SIZE, tagList);
         distributionSummaryMap.put(operation, distributionSummary);
         return distributionSummary;
     }
@@ -565,7 +565,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         tagList.addAll(client.getTagList());
         tagList.add(new BasicTag("operation", "RECONNECT"));
         tagList.add(new BasicTag("host", evcNode.getHostName()));
-        EVCacheMetricsFactory.getInstance().getCounter("evcache.client.internal.misc", tagList).increment();
+        EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.MISC, tagList).increment();
 
         evcNode.setConnectTime(System.currentTimeMillis());
         mconn.queueReconnect(evcNode);

@@ -20,6 +20,7 @@ import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.spectator.api.Counter;
 import com.netflix.spectator.api.Tag;
 
 import net.spy.memcached.ConnectionFactory;
@@ -39,10 +40,10 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     protected final String hostName;
     protected final BlockingQueue<Operation> readQ;
     protected final BlockingQueue<Operation> inputQueue;
-    protected final String metricPrefix;
     protected final DynamicBooleanProperty sendMetrics;
 	protected final List<Tag> tags;
     protected final EVCacheClient client;
+    protected final Counter counter;
 
     private long timeoutStartTime;
 
@@ -59,7 +60,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         this.sendMetrics = EVCacheConfig.getInstance().getDynamicBooleanProperty("EVCacheNodeImpl." + appName + ".sendMetrics", false);
         this.tags = client.getTagList();
         this.hostName = ((InetSocketAddress) getSocketAddress()).getHostName();
-        this.metricPrefix = "EVCacheNode";
+        counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_NODE_OPERATION, tags);
         setupMonitoring(appName);
     }
 
@@ -100,6 +101,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     }
 
     public long incrOps() {
+        counter.increment();
         return opCount.incrementAndGet();
     }
 

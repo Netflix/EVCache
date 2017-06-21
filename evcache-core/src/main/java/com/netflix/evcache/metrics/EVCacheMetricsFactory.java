@@ -183,4 +183,91 @@ public final class EVCacheMetricsFactory {
         return null;
     }
 
+
+    /**
+     * External Metric Names
+     */
+    public static final String CALL = "evcache.client.call";
+    public static final String FAST_FAIL = "evcache.client.fastfail";
+    public static final String CONFIG = "evcache.client.config";
+    public static final String DATA_SIZE = "evcache.client.datasize";
+    public static final String MISC = "evcache.client.misc";
+    public static final String IN_MEMORY = "evcache.client.inmemorycache";
+
+    /**
+     * Internal Metric Names
+     */
+    public static final String INTERNAL_OPERATION = "internal.evcache.client.operation";
+    public static final String INTERNAL_NODE_OPERATION = "internal.evcache.client.node.operations";
+    public static final String INTERNAL_PAUSE = "internal.evcache.client.pause";
+    public static final String INTERNAL_LATCH_CALLBACK = "internal.evcache.client.latch.callback";
+    public static final String INTERNAL_LATCH_VERIFY = "internal.evcache.client.latch.verify";
+    public static final String INTERNAL_READ_Q_FULL = "internal.evcache.client.call.readQueueFull";
+    public static final String INTERNAL_INACTIVE_NODE = "internal.evcache.client.call.inactiveNode";
+    public static final String INTERNAL_DATA_SIZE = "internal.evcache.client.dataSize";
+
+    public static final String INTERNAL_INCORRECT_CHUNKS = "internal.evcache.client.chunking.incorrectNumOfChunks";
+    public static final String INTERNAL_INVALID_CHUNK_SIZE = "internal.evcache.client.chunking.invalidChunkSize";
+    public static final String INTERNAL_CHECK_SUM_ERROR = "internal.evcache.client.chunking.checkSumError";
+    public static final String INTERNAL_NUM_CHUNK_SIZE = "internal.evcache.client.chunking.numOfChunks";
+    public static final String INTERNAL_CHUNK_DATA_SIZE = "internal.evcache.client.chunking.dataSize";
+
+    public static final String INTERNAL_POOL_REFRESH = "internal.evcache.client.pool.refresh";
+    public static final String INTERNAL_POOL_SIZE = "internal.evcache.client.pool.size";
+    public static final String INTERNAL_POOL_ACTIVE = "internal.evcache.client.pool.activeConnections";
+    public static final String INTERNAL_POOL_INACTIVE = "internal.evcache.client.pool.inActiveConnections";
+    public static final String INTERNAL_POOL_IN_DISCOVERY = "internal.evcache.client.pool.inDiscovery";
+    public static final String INTERNAL_POOL_IN_HASHING = "internal.evcache.client.pool.inHashing";
+    public static final String INTERNAL_POOL_READ_INSTANCES = "internal.evcache.client.pool.readInstances";
+    public static final String INTERNAL_POOL_WRITE_INSTANCES = "internal.evcache.client.pool.writeInstances";
+    public static final String INTERNAL_POOL_RECONCILE = "internal.evcache.client.pool.reconcile";
+    public static final String INTERNAL_POOL_CHANGED = "internal.evcache.client.pool.serverGroupChanged";
+    public static final String INTERNAL_POOL_SERVER_GROUP_STATUS = "internal.evcache.client.pool.serverGroup.status";
+    public static final String INTERNAL_POOL_INIT_ERROR = "internal.evcache.client.pool.init.error";
+    public static final String INTERNAL_POOL_READ_Q_SIZE = "internal.evcache.client.pool.readQueue";
+    public static final String INTERNAL_POOL_WRITE_Q_SIZE = "internal.evcache.client.pool.writeQueue";
+    public static final String INTERNAL_POOL_REFRESH_ON_QUEUE_FULL = "internal.evcache.client.pool.refresh.on.queue.full";
+    public static final String INTERNAL_POOL_REFRESH_ASYNC = "internal.evcache.client.pool.refresh.async";
+    public static final String INTERNAL_ADD_CALL_FIXUP = "internal.evcache.client.addCall.fixUp";
+
+    /**
+     * Metric Tags Names
+     */
+    public static final String CACHE = "cache";
+    public static final String CAUSE = "cause";
+    public static final String SERVERGROUP = "serverGroup";
+    public static final String FAIL_COUNT = "failCount";
+    public static final String COMPLETE_COUNT = "completeCount";
+    public static final String RECONNECT_COUNT = "reconnectCount";
+    public static final String STATUS = "status";
+    public static final String PAUSE_REASON = "pauseReason";
+    public static final String FETCH_AFTER_PAUSE = "fetchAfterPause";
+    public static final String FAILED_SERVERGROUP = "failedServerGroup";
+    public static final String CONFIG_NAME = "configName";
+    public static final String HOST = "host";
+    public static final String CACHE_HIT = "cacheHit";
+    public static final String OPERATION = "operation";
+    public static final String OPERATION_TYPE = "operationType";
+    public static final String NUMBER_OF_ATTEMPTS = "numberOfAttempts";
+
+    /**
+     * Metric Tags Values  
+     */
+    public static final String PORT = "port";
+    public static final String CONNECT = "connect";
+    public static final String DISCONNECT = "disconnect";
+    public static final String SUCCESS = "success";
+    public static final String TIMEOUT = "timeout";
+    public static final String CANCELLED = "cancelled";
+    public static final String THROTTLED = "throttled";
+    public static final String ERROR = "error";
+    public static final String READ = "read";
+    public static final String WRITE = "write";
+    public static final String YES = "yes";
+    public static final String NO = "no";
+    public static final String PARTIAL = "partial";
+    public static final String UNKNOWN = "unknown";
+    public static final String GC = "gc";
+    public static final String NULL_CLIENT = "nullClient";
+
 }
