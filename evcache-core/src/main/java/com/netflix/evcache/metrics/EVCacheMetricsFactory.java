@@ -104,14 +104,14 @@ public final class EVCacheMetricsFactory {
         return gauge;
     }
     
-    public Id getId(String name, List<Tag> tags) {
+    public Id getId(String name, Collection<Tag> tags) {
         List<Tag> tagList = new ArrayList<Tag>(1);
         tagList.addAll(tags);
         tagList.add(new BasicTag("owner", "evcache"));
         return getRegistry().createId(name, tagList);
     }
 
-    public Counter getCounter(String cName, List<Tag> tags) {
+    public Counter getCounter(String cName, Collection<Tag> tags) {
         final String name = tags != null ? cName + tags.toString() : cName;
         Counter counter = counterMap.get(name);
         if (counter == null) {
@@ -143,7 +143,7 @@ public final class EVCacheMetricsFactory {
         counter.increment();
     }
 
-    public void increment(String cName, List<Tag> tags) {
+    public void increment(String cName, Collection<Tag> tags) {
         final Counter counter = getCounter(cName, tags);
         counter.increment();
     }
@@ -158,8 +158,7 @@ public final class EVCacheMetricsFactory {
             if (timerMap.containsKey(name))
                 return timerMap.get(name);
             else {
-                Id id = getRegistry().createId(metric);
-                if(tags != null) id = id.withTags(tags); 
+                Id id = getId(metric, tags);
                 final Timer _duration = PercentileTimer.get(getRegistry(), id);
                 timerMap.put(name, _duration);
                 return _duration;
@@ -175,8 +174,7 @@ public final class EVCacheMetricsFactory {
         if(_ds != null) return _ds;
         final Registry registry = Spectator.globalRegistry(); 
         if (registry != null) {
-            Id id = registry.createId(name);
-            if(tags != null) id = id.withTags(tags);
+            Id id = getId(name, tags);
             final DistributionSummary ds = registry.distributionSummary(id);
             distributionSummaryMap.put(metricName, ds);
             return ds;

@@ -41,7 +41,6 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     protected final BlockingQueue<Operation> readQ;
     protected final BlockingQueue<Operation> inputQueue;
     protected final DynamicBooleanProperty sendMetrics;
-	protected final List<Tag> tags;
     protected final EVCacheClient client;
     protected final Counter counter;
 
@@ -58,9 +57,8 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         this.readQ = rq;
         this.inputQueue = iq;
         this.sendMetrics = EVCacheConfig.getInstance().getDynamicBooleanProperty("EVCacheNodeImpl." + appName + ".sendMetrics", false);
-        this.tags = client.getTagList();
         this.hostName = ((InetSocketAddress) getSocketAddress()).getHostName();
-        counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_NODE_OPERATION, tags);
+        counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_NODE_OPERATION, client.getTagList());
         setupMonitoring(appName);
     }
 
