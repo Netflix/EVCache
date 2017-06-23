@@ -96,7 +96,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             public void receivedStatus(OperationStatus status) {
                 final long duration = System.currentTimeMillis() - rv.getStartTime();
-                this.timer = getTimer(GET_OPERATION_STRING, READ, status, (val != null ? CACHE_HIT : CACHE_MISS));
+                this.timer = getTimer(EVCacheMetricsFactory.GET_OPERATION_STRING, EVCacheMetricsFactory.READ, status, (val != null ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO));
                 if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Reading Key : " + key + "; Status : " + status.getStatusCode().name()
                         + "; Message : " + status.getMessage() + "; Elapsed Time - " + duration);
 
@@ -124,7 +124,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Read data : key " + key + "; flags : " + flags + "; data : " + data);
                 if (data != null)  {
                     if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Key : " + key + "; val size : " + data.length);
-                    getDataSizeDistributionSummary(GET_OPERATION_STRING, READ).record(data.length);
+                    getDataSizeDistributionSummary(EVCacheMetricsFactory.GET_OPERATION_STRING, EVCacheMetricsFactory.READ).record(data.length);
                     if (tc == null) {
                         if (tcService == null) {
                             log.error("tcService is null, will not be able to decode");
@@ -195,7 +195,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             @Override
             public void gotData(String k, int flags, byte[] data) {
                 if (data != null)  {
-                    getDataSizeDistributionSummary(BULK_OPERATION_STRING, READ).record(data.length);
+                    getDataSizeDistributionSummary(EVCacheMetricsFactory.BULK_OPERATION_STRING, EVCacheMetricsFactory.READ).record(data.length);
                 }
                 m.put(k, tcService.decode(tc, new CachedData(flags, data, tc.getMaxSize())));
             }
@@ -204,7 +204,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             public void complete() {
                 if (pendingChunks.decrementAndGet() <= 0) {
                     latch.countDown();
-                    getTimer(BULK_OPERATION_STRING, READ, null, null).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
+                    getTimer(EVCacheMetricsFactory.BULK_OPERATION_STRING, EVCacheMetricsFactory.READ, null, null).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
                     rv.signalComplete();
                 }
             }
@@ -232,7 +232,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             private Timer timer = null;
 
             public void receivedStatus(OperationStatus status) {
-                this.timer = getTimer(GET_AND_TOUCH_OPERATION_STRING, READ, status, (val != null ? CACHE_HIT : CACHE_MISS));
+                this.timer = getTimer(EVCacheMetricsFactory.GET_AND_TOUCH_OPERATION_STRING, EVCacheMetricsFactory.READ, status, (val != null ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO));
                 rv.set(val, status);
             }
 
@@ -244,7 +244,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             public void gotData(String k, int flags, long cas, byte[] data) {
                 if (!key.equals(k)) log.warn("Wrong key returned. Key - " + key + "; Returned Key " + k);
-                if (data != null) getDataSizeDistributionSummary(GET_OPERATION_STRING, READ).record(data.length);
+                if (data != null) getDataSizeDistributionSummary(EVCacheMetricsFactory.GET_AND_TOUCH_OPERATION_STRING, EVCacheMetricsFactory.READ).record(data.length);
                 val = new CASValue<T>(cas, tc.decode(new CachedData(flags, data, tc.getMaxSize())));
             }
         });
@@ -284,7 +284,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             private Timer timer = null;
             @Override
             public void receivedStatus(OperationStatus status) {
-                this.timer = getTimer(DELETE_STRING, WRITE, status, null);
+                this.timer = getTimer(EVCacheMetricsFactory.DELETE_OPERATION_STRING, EVCacheMetricsFactory.WRITE, status, null);
                 rv.set(Boolean.TRUE, status);
             }
 
@@ -315,7 +315,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             private Timer timer = null;
             @Override
             public void receivedStatus(OperationStatus status) {
-                this.timer = getTimer(TOUCH_OPERATION_STRING, WRITE, status, null);
+                this.timer = getTimer(EVCacheMetricsFactory.TOUCH_OPERATION_STRING, EVCacheMetricsFactory.WRITE, status, null);
                 rv.set(status.isSuccess(), status);
             }
 
@@ -344,12 +344,12 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("AddOrAppend Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
                         + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
-                    this.timer = getTimer(AOA_STRING, WRITE, val, CACHE_HIT);
+                    this.timer = getTimer(EVCacheMetricsFactory.AOA_OPERATION_STRING, EVCacheMetricsFactory.WRITE, val, EVCacheMetricsFactory.YES);
                     rv.set(val.isSuccess(), val);
                     appendSuccess = true;
                     
                 } else {
-                    this.timer = getTimer(AOA_STRING, WRITE, val, CACHE_MISS);
+                    this.timer = getTimer(EVCacheMetricsFactory.AOA_OPERATION_STRING, EVCacheMetricsFactory.WRITE, val, EVCacheMetricsFactory.NO);
                     rv.set(val.isSuccess(), val);
                     appendSuccess = true;
                 }
@@ -368,7 +368,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                                     + "; Message : " + addStatus.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
                             rv.set(addStatus.isSuccess(), addStatus);
                             if(addStatus.isSuccess()) {
-                                increment(AOA_STRING + "-Add", WRITE, addStatus, null);
+                                increment(EVCacheMetricsFactory.AOA_OPERATION_STRING + "-Add", EVCacheMetricsFactory.WRITE, addStatus, null);
                                 appendSuccess = true;
                             } else {
                                 Operation op = opFact.cat(ConcatenationType.append, 0, key, co.getData(),
@@ -380,7 +380,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
                                             rv.set(retryAppendStatus.isSuccess(), retryAppendStatus);
                                         }
-                                        increment(AOA_STRING + "-RetryAppend", WRITE, retryAppendStatus, null);
+                                        increment(EVCacheMetricsFactory.AOA_OPERATION_STRING + "-RetryAppend", EVCacheMetricsFactory.WRITE, retryAppendStatus, null);
                                     }
                                     public void complete() {
                                         latch.countDown();
@@ -426,10 +426,10 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
         final List<Tag> tagList = new ArrayList<Tag>(6);
         tagList.addAll(client.getTagList());
-        if(operation != null) tagList.add(new BasicTag("operation", operation));
-        if(operationType != null) tagList.add(new BasicTag("operationType", operationType));
-        if(status != null) tagList.add(new BasicTag("status", status.getMessage()));
-        if(hit != null) tagList.add(new BasicTag("cacheHit", hit));
+        if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, operation));
+        if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_TYPE, operationType));
+        if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_STATUS, status.getMessage()));
+        if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
 
         timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_OPERATION, tagList);
         timerMap.put(name, timer);
@@ -437,15 +437,12 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     }
 
     private void increment(String operation, String operationType, OperationStatus status, String hit) {
-        String name = ((status != null) ? operation + status.getMessage() : operation );
-        if(hit != null) name = name + hit;
-
         final List<Tag> tagList = new ArrayList<Tag>(6);
         tagList.addAll(client.getTagList());
-        if(operation != null) tagList.add(new BasicTag("operation", operation));
-        if(operationType != null) tagList.add(new BasicTag("operationType", operationType));
-        if(status != null) tagList.add(new BasicTag("status", status.getMessage()));
-        if(hit != null) tagList.add(new BasicTag("cacheHit", hit));
+        if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, operation));
+        if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_TYPE, operationType));
+        if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_STATUS, status.getMessage()));
+        if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
 
         EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.MISC, tagList).increment();
     }
@@ -457,8 +454,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
         final List<Tag> tagList = new ArrayList<Tag>(6);
         tagList.addAll(client.getTagList());
-        tagList.add(new BasicTag("operation", operation));
-        tagList.add(new BasicTag("operationType", type));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, operation));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_TYPE, type));
         distributionSummary = EVCacheMetricsFactory.getInstance().getDistributionSummary(EVCacheMetricsFactory.DATA_SIZE, tagList);
         distributionSummaryMap.put(operation, distributionSummary);
         return distributionSummary;
@@ -474,11 +471,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         final CountDownLatch latch = new CountDownLatch(1);
         final String operationStr;
         if (storeType == StoreType.set) {
-            operationStr = SET_OPERATION_STRING;
+            operationStr = EVCacheMetricsFactory.SET_OPERATION_STRING;
         } else if (storeType == StoreType.add) {
-            operationStr = ADD_OPERATION_STRING;
+            operationStr = EVCacheMetricsFactory.ADD_OPERATION_STRING;
         } else {
-            operationStr = REPLACE_OPERATION_STRING;
+            operationStr = EVCacheMetricsFactory.REPLACE_OPERATION_STRING;
         }
         final EVCacheOperationFuture<Boolean> rv = new EVCacheOperationFuture<Boolean>(key, latch, new AtomicReference<Boolean>(null), operationTimeout, executorService, client);
         Operation op = opFact.store(storeType, key, co.getFlags(), exp, co.getData(), new StoreOperation.Callback() {
@@ -487,7 +484,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             @Override
             public void receivedStatus(OperationStatus val) {
                 final long duration = System.currentTimeMillis() - rv.getStartTime();
-                this.timer = getTimer(operationStr, WRITE, val, null);
+                this.timer = getTimer(operationStr, EVCacheMetricsFactory.WRITE, val, null);
                 if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Storing Key : " + key + "; Status : " + val.getStatusCode().name()
                         + "; Message : " + val.getMessage() + "; Elapsed Time - " + duration);
                 rv.set(val.isSuccess(), val);
@@ -546,7 +543,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             @Override
             public void complete() {
-                getTimer(operationStr, WRITE, null, null).record((System.currentTimeMillis() - start), TimeUnit.MILLISECONDS);
+                getTimer(operationStr, EVCacheMetricsFactory.WRITE, null, null).record((System.currentTimeMillis() - start), TimeUnit.MILLISECONDS);
                 latch.countDown();
             }
         }));
@@ -573,29 +570,12 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     public void reconnectNode(EVCacheNodeImpl evcNode ) {
         final List<Tag> tagList = new ArrayList<Tag>(6);
         tagList.addAll(client.getTagList());
-        tagList.add(new BasicTag("operation", "RECONNECT"));
-        tagList.add(new BasicTag("host", evcNode.getHostName()));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.RECONNECT));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.HOST, evcNode.getHostName()));
         EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.MISC, tagList).increment();
 
         evcNode.setConnectTime(System.currentTimeMillis());
         mconn.queueReconnect(evcNode);
     }
-
-    private final String BULK_OPERATION_STRING = "BULK";
-    private final String GET_OPERATION_STRING = "GET";
-    private final String GET_AND_TOUCH_OPERATION_STRING = "GET_AND_TOUCH";
-    private final String DELETE_STRING = "DELETE";
-    private final String TOUCH_OPERATION_STRING = "TOUCH";
-    private final String AOA_STRING = "APPEND_OR_ADD";
-
-    private final String READ = "READ";
-    private final String WRITE = "WRITE";
-    private final String CACHE_HIT = "YES";
-    private final String CACHE_MISS = "NO";
-
-
-    private final String SET_OPERATION_STRING = "SET";
-    private final String ADD_OPERATION_STRING = "ADD";
-    private final String REPLACE_OPERATION_STRING = "REPLACE";
 
 }

@@ -252,6 +252,7 @@ public final class EVCacheMetricsFactory {
     public static final String CACHE_HIT = "cacheHit";
     public static final String OPERATION = "operation";
     public static final String OPERATION_TYPE = "operationType";
+    public static final String OPERATION_STATUS = "operationStatus";
     public static final String NUMBER_OF_ATTEMPTS = "numberOfAttempts";
     public static final String METRIC = "metric";
     public static final String PREFIX = "prefix";
@@ -278,5 +279,20 @@ public final class EVCacheMetricsFactory {
     public static final String NULL_CLIENT = "nullClient";
     public static final String NULL_ZONE = "nullZone";
     public static final String NULL_SERVERGROUP = "nullServerGroup";
+    public static final String RECONNECT = "reconnect";
+    
+    /**
+     * Metric Tag Value for Operations
+     */
+    public static final String BULK_OPERATION_STRING = "BULK";
+    public static final String GET_OPERATION_STRING = "GET";
+    public static final String GET_AND_TOUCH_OPERATION_STRING = "GET_AND_TOUCH";
+    public static final String DELETE_OPERATION_STRING = "DELETE";
+    public static final String TOUCH_OPERATION_STRING = "TOUCH";
+    public static final String AOA_OPERATION_STRING = "APPEND_OR_ADD";
+    public static final String SET_OPERATION_STRING = "SET";
+    public static final String ADD_OPERATION_STRING = "ADD";
+    public static final String REPLACE_OPERATION_STRING = "REPLACE";
+
 
 }
