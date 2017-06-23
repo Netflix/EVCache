@@ -35,6 +35,7 @@ import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.ServerGroupCircularIterator;
+import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
 
 import net.spy.memcached.MemcachedNode;
@@ -153,6 +154,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         });
 
         tagList = new ArrayList<Tag>(1);
+        tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+ 
 //        final Map<String, String> map = new HashMap<String, String>();
 //        map.put("APP", _appName);
 

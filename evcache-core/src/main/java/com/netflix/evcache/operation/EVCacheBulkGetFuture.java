@@ -105,7 +105,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                         tagList.add(new BasicTag(EVCacheMetricsFactory.FETCH_AFTER_PAUSE, EVCacheMetricsFactory.NO));
                     }
                 } else {
-                    tagList.add(new BasicTag(EVCacheMetricsFactory.GC, EVCacheMetricsFactory.UNKNOWN));
+                    tagList.add(new BasicTag(EVCacheMetricsFactory.PAUSE_REASON, EVCacheMetricsFactory.UNKNOWN));
                 }
                 gcDuration = System.currentTimeMillis() - start;
                 if (log.isDebugEnabled()) log.debug("Total duration due to gc event = " + (System.currentTimeMillis() - start) + " msec.");
