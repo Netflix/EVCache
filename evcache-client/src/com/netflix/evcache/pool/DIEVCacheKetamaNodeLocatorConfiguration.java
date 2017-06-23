@@ -4,6 +4,9 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.shared.Application;
@@ -12,6 +15,7 @@ import net.spy.memcached.MemcachedNode;
 
 public class DIEVCacheKetamaNodeLocatorConfiguration extends EVCacheKetamaNodeLocatorConfiguration {
 
+    private static Logger log = LoggerFactory.getLogger(DIEVCacheKetamaNodeLocatorConfiguration.class);
     private final DiscoveryClient discoveryClient;
 
     public DIEVCacheKetamaNodeLocatorConfiguration(EVCacheClient client, DiscoveryClient discoveryClient) {
@@ -60,7 +64,8 @@ public class DIEVCacheKetamaNodeLocatorConfiguration extends EVCacheKetamaNodeLo
             }
             socketAddresses.put(node, result);
         }
-        return result;
+        if(log.isDebugEnabled()) log.debug("Returning : " + (result + "-" + repetition));
+        return result + "-" + repetition;
     }
 
     @Override

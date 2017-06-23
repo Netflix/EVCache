@@ -95,11 +95,17 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             private Timer timer = null;
 
             public void receivedStatus(OperationStatus status) {
+                final long duration = System.currentTimeMillis() - rv.getStartTime();
                 this.timer = getTimer(GET_OPERATION_STRING, READ, status, (val != null ? CACHE_HIT : CACHE_MISS));
+                if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Reading Key : " + key + "; Status : " + status.getStatusCode().name()
+                        + "; Message : " + status.getMessage() + "; Elapsed Time - " + duration);
+
                 try {
                     if (val != null) {
+                        if (log.isTraceEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.trace("Key : " + key + "; val : " + val.get());
                         rv.set(val.get(), status);
                     } else {
+                        if (log.isTraceEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.trace("Key : " + key + "; val is null");
                         rv.set(null, status);
                     }
                 } catch (Exception e) {
@@ -115,7 +121,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     log.error("Wrong key returned. Key - " + key + "; Returned Key " + k);
                     return;
                 }
+                if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Read data : key " + key + "; flags : " + flags + "; data : " + data);
                 if (data != null)  {
+                    if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Key : " + key + "; val size : " + data.length);
                     getDataSizeDistributionSummary(GET_OPERATION_STRING, READ).record(data.length);
                     if (tc == null) {
                         if (tcService == null) {
@@ -133,6 +141,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                             val = tcService.decode(tc, new CachedData(flags, data, tc.getMaxSize()));
                         }
                     }
+                } else {
+                    if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Key : " + key + "; val is null" );
                 }
             }
 
@@ -331,7 +341,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             private Timer timer = null;
             @Override
             public void receivedStatus(OperationStatus val) {
-                if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
+                if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("AddOrAppend Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
                         + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                     this.timer = getTimer(AOA_STRING, WRITE, val, CACHE_HIT);
@@ -354,7 +364,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     Operation op = opFact.store(StoreType.add, key, co.getFlags(), exp, co.getData(), new StoreOperation.Callback() {
                         @Override
                         public void receivedStatus(OperationStatus addStatus) {
-                            if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Add Operation): " + key + "; Status : " + addStatus.getStatusCode().name()
+                            if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("AddOrAppend Key (Add Operation): " + key + "; Status : " + addStatus.getStatusCode().name()
                                     + "; Message : " + addStatus.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
                             rv.set(addStatus.isSuccess(), addStatus);
                             if(addStatus.isSuccess()) {
@@ -365,7 +375,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                                         new OperationCallback() {
                                     public void receivedStatus(OperationStatus retryAppendStatus) {
                                         if (retryAppendStatus.getStatusCode().equals(StatusCode.SUCCESS)) {
-                                            if (log.isDebugEnabled()) log.debug("AddOrAppend Retry append Key (Append Operation): " + key + "; Status : " + retryAppendStatus.getStatusCode().name()
+                                            if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("AddOrAppend Retry append Key (Append Operation): " + key + "; Status : " + retryAppendStatus.getStatusCode().name()
                                                     + "; Message : " + retryAppendStatus.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
 
                                             rv.set(retryAppendStatus.isSuccess(), retryAppendStatus);
@@ -478,7 +488,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             public void receivedStatus(OperationStatus val) {
                 final long duration = System.currentTimeMillis() - rv.getStartTime();
                 this.timer = getTimer(operationStr, WRITE, val, null);
-                if (log.isDebugEnabled()) log.debug("Storing Key : " + key + "; Status : " + val.getStatusCode().name()
+                if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Storing Key : " + key + "; Status : " + val.getStatusCode().name()
                         + "; Message : " + val.getMessage() + "; Elapsed Time - " + duration);
                 rv.set(val.isSuccess(), val);
                 if (!val.getStatusCode().equals(StatusCode.SUCCESS) && log.isTraceEnabled()) {
@@ -555,7 +565,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     + "; val : " + retVal + "; Elapsed Time - " + (System.currentTimeMillis() - start), e);
 
         }
-        if (log.isDebugEnabled()) log.debug(operationStr + " Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp 
+        if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug(operationStr + " Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp 
                 + "; val : " + retVal + "; Elapsed Time - " + (System.currentTimeMillis() - start));
         return retVal;
     }

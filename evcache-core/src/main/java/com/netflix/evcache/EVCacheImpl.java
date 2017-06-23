@@ -92,8 +92,8 @@ final public class EVCacheImpl implements EVCache {
         this._throwException = throwException;
 
         tags = new ArrayList<Tag>(2);
-        tags.add(new BasicTag("APP", _appName));
-        if(_cacheName != null) tags.add(new BasicTag("CACHE", _cacheName));
+        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+        if(_cacheName != null && _cacheName.length() > 0) tags.add(new BasicTag(EVCacheMetricsFactory.PREFIX, _cacheName));
 
         final String _metricName = (_cacheName == null) ? _appName : _appName + "." + _cacheName;
         _metricPrefix = _appName + "-";
@@ -203,10 +203,9 @@ final public class EVCacheImpl implements EVCache {
     private void incrementFastFail(String metric) {
         Counter counter = counterMap.get(metric);
         if(counter == null) {
-            final List<Tag> tagList = new ArrayList<Tag>(6);
+            final List<Tag> tagList = new ArrayList<Tag>(3);
             tagList.addAll(tags);
             tagList.add(new BasicTag(EVCacheMetricsFactory.CAUSE, metric));
-    
             counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.FAST_FAIL, tagList);
             counterMap.put(metric, counter);
         }
@@ -1868,12 +1867,13 @@ final public class EVCacheImpl implements EVCache {
         Timer timer = timerMap.get(name);
         if(timer != null) return timer;
 
-        final List<Tag> tagList = new ArrayList<Tag>(6);
+        final List<Tag> tagList = new ArrayList<Tag>(7);
+        tagList.addAll(tags);
         if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, operation));
         if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_TYPE, operationType));
         if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, status));
         if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
-        if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.NUMBER_OF_ATTEMPTS, String.valueOf(tries)));
+        if(tries >= 0) tagList.add(new BasicTag(EVCacheMetricsFactory.NUMBER_OF_ATTEMPTS, String.valueOf(tries)));
 
         timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.CALL, tagList);
         timerMap.put(name, timer);
