@@ -145,7 +145,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
                     config = new EVCacheServerGroupConfig(rSet, new HashSet<InetSocketAddress>(), Integer.parseInt(rendPortString), 
                             Integer.parseInt(rendMemcachedPortString), Integer.parseInt(rendMementoPortString));
                     serverGroupMap.put(rSet, config);
-                    ArrayList<Tag> tags = new ArrayList<Tag>(3);
+                    final ArrayList<Tag> tags = new ArrayList<Tag>(2);
                     tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
                     tags.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, rSet.getName()));
                     EVCacheMetricsFactory.getInstance().getLongGauge(EVCacheMetricsFactory.CONFIG, tags).set(Long.valueOf(port));

@@ -26,16 +26,21 @@ import javax.management.ObjectName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.cache.CacheStats;
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.ChainedDynamicProperty.BooleanProperty;
 import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicStringSetProperty;
+import com.netflix.evcache.EVCacheInMemoryCache;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.ServerGroupCircularIterator;
 import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Counter;
+import com.netflix.spectator.api.Gauge;
+import com.netflix.spectator.api.Id;
 import com.netflix.spectator.api.Tag;
 
 import net.spy.memcached.MemcachedNode;
@@ -77,6 +82,9 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private final ThreadPoolExecutor asyncRefreshExecutor;
     private final DynamicBooleanProperty _disableAsyncRefresh;
     private final List<Tag> tagList;
+    private final Id poolSizeId;
+    //private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
+    private final Map<String, Gauge> gaugeMap = new ConcurrentHashMap<String, Gauge>();
 
     @SuppressWarnings("serial")
     private final Map<ServerGroup, BooleanProperty> writeOnlyFastPropertyMap = new ConcurrentHashMap<ServerGroup, BooleanProperty>() {
@@ -155,6 +163,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
         tagList = new ArrayList<Tag>(1);
         tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+        this.poolSizeId = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.CONFIG, tagList);
  
 //        final Map<String, String> map = new HashMap<String, String>();
 //        map.put("APP", _appName);
@@ -178,6 +187,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         memcachedWriteInstancesByServerGroup.clear();
         readServerGroupByZone.clear();
         memcachedFallbackReadInstances = new ServerGroupCircularIterator(Collections.<ServerGroup> emptySet());
+        tagList.clear();
+        tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.SIZE, String.valueOf(_poolSize.get())));
+
     }
 
     public EVCacheClient getEVCacheClientForRead() {
@@ -896,6 +909,56 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         setupMonitoring();
     }
 
+    /*private Counter getCounter(String name) {
+        Counter counter = counterMap.get(name);
+        if(counter != null) return counter;
+
+        final List<Tag> tags = new ArrayList<Tag>(3);
+        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, name));
+        counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.CONFIG, tags);
+        counterMap.put(name, counter);
+        return counter;
+    }*/
+    private Gauge getGauge(String name) {
+        Gauge gauge = gaugeMap.get(name);
+        if(gauge != null) return gauge;
+
+        final List<Tag> tags = new ArrayList<Tag>(2);
+        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, name));
+
+        final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.CONFIG, tags);
+        gauge = EVCacheMetricsFactory.getInstance().getRegistry().gauge(id);
+        gaugeMap.put(name, gauge);
+        return gauge;
+    }
+
+
+
+    private int reportPoolConifg() {
+        final int size = getPoolSize();
+        getGauge("readTimeout").set(getReadTimeout().get());
+        getGauge("bulkReadTimeout").set(getBulkReadTimeout().get());
+        getGauge("numberOfServerGoups").set(memcachedInstancesByServerGroup.size());
+        getGauge("maxReadQueueLength").set(_maxReadQueueSize.get());
+        for(ServerGroup key : memcachedInstancesByServerGroup.keySet()) {
+            Gauge gauge = gaugeMap.get("instanceCount"); 
+            if(gauge == null) {
+                final List<Tag> tags = new ArrayList<Tag>(4);
+                tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+                tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, "instanceCount"));
+                tags.add(new BasicTag("serverGroup", key.getName()));
+                tags.add(new BasicTag("operations", isInWriteOnly(key) ? "WRITE_ONLY" : "READ_WRITE"));
+                final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.CONFIG, tags);
+                gauge = EVCacheMetricsFactory.getInstance().getRegistry().gauge(id);
+                gaugeMap.put("instanceCount", gauge);
+            }
+            gauge.set(memcachedInstancesByServerGroup.get(key).size());
+        }
+        return size;
+    }
+
     private void setupMonitoring() {
         try {
             final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + _appName
@@ -909,6 +972,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             if (!_shutdown) {
                 mbeanServer.registerMBean(this, mBeanName);
             }
+            EVCacheMetricsFactory.getInstance().getRegistry().gauge(poolSizeId, this, EVCacheClientPool::reportPoolConifg);
         } catch (Exception e) {
             if (log.isDebugEnabled()) log.debug("Exception", e);
         }
