@@ -857,8 +857,7 @@ final public class EVCacheImpl implements EVCache {
         return getBulk(keys, tc, true, timeToLive);
     }
 
-    private <T> Map<String, T> getBulk(Collection<String> keys, Transcoder<T> tc, boolean touch, int ttl)
-            throws EVCacheException {
+    private <T> Map<String, T> getBulk(Collection<String> keys, Transcoder<T> tc, boolean touch, int ttl) throws EVCacheException {
         if (null == keys) throw new IllegalArgumentException();
         if (keys.isEmpty()) return Collections.<String, T> emptyMap();
 
@@ -1053,7 +1052,7 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception getting bulk data for APP " + _appName + ", keys = " + canonicalKeys, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.BULK.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries).record(duration, TimeUnit.MILLISECONDS);
+            getTimer(Call.BULK.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries, keys.size()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("BULK : APP " + _appName + " Took " + duration + " milliSec to get the value for key " + canonicalKeys);
         }
     }
@@ -1858,11 +1857,15 @@ final public class EVCacheImpl implements EVCache {
             if (log.isDebugEnabled() && shouldLog()) log.debug("ADD : APP " + _appName + ", Took " + duration + " milliSec for key : " + canonicalKey);
         }
     }
-
     private Timer getTimer(String operation, String operationType, String hit, String status, int tries) {
+        return getTimer(operation, operationType, hit, status, tries, 0);
+    }
+
+    private Timer getTimer(String operation, String operationType, String hit, String status, int tries, int numOfKeys) {
         String name = ((hit != null) ? operation + hit : operation);
         if(status != null) name += status;
         if(tries >= 0) name += tries;
+        if(numOfKeys >= 0) name += numOfKeys;
 
         Timer timer = timerMap.get(name);
         if(timer != null) return timer;
@@ -1874,6 +1877,7 @@ final public class EVCacheImpl implements EVCache {
         if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, status));
         if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
         if(tries >= 0) tagList.add(new BasicTag(EVCacheMetricsFactory.NUMBER_OF_ATTEMPTS, String.valueOf(tries)));
+        if(numOfKeys >= 0) tagList.add(new BasicTag(EVCacheMetricsFactory.NUMBER_OF_KEYS, String.valueOf(numOfKeys)));
 
         timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.CALL, tagList);
         timerMap.put(name, timer);

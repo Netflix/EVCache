@@ -254,6 +254,7 @@ public final class EVCacheMetricsFactory {
     public static final String OPERATION_TYPE = "operationType";
     public static final String OPERATION_STATUS = "operationStatus";
     public static final String NUMBER_OF_ATTEMPTS = "numberOfAttempts";
+    public static final String NUMBER_OF_KEYS = "numberOfKeys";
     public static final String METRIC = "metric";
     public static final String PREFIX = "prefix";
 
