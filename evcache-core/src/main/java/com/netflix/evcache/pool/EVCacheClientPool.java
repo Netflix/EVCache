@@ -26,19 +26,16 @@ import javax.management.ObjectName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.cache.CacheStats;
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.ChainedDynamicProperty.BooleanProperty;
 import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicStringSetProperty;
-import com.netflix.evcache.EVCacheInMemoryCache;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.ServerGroupCircularIterator;
 import com.netflix.spectator.api.BasicTag;
-import com.netflix.spectator.api.Counter;
 import com.netflix.spectator.api.Gauge;
 import com.netflix.spectator.api.Id;
 import com.netflix.spectator.api.Tag;
@@ -165,9 +162,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
         this.poolSizeId = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.CONFIG, tagList);
  
-//        final Map<String, String> map = new HashMap<String, String>();
-//        map.put("APP", _appName);
-
         this._pingServers = config.getChainedBooleanProperty(appName + ".ping.servers", "evcache.ping.servers", Boolean.FALSE, null); 
         setupMonitoring();
         refreshPool(false, true);
@@ -920,7 +914,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         counterMap.put(name, counter);
         return counter;
     }*/
-    private Gauge getGauge(String name) {
+    private Gauge getConfigGauge(String name) {
         Gauge gauge = gaugeMap.get(name);
         if(gauge != null) return gauge;
 
@@ -938,12 +932,12 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     private int reportPoolConifg() {
         final int size = getPoolSize();
-        getGauge("readTimeout").set(getReadTimeout().get());
-        getGauge("bulkReadTimeout").set(getBulkReadTimeout().get());
-        getGauge("numberOfServerGoups").set(memcachedInstancesByServerGroup.size());
-        getGauge("maxReadQueueLength").set(_maxReadQueueSize.get());
+        getConfigGauge("readTimeout").set(getReadTimeout().get());
+        getConfigGauge("bulkReadTimeout").set(getBulkReadTimeout().get());
+        getConfigGauge("numberOfServerGoups").set(memcachedInstancesByServerGroup.size());
+        getConfigGauge("maxReadQueueLength").set(_maxReadQueueSize.get());
         for(ServerGroup key : memcachedInstancesByServerGroup.keySet()) {
-            Gauge gauge = gaugeMap.get("instanceCount"); 
+            Gauge gauge = gaugeMap.get("instanceCount" + key.getName()); 
             if(gauge == null) {
                 final List<Tag> tags = new ArrayList<Tag>(4);
                 tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
@@ -952,9 +946,23 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 tags.add(new BasicTag("operations", isInWriteOnly(key) ? "WRITE_ONLY" : "READ_WRITE"));
                 final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.CONFIG, tags);
                 gauge = EVCacheMetricsFactory.getInstance().getRegistry().gauge(id);
-                gaugeMap.put("instanceCount", gauge);
+                gaugeMap.put("instanceCount" + key.getName(), gauge);
             }
-            gauge.set(memcachedInstancesByServerGroup.get(key).size());
+            final EVCacheClient client = memcachedInstancesByServerGroup.get(key).get(0);
+            if(client != null) gauge.set(client.getMemcachedNodesInZone().size());
+
+            Gauge pGauge = gaugeMap.get("poolSize" + key.getName()); 
+            if(pGauge == null) {
+                final List<Tag> tags = new ArrayList<Tag>(4);
+                tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+                tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, "poolSize"));
+                tags.add(new BasicTag("serverGroup", key.getName()));
+                tags.add(new BasicTag("operations", isInWriteOnly(key) ? "WRITE_ONLY" : "READ_WRITE"));
+                final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.CONFIG, tags);
+                pGauge = EVCacheMetricsFactory.getInstance().getRegistry().gauge(id);
+                gaugeMap.put("poolSize" + key.getName(), pGauge);
+            }
+            pGauge.set(memcachedInstancesByServerGroup.get(key).size());
         }
         return size;
     }
