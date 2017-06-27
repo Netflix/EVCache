@@ -39,13 +39,9 @@ javadoc {
     failOnError = false
 }
 
-jar {
-    baseName = "evcache-core"
-}
-
 task buildZip(type: Zip) {
     from compileJava
-    from processResources              
+    from processResources
     into('lib') {
         from configurations.runtime
     }           

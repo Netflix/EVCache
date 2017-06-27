@@ -32,7 +32,3 @@ dependencies {
 javadoc {
     failOnError = false
 }
-
-jar {
-    baseName = "evcache-client"
-}
