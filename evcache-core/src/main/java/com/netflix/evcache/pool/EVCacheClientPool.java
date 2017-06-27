@@ -43,8 +43,7 @@ import com.netflix.spectator.api.Tag;
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
 
-@edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "REC_CATCH_EXCEPTION",
-        "MDM_THREAD_YIELD" })
+@edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "REC_CATCH_EXCEPTION", "MDM_THREAD_YIELD" })
 public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     private static Logger log = LoggerFactory.getLogger(EVCacheClientPool.class);
@@ -181,16 +180,11 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         memcachedWriteInstancesByServerGroup.clear();
         readServerGroupByZone.clear();
         memcachedFallbackReadInstances = new ServerGroupCircularIterator(Collections.<ServerGroup> emptySet());
-        tagList.clear();
-        tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
-        tagList.add(new BasicTag(EVCacheMetricsFactory.SIZE, String.valueOf(_poolSize.get())));
-
     }
 
     public EVCacheClient getEVCacheClientForRead() {
         if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
-            if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : "
-                    + memcachedReadInstancesByServerGroup);
+            if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
             if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
             return null;
         }
@@ -830,7 +824,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                         if (node instanceof EVCacheNodeImpl) {
                             final EVCacheNodeImpl evcNode = ((EVCacheNodeImpl) node);
                             if(evcNode.getReadQueueSize() >= refreshConnectionOnReadQueueFullSize.get().intValue()) {
-                                EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_POOL_REFRESH_ON_QUEUE_FULL, evcNode.getTags()).increment();
+                                EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_POOL_REFRESH_QUEUE_FULL, evcNode.getTags()).increment();
                                 client.getEVCacheMemcachedClient().reconnectNode(evcNode);
                             }
                         }

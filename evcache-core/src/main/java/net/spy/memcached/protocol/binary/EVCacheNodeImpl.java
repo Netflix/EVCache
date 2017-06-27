@@ -56,7 +56,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         this.inputQueue = iq;
         this.sendMetrics = EVCacheConfig.getInstance().getDynamicBooleanProperty("EVCacheNodeImpl." + appName + ".sendMetrics", false);
         this.hostName = ((InetSocketAddress) getSocketAddress()).getHostName();
-        counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_NODE_OPERATION, client.getTagList());
+        counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_CALL, client.getTagList());
         setupMonitoring(appName);
     }
 

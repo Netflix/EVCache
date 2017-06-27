@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -32,6 +33,7 @@ import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Counter;
 import com.netflix.spectator.api.Tag;
 
 import net.spy.memcached.CASValue;
@@ -82,6 +84,7 @@ public class EVCacheClient {
 //    private Counter addCounter = null;
     private final ChainedDynamicProperty.BooleanProperty ignoreTouch;
     private final List<Tag> tags;
+    private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
 
     EVCacheClient(String appName, String zone, int id, EVCacheServerGroupConfig config,
             List<InetSocketAddress> memcachedNodesInZone, int maxQueueSize, DynamicIntProperty maxReadQueueSize,
@@ -138,7 +141,7 @@ public class EVCacheClient {
                 // Size - " + size + " for app " + appName + " & zone " + zone +
                 // " ; node " + node);
                 if (!canAddToOpQueue) {
-                    EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_READ_Q_FULL, tags);
+                    increment(EVCacheMetricsFactory.READ_QUEUE_FULL);
                     if (log.isDebugEnabled()) log.debug("Read Queue Full on Bulk Operation for app : " + appName
                             + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get() * 2);
                 } else {
@@ -148,6 +151,19 @@ public class EVCacheClient {
         }
         return retKeys;
     }
+
+    private void increment(String metric) {
+        Counter counter = counterMap.get(metric);
+        if(counter == null) {
+            final List<Tag> tagList = new ArrayList<Tag>(4);
+            tagList.addAll(tags);
+            tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, metric));
+            counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_CALL, tagList);
+            counterMap.put(metric, counter);
+        }
+        counter.increment();
+    }
+
 
     private boolean ensureWriteQueueSize(MemcachedNode node, String key) throws EVCacheException {
         if (node instanceof EVCacheNodeImpl) {
@@ -172,7 +188,7 @@ public class EVCacheClient {
                 }
 
                 if(i++ > 3) {
-                    EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_INACTIVE_NODE, tags);
+                    increment(EVCacheMetricsFactory.INACTIVE_NODE);
                     if (log.isDebugEnabled()) log.debug("Node : " + evcNode + " for app : " + appName + "; zone : "
                             + zone + " is not active. Will Fail Fast and the write will be dropped for key : " + key);
                     evcNode.shutdown();
@@ -189,7 +205,7 @@ public class EVCacheClient {
         if (node instanceof EVCacheNodeImpl) {
             final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
             if (!evcNode.isAvailable()) {
-                EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_INACTIVE_NODE, tags);
+                increment(EVCacheMetricsFactory.INACTIVE_NODE);
                 if (log.isDebugEnabled()) log.debug("Node : " + node + " for app : " + appName + "; zone : " + zone
                         + " is not active. Will Fail Fast so that we can fallback to Other Zone if available.");
                 if (_throwException) throw new EVCacheException("Connection for Node : " + node + " for app : " + appName
@@ -202,7 +218,7 @@ public class EVCacheClient {
             if (log.isDebugEnabled()) log.debug("Current Read Queue Size - " + size + " for app " + appName + " & zone "
                     + zone);
             if (!canAddToOpQueue) {
-                EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_READ_Q_FULL, tags);
+                increment(EVCacheMetricsFactory.READ_QUEUE_FULL);
                 if (log.isDebugEnabled()) log.debug("Read Queue Full for Node : " + node + "; app : " + appName
                         + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get());
                 if (_throwException) throw new EVCacheReadQueueException("Read Queue Full for Node : " + node + "; app : "
@@ -289,7 +305,7 @@ public class EVCacheClient {
                         .getSome(readTimeout.get(), TimeUnit.MILLISECONDS, false, false);
 
                 if (dataMap.size() != ci.getChunks() - 1) {
-                    EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_INCORRECT_CHUNKS, tags);
+                    increment(EVCacheMetricsFactory.INCORRECT_CHUNKS);
                     return null;
                 }
 
@@ -310,7 +326,7 @@ public class EVCacheClient {
                             .getChunkSize()) ? ci.getChunkSize() : ci.getLastChunk())
                             : val.length;
                     if (len != ci.getChunkSize() && i != keys.size() - 1) {
-                        EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_INVALID_CHUNK_SIZE, tags);
+                        increment(EVCacheMetricsFactory.INVALID_CHUNK_SIZE);
                         if (log.isWarnEnabled()) log.warn("CHUNK_SIZE_ERROR : Chunks : " + ci.getChunks() + " ; "
                                 + "length : " + len + "; expectedLength : " + ci.getChunkSize() + " for key : " + _key);
                     }
@@ -363,7 +379,7 @@ public class EVCacheClient {
                     .getSome(readTimeout.get(), TimeUnit.MILLISECONDS, false, false, scheduler)
                     .map(dataMap -> {
                         if (dataMap.size() != ci.getChunks() - 1) {
-                            EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_INCORRECT_CHUNKS, tags);
+                            increment(EVCacheMetricsFactory.INCORRECT_CHUNKS);
                             return null;
                         }
 
@@ -384,7 +400,7 @@ public class EVCacheClient {
                                 .getChunkSize()) ? ci.getChunkSize() : ci.getLastChunk())
                                 : val.length;
                             if (len != ci.getChunkSize() && i != keys.size() - 1) {
-                                EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_INVALID_CHUNK_SIZE, tags);
+                                increment(EVCacheMetricsFactory.INVALID_CHUNK_SIZE);
                                 if (log.isWarnEnabled()) log.warn("CHUNK_SIZE_ERROR : Chunks : " + ci.getChunks() + " ; "
                                     + "length : " + len + "; expectedLength : " + ci.getChunkSize() + " for key : " + _key);
                             }
@@ -435,7 +451,7 @@ public class EVCacheClient {
                 if (log.isWarnEnabled()) log.warn("CHECKSUM_ERROR : Chunks : " + ci.getChunks() + " ; "
                         + "currentChecksum : " + currentChecksum + "; expectedChecksum : " + expectedChecksum
                         + " for key : " + ci.getKey());
-                EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_CHECK_SUM_ERROR, tags);
+                increment(EVCacheMetricsFactory.CHECK_SUM_ERROR);
             }
             return false;
         }

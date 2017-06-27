@@ -34,5 +34,5 @@ javadoc {
 }
 
 jar {
-    baseName = "evcache-core"
+    baseName = "evcache-client"
 }
