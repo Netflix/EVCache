@@ -199,6 +199,7 @@ public final class EVCacheMetricsFactory {
     public static final String INTERNAL_CONFIG                  = "internal.evcache.client.config";
     public static final String INTERNAL_PAUSE                   = "internal.evcache.client.pause";
     public static final String INTERNAL_LATCH                   = "internal.evcache.client.latch";
+    public static final String INTERNAL                         = "internal.evcache.client";
 
     public static final String INTERNAL_NUM_CHUNK_SIZE          = "internal.evcache.client.chunking.numOfChunks";
     public static final String INTERNAL_CHUNK_DATA_SIZE         = "internal.evcache.client.chunking.dataSize";
