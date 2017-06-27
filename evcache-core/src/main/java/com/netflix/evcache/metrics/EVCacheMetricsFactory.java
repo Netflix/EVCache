@@ -225,6 +225,8 @@ public final class EVCacheMetricsFactory {
     /**
      * Metric Tags Names
      */
+    public static final String CALL_TAG                         = "call";
+    public static final String LATCH                            = "latch";
     public static final String CACHE                            = "cache";
     public static final String CAUSE                            = "cause";
     public static final String SERVERGROUP                      = "serverGroup";
@@ -235,7 +237,7 @@ public final class EVCacheMetricsFactory {
     public static final String PAUSE_REASON                     = "pauseReason";
     public static final String FETCH_AFTER_PAUSE                = "fetchAfterPause";
     public static final String FAILED_SERVERGROUP               = "failedServerGroup";
-    public static final String CONFIG_NAME                      = "configName";
+    public static final String CONFIG_NAME                      = "config";
     public static final String HOST                             = "host";
     public static final String CACHE_HIT                        = "cacheHit";
     public static final String OPERATION                        = "operation";
@@ -278,6 +280,7 @@ public final class EVCacheMetricsFactory {
     public static final String CHECK_SUM_ERROR                  = "checkSumError";
     public static final String NUM_CHUNK_SIZE                   = "numOfChunks";
     public static final String CHUNK_DATA_SIZE                  = "dataSize";
+    public static final String NOT_AVAILABLE                    = "notAvailable";
 
     /**
      * Metric Tag Value for Operations
