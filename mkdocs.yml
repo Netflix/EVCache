@@ -1,0 +1,7 @@
+site_name: EVCache
+pages:
+    - Home: index.md
+    - Introduction: introduction.md
+    - Features: features.md
+    - Using EVCache Clent: using.md
+theme: readthedocs
