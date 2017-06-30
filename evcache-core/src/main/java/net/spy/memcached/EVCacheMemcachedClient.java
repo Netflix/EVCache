@@ -570,9 +570,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     public void reconnectNode(EVCacheNodeImpl evcNode ) {
         final List<Tag> tagList = new ArrayList<Tag>(5);
         tagList.addAll(client.getTagList());
-        tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.RECONNECT));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.RECONNECT));
         tagList.add(new BasicTag(EVCacheMetricsFactory.HOST, evcNode.getHostName()));
-        EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_CONFIG, tagList).increment();
+        EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.CONFIG, tagList);
 
         evcNode.setConnectTime(System.currentTimeMillis());
         mconn.queueReconnect(evcNode);

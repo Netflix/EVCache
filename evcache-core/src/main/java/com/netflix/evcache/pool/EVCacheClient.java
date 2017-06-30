@@ -168,13 +168,6 @@ public class EVCacheClient {
     private boolean ensureWriteQueueSize(MemcachedNode node, String key) throws EVCacheException {
         if (node instanceof EVCacheNodeImpl) {
             final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
-
-//            if (!evcNode.isAvailable()) {
-//                EVCacheMetricsFactory.getInstance().getCounter("EVCacheClient-" + appName + "-INACTIVE_NODE", evcNode.getTags()).increment();
-//                pool.refreshAsync(evcNode);
-//                getEVCacheMemcachedClient().reconnectNode(evcNode);
-//            }
-
             int i = 0;
             while (true) {
                 final int size = evcNode.getWriteQueueSize();

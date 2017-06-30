@@ -85,16 +85,16 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
             if(zone == null) {
                 final List<Tag> tagList = new ArrayList<Tag>(2);
                 tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
-                tagList.add(new BasicTag(EVCacheMetricsFactory.CAUSE, EVCacheMetricsFactory.NULL_ZONE));
-                EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_CONFIG, tagList);
+                tagList.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.NULL_ZONE));
+                EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.CONFIG, tagList);
                 continue;
             }
             final String asgName = iInfo.getASGName();
             if(asgName == null) {
                 final List<Tag> tagList = new ArrayList<Tag>(2);
                 tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
-                tagList.add(new BasicTag(EVCacheMetricsFactory.CAUSE, EVCacheMetricsFactory.NULL_SERVERGROUP));
-                EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_CONFIG, tagList);
+                tagList.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.NULL_SERVERGROUP));
+                EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.CONFIG, tagList);
                 continue;
             }
 

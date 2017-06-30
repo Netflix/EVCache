@@ -282,14 +282,12 @@ final public class EVCacheImpl implements EVCache {
                         if (event != null) {
                             try {
                                 if (shouldThrottle(event)) {
-                                    //incrementFastFail(EVCacheMetricsFactory.THROTTLED);
                                     status = EVCacheMetricsFactory.THROTTLED;
                                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + canonicalKey);
                                     return null;
                                 }
                             } catch(EVCacheException ex) {
                                 if(throwExc) throw ex;
-                                //incrementFastFail(EVCacheMetricsFactory.THROTTLED);
                                 status = EVCacheMetricsFactory.THROTTLED;
                                 return null;
                             }
@@ -626,14 +624,12 @@ final public class EVCacheImpl implements EVCache {
                         try {
                             if (shouldThrottle(event)) {
                                 status = EVCacheMetricsFactory.THROTTLED;
-                                //incrementFastFail(EVCacheMetricsFactory.THROTTLED);
                                 if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + canonicalKey);
                                 return null;
                             }
                         } catch(EVCacheException ex) {
                             if(throwExc) throw ex;
                             status = EVCacheMetricsFactory.THROTTLED;
-                            //incrementFastFail(EVCacheMetricsFactory.THROTTLED);
                             return null;
                         }
                     }
@@ -644,12 +640,9 @@ final public class EVCacheImpl implements EVCache {
                         break;
                     }
                 }
-                //increment("RETRY_" + ((data == null) ? "MISS" : "HIT"));
             }
 
-            //increment("GetCall");
             if (data != null) {
-                //increment("GetHit");
                 if (event != null) event.setAttribute("status", "THIT");
 
                 // touch all copies
@@ -657,7 +650,6 @@ final public class EVCacheImpl implements EVCache {
                 if (log.isDebugEnabled() && shouldLog()) log.debug("GET_AND_TOUCH : APP " + _appName + ", key [" + canonicalKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + client.getServerGroup());
             } else {
                 cacheOperation = EVCacheMetricsFactory.NO;
-                //increment("GetMiss");
                 if (log.isInfoEnabled() && shouldLog()) log.info("GET_AND_TOUCH : APP " + _appName + " ; cache miss for key : " + canonicalKey);
                 if (event != null) event.setAttribute("status", "TMISS");
             }
@@ -737,12 +729,9 @@ final public class EVCacheImpl implements EVCache {
             final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
             touchData(canonicalKey, key, timeToLive, clients, latch);
 
-            EVCacheMetricsFactory.getInstance().getDistributionSummary(_appName + "-TouchData-TTL", tags).record(timeToLive);
-            //increment("TouchCall");
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
                 event.setTTL(timeToLive);
-                //event.setLatch(latch);
                 if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
                     final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
@@ -913,14 +902,12 @@ final public class EVCacheImpl implements EVCache {
                             if (event != null) {
                                 try {
                                     if (shouldThrottle(event)) {
-                                        //incrementFastFail(EVCacheMetricsFactory.THROTTLED);
                                         status = EVCacheMetricsFactory.THROTTLED;
                                         if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + canonicalKeys);
                                         return null;
                                     }
                                 } catch(EVCacheException ex) {
                                     if(throwExc) throw ex;
-                                    //incrementFastFail(EVCacheMetricsFactory.THROTTLED);
                                     status = EVCacheMetricsFactory.THROTTLED;
                                     return null;
                                 }
@@ -951,7 +938,6 @@ final public class EVCacheImpl implements EVCache {
                             if (event != null) {
                                 try {
                                     if (shouldThrottle(event)) {
-                                        //incrementFastFail(EVCacheMetricsFactory.THROTTLED);
                                         status = EVCacheMetricsFactory.THROTTLED;
                                         if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & keys " + retryKeys);
                                         return null;
@@ -959,7 +945,6 @@ final public class EVCacheImpl implements EVCache {
                                 } catch(EVCacheException ex) {
                                     status = EVCacheMetricsFactory.THROTTLED;
                                     if(throwExc) throw ex;
-                                    //incrementFastFail(EVCacheMetricsFactory.THROTTLED);
                                     return null;
                                 }
                             }
@@ -981,13 +966,11 @@ final public class EVCacheImpl implements EVCache {
                                 }
                             }
                         }
-                        //if (retMap.size() > initRetMapSize) increment("BULK-PARTIAL_RETRY-" + (retMap.isEmpty() ? "MISS" : "HIT"));
                     }
                     if (log.isDebugEnabled() && shouldLog() && retMap.size() == keys.size()) log.debug("Fallback SUCCESS for APP " + _appName + ",  retMap [" + retMap + "]");
                 }
             }
 
-            //increment("BulkCall");
             if (retMap == null || retMap.isEmpty()) {
                 if (log.isInfoEnabled() && shouldLog()) log.info("BULK : APP " + _appName + " ; Full cache miss for keys : " + keys);
                 if (event != null) event.setAttribute("status", "BMISS_ALL");
@@ -1876,7 +1859,7 @@ final public class EVCacheImpl implements EVCache {
         if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_TYPE, operationType));
         if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, status));
         if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
-        if(tries >= 0) tagList.add(new BasicTag(EVCacheMetricsFactory.NUMBER_OF_ATTEMPTS, String.valueOf(tries)));
+        if(tries >= 0) tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, String.valueOf(tries)));
         if(numOfKeys >= 0) tagList.add(new BasicTag(EVCacheMetricsFactory.NUMBER_OF_KEYS, String.valueOf(numOfKeys)));
 
         timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.CALL, tagList);

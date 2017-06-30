@@ -204,49 +204,53 @@ public final class EVCacheMetricsFactory {
     public static final String INTERNAL_NUM_CHUNK_SIZE          = "internal.evcache.client.chunking.numOfChunks";
     public static final String INTERNAL_CHUNK_DATA_SIZE         = "internal.evcache.client.chunking.dataSize";
 
-    public static final String INTERNAL_POOL_REFRESH            = "internal.evcache.client.pool.refresh";
-    public static final String INTERNAL_POOL_SIZE               = "internal.evcache.client.pool.size";
-    public static final String INTERNAL_POOL_ACTIVE             = "internal.evcache.client.pool.activeConnections";
-    public static final String INTERNAL_POOL_INACTIVE           = "internal.evcache.client.pool.inActiveConnections";
-    public static final String INTERNAL_POOL_IN_DISCOVERY       = "internal.evcache.client.pool.inDiscovery";
-    public static final String INTERNAL_POOL_IN_HASHING         = "internal.evcache.client.pool.inHashing";
-    public static final String INTERNAL_POOL_READ_INSTANCES     = "internal.evcache.client.pool.readInstances";
-    public static final String INTERNAL_POOL_WRITE_INSTANCES    = "internal.evcache.client.pool.writeInstances";
-    public static final String INTERNAL_POOL_RECONCILE          = "internal.evcache.client.pool.reconcile";
-    public static final String INTERNAL_POOL_CHANGED            = "internal.evcache.client.pool.serverGroupChanged";
-    public static final String INTERNAL_POOL_SERVERGROUP_STATUS = "internal.evcache.client.pool.serverGroup.status";
-    public static final String INTERNAL_POOL_INIT_ERROR         = "internal.evcache.client.pool.init.error";
-    public static final String INTERNAL_POOL_READ_Q_SIZE        = "internal.evcache.client.pool.readQueue";
-    public static final String INTERNAL_POOL_WRITE_Q_SIZE       = "internal.evcache.client.pool.writeQueue";
-    public static final String INTERNAL_POOL_REFRESH_QUEUE_FULL = "internal.evcache.client.pool.refresh.on.queue.full";
-    public static final String INTERNAL_POOL_REFRESH_ASYNC      = "internal.evcache.client.pool.refresh.async";
+    public static final String INTERNAL_POOL                    = "internal.evcache.client.pool";
+    public static final String POOL_REFRESH                     = "refresh";
+    public static final String POOL_SIZE                        = "size";
+    public static final String POOL_ACTIVE                      = "activeConnections";
+    public static final String POOL_INACTIVE                    = "inActiveConnections";
+    public static final String POOL_IN_DISCOVERY                = "inDiscovery";
+    public static final String POOL_IN_HASHING                  = "inHashing";
+    public static final String POOL_READ_INSTANCES              = "readInstances";
+    public static final String POOL_WRITE_INSTANCES             = "writeInstances";
+    public static final String POOL_RECONCILE                   = "reconcile";
+    public static final String POOL_CHANGED                     = "serverGroupChanged";
+    public static final String POOL_SERVERGROUP_STATUS          = "serverGroupStatus";
+    public static final String POOL_INIT_ERROR                  = "init.error";
+    public static final String POOL_READ_Q_SIZE                 = "readQueue";
+    public static final String POOL_WRITE_Q_SIZE                = "writeQueue";
+    public static final String POOL_REFRESH_QUEUE_FULL          = "refreshOnQueueFull";
+    public static final String POOL_REFRESH_ASYNC               = "refreshAsync";
+
     public static final String INTERNAL_ADD_CALL_FIXUP          = "internal.evcache.client.addCall.fixUp";
 
     /**
      * Metric Tags Names
      */
-    public static final String CALL_TAG                         = "call";
-    public static final String LATCH                            = "latch";
-    public static final String CACHE                            = "cache";
-    public static final String CAUSE                            = "cause";
-    public static final String SERVERGROUP                      = "serverGroup";
-    public static final String FAIL_COUNT                       = "failCount";
-    public static final String COMPLETE_COUNT                   = "completeCount";
-    public static final String RECONNECT_COUNT                  = "reconnectCount";
-    public static final String STATUS                           = "status";
-    public static final String PAUSE_REASON                     = "pauseReason";
-    public static final String FETCH_AFTER_PAUSE                = "fetchAfterPause";
-    public static final String FAILED_SERVERGROUP               = "failedServerGroup";
-    public static final String CONFIG_NAME                      = "config";
-    public static final String HOST                             = "host";
-    public static final String CACHE_HIT                        = "cacheHit";
-    public static final String OPERATION                        = "operation";
-    public static final String OPERATION_TYPE                   = "operationType";
-    public static final String OPERATION_STATUS                 = "operationStatus";
-    public static final String NUMBER_OF_ATTEMPTS               = "numberOfAttempts";
-    public static final String NUMBER_OF_KEYS                   = "numberOfKeys";
-    public static final String METRIC                           = "metric";
-    public static final String PREFIX                           = "prefix";
+    public static final String CACHE                            = "evc.cache";
+    public static final String SERVERGROUP                      = "evc.serverGroup";
+    public static final String STATUS                           = "evc.status";
+
+    public static final String CALL_TAG                         = "evc.call";
+    public static final String LATCH                            = "evc.latch";
+    public static final String CAUSE                            = "evc.cause";
+    public static final String FAIL_COUNT                       = "evc.failCount";
+    public static final String COMPLETE_COUNT                   = "evc.completeCount";
+    public static final String RECONNECT_COUNT                  = "evc.reconnectCount";
+    public static final String PAUSE_REASON                     = "evc.pauseReason";
+    public static final String FETCH_AFTER_PAUSE                = "evc.fetchAfterPause";
+    public static final String FAILED_SERVERGROUP               = "evc.failedServerGroup";
+    public static final String CONFIG_NAME                      = "evc.config";
+    public static final String HOST                             = "evc.host";
+    public static final String CACHE_HIT                        = "evc.cacheHit";
+    public static final String OPERATION                        = "evc.operation";
+    public static final String OPERATION_TYPE                   = "evc.operationType";
+    public static final String OPERATION_STATUS                 = "evc.operationStatus";
+    public static final String NUMBER_OF_ATTEMPTS               = "evc.numberOfAttempts";
+    public static final String ATTEMPT                          = "evc.attempt";
+    public static final String NUMBER_OF_KEYS                   = "evc.numberOfKeys";
+    public static final String METRIC                           = "evc.metric";
+    public static final String PREFIX                           = "evc.prefix";
 
     /**
      * Metric Tags Values  

@@ -4,10 +4,9 @@ import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -15,11 +14,10 @@ import javax.management.ObjectName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.config.DynamicBooleanProperty;
-import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
-import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
 import com.netflix.spectator.api.Tag;
 
@@ -34,29 +32,33 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     private static final Logger log = LoggerFactory.getLogger(EVCacheNodeImpl.class);
 
     protected long stTime;
-    protected final AtomicLong opCount = new AtomicLong(0);
-    protected final AtomicInteger reconnectCount = new AtomicInteger(0);
-
     protected final String hostName;
     protected final BlockingQueue<Operation> readQ;
     protected final BlockingQueue<Operation> inputQueue;
-    protected final DynamicBooleanProperty sendMetrics;
     protected final EVCacheClient client;
-    protected final Counter counter;
+    protected final Counter operationsCounter;
+    protected final Counter reconnectCounter;
     private long timeoutStartTime;
 
     public EVCacheNodeImpl(SocketAddress sa, SocketChannel c, int bufSize, BlockingQueue<Operation> rq, BlockingQueue<Operation> wq, BlockingQueue<Operation> iq,
             long opQueueMaxBlockTimeMillis, boolean waitForAuth, long dt, long at, ConnectionFactory fa, EVCacheClient client, long stTime) {
         super(sa, c, bufSize, rq, wq, iq, Long.valueOf(opQueueMaxBlockTimeMillis), waitForAuth, dt, at, fa);
 
-        setConnectTime(stTime);
         this.client = client;
         final String appName = client.getAppName();
         this.readQ = rq;
         this.inputQueue = iq;
-        this.sendMetrics = EVCacheConfig.getInstance().getDynamicBooleanProperty("EVCacheNodeImpl." + appName + ".sendMetrics", false);
         this.hostName = ((InetSocketAddress) getSocketAddress()).getHostName();
-        counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_CALL, client.getTagList());
+        final List<Tag> tagsCounter = new ArrayList<Tag>(5);
+        //tagsCounter.add(new BasicTag(EVCacheMetricsFactory.HOST, hostName)); //TODO : enable this and see what is the impact
+        tagsCounter.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.OPERATION));
+        operationsCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_CALL, tagsCounter);
+
+        final List<Tag> tags = new ArrayList<Tag>(5);
+        tags.add(new BasicTag(EVCacheMetricsFactory.HOST, hostName));
+        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.RECONNECT));
+        reconnectCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_CALL, tags);
+        setConnectTime(stTime);
         setupMonitoring(appName);
     }
 
@@ -97,12 +99,12 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     }
 
     public long incrOps() {
-        counter.increment();
-        return opCount.incrementAndGet();
+        operationsCounter.increment();
+        return operationsCounter.count();
     }
 
     public long getNumOfOps() {
-        return opCount.get();
+        return operationsCounter.count();
     }
 
     public void flushInputQueue() {
@@ -155,7 +157,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
 
     public void setConnectTime(long cTime) {
         this.stTime = cTime;
-        reconnectCount.incrementAndGet();
+        reconnectCounter.increment();
     }
 
     public String getAppName() {
@@ -177,8 +179,8 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     public List<Tag> getTags() {
         return client.getTagList();
     }
-    
+
     public int getTotalReconnectCount() {
-        return reconnectCount.get();
+        return (int)reconnectCounter.count();
     }
 }

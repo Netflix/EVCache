@@ -417,7 +417,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                 }
             } 
         }
-        EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_LATCH, tags).increment();
+        EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_LATCH, tags).record(System.currentTimeMillis()- start, TimeUnit.MILLISECONDS);
     }
 
     @Override
