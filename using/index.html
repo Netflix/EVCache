@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>Using EVCache Clent - EVCache</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../css/highlight.css">
+  <link href="../site/css/highlight.css" rel="stylesheet">
+  <link href="../site/css/theme.css" rel="stylesheet">
+  <link href="../site/css/theme_extra.css" rel="stylesheet">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Using EVCache Clent";
+    var mkdocs_page_input_path = "using.md";
+    var mkdocs_page_url = "/using/";
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js"></script>
+  <script src="../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../js/highlight.pack.js"></script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> EVCache</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../introduction/">Introduction</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../features/">Features</a>
+	    </li>
+          
+            <li class="toctree-l1 current">
+		
+    <a class="current" href="./">Using EVCache Clent</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l2"><a href="#initialize">Initialize</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l3" href="#governated-server">Governated Server</a></li>
+        
+            <li><a class="toctree-l3" href="#client-library">Client Library</a></li>
+        
+            <li><a class="toctree-l3" href="#client-module">Client Module</a></li>
+        
+            <li><a class="toctree-l3" href="#adding-data-to-evcache">Adding Data to EVCache</a></li>
+        
+            <li><a class="toctree-l3" href="#retrieving-data-from-evcache">Retrieving data from EVCache</a></li>
+        
+            <li><a class="toctree-l3" href="#delete-data-from-evcache">Delete data from EVCache:</a></li>
+        
+            <li><a class="toctree-l3" href="#writing-test-cases">Writing Test Cases</a></li>
+        
+        </ul>
+    
+
+    </ul>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">EVCache</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>Using EVCache Clent</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h2 id="initialize">Initialize</h2>
+<p>Below describes the best practices using EVCache client.</p>
+<h3 id="governated-server">Governated Server</h3>
+<p>You can do this in your StartServer.java (or the class that extends BaseServerLifecycleListener).</p>
+<pre><code>public class StartServer extends BaseServerLifecycleListener {
+    protected void initialize(ServletContextEvent event) throws Exception {
+        Injector injector = getInjector();
+        injector.getInstance(com.netflix.evcache.EVCacheClientModule.class);
+    }
+}
+</code></pre>
+
+<h3 id="client-library">Client Library</h3>
+<p>While initializing EVCacheClient Library we recommend you can create connections to EVCache servers your library needs.
+You can achieve this by doing the following</p>
+<pre><code>public class MyClientLibrary {
+    @Inject
+    public MyClientLibrary(EVCache.Builder evCacheBuilder, &lt;Other Librariess your client needs&gt;) {
+        ....
+        EVCache evCache = evCacheBuilder
+            .setAppName(&lt;EVCACHE App Name in upper case&gt;)
+            .setCachePrefix(&quot;cid&quot;) //Set the optional cache prefix
+            .enableRetry() //Enable Retry
+            .setDefaultTTL(3600) //Set TTL for 1 Hour
+            .setTranscoder(...) //The transcoder to serialize and deserialize data stored in evcache
+            .enableExceptionPropagation() //If exceptions need to be propagated else null is returned in case of exception
+            .build();
+        ....
+    }
+}
+</code></pre>
+
+<h3 id="client-module">Client Module</h3>
+<p>If you have a client moudle you can initialize EVCache as below</p>
+<pre><code>public class MyClientModule extends AbstractModule {
+
+    @Override
+    protected void configure() {
+        install(new EVCacheClientModule());
+        //install other modules
+    }
+
+}
+</code></pre>
+
+<p>To obtain EVCache instance the first step is to import the necessary packages and create the cache. Specify the EVCache App Name, cache prefix (all keys will be prepended by this name so choose wisely) and the Default TTL and build the instance. Optionally you can also specify the transcoder and if your instance needs to do zone fallback.</p>
+<pre><code>public class MyClass {
+    @Inject
+    public MyClass(EVCache.Builder evCacheBuilder, &lt;Other Librariess your client needs&gt;) {
+            ....
+            EVCache evCache = evCacheBuilder
+                .setAppName(&lt;EVCACHE App Name in upper case&gt;)
+                .setCachePrefix(&quot;cid&quot;) //Set the optional cache prefix
+                .enableRetry() //Enable Retry
+                .setDefaultTTL(3600) //Set TTL for 1 Hour
+                .setTranscoder(...) //The transcoder to serialize and deserialize data stored in evcache
+                .enableExceptionPropagation() //If exceptions need to be propagated else null is returned in case of exception
+                .build();
+            .....
+    }
+}
+</code></pre>
+
+<h3 id="adding-data-to-evcache">Adding Data to EVCache</h3>
+<p>To set data you need to pass the key and value. You can also use the overloaded method and pass your custom transcoder and TTL(time to live) for you the data you are setting.</p>
+<p>Note: key cannot contain space or new line character</p>
+<p>Values are limited to 20MB maximum (minus serialization overhead)</p>
+<pre><code>EVCacheLatch latch = client.set(&quot;key&quot;, &quot;value&quot;, Policy.ALL_MINUS_1)
+</code></pre>
+
+<p>After the latch is returned, you can wait on it for however long your SLA allows to ensure the write policy was met. Else the operation is unblocked but the write will proceed in the background. 
+Waiting shorter than the write timeout will allow your code to continue but you will not know if the write was successful or not. You can inspect the EVCache write metrics to get status of such operations. </p>
+<pre><code>boolean status = latch.await(20, TimeUnit.MILLISECONDS) 
+// wait for 20 ms or until the policy is fulfilled, whichever is comes first
+//status boolean will be true if the operation was successful
+</code></pre>
+
+<p>There are several options for the policy, depending on your use case:</p>
+<pre><code>public static enum Policy {
+    ONE, QUORUM, ALL_MINUS_1, ALL
+}
+</code></pre>
+
+<p>It is generally not recommended to wait for all copies to confirm a write. If you do use the ALL policy, then it is possible for a bad box to back up your application servers because all of the latches will wait until the operation timeout or error.</p>
+<p>Another approach is to use the non latch based set() method that return Future<Boolean>[]</p>
+<pre><code>Future&lt;Boolean&gt;[] status = myCache.set(&quot;key&quot;,&quot;value&quot;);
+</code></pre>
+
+<p>You can inspect the status futures to ensure if that the data you have set is successful or not. Doing so will block the operation until we can determine if the operation was successful or not.</p>
+<pre><code>for(Future&lt;Boolean&gt; operationStatus :  status) {
+
+    /*
+        wait until the operation is completed. Note this blocks until the operation is completed. 
+    */
+    operationStatus.get() 
+
+    //To wait up to a specified duration you can pass the max block duration
+    operationStatus.get(50, TimeUnit.MILLISECONDS) 
+    /*
+        the future is blocked for utmost 50 milliseconds. 
+        If the operation is not completed by then the operation is cancelled the the thread is unblocked. 
+    */
+}
+</code></pre>
+
+<h3 id="retrieving-data-from-evcache">Retrieving data from EVCache</h3>
+<p>To retrieve the value associated with a key:</p>
+<pre><code>String value = myCache.&lt;String&gt;get(&quot;key&quot;);
+</code></pre>
+
+<h3 id="delete-data-from-evcache">Delete data from EVCache:</h3>
+<p>To delete the data from EVCache</p>
+<pre><code>Future&lt;Boolean&gt;[] status = myCache.delete(&quot;key&quot;);
+</code></pre>
+
+<p>Similar to set operation you can inspect the status flag to determine if the operation was successful or not. </p>
+<h3 id="writing-test-cases">Writing Test Cases</h3>
+<p>To Init EVCache when AutoBinding is on</p>
+<pre><code>//Make sure to turn on autobinding by setting the below property
+//platform.NFLifecycleUnitTester.ignoringAllAutoBindClasses=false
+
+//Init NFLifecycleUnitTester 
+final NFLifecycleUnitTester unitTester = new NFLifecycleUnitTester(props);
+
+//Get instance of EVCache.Builder
+final EVCache.Builder evCacheBuilder = unitTester.getInjector().getInstance(EVCache.Builder.class);
+
+//Get instance of EVCache. Now you can perform all operations on it
+final EVCache evCache = evCacheBuilder.setAppName(&quot;EVCACHE_CINEPS&quot;).setCacheName(&quot;cid&quot;).enableZoneFallback().build();
+
+To Init EVCache when AutoBinding is off
+//Make sure to turn off autobinding by setting the below property
+//platform.NFLifecycleUnitTester.ignoringAllAutoBindClasses=true
+
+//Init NFLifecycleUnitTester 
+final NFLifecycleUnitTester unitTester = new NFLifecycleUnitTester(props, new EVCacheClientModule());
+
+//Get instance of EVCache.Builder
+final EVCache.Builder evCacheBuilder = unitTester.getInjector().getInstance(EVCache.Builder.class);
+
+//Get instance of EVCache. Now you can perform all operations on it
+final EVCache evCache = evCacheBuilder.setAppName(&quot;EVCACHE_CINEPS&quot;).setCacheName(&quot;cid&quot;).enableZoneFallback().build();
+</code></pre>
+
+<p>If you are seeing the following exception. </p>
+<pre><code> No implementation for com.netflix.evcache.connection.IConnectionFactoryProvider was bound.
+  while locating com.google.inject.Provider&lt;com.netflix.evcache.connection.IConnectionFactoryProvider&gt;
+    for parameter 2 at com.netflix.evcache.pool.EVCacheClientPoolManager.&lt;init&gt;(EVCacheClientPoolManager.java:86)
+  while locating com.netflix.evcache.pool.EVCacheClientPoolManager
+    for field at com.netflix.evcache.EVCache$Builder._poolManager(EVCache.java:952)
+  while locating com.netflix.evcache.EVCache$Builder
+    for parameter 0 at com.netflix.ab.client.cache.common.ABEVCache.&lt;init&gt;(ABEVCache.java:47)
+  while locating com.netflix.ab.client.cache.common.ABEVCache
+    for parameter 0 at com.netflix.ab.client.ABServiceClientManager.&lt;init&gt;(ABServiceClientManager.java:41)
+  while locating com.netflix.ab.client.ABServiceClientManager
+    for parameter 0 at com.netflix.membership.client.MembershipClientLibrary.setAbServiceClientManager(MembershipClientLibrary.java:82)
+  at com.netflix.membership.client.MembershipClientLibrary.setAbServiceClientManager(MembershipClientLibrary.java:82)
+  while locating com.netflix.membership.client.MembershipClientLibrary
+    for parameter 0 at com.netflix.msl.userauth.SwitchProfileAuthenticationFactory.&lt;init&gt;(SwitchProfileAuthenticationFactory.java:49)
+</code></pre>
+
+<p>You can also try to create LifecycleInjectorBuilder add EVCacheClientModule module to it. This should init all the necessary modules. </p>
+<pre><code>LifecycleInjectorBuilder builder = LifecycleInjector.builder();
+builder.withModules( new EVCacheClientModule());
+</code></pre>
+
+<p>You might need to set the following properties if you are not able to talk to eureka </p>
+<pre><code>-D@environment=test
+-D@region=us-west-2
+</code></pre>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="../features/" class="btn btn-neutral" title="Features"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+	  
+        </div>
+      </div>
+
+    </section>
+    
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../features/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+    </span>
+</div>
+    <script src="../js/theme.js"></script>
+      <script src="../site/js/highlight.pack.js"></script>
+      <script src="../site/js/jquery-2.1.1.min.js"></script>
+      <script src="../site/js/modernizr-2.8.3.min.js"></script>
+      <script src="../site/js/theme.js"></script>
+      <script src="../site/mkdocs/js/lunr.min.js"></script>
+      <script src="../site/mkdocs/js/mustache.min.js"></script>
+      <script src="../site/mkdocs/js/require.js"></script>
+      <script src="../site/mkdocs/js/search.js"></script>
+      <script src="../site/mkdocs/js/text.js"></script>
+
+</body>
+</html>
