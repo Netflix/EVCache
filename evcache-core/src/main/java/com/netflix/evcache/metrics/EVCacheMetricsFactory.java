@@ -12,28 +12,11 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
-//import com.netflix.servo.DefaultMonitorRegistry;
-//import com.netflix.servo.annotations.DataSourceType;
-//import com.netflix.servo.monitor.BasicCounter;
-//import com.netflix.servo.monitor.Counter;
-//import com.netflix.servo.monitor.LongGauge;
-//import com.netflix.servo.monitor.Monitor;
-//import com.netflix.servo.monitor.MonitorConfig;
-//import com.netflix.servo.monitor.Monitors;
-//import com.netflix.servo.monitor.MonitorConfig.Builder;
-//import com.netflix.servo.monitor.PercentileTimer;
-//import com.netflix.servo.monitor.StepCounter;
-//import com.netflix.servo.monitor.Timer;
-//import com.netflix.servo.stats.StatsConfig;
-//import com.netflix.servo.tag.BasicTagList;
-//import com.netflix.servo.tag.Tag;
-//import com.netflix.servo.tag.TagList;
 import com.netflix.spectator.api.DistributionSummary;
 import com.netflix.spectator.api.Id;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spectator.api.Spectator;
 import com.netflix.spectator.api.Tag;
-//import com.netflix.servo.tag.BasicTag;
 import com.netflix.spectator.api.Timer;
 import com.netflix.spectator.api.histogram.PercentileTimer;
 
@@ -298,6 +281,5 @@ public final class EVCacheMetricsFactory {
     public static final String SET_OPERATION                    = "SET";
     public static final String ADD_OPERATION                    = "ADD";
     public static final String REPLACE_OPERATION                = "REPLACE";
-
 
 }

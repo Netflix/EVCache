@@ -68,14 +68,13 @@ data from the old clusters are copied to new clusters
 - Ideal for immutable objects with duplicate reads in short duration.
 
 ## MBeans & JMX Operations 
-- Connection Stauts
+- Connection Status
 - Queue length for Reads, Writes and input
 - Cache Hits/Misses for read Operations
 - Errors and Timeouts
 - Active & Inactive Instance
-- Refresh connection pools 
+- Refresh connections 
 - Clear the Operation Queue
 
 ## Typical EVCache Cluster Example
-![Cluster with mirroring](https://confluence.netflix.com/download/attachments/4235624/Example2_1.png?version=1&modificationDate=1317242053000&api=v2)
-
+![Cluster with mirroring](Example2_1.png)

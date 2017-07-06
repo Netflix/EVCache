@@ -4,4 +4,9 @@ pages:
     - Introduction: introduction.md
     - Features: features.md
     - Using EVCache Clent: using.md
-theme: readthedocs
+    - Configuration : config.md
+
+theme: cinder
+
+extra_css:
+    - css/extra.css

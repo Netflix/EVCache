@@ -71,7 +71,7 @@ public class EVCacheInMemoryCache<T> {
             }
         };
 
-        this._cacheDuration = EVCacheConfig.getInstance().getChainedIntProperty(appName + ".inmemory.cache.duration.ms", appName + ".inmemory.expire.after.write.duration.ms", 0, callback);
+        this._cacheDuration = EVCacheConfig.getInstance().getChainedIntProperty(appName + ".inmemory.expire.after.write.duration.ms", appName + ".inmemory.cache.duration.ms", 0, callback);
 
         this._exireAfterAccessDuration = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.expire.after.access.duration.ms", 0);
         this._exireAfterAccessDuration.addCallback(callback);
