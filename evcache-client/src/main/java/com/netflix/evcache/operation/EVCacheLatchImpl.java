@@ -20,6 +20,7 @@ import com.netflix.evcache.pool.ServerGroup;
 import net.spy.memcached.internal.ListenableFuture;
 import net.spy.memcached.internal.OperationCompletionListener;
 import net.spy.memcached.internal.OperationFuture;
+import net.spy.memcached.ops.StatusCode;
 
 public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     private static final Logger log = LoggerFactory.getLogger(EVCacheLatchImpl.class);
@@ -375,15 +376,21 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                 }
 
                 if (fail) {
-                    failCount++;
                     if(future instanceof EVCacheOperationFuture) {
                         final EVCacheOperationFuture<Boolean> evcFuture = (EVCacheOperationFuture<Boolean>)future;
-                        List<ServerGroup> listOfFailedServerGroups = (List<ServerGroup>) evcacheEvent.getAttribute("FailedServerGroups");
-                        if(listOfFailedServerGroups == null) {
-                            listOfFailedServerGroups = new ArrayList<ServerGroup>(failCount);
-                            evcacheEvent.setAttribute("FailedServerGroups", listOfFailedServerGroups);
+                        final StatusCode code = evcFuture.getStatus().getStatusCode(); 
+                        if(code != StatusCode.SUCCESS && code != StatusCode.ERR_NOT_FOUND && code != StatusCode.ERR_EXISTS) {
+                            List<ServerGroup> listOfFailedServerGroups = (List<ServerGroup>) evcacheEvent.getAttribute("FailedServerGroups");
+                            if(listOfFailedServerGroups == null) {
+                                listOfFailedServerGroups = new ArrayList<ServerGroup>(failCount);
+                                evcacheEvent.setAttribute("FailedServerGroups", listOfFailedServerGroups);
+                            }
+                            listOfFailedServerGroups.add(evcFuture.getServerGroup());
+                            failCount++;
                         }
-                        listOfFailedServerGroups.add(evcFuture.getServerGroup());
+                    } else {
+                        failCount++;
+                        
                     }
                 }
             }
