@@ -32,11 +32,11 @@ import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicStringSetProperty;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
-import com.netflix.evcache.metrics.Operation;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.ServerGroupCircularIterator;
 import com.netflix.servo.monitor.Monitors;
+import com.netflix.servo.monitor.Stopwatch;
 import com.netflix.servo.tag.TagList;
 
 import net.spy.memcached.MemcachedNode;
@@ -702,7 +702,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     private synchronized void refresh(boolean force) throws IOException {
-        final Operation op = EVCacheMetricsFactory.getOperation("EVCacheClientPool-" + _appName + "-refresh");
+        final Stopwatch op = EVCacheMetricsFactory.getStatsTimer("EVCacheClientPool-" + _appName + "-refresh").start();
         if (log.isDebugEnabled()) log.debug("refresh APP : " + _appName + "; force : " + force);
         try {
             final Map<ServerGroup, EVCacheServerGroupConfig> instances = provider.discoverInstances();
@@ -768,8 +768,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     final int poolSize = _poolSize.get();
                     final List<EVCacheClient> newClients = new ArrayList<EVCacheClient>(poolSize);
                     for (int i = 0; i < poolSize; i++) {
-                        final int maxQueueSize = EVCacheConfig.getInstance().getDynamicIntProperty(_appName
-                                + ".max.queue.length", 16384).get();
+                        final int maxQueueSize = EVCacheConfig.getInstance().getDynamicIntProperty(_appName + ".max.queue.length", 16384).get();
                         EVCacheClient client;
                         try {
                             client = new EVCacheClient(_appName, zone, i, config, memcachedSAInServerGroup, maxQueueSize, 

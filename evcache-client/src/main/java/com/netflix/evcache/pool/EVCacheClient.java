@@ -1124,7 +1124,7 @@ public class EVCacheClient {
         try {
             return evcacheMemcachedClient.shutdown(timeout, unit);
         } catch(Throwable t) {
-            log.warn("Exception while sutting down", t);
+            log.warn("Exception while shutting down", t);
             return true;
         }
     }
