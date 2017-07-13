@@ -85,8 +85,7 @@ public class FailedWriteConsumer implements Runnable {
                     try {
                         if(log.isDebugEnabled()) log.debug("Key : " + msg.getEntity(String.class));
                     } catch (Exception e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
+                        log.error("Exception", e);
                     }
                     MessageAttributes attribs = msg.getAttributes();
                     for(Entry<String, String> entry : attribs.entrySet()) {
