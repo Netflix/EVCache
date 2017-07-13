@@ -8,16 +8,16 @@ import javax.servlet.ServletContextEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.inject.Injector;
 import com.google.inject.servlet.ServletModule;
-import com.netflix.evcache.EVCacheClientLibrary;
+import com.netflix.evcache.EVCacheClientModule;
+import com.netflix.evcache.event.write.FailedWriteConsumer;
 import com.netflix.evcache.service.resources.EVCacheRESTService;
 import com.netflix.server.base.BaseHealthCheckServlet;
 import com.netflix.server.base.BaseStatusPage;
 import com.netflix.server.base.NFFilter;
 import com.netflix.server.base.lifecycle.BaseServerLifecycleListener;
-import com.sun.jersey.api.core.ResourceConfig;
 import com.sun.jersey.api.core.PackagesResourceConfig;
+import com.sun.jersey.api.core.ResourceConfig;
 import com.sun.jersey.guice.JerseyServletModule;
 import com.sun.jersey.guice.spi.container.servlet.GuiceContainer;
 
@@ -37,8 +37,6 @@ public class StartServer extends BaseServerLifecycleListener
 
     @Override
     protected void initialize(ServletContextEvent sce) throws Exception {
-        Injector injector = getInjector();
-        injector.getInstance(EVCacheClientLibrary.class);
     }
 
     @Override
@@ -47,6 +45,7 @@ public class StartServer extends BaseServerLifecycleListener
             @Override
             protected void configureServlets() {
                 logger.info("########## CONFIGURING SERVLETS ##########");
+                install(new EVCacheClientModule());
 
                 // initialize NFFilter
                 Map<String, String> initParams = new HashMap<String,String>();
@@ -63,8 +62,7 @@ public class StartServer extends BaseServerLifecycleListener
                 serve("/*").with(GuiceContainer.class, initParams);
                 bind(EVCacheRESTService.class).asEagerSingleton();
                 binder().bind(GuiceContainer.class).asEagerSingleton();
-                
-                install(new EVCacheServiceModule());
+                bind(FailedWriteConsumer.class).asEagerSingleton();
             }
         };
     }
