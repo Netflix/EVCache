@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.ibm.icu.util.StringTokenizer;
+import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.NetflixConfiguration;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
@@ -32,12 +33,14 @@ public class FailedWriteConsumer implements Runnable {
     private final KafkaConsumer<Void, IncomingMessage> consumer;
     private final EVCacheClientPoolManager poolManager;
     private final CachedDataTranscoder transcoder;
+    private final Map<String, ChainedDynamicProperty.BooleanProperty> propertyMap;
 
     @SuppressWarnings("unchecked")
     @Inject
     public FailedWriteConsumer(NFKafkaConsumerBuilder nfKafkaConsumerBuilder, EVCacheClientPoolManager poolManager) {
         this.poolManager = poolManager;
         this.transcoder = new CachedDataTranscoder();
+        propertyMap = new HashMap<String, ChainedDynamicProperty.BooleanProperty>();
         final String consumerId = "FailWriteFixer-" + System.currentTimeMillis();
         Map<String, Object> map = new HashMap<String, Object>();
         map.put("group.id", consumerId);
@@ -109,7 +112,7 @@ public class FailedWriteConsumer implements Runnable {
                             }
                             if(log.isDebugEnabled()) log.debug("appName : " + appName);
                             if(log.isDebugEnabled()) log.debug("serverGroup : " + serverGroup);
-                            if(appName != null) {
+                            if(appName != null && shouldProcess(appName)) {
                                 final Map<ServerGroup, List<EVCacheClient>> pools = poolManager.getEVCacheClientPool(appName).getAllInstancesByZone();
                                 for(Entry<ServerGroup, List<EVCacheClient>> entry : pools.entrySet()) {
                                     if(entry.getKey().getName().equals(serverGroup)) {
@@ -155,7 +158,17 @@ public class FailedWriteConsumer implements Runnable {
             }
         }
     }
-    
+
+    private boolean shouldProcess(String appName) {
+        ChainedDynamicProperty.BooleanProperty prop = propertyMap.get(appName);
+        if(prop == null) {
+            final ChainedDynamicProperty.DynamicBooleanPropertyThatSupportsNull baseProperty = new ChainedDynamicProperty.DynamicBooleanPropertyThatSupportsNull("evcache.process.write.failures", true);
+            prop = new ChainedDynamicProperty.BooleanProperty(appName + ".process.write.failures", baseProperty);
+            propertyMap.put(appName, prop);
+        }
+        return prop.get().booleanValue();
+    }
+
     private void deleteData(String key, EVCacheClient client, String op) throws Exception {
         if(op.equals("SET") || op.equals("DELETE")) {
             client.delete(key);
