@@ -1,16 +1,20 @@
-## Configuration
+The below properties can be set as a Persisted Property or in the property file (application or library). If the dynamic setting is yes then cnages to Property values (either using Persisted Property UI, spinnaker or on client instance using Properties console)  will immediately reflect the change. 
+<br>
+
+**NOTE:**
+
+* <CACHE\> is the name of EVCache app in upper case for which you want to configure the Property.
+* <cache\> is the name of EVCache app in lower case for which you want to configure the Property.
+* <asg\> is the name of auto scaling group of the EVCache app as created in spinnaker.
+* <zone\> is the AWS availability zone where the EVCache app is present. Note: EVCache apps are deployed by zone.
+* <prefix\> the cache prefix used to prefix the keys in EVCache. 
+
+## Client Configuration
 
 Property Name | Override Property Name | Default Value | Dynamic |
 :----------- |:-------------:| -----------|-----------:
+evcache.appsToInit| | | no
 <CACHE\>.EVCacheClientPool.poolSize| | 1 | yes
-<CACHE\>.EVCacheClientPool.readTimeout|default.read.timeout| 20 | yes
-<CACHE\>.EVCacheClientPool.bulkReadTimeout|| <CACHE\>.EVCacheClientPool.readTimeout | yes
-<CACHE\>.operation.timeout| | 2500 | yes
-<CACHE\>.max.read.queue.length| | 5 | yes
-<CACHE\>.max.queue.length| | 16384 | yes
-<CACHE\>.max.retry.count| | 1 | yes
-<CACHE\>.retry.all.copies| | false | yes
-<CACHE\>.operation.QueueMaxBlockTime| | 10 | yes
 <CACHE\>.EVCacheClientPool.refresh.connection.on.readQueueFull| EVCacheClientPool.refresh.connection.on.readQueueFull | false | yes
 <CACHE\>.EVCacheClientPool.refresh.connection.on.readQueueFull.size| EVCacheClientPool.refresh.connection.on.readQueueFull.size | 100 | yes
 <CACHE\>.disable.async.refresh| | false | yes
@@ -22,7 +26,6 @@ Property Name | Override Property Name | Default Value | Dynamic |
 <CACHE\>.<asg\>.EVCacheClientPool.writeOnly| <CACHE\>.<zone\>.EVCacheClientPool.writeOnly| | yes
 EVCacheClientPoolManager.<CACHE\>.alias| | | no
 evcache.use.simple.node.list.provider| | false | yes
-evcache.appsToInit| | | no
 <asg\>.chunk.data | <CACHE\>.chunk.data | false | no
 <asg\>.chunk.size | <CACHE\>.chunk.size | 1180 | no
 <CACHE\>.<asg\>.write.block.duration | <CACHE\>.write.block.duration | 25 | yes
@@ -46,6 +49,20 @@ default.evcache.compression.threshold | | 120 | no
 <CACHE\>.ignore.hosts | | | no
 evcache.request.expiry.optout | | true | yes
 
+## Read & Write Operations
+
+Property Name | Override Property Name | Default Value | Dynamic |
+:----------- |:-------------:| -----------|-----------:
+<CACHE\>.EVCacheClientPool.readTimeout|default.read.timeout| 20 | yes
+<CACHE\>.EVCacheClientPool.bulkReadTimeout|| <CACHE\>.EVCacheClientPool.readTimeout | yes
+<CACHE\>.operation.timeout| | 2500 | yes
+<CACHE\>.max.read.queue.length| | 5 | yes
+<CACHE\>.max.queue.length| | 16384 | yes
+<CACHE\>.max.retry.count| | 1 | yes
+<CACHE\>.retry.all.copies| | false | yes
+<CACHE\>.operation.QueueMaxBlockTime| | 10 | yes
+
+
 ## Cross Region Replication 
 Property Name | Override Property Name | Default Value | Dynamic |
 :----------- |:-------------:| -----------|-----------:
@@ -66,14 +83,14 @@ EVCacheReplicationManager.use.schlep | | false | yes
 <CACHE\>.drop.messages.on.queue.full | | false | yes
 <CACHE\>.replicate.set.data | | false | yes
 <CACHE\>.set.timeout | | 20 | yes
-EVCacheReplicationManager.<cache/>.bootstrap.servers | EVCacheReplicationManager.bootstrap.servers | evcachereplvpc.kafka.${EC2_REGION}.dynprod.netflix.net:7101 | yes
-EVCacheReplicationManager.<cache/>.buffer.memory | EVCacheReplicationManager.buffer.memory | 8388608 | yes
-EVCacheReplicationManager.<cache/>.compression.type |EVCacheReplicationManager.compression.type | gzip | yes
-EVCacheReplicationManager.<cache/>.retries |EVCacheReplicationManager.retries | 1 | yes
-EVCacheReplicationManager.<cache/>.linger.ms | EVCacheReplicationManager.linger.ms | 500 | yes
-EVCacheReplicationManager.<cache/>.acks | EVCacheReplicationManager.acks | 1 | yes
-EVCacheReplicationManager.<cache/>.stickyPartitioner.intervalMs | EVCacheReplicationManager.stickyPartitioner.intervalMs | 1000 | yes
-EVCacheReplicationManager.<cache/>.partitioner.class | EVCacheReplicationManager.partitioner.class | com.netflix.nfkafka.StickyPartitioner | yes
+EVCacheReplicationManager.<cache\>.bootstrap.servers | EVCacheReplicationManager.bootstrap.servers | evcachereplvpc.kafka.${EC2_REGION}.dynprod.netflix.net:7101 | yes
+EVCacheReplicationManager.<cache\>.buffer.memory | EVCacheReplicationManager.buffer.memory | 8388608 | yes
+EVCacheReplicationManager.<cache\>.compression.type |EVCacheReplicationManager.compression.type | gzip | yes
+EVCacheReplicationManager.<cache\>.retries |EVCacheReplicationManager.retries | 1 | yes
+EVCacheReplicationManager.<cache\>.linger.ms | EVCacheReplicationManager.linger.ms | 500 | yes
+EVCacheReplicationManager.<cache\>.acks | EVCacheReplicationManager.acks | 1 | yes
+EVCacheReplicationManager.<cache\>.stickyPartitioner.intervalMs | EVCacheReplicationManager.stickyPartitioner.intervalMs | 1000 | yes
+EVCacheReplicationManager.<cache\>.partitioner.class | EVCacheReplicationManager.partitioner.class | com.netflix.nfkafka.StickyPartitioner | yes
 
 ## Fixing Write Failues 
 Property Name | Override Property Name | Default Value | Dynamic |

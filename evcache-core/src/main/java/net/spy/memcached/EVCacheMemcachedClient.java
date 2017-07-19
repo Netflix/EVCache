@@ -345,12 +345,12 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                         + "; Message : " + val.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                     this.timer = getTimer(EVCacheMetricsFactory.AOA_OPERATION, EVCacheMetricsFactory.WRITE, val, EVCacheMetricsFactory.YES);
-                    rv.set(val.isSuccess(), val);
+                    rv.set(Boolean.TRUE, val);
                     appendSuccess = true;
                     
                 } else {
                     this.timer = getTimer(EVCacheMetricsFactory.AOA_OPERATION, EVCacheMetricsFactory.WRITE, val, EVCacheMetricsFactory.NO);
-                    rv.set(val.isSuccess(), val);
+                    //rv.set(val.isSuccess(), val);
                     appendSuccess = true;
                 }
             }
@@ -370,6 +370,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                             if(addStatus.isSuccess()) {
                                 increment(EVCacheMetricsFactory.AOA_OPERATION + "-Add", EVCacheMetricsFactory.WRITE, addStatus, null);
                                 appendSuccess = true;
+                                rv.set(Boolean.TRUE, addStatus);
                             } else {
                                 Operation op = opFact.cat(ConcatenationType.append, 0, key, co.getData(),
                                         new OperationCallback() {
@@ -379,6 +380,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                                                     + "; Message : " + retryAppendStatus.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
 
                                             rv.set(retryAppendStatus.isSuccess(), retryAppendStatus);
+                                            rv.set(Boolean.TRUE, retryAppendStatus);
+                                        } else {
+                                            rv.set(Boolean.FALSE, retryAppendStatus);
                                         }
                                         increment(EVCacheMetricsFactory.AOA_OPERATION + "-RetryAppend", EVCacheMetricsFactory.WRITE, retryAppendStatus, null);
                                     }

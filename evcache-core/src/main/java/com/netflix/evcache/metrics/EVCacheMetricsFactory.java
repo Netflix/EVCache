@@ -178,22 +178,20 @@ public final class EVCacheMetricsFactory {
     /**
      * Internal Metric Names
      */
-    public static final String INTERNAL_CALL                    = "internal.evcache.client.call";
-    public static final String INTERNAL_CONFIG                  = "internal.evcache.client.config";
-    public static final String INTERNAL_PAUSE                   = "internal.evcache.client.pause";
-    public static final String INTERNAL_LATCH                   = "internal.evcache.client.latch";
-    public static final String INTERNAL                         = "internal.evcache.client";
+    public static final String INTERNAL_CALL                    = "internal-evc.client.call";
+    public static final String INTERNAL_CONFIG                  = "internal-evc.client.config";
+    public static final String INTERNAL_PAUSE                   = "internal-evc.client.pause";
+    public static final String INTERNAL_LATCH                   = "internal-evc.client.latch";
+    public static final String INTERNAL                         = "internal-evc.client";
 
-    public static final String INTERNAL_NUM_CHUNK_SIZE          = "internal.evcache.client.chunking.numOfChunks";
-    public static final String INTERNAL_CHUNK_DATA_SIZE         = "internal.evcache.client.chunking.dataSize";
+    public static final String INTERNAL_NUM_CHUNK_SIZE          = "internal-evc.client.chunking.numOfChunks";
+    public static final String INTERNAL_CHUNK_DATA_SIZE         = "internal-evc.client.chunking.dataSize";
+    public static final String INTERNAL_ADD_CALL_FIXUP          = "internal-evc.client.addCall.fixUp";
 
-    public static final String INTERNAL_POOL                    = "internal.evcache.client.pool";
-    public static final String POOL_REFRESH                     = "refresh";
-    public static final String POOL_SIZE                        = "size";
-    public static final String POOL_ACTIVE                      = "activeConnections";
-    public static final String POOL_INACTIVE                    = "inActiveConnections";
-    public static final String POOL_IN_DISCOVERY                = "inDiscovery";
-    public static final String POOL_IN_HASHING                  = "inHashing";
+    public static final String INTERNAL_POOL                    = "internal-evc.client.pool";
+    /*
+     * Internal pool config values
+     */
     public static final String POOL_READ_INSTANCES              = "readInstances";
     public static final String POOL_WRITE_INSTANCES             = "writeInstances";
     public static final String POOL_RECONCILE                   = "reconcile";
@@ -205,7 +203,6 @@ public final class EVCacheMetricsFactory {
     public static final String POOL_REFRESH_QUEUE_FULL          = "refreshOnQueueFull";
     public static final String POOL_REFRESH_ASYNC               = "refreshAsync";
 
-    public static final String INTERNAL_ADD_CALL_FIXUP          = "internal.evcache.client.addCall.fixUp";
 
     /**
      * Metric Tags Names

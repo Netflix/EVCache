@@ -27,6 +27,6 @@ Read failures are retried on other copies thus masking any transient failures.
 **Defaults**
 
 - Read timeout set to 20 milliseconds, Goal is to answer fast, if not possible then fail fast and retry.
-- Read queue size is 10. this will ensure we fail fast if a client tries to overload a server i.e. DOS attack
+- Max Read queue size from evcache client to each evcache node is 5. This will ensure we fail fast if a client tries to overload a server i.e. DOS attack
 - Write timeout is 2500 milliseconds. 
-- Write queue size is 16K. i.e. we will try really hard to ensure we don't drop writes
+- Write queue size is 16K. i.e. we will try really hard to ensure we don't drop writes. Failed writes are written to a kafka queue and such failures are then fixed by EVCache Consistency checker app.

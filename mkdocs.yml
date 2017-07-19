@@ -3,7 +3,7 @@ pages:
     - Home: index.md
     - Introduction: introduction.md
     - Features: features.md
-    - Using EVCache Clent: using.md
+    - Using EVCache Client: using.md
     - Configuration : config.md
 
 theme: cinder
