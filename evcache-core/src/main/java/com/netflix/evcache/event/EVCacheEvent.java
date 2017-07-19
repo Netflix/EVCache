@@ -18,6 +18,7 @@ public class EVCacheEvent {
     private final String appName;
     private final String cacheName;
     private final EVCacheClientPool pool;
+    private final long startTime;
 
     private Collection<EVCacheClient> clients = null;
     private Collection<String> keys = null;
@@ -33,6 +34,7 @@ public class EVCacheEvent {
         this.appName = appName;
         this.cacheName = cacheName;
         this.pool = pool;
+        this.startTime = System.currentTimeMillis();
     }
 
     public Call getCall() {
@@ -45,6 +47,10 @@ public class EVCacheEvent {
 
     public String getCacheName() {
         return cacheName;
+    }
+
+    public long getStartTimeUTC() {
+        return startTime;
     }
 
     public EVCacheClientPool getEVCacheClientPool() {
