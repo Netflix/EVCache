@@ -199,7 +199,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             }
             return selectClient(clients);
         } catch (Throwable t) {
-            log.error("Exception trying to get an readable EVCache Instances for zone " + _zone, t);
+            log.error("Exception trying to get an readable EVCache Instances for zone {}", _zone, t);
             return null;
         }
     }
@@ -230,7 +230,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             final List<EVCacheClient> clients = memcachedReadInstancesByServerGroup.get(fallbackServerGroup);
             return selectClient(clients);
         } catch (Throwable t) {
-            log.error("Exception trying to get an readable EVCache Instances for zone " + rsetUsed, t);
+            log.error("Exception trying to get an readable EVCache Instances for zone {}", rsetUsed, t);
             return null;
         }
     }
@@ -250,7 +250,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             }
             return selectClient(clients);
         } catch (Throwable t) {
-            log.error("Exception trying to get an readable EVCache Instances for ServerGroup " + serverGroup, t);
+            log.error("Exception trying to get an readable EVCache Instances for ServerGroup {}", serverGroup, t);
             return null;
         }
     }
@@ -291,7 +291,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 }
             }
         } catch (Throwable t) {
-            log.error("Exception trying to get an readable EVCache Instances for zone " + serverGroupToExclude, t);
+            log.error("Exception trying to get an readable EVCache Instances for zone {}", serverGroupToExclude, t);
         }
         return Collections.<EVCacheClient> emptyList();
     }
@@ -779,8 +779,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                             lastReconcileTime = System.currentTimeMillis();
                         } catch (Exception e) {
                             EVCacheMetricsFactory.increment("EVCacheClientPool-" + _appName + "-" + serverGroup.getName() + "EVCacheClient-INIT_ERROR");
-                            log.error("Unable to create EVCacheClient for app - " + _appName + " and Server Group - "
-                                    + serverGroup.getName(), e);
+                            log.error("Unable to create EVCacheClient for app - {} and Server Group - {}",
+                                      _appName, serverGroup.getName(), e);
                         }
                     }
                     if (newClients.size() > 0) setupNewClientsByServerGroup(serverGroup, newClients);
