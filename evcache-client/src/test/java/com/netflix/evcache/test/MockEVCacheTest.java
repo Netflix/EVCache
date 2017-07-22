@@ -196,7 +196,7 @@ public class MockEVCacheTest {
     }
     
     /**
-     * Dummy Cache used for debuging purpose (simple way to disable cache)
+     * Dummy Cache used for debugging purpose (simple way to disable cache)
      */
     private static class DummyEVCacheImpl  {
         private final EVCache cache;
