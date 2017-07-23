@@ -54,10 +54,10 @@ public class EVCacheNodeLocator implements NodeLocator {
         this.config = conf;
         this.client = client;
 
-        this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty("EVCacheNodeLocator." + client.getAppName() + "." + client.getServerGroupName() + ".hash.on.partial.key",
-                "EVCacheNodeLocator." + client.getAppName()+ ".hash.on.partial.key", Boolean.FALSE, null);
-        this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty("EVCacheNodeLocator." + client.getAppName() + "." + client.getServerGroupName() + ".hash.delimiter", 
-                "EVCacheNodeLocator." + client.getAppName() + ".hash.delimiter", ":", null);
+        this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty(client.getAppName() + "." + client.getServerGroupName() + ".hash.on.partial.key",
+                client.getAppName()+ ".hash.on.partial.key", Boolean.FALSE, null);
+        this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty(client.getAppName() + "." + client.getServerGroupName() + ".hash.delimiter", 
+                client.getAppName() + ".hash.delimiter", ":", null);
 
         setKetamaNodes(nodes);
     }
@@ -70,10 +70,10 @@ public class EVCacheNodeLocator implements NodeLocator {
         this.config = conf;
         this.client = client;
 
-        this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty("EVCacheNodeLocator." + client.getAppName() + "." + client.getServerGroupName() + ".hash.on.partial.key",
-                "EVCacheNodeLocator." + client.getAppName()+ ".hash.on.partial.key", Boolean.FALSE, null);
-        this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty("EVCacheNodeLocator." + client.getAppName() + "." + client.getServerGroupName() + ".hash.delimiter", 
-                "EVCacheNodeLocator." + client.getAppName() + ".hash.delimiter", ":", null);
+        this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty(client.getAppName() + "." + client.getServerGroupName() + ".hash.on.partial.key",
+                client.getAppName()+ ".hash.on.partial.key", Boolean.FALSE, null);
+        this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty(client.getAppName() + "." + client.getServerGroupName() + ".hash.delimiter", 
+                client.getAppName() + ".hash.delimiter", ":", null);
     }
 
     /*

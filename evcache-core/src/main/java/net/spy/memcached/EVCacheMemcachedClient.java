@@ -554,7 +554,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         long retVal = def;
         try {
             if(mutateOperationTimeout == null) {
-                mutateOperationTimeout = EVCacheConfig.getInstance().getDynamicLongProperty("evache.mutate.timeout", connectionFactory.getOperationTimeout());
+                mutateOperationTimeout = EVCacheConfig.getInstance().getDynamicLongProperty(appName + ".mutate.timeout", connectionFactory.getOperationTimeout());
             }
 
             
