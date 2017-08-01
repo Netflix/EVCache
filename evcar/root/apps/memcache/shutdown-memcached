@@ -1,0 +1,5 @@
+#!/bin/sh
+
+echo "Shuting down memcached"
+sudo svc -d /service/nflx-memcache
+echo "memcached is shutdown"

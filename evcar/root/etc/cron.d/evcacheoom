@@ -1,0 +1,2 @@
+# run this every 5 minutes
+#*/5 * * * * root /apps/oomscripts/bin/oom_score_adj.py

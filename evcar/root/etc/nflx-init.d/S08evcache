@@ -1,0 +1,35 @@
+#!/bin/bash
+
+if [ -e /etc/profile.d/netflix_environment.sh ]; then
+    source /etc/profile.d/netflix_environment.sh
+fi
+
+#ephemeral port range
+sudo sysctl -w net.ipv4.ip_local_port_range='25000 64000'
+
+echo "Autoscaling Group : ${NETFLIX_CLUSTER}"
+
+if [ ! -z "$NETFLIX_CLUSTER" ]; then
+    save_ifs=$IFS
+    IFS=- asg_parts=($NETFLIX_CLUSTER)
+    export NETFLIX_EVCACHE_APP=${asg_parts[0]}
+    export NETFLIX_EVCACHE_STACK=${asg_parts[1]}
+    export NETFLIX_EVCACHE_CONNECTIONYIELD=${asg_parts[2]}
+    IFS=$save_ifs
+fi
+
+if [ "$NETFLIX_ENVIRONMENT" == "persistence_test" ]; then
+	export NETFLIX_ENVIRONMENT="test"
+fi
+if [ "$NETFLIX_ENVIRONMENT" == "persistence_prod" ]; then
+	export NETFLIX_ENVIRONMENT="prod"
+fi
+
+echo "App :  ${NETFLIX_EVCACHE_APP}"
+echo "Stack :  ${NETFLIX_EVCACHE_STACK}"
+echo "Connection yield :  ${NETFLIX_EVCACHE_CONNECTIONYIELD}"
+
+if [ ! -z "$NETFLIX_EVCACHE_CONNECTIONYIELD" ]; then
+   echo "connection yield set for cluster $NETFLIX_CLUSTER"
+   echo export MEMCACHED_CONNECTIONYIELD=\"$NETFLIX_EVCACHE_CONNECTIONYIELD\" >> /etc/profile.d/netflix_environment.sh
+fi
