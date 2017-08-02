@@ -21,8 +21,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.netflix.config.ChainedDynamicProperty;
+import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.discovery.shared.Pair;
+import com.netflix.evcache.EVCacheConnectException;
 import com.netflix.evcache.EVCacheException;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheReadQueueException;
@@ -75,6 +77,7 @@ public class EVCacheClient {
     private final ChainedDynamicProperty.IntProperty bulkReadTimeout;
     private final DynamicIntProperty operationTimeout;
     private final DynamicIntProperty maxReadQueueSize;
+    private final DynamicBooleanProperty ignoreInactiveNodes;
     private final ChainedDynamicProperty.BooleanProperty enableChunking;
     private final ChainedDynamicProperty.IntProperty chunkSize, writeBlock;
     private final ChunkTranscoder chunkingTranscoder;
@@ -108,6 +111,7 @@ public class EVCacheClient {
         this.chunkingTranscoder = new ChunkTranscoder();
         this.maxWriteQueueSize = maxQueueSize;
         this.ignoreTouch = EVCacheConfig.getInstance().getChainedBooleanProperty(appName + "." + this.serverGroup.getName() + ".ignore.touch", appName + ".ignore.touch", false, null);
+        this.ignoreInactiveNodes = EVCacheConfig.getInstance().getDynamicBooleanProperty(appName + ".ignore.inactive.nodes", false);
 
         this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, appName, zone, id, serverGroup, this);
         this.connectionObserver = new EVCacheConnectionObserver(appName, serverGroup, id);
@@ -180,7 +184,7 @@ public class EVCacheClient {
         return true;
     }
 
-    private boolean validateNode(String key, boolean _throwException) throws EVCacheException {
+    private boolean validateNode(String key, boolean _throwException) throws EVCacheException, EVCacheConnectException {
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         // First check if the node is active
         if (node instanceof EVCacheNodeImpl) {
@@ -189,7 +193,7 @@ public class EVCacheClient {
             	EVCacheMetricsFactory.getCounter("EVCacheClient-" + appName + "-INACTIVE_NODE", evcNode.getBaseTags()).increment();
                 if (log.isDebugEnabled()) log.debug("Node : " + node + " for app : " + appName + "; zone : " + zone
                         + " is not active. Will Fail Fast so that we can fallback to Other Zone if available.");
-                if (_throwException) throw new EVCacheException("Connection for Node : " + node + " for app : " + appName
+                if (_throwException) throw new EVCacheConnectException("Connection for Node : " + node + " for app : " + appName
                         + "; zone : " + zone + " is not active");
                 return false;
             }
@@ -211,7 +215,7 @@ public class EVCacheClient {
     }
 
     private <T> ChunkDetails<T> getChunkDetails(String key) {
-
+ 
         final List<String> firstKeys = new ArrayList<String>(2);
         firstKeys.add(key);
         final String firstKey = key + "_00";
@@ -767,7 +771,14 @@ public class EVCacheClient {
     }
 
     public <T> T get(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF) throws Exception {
-        if (!validateNode(key, _throwException)) return null;
+        if (!validateNode(key, _throwException)) {
+            if(ignoreInactiveNodes.get()) {
+                EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-IGNORE_INACTIVE_NODES");
+                return pool.getEVCacheClientForReadExclude(serverGroup).get(key, tc, _throwException, hasZF, enableChunking.get());
+            } else {
+                return null;
+            }
+        }
         return get(key, tc, _throwException, hasZF, enableChunking.get());
     }
 
@@ -782,7 +793,14 @@ public class EVCacheClient {
 
     public <T> Single<T> get(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF, Scheduler scheduler) {
         try {
-            if (!validateNode(key, _throwException)) return Single.just(null);
+            if (!validateNode(key, _throwException)) {
+                if(ignoreInactiveNodes.get()) {
+                    EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-IGNORE_INACTIVE_NODES");
+                    return pool.getEVCacheClientForReadExclude(serverGroup).get(key, tc, _throwException, hasZF, enableChunking.get(), scheduler);
+                } else {
+                    return Single.just(null);
+                }
+            }
             return get(key, tc, _throwException, hasZF, enableChunking.get(), scheduler);
         } catch (Throwable e) {
             return Single.error(e);
@@ -791,7 +809,15 @@ public class EVCacheClient {
 
     public <T> T getAndTouch(String key, Transcoder<T> tc, int timeToLive, boolean _throwException, boolean hasZF)
             throws Exception {
-        if (!validateNode(key, _throwException)) return null;
+        EVCacheMemcachedClient _client = evcacheMemcachedClient;
+        if (!validateNode(key, _throwException)) {
+            if(ignoreInactiveNodes.get()) {
+                EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-IGNORE_INACTIVE_NODES");
+                _client = pool.getEVCacheClientForReadExclude(serverGroup).getEVCacheMemcachedClient();
+            } else {
+                return null;
+            }
+        }
 
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
         final T returnVal;
@@ -799,9 +825,9 @@ public class EVCacheClient {
             return assembleChunks(key, false, 0, tc, hasZF);
         } else {
             if(ignoreTouch.get()) {
-                returnVal = evcacheMemcachedClient.get(key, tc);
+                returnVal = _client.get(key, tc);
             } else {
-                final CASValue<T> value = evcacheMemcachedClient.asyncGetAndTouch(key, timeToLive, tc)
+                final CASValue<T> value = _client.asyncGetAndTouch(key, timeToLive, tc)
                         .get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
                 returnVal = (value == null) ? null : value.getValue();
             }
@@ -811,13 +837,21 @@ public class EVCacheClient {
 
     public <T> Single<T> getAndTouch(String key, Transcoder<T> tc, int timeToLive, boolean _throwException, boolean hasZF, Scheduler scheduler) {
         try {
-            if (!validateNode(key, _throwException)) return null;
+            EVCacheMemcachedClient _client = evcacheMemcachedClient;
+            if (!validateNode(key, _throwException)) {
+                if(ignoreInactiveNodes.get()) {
+                    EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-IGNORE_INACTIVE_NODES");
+                    _client = pool.getEVCacheClientForReadExclude(serverGroup).getEVCacheMemcachedClient();
+                } else {
+                    return null;
+                }
+            }
 
             if (tc == null) tc = (Transcoder<T>) getTranscoder();
             if (enableChunking.get()) {
                 return assembleChunks(key, false, 0, tc, hasZF, scheduler);
             } else {
-                return evcacheMemcachedClient.asyncGetAndTouch(key, timeToLive, tc)
+                return _client.asyncGetAndTouch(key, timeToLive, tc)
                     .get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF, scheduler)
                     .map(value -> (value == null) ? null : value.getValue());
             }

@@ -406,15 +406,11 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
                 final List<EVCacheClient> readClients = memcachedReadInstancesByServerGroup.get(serverGroup);
                 if (readClients != null && readClients.size() > 0) {
-                    EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-ReadInstanceCount", tags).set(Long.valueOf(
-                            readClients.get(0).getConnectionObserver()
-                                    .getActiveServerCount()));
+                    EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-ReadInstanceCount", tags).set(Long.valueOf(readClients.get(0).getConnectionObserver().getActiveServerCount()));
                 }
                 final List<EVCacheClient> writeClients = memcachedWriteInstancesByServerGroup.get(serverGroup);
                 if (writeClients != null && writeClients.size() > 0) {
-                    EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-WriteInstanceCount", tags).set(Long.valueOf(
-                            writeClients.get(0).getConnectionObserver()
-                                    .getActiveServerCount()));
+                    EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-WriteInstanceCount", tags).set(Long.valueOf(writeClients.get(0).getConnectionObserver().getActiveServerCount()));
                 }
             }
 
@@ -444,10 +440,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 for (InetSocketAddress instance : discoveredHostsInServerGroup) {
                     if (!connectionObserver.getActiveServers().containsKey(instance) && !connectionObserver.getInActiveServers().containsKey(instance)) {
                         if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
-                                + "; instance : " + instance
-                                + " not found and will shutdown the client and init it again.");
-                        EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged", tags)
-                                .set(Long.valueOf(1));
+                                + "; instance : " + instance + " not found and will shutdown the client and init it again.");
+                        EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged", tags).set(Long.valueOf(1));
                         return true;
                     }
                 }
@@ -483,8 +477,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                         // will reconnect the client.
                         if (!evcNode.isActive() && !discoveredHostsInServerGroup.contains(evcNode.getSocketAddress())) {
                             if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
-                                    + "; Node : " + node
-                                    + " is not active. Will shutdown the client and init it again.");
+                                    + "; Node : " + node + " is not active. Will shutdown the client and init it again.");
 
                             EVCacheMetricsFactory.getLongGauge("EVCacheClientPool-haveInstancesInServerGroupChanged",tags).set(Long.valueOf(3));
                             return true;

@@ -361,11 +361,10 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                             + "; Message : " + val.getMessage() + "; Elapsed Time - " + (operationDuration.getDuration(TimeUnit.MILLISECONDS)));
 
                     getCounter(AOA_APPEND_OPERATION_SUCCESS_STRING).increment();
-                    rv.set(val.isSuccess(), val);
+                    rv.set(Boolean.TRUE, val);
                     appendSuccess = true;
                 } else {
                     getCounter("AoA-AppendOperation-FAIL").increment();
-                    appendSuccess = false;
                 }
             }
 
@@ -377,26 +376,27 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 } else {
                     Operation op = opFact.store(StoreType.add, key, co.getFlags(), exp, co.getData(), new StoreOperation.Callback() {
                         @Override
-                        public void receivedStatus(OperationStatus val) {
+                        public void receivedStatus(OperationStatus addStatus) {
                             operationDuration.stop();
-                            if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Ad Operation): " + key + "; Status : " + val.getStatusCode().name()
-                                    + "; Message : " + val.getMessage() + "; Elapsed Time - " + (operationDuration.getDuration(TimeUnit.MILLISECONDS)));
-                            rv.set(val.isSuccess(), val);
-                            if(val.isSuccess()) {
+                            if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Ad Operation): " + key + "; Status : " + addStatus.getStatusCode().name()
+                                    + "; Message : " + addStatus.getMessage() + "; Elapsed Time - " + (operationDuration.getDuration(TimeUnit.MILLISECONDS)));
+                            if(addStatus.isSuccess()) {
+                                rv.set(Boolean.TRUE, addStatus);
                                 appendSuccess = true;
                                 getCounter(AOA_ADD_OPERATION_SUCCESS_STRING).increment();
                             } else {
                                 getCounter("AoA-AddOperation-FAIL").increment();
                                 Operation op = opFact.cat(ConcatenationType.append, 0, key, co.getData(),
                                         new OperationCallback() {
-                                    public void receivedStatus(OperationStatus val) {
-                                        if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
-                                            if (log.isDebugEnabled()) log.debug("AddOrAppend Retry append Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
-                                                    + "; Message : " + val.getMessage() + "; Elapsed Time - " + (operationDuration.getDuration(TimeUnit.MILLISECONDS)));
+                                    public void receivedStatus(OperationStatus retryAppendStatus) {
+                                        if (retryAppendStatus.getStatusCode().equals(StatusCode.SUCCESS)) {
+                                            rv.set(Boolean.TRUE, retryAppendStatus);
+                                            if (log.isDebugEnabled()) log.debug("AddOrAppend Retry append Key (Append Operation): " + key + "; Status : " + retryAppendStatus.getStatusCode().name()
+                                                    + "; Message : " + retryAppendStatus.getMessage() + "; Elapsed Time - " + (operationDuration.getDuration(TimeUnit.MILLISECONDS)));
 
                                             getCounter("AoA-RetryAppendOperation-SUCCESS").increment();
-                                            rv.set(val.isSuccess(), val);
                                         } else {
+                                            rv.set(Boolean.FALSE, retryAppendStatus);
                                             getCounter("AoA-RetryAppendOperation-FAIL").increment();
                                         }
                                     }

@@ -401,6 +401,10 @@ final public class EVCacheImpl implements EVCache {
         try {
             if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
             return client.get(canonicalKey, tc, throwException, hasZF);
+        } catch (EVCacheConnectException ex) {
+            if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheConnectException while getting data for APP " + _appName + ", key : " + canonicalKey + "; hasZF : " + hasZF, ex);
+            if (!throwException || hasZF) return null;
+            throw ex;
         } catch (EVCacheReadQueueException ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheReadQueueException while getting data for APP " + _appName + ", key : " + canonicalKey + "; hasZF : " + hasZF, ex);
             if (!throwException || hasZF) return null;

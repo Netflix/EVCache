@@ -79,8 +79,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         evCacheInActiveStringSet.put(inetAdd, Long.valueOf(System.currentTimeMillis()));
         evCacheActiveStringSet.remove(inetAdd);
         if (instanceInfo != null) {
-            if (log.isDebugEnabled()) log.debug(appName + ":CONNECTION LOST : From " + instanceInfo.getHostName()
-                    + " to " + address);
+            if (log.isDebugEnabled()) log.debug(appName + ":CONNECTION LOST : From " + instanceInfo.getHostName() + " to " + address);
         }
         if(log.isTraceEnabled()) log.trace("Stack", new Exception());
         final Tag tag = new BasicTag("HOST", inetAdd.getAddress().getHostAddress());
