@@ -41,7 +41,7 @@ public class FailedWriteConsumer implements Runnable {
         this.poolManager = poolManager;
         this.transcoder = new CachedDataTranscoder();
         propertyMap = new HashMap<String, ChainedDynamicProperty.BooleanProperty>();
-        final String consumerId = "FailWriteFixer-" + System.currentTimeMillis();
+        final String consumerId = "FailedWriteFixer" ;
         Map<String, Object> map = new HashMap<String, Object>();
         map.put("group.id", consumerId);
         map.put("client.id", consumerId);
