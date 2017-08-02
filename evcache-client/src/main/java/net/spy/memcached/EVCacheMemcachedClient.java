@@ -125,7 +125,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     if(getDataSize == null) getDataSize = EVCacheMetricsFactory.getDistributionSummary(appName + "-GetOperation-DataSize", appName, serverGroup.getName());
                     if (getDataSize != null) getDataSize.record(data.length);
                 }
-                if (!key.equals(k)) log.warn("Wrong key returned. Key - " + key + "; Returned Key " + k);
+                if (!key.equals(k)) log.warn("Wrong key returned. Key - {}; Returned Key {}", key, k);
                 if (tc == null) {
                     if (tcService == null) {
                         log.error("tcService is null, will not be able to decode");
@@ -242,7 +242,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             }
 
             public void gotData(String k, int flags, long cas, byte[] data) {
-                if (!key.equals(k)) log.warn("Wrong key returned. Key - " + key + "; Returned Key " + k);
+                if (!key.equals(k)) log.warn("Wrong key returned. Key - {}; Returned Key {}", key, k);
                 if (data != null)  {
                     if(getAndTouchDataSize == null) getAndTouchDataSize = EVCacheMetricsFactory.getDistributionSummary(appName + "-GATOperation-DataSize", appName, serverGroup.getName());
                     if (getAndTouchDataSize != null) getAndTouchDataSize.record(data.length);

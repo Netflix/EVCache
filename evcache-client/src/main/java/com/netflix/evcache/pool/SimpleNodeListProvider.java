@@ -75,7 +75,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
             }
 
             currentNodeList = nodeListString;
-            log.debug("List by Servergroup" + instancesSpecific);
+            log.debug("List by Servergroup {}", instancesSpecific);
             return instancesSpecific;
         }
 

@@ -143,10 +143,10 @@ public class EVCacheInMemoryCache<T> {
                             } catch (DataNotFoundException e) {
                                 throw e;
                             } catch (EVCacheException e) {
-                                log.error("EVCacheException while loading key -> "+ key, e);
+                                log.error("EVCacheException while loading key -> {}", key, e);
                                 throw e;
                             } catch (Exception e) {
-                                log.error("EVCacheException while loading key -> "+ key, e);
+                                log.error("Exception while loading key -> {}", key, e);
                                 throw new EVCacheException("key : " + key + " could not be loaded", e);
                             }
                         }
@@ -164,7 +164,7 @@ public class EVCacheInMemoryCache<T> {
                                         }
                                         return t;
                                     } catch (EVCacheException e) {
-                                        log.error("EVCacheException while reloading key -> "+ key, e);
+                                        log.error("EVCacheException while reloading key -> {}", key, e);
                                         EVCacheMetricsFactory.increment(appName, null, null, "EVCacheInMemoryCache" + "-" + appName + "-Reload-Fail");
                                         return prev;
                                     }
@@ -199,7 +199,7 @@ public class EVCacheInMemoryCache<T> {
             @Override
             public Number getValue() {
                 if (getCache() == null) return Long.valueOf(0);
-                log.debug("Current size is : " + getCache().size());
+                log.debug("Current size is : {}", getCache().size());
                 return Long.valueOf(getCache().size());
             }
 

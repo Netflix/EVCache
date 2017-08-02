@@ -75,8 +75,9 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
 
             /* Only AWS instances are usable; bypass all others */
             if (DataCenterInfo.Name.Amazon != dcInfo.getName() || !(dcInfo instanceof AmazonInfo)) {
-                log.error("This is not a AWSDataCenter. You will not be able to use Discovery Nodelist Provider. Cannot proceed. DataCenterInfo : "
-                        + dcInfo + "; appName - " + _appName + ". Please use SimpleNodeList provider and specify the server groups manually.");
+                log.error("This is not an AWSDataCenter. You will not be able to use Discovery Nodelist Provider. Cannot proceed. " +
+                          "DataCenterInfo : {}; appName - {}. Please use SimpleNodeList provider and specify the server groups manually.",
+                          dcInfo, _appName);
                 continue;
             }
 
