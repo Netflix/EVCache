@@ -1,0 +1,85 @@
+#!/bin/bash
+#
+# nflx-memcache
+#
+
+. /etc/rc.d/init.d/functions
+. /etc/profile.d/netflix_environment.sh
+set -x
+
+service=nflx-memcache
+subsys_lock="/var/lock/subsys/${service}"
+daemontools_service=/service/nflx-memcache
+#typeset -x `stat --printf "userowner=%U\ngroupowner=%G\n" /apps`
+
+if [ `whoami` != "root" ]; then
+    sudo su - root -c "$*"
+fi
+
+isRunning() {
+  echo `(svstat ${daemontools_service} | grep pid >& /dev/null) && echo up || echo down`
+}
+
+stop() {
+    touch ${daemontools_service}/down
+    /command/svc -d ${daemontools_service}
+    for i in {0..45}; do
+        if [ "$(isRunning)" == "down" ]; then
+            return 0
+        fi
+        sleep 1
+    done
+    return 1
+}
+
+start() {
+    rm -f ${daemontools_service}/down
+    /command/svc -u ${daemontools_service}
+}
+
+restart() {
+    /command/svc -t ${daemontools_service}
+}
+
+case $1 in
+
+start)
+    echo -n "${service}: "
+    start
+    if [ $? -eq 0 ]
+    then
+        success
+        touch $subsys_lock
+    else
+        failure
+    fi
+    echo
+    ;;
+stop)
+    echo -n "$service:  "
+    stop
+    if [ $? -eq 0 ]
+    then
+        success
+        rm -f $subsys_lock
+    else
+        failure
+    fi
+    echo
+    ;;
+restart)
+    echo -n "${service}: "
+    restart
+    if [ $? -eq 0 ]
+    then
+        success
+        touch $subsys_lock
+    else
+        failure
+    fi
+    echo
+    ;;
+  *)
+    echo "Usage: service ${service} {start|stop|restart}"
+    exit 1
+esac

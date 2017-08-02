@@ -1,0 +1,83 @@
+apply plugin: 'nebula'
+apply plugin: 'nebula.ospackage'
+apply plugin: 'netflix.ospackage-tomcat'
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'war'
+apply plugin: 'nebula.dependency-recommender'
+apply plugin: 'groovy'
+
+nebula {
+    moduleOwner = 'dlevcachedev@netflix.com'
+}
+
+repositories {
+        mavenLocal()
+        mavenCentral() // maven { url 'http://jcenter.bintray.com' }
+}
+
+configurations.all {
+    resolutionStrategy {
+    }
+    
+    exclude group: 'avro', module: 'avro'
+    exclude group: 'avro', module: 'avro-compiler'
+}
+
+dependencyRecommendations {
+    mavenBom module: "netflix:runtime-platform-recommendations:latest.release"
+}
+
+dependencies {
+    compile 'netflix:platform'
+    compile 'netflix:base-server'
+    compile 'netflix:atlas-client'
+    compile 'netflix:nflibrary'
+    compile 'netflix:evcache-client2'
+    compile 'org.apache.parquet:parquet-avro:1.9.0'
+    compile 'org.apache.hadoop:hadoop-client:2.7.3'
+    
+	provided 'org.testng:testng'
+    testCompile 'org.mockito:mockito-core'
+    testCompile 'netflix:nflibrary-junit-util'
+}
+
+war {
+    from('WebRoot')
+    webXml = file('WebRoot/WEB-INF/web.xml')
+    webInf{
+        from('conf') {
+            include '*.properties'
+            include '*.keystore'
+            into('classes')
+        }
+    }
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs  = ['src/main/java']
+            include '**/*.*'
+        }
+    }
+    test {
+        java {
+            srcDirs  = ['src/test/java']
+            include '**/*.*'
+        }
+        resources {
+            srcDirs = ['src/test/resources']
+            include '*'
+        }
+    }
+}
+
+ospackage {
+    from(tasks.war.outputs) {
+        into '/apps/tomcat/webapps'
+        rename '.*', 'ROOT.war'
+    }
+    requires('nflx-memcached')
+    postInstall file('scripts/postInstall.sh')
+}

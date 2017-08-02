@@ -1,0 +1,142 @@
+#!/bin/bash
+exec 2>&1
+ulimit -n 100000
+ulimit -u 10240
+export PATH=/command:/usr/local/bin:/usr/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin:/usr/X11R6/bin
+source /etc/profile.d/netflix_environment.sh
+
+if [ "$NETFLIX_ENVIRONMENT" == "persistence_test" ]; then
+	export NETFLIX_ENVIRONMENT="test"
+fi
+if [ "$NETFLIX_ENVIRONMENT" == "persistence_prod" ]; then
+	export NETFLIX_ENVIRONMENT="prod"
+fi
+
+portParam="-p 11211"
+propsurl="http://localhost:8077/props/evcacheNextMemcachedStartParams"
+if [ "$EVCACHE_SERVER_TYPE" = "moneta" ]; then
+	propsurl="http://localhost:8077/props/rendMemcachedParams"
+	portParam=""
+fi
+echo $propsurl
+echo $portParam
+
+getMemcachedParams() {
+	counter="0"
+	responde_code="200"
+	memcachedParams_file="/apps/memcached/memcached_params.txt"
+	if [ -f $memcachedParams_file ] && [ -s $memcachedParams_file ]
+	  then 
+            echo "file exists and non-empty"
+            tmp_propValue=$(cat $memcachedParams_file |jq '.value')
+            memcachedParams=$(echo $tmp_propValue | sed 's/"//g')
+            echo $memcachedParams
+            return 0;
+        else 
+           echo "File doesn't exist"
+           echo "Getting Startup Parameters"
+           while [ $counter -lt 5 ]
+           do
+              counter=$[$counter+1]
+              echo "counter is $counter"
+              response=$(curl -I ${propsurl} 2>/dev/null | head -n 1 | cut -d$' ' -f2)
+              echo "Response from fastProperty call is $response"
+              if [ "$response" == "$responde_code" ] ; then
+                 echo "Response from fastProperty Endpoint is : 200"
+                 echo "Removing file $memcachedParams_file"
+                 [ -f "$memcachedParams_file" ] && rm -f $memcachedParams_file
+                    touch $memcachedParams_file
+                    result=$(curl ${propsurl} | tee -a $memcachedParams_file)
+                    tmp_propValue=$(cat $memcachedParams_file | jq '.value')
+                    memcachedParams=$(echo $tmp_propValue | sed 's/"//g')
+                    echo $memcachedParams
+                    return 0;
+              else
+                    sleep 1m
+              fi
+           done
+          return 1     
+        fi
+}
+
+isProcessRunning() {
+   if [ $(pidof $1) > /dev/null ];
+      then
+         return 0;
+       else
+         return 1;
+   fi;
+}
+
+waitForProcesstoStart() {
+   counter="0"
+   while [ $counter -lt 5 ]
+   do
+    counter=$[$counter+1]
+    echo "process check counter is $counter"
+    isProcessRunning $1
+       if [ "$?" = "0" ]; then
+         echo "$1 is running , process check counter is $counter"
+        return 0;
+       else
+         echo "$1 process is not running, process check counter is $counter"
+         sleep 30
+       fi
+   done
+   echo "$1 process failed to start .Please check daemontool script for this process $1"
+   return 1;
+}
+
+function heapSize {
+   instanceType=""
+   if [ "$EC2_INSTANCE_TYPE" != "" ]; then
+       instanceType="$EC2_INSTANCE_TYPE"
+   fi
+
+   # r3.large - leave previous algo, larger memory, use new one
+   # new: 2 GB for other apps, 1.5GB for networking overhead
+   # ssd: need to reserve memory for in-memory indices
+   if [[ $instanceType = i* ]]; then
+       let CACHESIZE=`/usr/bin/python -c "print int(($MB-2000-1500-6000)/1.03)"`
+   else
+       if [ $MB -gt 20000 ]; then
+           let CACHESIZE=`/usr/bin/python -c "print int(($MB-2000-1500-500)/1.03)"`
+       else
+           let CACHESIZE=($MB/1000*1000)-2000
+       fi
+   fi
+
+   echo $CACHESIZE;
+   return 0;
+}
+
+getMemcachedParams
+if [ "$?" = "0" ]; then
+        echo "Getting memcached startup Parameters was successful"	
+else
+	echo "Unable to get memcached startup Parameters" 1>&2
+	exit 1
+fi
+echo $memcachedParams
+
+let MB=`free -m | grep '^Mem:' | awk '{print $2}'`
+
+if [ $MB -lt 7000 ] ; then
+echo "total memory = $MB MB, heap too small"
+exit 0
+fi
+
+CACHESIZE=$(heapSize)
+
+command="/apps/memcached/bin/memcached"
+
+typeset -x `stat --printf "userowner=%U\ngroupowner=%G\n" $command`
+
+if [ -e /apps/atlas-agent/bin/recordProgramStart.py ]; then
+/apps/atlas-agent/bin/recordProgramStart.py --program=nflx-memcache
+fi
+
+startUpParams="$memcachedParams "
+echo "starting memcached with $portParam $startUpParams"
+exec /usr/local/bin/setuidgid $userowner $command $portParam -u $NETFLIX_APPUSER -l 0.0.0.0 -m $CACHESIZE $startUpParams
+

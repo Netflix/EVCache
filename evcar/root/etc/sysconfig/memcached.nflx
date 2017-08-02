@@ -1,0 +1,22 @@
+#[Last updated $DateTime: 2014/03/03 17:47:00 $ by $Author: smadappa $]
+#DEFAULTS for EVCACHE (can be overriden via userdata)
+let GB=`free -m | grep '^Mem:' | awk '{print $2}'`/1000
+  if [ $GB -ge 64 ] ; then CACHESIZE=63500 
+elif [ $GB -ge 34 ] ; then CACHESIZE=31500 
+elif [ $GB -ge 28 ] ; then CACHESIZE=25500 
+elif [ $GB -ge 24 ] ; then CACHESIZE=21500 
+elif [ $GB -ge 20 ] ; then CACHESIZE=17500 
+elif [ $GB -ge 17 ] ; then CACHESIZE=14200 
+elif [ $GB -ge 16 ] ; then CACHESIZE=13500 
+elif [ $GB -ge 14 ] ; then CACHESIZE=12000 
+elif [ $GB -ge 12 ] ; then CACHESIZE=10000 
+elif [ $GB -ge  7 ] ; then CACHESIZE=5000  
+else
+    echo "total memory = $GB GB, heap too small"
+    exit 0
+fi
+
+PORT="11211"
+USER="nobody"
+MAXCONN="32768"
+OPTIONS="-o slab_reassign,slab_automove -l 0.0.0.0 -I 2m -f 1.05"
