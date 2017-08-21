@@ -204,9 +204,15 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
         completeCount++;
         EVCacheMetricsFactory.increment(appName, null, "EVCacheLatchImpl-OnComplete");
         if(evcacheEvent != null) {
-            if (log.isDebugEnabled()) log.debug(";App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
-            if(future.isDone() && future.get().equals(Boolean.FALSE)) {
+            try {
+                if (log.isDebugEnabled()) log.debug(";App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
+                if(future.isDone() && future.get().equals(Boolean.FALSE)) {
+                    failureCount++;
+                }
+            } catch(Exception e) {
+                EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete-checkFail");
                 failureCount++;
+                log.error("Exception checking the future" , e);
             }
             if(!onCompleteDone && getCompletedCount() >= getExpectedSuccessCount()) {
                 if(evcacheEvent.getClients().size() > 0) {
@@ -371,6 +377,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                 try {
                     fail = future.get().equals(Boolean.FALSE);
                 } catch (Exception e) {
+                    EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-Future-checkFail");
                     fail = true;
                     if(log.isDebugEnabled()) log.debug(e.getMessage(), e);
                 }

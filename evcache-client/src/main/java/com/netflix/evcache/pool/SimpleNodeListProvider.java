@@ -34,6 +34,12 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
      * instance03:port;setname1=instance11:port,instance12:port,instance13:port;
      * setname2=instance21:port,instance22:port,instance23:port
      * 
+     * or 
+     * 
+     * <EVCACHE_APP>-NODES=zone0:setname0=instance01:port,instance02:port,
+     * instance03:port;zone1:setname1=instance11:port,instance12:port,instance13:port;
+     * zone2:setname2=instance21:port,instance22:port,instance23:port
+     * 
      */
     @Override
     public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances() throws IOException {
@@ -51,7 +57,14 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
                     final String instanceToken = replicaSetTokenizer.nextToken();
                     final StringTokenizer instanceTokenizer = new StringTokenizer(instanceToken, ",");
                     final Set<InetSocketAddress> instanceList = new HashSet<InetSocketAddress>();
-                    final ServerGroup rSet = new ServerGroup(replicaSetToken, replicaSetToken);
+                    String zone = replicaSetToken;
+                    String name = replicaSetToken;
+                    int sIndex = replicaSetToken.indexOf(':');
+                    if(sIndex != -1) {
+                        zone = replicaSetToken.substring(0, sIndex);
+                        name = replicaSetToken.substring(sIndex + 1);
+                    }
+                    final ServerGroup rSet = new ServerGroup(zone, name);
                     final EVCacheServerGroupConfig config = new EVCacheServerGroupConfig(rSet, instanceList, 0, 0, 0);
                     instancesSpecific.put(rSet, config);
                     while (instanceTokenizer.hasMoreTokens()) {

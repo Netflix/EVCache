@@ -354,9 +354,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             boolean appendSuccess = false;
             @Override
             public void receivedStatus(OperationStatus val) {
-                operationDuration.stop();
                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
-                    operationDuration.stop();
                     if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Append Operation): " + key + "; Status : " + val.getStatusCode().name()
                             + "; Message : " + val.getMessage() + "; Elapsed Time - " + (operationDuration.getDuration(TimeUnit.MILLISECONDS)));
 
@@ -371,13 +369,13 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             @Override
             public void complete() {
                 if(appendSuccess)  {
+                    operationDuration.stop();
                     latch.countDown();
                     rv.signalComplete();
                 } else {
                     Operation op = opFact.store(StoreType.add, key, co.getFlags(), exp, co.getData(), new StoreOperation.Callback() {
                         @Override
                         public void receivedStatus(OperationStatus addStatus) {
-                            operationDuration.stop();
                             if (log.isDebugEnabled()) log.debug("AddOrAppend Key (Ad Operation): " + key + "; Status : " + addStatus.getStatusCode().name()
                                     + "; Message : " + addStatus.getMessage() + "; Elapsed Time - " + (operationDuration.getDuration(TimeUnit.MILLISECONDS)));
                             if(addStatus.isSuccess()) {
@@ -401,6 +399,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                                         }
                                     }
                                     public void complete() {
+                                        operationDuration.stop();
                                         latch.countDown();
                                         rv.signalComplete();
                                     }
@@ -418,6 +417,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                         @Override
                         public void complete() {
                             if(appendSuccess) {
+                                operationDuration.stop();
                                 latch.countDown();
                                 rv.signalComplete();
                             }
