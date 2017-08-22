@@ -14,7 +14,15 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.config.DynamicIntProperty;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.servo.DefaultMonitorRegistry;
+import com.netflix.servo.MonitorRegistry;
+import com.netflix.servo.annotations.DataSourceType;
+import com.netflix.servo.monitor.LongGauge;
+import com.netflix.servo.monitor.MonitorConfig;
+import com.netflix.servo.monitor.StepCounter;
+import com.netflix.servo.monitor.MonitorConfig.Builder;
 
 public class EVCacheScheduledExecutor extends ScheduledThreadPoolExecutor implements EVCacheScheduledExecutorMBean {
 
@@ -61,6 +69,38 @@ public class EVCacheScheduledExecutor extends ScheduledThreadPoolExecutor implem
         } catch (Exception e) {
             if (log.isDebugEnabled()) log.debug("Exception", e);
         }
+        final MonitorRegistry registry = DefaultMonitorRegistry.getInstance();
+
+        final Builder builder = MonitorConfig.builder("EVCacheScheduledExecutor.currentQueueSize").withTag(DataSourceType.GAUGE).withTag(EVCacheMetricsFactory.OWNER);
+        final LongGauge queueSize  = new LongGauge(builder.build()) {
+            @Override
+            public Number getValue() {
+                return Long.valueOf(getQueueSize());
+            }
+
+            @Override
+            public Number getValue(int pollerIndex) {
+                return getValue();
+            }
+        };
+        if (registry.isRegistered(queueSize)) registry.unregister(queueSize);
+        registry.register(queueSize);
+
+        final Builder builderTasks = MonitorConfig.builder("EVCacheScheduledExecutor.completedTaskCount").withTag(DataSourceType.COUNTER).withTag(EVCacheMetricsFactory.OWNER);
+        final StepCounter completedTaskCount = new StepCounter(builderTasks.build()) {
+            @Override
+            public Number getValue() {
+                return Long.valueOf(getCompletedTaskCount());
+            }
+
+            @Override
+            public Number getValue(int pollerIndex) {
+                return getValue();
+            }
+        };
+        if (registry.isRegistered(completedTaskCount)) registry.unregister(completedTaskCount);
+        registry.register(completedTaskCount);
+
     }
 
     public void shutdown() {
