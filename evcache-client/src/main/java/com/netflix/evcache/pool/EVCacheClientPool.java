@@ -33,6 +33,7 @@ import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicStringSetProperty;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
+import com.netflix.evcache.util.CircularIterator;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.ServerGroupCircularIterator;
 import com.netflix.servo.monitor.Monitors;
@@ -104,6 +105,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private final Map<InetSocketAddress, Long> evCacheDiscoveryConnectionLostSet = new ConcurrentHashMap<InetSocketAddress, Long>();
     private Map<String, ServerGroupCircularIterator> readServerGroupByZone = new ConcurrentHashMap<String, ServerGroupCircularIterator>();
     private ServerGroupCircularIterator memcachedFallbackReadInstances = new ServerGroupCircularIterator(Collections.<ServerGroup> emptySet());
+    private CircularIterator<EVCacheClient[]> allEVCacheWriteClients = new CircularIterator<EVCacheClient[]>(Collections.<EVCacheClient[]> emptyList());
     private final EVCacheNodeList provider;
 
     EVCacheClientPool(final String appName, final EVCacheNodeList provider, final ThreadPoolExecutor asyncRefreshExecutor, final EVCacheClientPoolManager manager) {
@@ -333,6 +335,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     EVCacheClient[] getAllWriteClients() {
         try {
+            if(allEVCacheWriteClients != null) {
+                final EVCacheClient[] clientArray = allEVCacheWriteClients.next();
+                if(clientArray != null && clientArray.length > 0 ) return clientArray;
+            }
             final EVCacheClient[] clientArr = new EVCacheClient[memcachedWriteInstancesByServerGroup.size()];
             int i = 0;
             for (ServerGroup serverGroup : memcachedWriteInstancesByServerGroup.keySet()) {
@@ -708,6 +714,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 return;
             }
 
+            boolean updateAllEVCacheWriteClients = false;
             for (Entry<ServerGroup, EVCacheServerGroupConfig> serverGroupEntry : instances.entrySet()) {
                 final ServerGroup serverGroup = serverGroupEntry.getKey();
                 final EVCacheServerGroupConfig config = serverGroupEntry.getValue();
@@ -777,8 +784,36 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                                       _appName, serverGroup.getName(), e);
                         }
                     }
-                    if (newClients.size() > 0) setupNewClientsByServerGroup(serverGroup, newClients);
+                    if (newClients.size() > 0) {
+                        setupNewClientsByServerGroup(serverGroup, newClients);
+                        updateAllEVCacheWriteClients = true;
+                    }
                 }
+            }
+            
+            if(updateAllEVCacheWriteClients) {
+                final List<EVCacheClient[]> newClients = new ArrayList<EVCacheClient[]>(_poolSize.get());
+                try {
+                    final int serverGroupSize = memcachedWriteInstancesByServerGroup.size();
+                    for(int ind = 0; ind < _poolSize.get(); ind++) {
+                        final EVCacheClient[] clientArr = new EVCacheClient[serverGroupSize];
+                        int i = 0;
+                        for (ServerGroup serverGroup : memcachedWriteInstancesByServerGroup.keySet()) {
+                            final List<EVCacheClient> clients = memcachedWriteInstancesByServerGroup.get(serverGroup);
+                            if (clients.size() == 1) {
+                                clientArr[i++] = clients.get(0); // frequently used usecase
+                            } else {
+                                final long currentVal = numberOfModOps.incrementAndGet();
+                                final int index = (int) (currentVal % clients.size());
+                                clientArr[i++] = (index < 0) ? clients.get(0) : clients.get(index);
+                            }
+                        }
+                        newClients.add(clientArr);
+                    }
+                } catch (Throwable t) {
+                    log.error("Exception trying to get an array of writable EVCache Instances", t);
+                }
+                allEVCacheWriteClients = new CircularIterator<EVCacheClient[]>(newClients);
             }
 
             // Check to see if a zone has been removed, if so remove them from
@@ -1035,6 +1070,11 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return (localServerGroupIterator == null) ? "NONE" : localServerGroupIterator.toString();
     }
 
+    @Override
+    public String getEVCacheWriteClientsCircularIterator() {
+        return (allEVCacheWriteClients == null) ? "NONE" : allEVCacheWriteClients.toString();
+    }
+
     public String getPoolDetails() {
         return toString();
     }
@@ -1054,6 +1094,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 + memcachedReadInstancesByServerGroup + ",\n\tmemcachedWriteInstancesByServerGroup="
                 + memcachedWriteInstancesByServerGroup + ",\n\treadServerGroupByZone="
                 + readServerGroupByZone + ",\n\tmemcachedFallbackReadInstances=" + memcachedFallbackReadInstances
+                + ", \n\tallEVCacheWriteClients=" + allEVCacheWriteClients
                 + "\n]";
     }
 
