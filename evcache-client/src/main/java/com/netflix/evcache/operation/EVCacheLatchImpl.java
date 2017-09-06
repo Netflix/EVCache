@@ -378,6 +378,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                 try {
                     fail = future.get().equals(Boolean.FALSE);
                 } catch (Exception e) {
+                    EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-Future-checkFail");
                     fail = true;
                     if(log.isDebugEnabled()) log.debug(e.getMessage(), e);
                 }

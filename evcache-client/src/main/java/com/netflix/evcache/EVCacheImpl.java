@@ -234,7 +234,7 @@ final public class EVCacheImpl implements EVCache {
     }
 
 
-    <T> T doGet(String canonicalKey , Transcoder<T> tc) throws EVCacheException {   
+    <T> T doGet(String canonicalKey , Transcoder<T> tc) throws EVCacheException {
         final boolean throwExc = doThrowException();
         EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
