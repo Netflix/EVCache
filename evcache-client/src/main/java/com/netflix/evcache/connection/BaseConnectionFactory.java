@@ -144,7 +144,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public ExecutorService getListenerExecutorService() {
-        return poolManager.getEVCacheScheduledExecutor();
+        return poolManager.getEVCacheExecutor();
     }
 
     public int getId() {

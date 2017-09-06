@@ -77,7 +77,8 @@ public class EVCacheClientPoolManager {
 
     private final Map<String, EVCacheClientPool> poolMap = new ConcurrentHashMap<String, EVCacheClientPool>();
     private final Map<EVCacheClientPool, ScheduledFuture<?>> scheduledTaskMap = new HashMap<EVCacheClientPool, ScheduledFuture<?>>();
-    private final EVCacheScheduledExecutor asyncExecutor; 
+    private final EVCacheScheduledExecutor asyncExecutor;
+    private final EVCacheExecutor syncExecutor;
     private final DiscoveryClient discoveryClient;
     private final ApplicationInfoManager applicationInfoManager;
     private final List<EVCacheEventListener> evcacheEventListenerList;
@@ -90,8 +91,10 @@ public class EVCacheClientPoolManager {
         this.discoveryClient = discoveryClient;
         this.connectionFactoryprovider = connectionFactoryprovider;
         this.evcacheEventListenerList = new ArrayList<EVCacheEventListener>();
-        this.asyncExecutor = new EVCacheScheduledExecutor(1,Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "async");
+        this.asyncExecutor = new EVCacheScheduledExecutor(1,Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "scheduled");
         asyncExecutor.prestartAllCoreThreads();
+        this.syncExecutor = new EVCacheExecutor(1,Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "pool");
+        syncExecutor.prestartAllCoreThreads();
 
         initAtStartup();
     }
@@ -211,6 +214,7 @@ public class EVCacheClientPoolManager {
     @PreDestroy
     public void shutdown() {
         asyncExecutor.shutdown();
+        syncExecutor.shutdown();
         for (EVCacheClientPool pool : poolMap.values()) {
             pool.shutdown();
         }
@@ -228,6 +232,10 @@ public class EVCacheClientPoolManager {
 
     public EVCacheScheduledExecutor getEVCacheScheduledExecutor() {
         return asyncExecutor;
+    }
+
+    public EVCacheExecutor getEVCacheExecutor() {
+        return syncExecutor;
     }
 
     private String getAppName(String _app) {
