@@ -201,7 +201,7 @@ public class EVCacheClient {
             final int size = evcNode.getReadQueueSize();
             final boolean canAddToOpQueue = size < maxReadQueueSize.get();
             if (log.isDebugEnabled()) log.debug("Current Read Queue Size - " + size + " for app " + appName + " & zone "
-                    + zone);
+                    + zone + " and node : " + evcNode);
             if (!canAddToOpQueue) {
                 EVCacheMetricsFactory.getCounter(appName + "-READ_QUEUE_FULL", evcNode.getBaseTags()).increment();
                 if (log.isDebugEnabled()) log.debug("Read Queue Full for Node : " + node + "; app : " + appName

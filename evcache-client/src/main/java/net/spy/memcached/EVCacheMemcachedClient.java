@@ -585,9 +585,13 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     }
 
     public void reconnectNode(EVCacheNodeImpl evcNode ) {
-        EVCacheMetricsFactory.getCounter(appName + "-RECONNECT", evcNode.getBaseTags()).increment();
-        evcNode.setConnectTime(System.currentTimeMillis());
-        mconn.queueReconnect(evcNode);
+        final long upTime = System.currentTimeMillis() - evcNode.getCreateTime();
+        if (log.isDebugEnabled()) log.debug("Reconnecting node : " + evcNode + "; UpTime : " + upTime);
+        if(upTime > 30000) { //not more than once every 30 seconds : TODO make this configurable
+            EVCacheMetricsFactory.getCounter(appName + "-RECONNECT", evcNode.getBaseTags()).increment();
+            evcNode.setConnectTime(System.currentTimeMillis());
+            mconn.queueReconnect(evcNode);
+        }
     }
     private final String BULK_OPERATION_STRING = "BulkOperation";
     private final String GET_OPERATION_STRING = "GetOperation";
