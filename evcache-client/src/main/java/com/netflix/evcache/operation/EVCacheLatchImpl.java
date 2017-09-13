@@ -3,6 +3,7 @@ package com.netflix.evcache.operation;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -204,15 +205,14 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
         completeCount++;
         EVCacheMetricsFactory.increment(appName, null, "EVCacheLatchImpl-OnComplete");
         if(evcacheEvent != null) {
+            if (log.isDebugEnabled()) log.debug(";App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
             try {
-                if (log.isDebugEnabled()) log.debug(";App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
                 if(future.isDone() && future.get().equals(Boolean.FALSE)) {
                     failureCount++;
                 }
-            } catch(Exception e) {
-                EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-OnComplete-checkFail");
+            } catch (Exception e) {
                 failureCount++;
-                log.error("Exception checking the future" , e);
+                if(log.isDebugEnabled()) log.debug(e.getMessage(), e);
             }
             if(!onCompleteDone && getCompletedCount() >= getExpectedSuccessCount()) {
                 if(evcacheEvent.getClients().size() > 0) {
@@ -261,6 +261,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                     fail++;
                 }
             } catch (Exception e) {
+                fail++;
                 log.error(e.getMessage(), e);
             }
         }
