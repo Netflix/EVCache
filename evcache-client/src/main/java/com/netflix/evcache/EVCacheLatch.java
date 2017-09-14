@@ -175,4 +175,5 @@ public interface EVCacheLatch extends OperationCompletionListener {
      * @return the EVCacheEvent associated with this latch or null if there is none.
      */
     void setEVCacheEvent(EVCacheEvent event);
+
 }

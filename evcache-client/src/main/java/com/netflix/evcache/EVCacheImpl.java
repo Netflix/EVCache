@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -716,11 +715,11 @@ final public class EVCacheImpl implements EVCache {
             if (event != null) {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
                 event.setTTL(timeToLive);
-                //event.setLatch(latch);
                 if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
-                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
-                    latch.setScheduledFuture(scheduledFuture);
+                    latch.scheduledFutureValidation();
+//                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+//                    latch.setScheduledFuture(scheduledFuture);
                 } else {
                     endEvent(event);
                 }
@@ -1121,11 +1120,11 @@ final public class EVCacheImpl implements EVCache {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
-                //event.setLatch(latch);
                 if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
-                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
-                    latch.setScheduledFuture(scheduledFuture);
+                    latch.scheduledFutureValidation();
+//                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+//                    latch.setScheduledFuture(scheduledFuture);
                 } else {
                     endEvent(event);
                 }
@@ -1290,8 +1289,9 @@ final public class EVCacheImpl implements EVCache {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
                 if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
-                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
-                    latch.setScheduledFuture(scheduledFuture);
+                    latch.scheduledFutureValidation();
+//                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+//                    latch.setScheduledFuture(scheduledFuture);
                 } else {
                     endEvent(event);
                 }
@@ -1530,11 +1530,11 @@ final public class EVCacheImpl implements EVCache {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
-                //event.setLatch(latch);
                 if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
-                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
-                    latch.setScheduledFuture(scheduledFuture);
+                    latch.scheduledFutureValidation();
+//                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+//                    latch.setScheduledFuture(scheduledFuture);
                 } else {
                     endEvent(event);
                 }
@@ -1616,11 +1616,11 @@ final public class EVCacheImpl implements EVCache {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
-                //event.setLatch(latch);
                 if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
-                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
-                    latch.setScheduledFuture(scheduledFuture);
+                    latch.scheduledFutureValidation();
+//                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+//                    latch.setScheduledFuture(scheduledFuture);
                 } else {
                     endEvent(event);
                 }
@@ -1781,11 +1781,12 @@ final public class EVCacheImpl implements EVCache {
                 event.setCanonicalKeys(Arrays.asList(canonicalKey));
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
-                //event.setLatch(latch);
                 if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
-                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(((EVCacheLatchImpl)latch), _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
-                    ((EVCacheLatchImpl)latch).setScheduledFuture(scheduledFuture);
+                    if(latch instanceof EVCacheLatchImpl)
+                    ((EVCacheLatchImpl)latch).scheduledFutureValidation();
+//                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(((EVCacheLatchImpl)latch), _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+//                    ((EVCacheLatchImpl)latch).setScheduledFuture(scheduledFuture);
                 } else {
                     endEvent(event);
                 }

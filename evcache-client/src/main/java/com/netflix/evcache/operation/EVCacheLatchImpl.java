@@ -3,7 +3,6 @@ package com.netflix.evcache.operation;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -16,6 +15,7 @@ import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.event.EVCacheEventListener;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.ServerGroup;
 
 import net.spy.memcached.internal.ListenableFuture;
@@ -376,7 +376,19 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             for (Future<Boolean> future : futures) {
                 boolean fail = false;
                 try {
-                    fail = future.get().equals(Boolean.FALSE);
+                    if(future.isDone()) {
+                        fail = future.get(0, TimeUnit.MILLISECONDS).equals(Boolean.FALSE);
+                    } else {
+                        long delayms = 0;
+                        if(scheduledFuture != null) {
+                            delayms = scheduledFuture.getDelay(TimeUnit.MILLISECONDS);
+                        }
+                        fail = future.get(delayms, TimeUnit.MILLISECONDS).equals(Boolean.FALSE);
+                        if(future instanceof EVCacheOperationFuture) {
+                            final EVCacheOperationFuture<Boolean> evcFuture = (EVCacheOperationFuture<Boolean>)future;
+                            EVCacheMetricsFactory.getStatsTimer(getAppName(), evcFuture.getServerGroup(), "LatchCheckWaitDuration-"+fail).record(delayms);
+                        }
+                    }
                 } catch (Exception e) {
                     EVCacheMetricsFactory.increment(evcacheEvent.getAppName(), evcacheEvent.getCacheName(), "EVCacheLatchImpl-Future-checkFail");
                     fail = true;
@@ -398,7 +410,6 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                         }
                     } else {
                         failCount++;
-                        
                     }
                 }
             }
@@ -452,6 +463,16 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     public void setScheduledFuture(ScheduledFuture<?> scheduledFuture) {
         this.scheduledFuture = scheduledFuture;
+    }
+
+    public void scheduledFutureValidation() {
+        if(evcacheEvent != null) {
+            final EVCacheClientPool pool = evcacheEvent.getEVCacheClientPool();
+            final ScheduledFuture<?> scheduledFuture = pool.getEVCacheClientPoolManager().getEVCacheScheduledExecutor().schedule(this, pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+            setScheduledFuture(scheduledFuture);
+        } else {
+            if(log.isWarnEnabled()) log.warn("Future cannot be scheduled as EVCacheEvent is null!");
+        }
     }
 
 }
