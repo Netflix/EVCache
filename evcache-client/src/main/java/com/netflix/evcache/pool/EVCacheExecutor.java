@@ -3,8 +3,6 @@ package com.netflix.evcache.pool;
 import java.lang.management.ManagementFactory;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -16,7 +14,15 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.config.DynamicIntProperty;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.servo.DefaultMonitorRegistry;
+import com.netflix.servo.MonitorRegistry;
+import com.netflix.servo.annotations.DataSourceType;
+import com.netflix.servo.monitor.LongGauge;
+import com.netflix.servo.monitor.MonitorConfig;
+import com.netflix.servo.monitor.MonitorConfig.Builder;
+import com.netflix.servo.monitor.StepCounter;
 
 public class EVCacheExecutor extends ThreadPoolExecutor implements EVCacheExecutorMBean {
 
@@ -63,6 +69,38 @@ public class EVCacheExecutor extends ThreadPoolExecutor implements EVCacheExecut
         } catch (Exception e) {
             if (log.isDebugEnabled()) log.debug("Exception", e);
         }
+        
+        final MonitorRegistry registry = DefaultMonitorRegistry.getInstance();
+
+        final Builder builderTasks = MonitorConfig.builder("EVCacheExecutor.completedTaskCount").withTag(DataSourceType.COUNTER).withTag(EVCacheMetricsFactory.OWNER);
+        final StepCounter completedTaskCount = new StepCounter(builderTasks.build()) {
+            @Override
+            public Number getValue() {
+                return Long.valueOf(getCompletedTaskCount());
+            }
+
+            @Override
+            public Number getValue(int pollerIndex) {
+                return getValue();
+            }
+        };
+        if (registry.isRegistered(completedTaskCount)) registry.unregister(completedTaskCount);
+        registry.register(completedTaskCount);
+
+        final Builder builder = MonitorConfig.builder("EVCacheExecutor.currentQueueSize").withTag(DataSourceType.GAUGE).withTag(EVCacheMetricsFactory.OWNER);
+        final LongGauge queueSize  = new LongGauge(builder.build()) {
+            @Override
+            public Number getValue() {
+                return Long.valueOf(getQueueSize());
+            }
+
+            @Override
+            public Number getValue(int pollerIndex) {
+                return getValue();
+            }
+        };
+        if (registry.isRegistered(queueSize)) registry.unregister(queueSize);
+        registry.register(queueSize);
     }
 
     public void shutdown() {

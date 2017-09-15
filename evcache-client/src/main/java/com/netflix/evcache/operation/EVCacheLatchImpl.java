@@ -378,11 +378,16 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                 try {
                     if(future.isDone()) {
                         fail = future.get(0, TimeUnit.MILLISECONDS).equals(Boolean.FALSE);
+                        if(future instanceof EVCacheOperationFuture) {
+                            final EVCacheOperationFuture<Boolean> evcFuture = (EVCacheOperationFuture<Boolean>)future;
+                            EVCacheMetricsFactory.increment(evcFuture.getApp(), null, evcFuture.getServerGroup().getName(), "EVCacheLatchImpl-Done");
+                        }
                     } else {
                         long delayms = 0;
                         if(scheduledFuture != null) {
                             delayms = scheduledFuture.getDelay(TimeUnit.MILLISECONDS);
                         }
+                        if(delayms < 0 ) delayms = 0;//making sure wait is not negative. It might be ok but as this is implementation dependent let us stick with 0
                         fail = future.get(delayms, TimeUnit.MILLISECONDS).equals(Boolean.FALSE);
                         if(future instanceof EVCacheOperationFuture) {
                             final EVCacheOperationFuture<Boolean> evcFuture = (EVCacheOperationFuture<Boolean>)future;

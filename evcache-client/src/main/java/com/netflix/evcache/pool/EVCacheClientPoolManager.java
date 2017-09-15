@@ -93,7 +93,7 @@ public class EVCacheClientPoolManager {
         this.evcacheEventListenerList = new ArrayList<EVCacheEventListener>();
         this.asyncExecutor = new EVCacheScheduledExecutor(Runtime.getRuntime().availableProcessors(),Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "scheduled");
         asyncExecutor.prestartAllCoreThreads();
-        this.syncExecutor = new EVCacheExecutor(1,Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "pool");
+        this.syncExecutor = new EVCacheExecutor(Runtime.getRuntime().availableProcessors(),Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "pool");
         syncExecutor.prestartAllCoreThreads();
 
         initAtStartup();
