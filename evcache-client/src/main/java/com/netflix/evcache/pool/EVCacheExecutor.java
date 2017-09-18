@@ -20,9 +20,9 @@ import com.netflix.servo.DefaultMonitorRegistry;
 import com.netflix.servo.MonitorRegistry;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.LongGauge;
+import com.netflix.servo.monitor.Monitor;
 import com.netflix.servo.monitor.MonitorConfig;
 import com.netflix.servo.monitor.MonitorConfig.Builder;
-import com.netflix.servo.monitor.StepCounter;
 
 public class EVCacheExecutor extends ThreadPoolExecutor implements EVCacheExecutorMBean {
 
@@ -72,8 +72,13 @@ public class EVCacheExecutor extends ThreadPoolExecutor implements EVCacheExecut
         
         final MonitorRegistry registry = DefaultMonitorRegistry.getInstance();
 
-        final Builder builderTasks = MonitorConfig.builder("EVCacheExecutor.completedTaskCount").withTag(DataSourceType.COUNTER).withTag(EVCacheMetricsFactory.OWNER);
-        final StepCounter completedTaskCount = new StepCounter(builderTasks.build()) {
+        registry.register(new Monitor<Number>() {
+            final MonitorConfig config;
+
+            {
+                config = MonitorConfig.builder("EVCacheExecutor.completedTaskCount").withTag(DataSourceType.COUNTER).withTag(EVCacheMetricsFactory.OWNER).build();
+            }
+
             @Override
             public Number getValue() {
                 return Long.valueOf(getCompletedTaskCount());
@@ -83,10 +88,13 @@ public class EVCacheExecutor extends ThreadPoolExecutor implements EVCacheExecut
             public Number getValue(int pollerIndex) {
                 return getValue();
             }
-        };
-        if (registry.isRegistered(completedTaskCount)) registry.unregister(completedTaskCount);
-        registry.register(completedTaskCount);
 
+            @Override
+            public MonitorConfig getConfig() {
+                return config;
+            }
+        });
+        
         final Builder builder = MonitorConfig.builder("EVCacheExecutor.currentQueueSize").withTag(DataSourceType.GAUGE).withTag(EVCacheMetricsFactory.OWNER);
         final LongGauge queueSize  = new LongGauge(builder.build()) {
             @Override

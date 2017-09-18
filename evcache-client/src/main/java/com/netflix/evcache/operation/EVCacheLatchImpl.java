@@ -39,6 +39,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     private int completeCount = 0;
     private int failureCount = 0;
     private ScheduledFuture<?> scheduledFuture;
+    private final long startTimeMS;
 
     public EVCacheLatchImpl(Policy policy, int _count, String appName) {
         this.policy = policy;
@@ -47,6 +48,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
         this.totalFutureCount = _count;
         this.expectedCompleteCount = policyToCount(policy, _count);
         this.latch = new CountDownLatch(expectedCompleteCount);
+        this.startTimeMS = System.currentTimeMillis();
 
         if (log.isDebugEnabled()) log.debug("Number of Futures = " + _count + "; Number of Futures that need to completed for Latch to be released = " + this.expectedCompleteCount);
     }
@@ -203,6 +205,11 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
         if (log.isDebugEnabled()) log.debug("BEGIN : onComplete - Calling Countdown. Completed Future = " + future + "; App : " + appName); 
         countDown();
         completeCount++;
+        if(getCompletedCount() >= getExpectedSuccessCount()) {
+            final String cachePrefix = null;
+            EVCacheMetricsFactory.getStatsTimer(getAppName(), cachePrefix, "LatchPolicyDuration").record(System.currentTimeMillis() - startTimeMS);
+            if (log.isDebugEnabled()) log.debug("Future policy satisfied. Last Completed Future = " + future + ". Took " + (System.currentTimeMillis() - startTimeMS) + " milliseconds"); 
+        }
         EVCacheMetricsFactory.increment(appName, null, "EVCacheLatchImpl-OnComplete");
         if(evcacheEvent != null) {
             if (log.isDebugEnabled()) log.debug(";App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);

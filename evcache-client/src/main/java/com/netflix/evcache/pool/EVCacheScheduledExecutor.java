@@ -20,8 +20,8 @@ import com.netflix.servo.DefaultMonitorRegistry;
 import com.netflix.servo.MonitorRegistry;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.LongGauge;
+import com.netflix.servo.monitor.Monitor;
 import com.netflix.servo.monitor.MonitorConfig;
-import com.netflix.servo.monitor.StepCounter;
 import com.netflix.servo.monitor.MonitorConfig.Builder;
 
 public class EVCacheScheduledExecutor extends ScheduledThreadPoolExecutor implements EVCacheScheduledExecutorMBean {
@@ -86,8 +86,13 @@ public class EVCacheScheduledExecutor extends ScheduledThreadPoolExecutor implem
         if (registry.isRegistered(queueSize)) registry.unregister(queueSize);
         registry.register(queueSize);
 
-        final Builder builderTasks = MonitorConfig.builder("EVCacheScheduledExecutor.completedTaskCount").withTag(DataSourceType.COUNTER).withTag(EVCacheMetricsFactory.OWNER);
-        final StepCounter completedTaskCount = new StepCounter(builderTasks.build()) {
+        registry.register(new Monitor<Number>() {
+            final MonitorConfig config;
+
+            {
+                config = MonitorConfig.builder("EVCacheScheduledExecutor.completedTaskCount").withTag(DataSourceType.COUNTER).withTag(EVCacheMetricsFactory.OWNER).build();
+            }
+
             @Override
             public Number getValue() {
                 return Long.valueOf(getCompletedTaskCount());
@@ -97,10 +102,12 @@ public class EVCacheScheduledExecutor extends ScheduledThreadPoolExecutor implem
             public Number getValue(int pollerIndex) {
                 return getValue();
             }
-        };
-        if (registry.isRegistered(completedTaskCount)) registry.unregister(completedTaskCount);
-        registry.register(completedTaskCount);
 
+            @Override
+            public MonitorConfig getConfig() {
+                return config;
+            }
+        });
     }
 
     public void shutdown() {
