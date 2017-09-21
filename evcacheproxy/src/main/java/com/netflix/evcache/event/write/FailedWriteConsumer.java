@@ -24,6 +24,7 @@ import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.nfkafka.NFKafkaConsumerBuilder;
 import com.netflix.nfkafka.schlep.consumer.IncomingMessage;
 import com.netflix.nfkafka.schlep.serializer.MessageAttributes;
+import com.netflix.servo.monitor.DynamicCounter;
 
 import net.spy.memcached.CachedData;
 
@@ -170,6 +171,7 @@ public class FailedWriteConsumer implements Runnable {
 
     private void deleteData(String key, EVCacheClient client, String op) throws Exception {
         if(op.equals("SET") || op.equals("DELETE")) {
+            DynamicCounter.increment("FailedWriteConsumer-Delete", "APP" , client.getAppName(), "ServerGroup", client.getServerGroup().getName(), "Operation", op);
             client.delete(key);
         }
     }
