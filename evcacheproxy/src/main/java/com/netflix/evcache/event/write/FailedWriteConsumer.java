@@ -73,7 +73,7 @@ public class FailedWriteConsumer implements Runnable {
             try {
                 ConsumerRecords<Void, IncomingMessage> records = consumer.poll(500);
                 if(records.isEmpty()) {
-                    if(log.isDebugEnabled()) log.debug("No records : sleeping for 30 seconds ");
+                    if(log.isDebugEnabled()) log.debug("No records : sleeping for 10 seconds ");
                     Thread.sleep(10000);
                     continue;
                 }
