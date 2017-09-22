@@ -80,7 +80,6 @@ public class FailedWriteConsumer implements Runnable {
                 }
                 if(log.isInfoEnabled()) log.info("Got " +records.count() + " records from kafka");
                 for (ConsumerRecord<Void, IncomingMessage> record : records) {
-                    
                     if(log.isDebugEnabled()) log.debug("\n\nRecord : " + i++ );
                     final IncomingMessage msg = record.value();
                     try {
@@ -112,6 +111,7 @@ public class FailedWriteConsumer implements Runnable {
                             }
                             if(log.isDebugEnabled()) log.debug("appName : " + appName);
                             if(log.isDebugEnabled()) log.debug("serverGroup : " + serverGroup);
+                            DynamicCounter.increment("FailedWriteConsumer-Process", "APP" , appName, "ServerGroup", serverGroup, "Operation", op);
                             if(appName != null && shouldProcess(appName)) {
                                 final Map<ServerGroup, List<EVCacheClient>> pools = poolManager.getEVCacheClientPool(appName).getAllInstancesByZone();
                                 for(Entry<ServerGroup, List<EVCacheClient>> entry : pools.entrySet()) {
@@ -123,23 +123,25 @@ public class FailedWriteConsumer implements Runnable {
                                                 if(log.isDebugEnabled()) log.debug("Read data : Length : " + data.getData().length + " ; flags : " + data.getFlags());
                                                 if(data.getFlags() != Integer.parseInt(flagString)) {
                                                     if(log.isDebugEnabled()) log.debug("deleting because of incorrect flag : Actual Flag :" + flagString + "; Stored Flag :" + data.getFlags());
-                                                    deleteData(key, client, op);
+                                                    deleteData(key, client, op, "Flag");
                                                     break;
                                                 }
                                                 if(data.getData().length != Integer.parseInt(lengthString)) {
                                                     if(log.isDebugEnabled()) log.debug("deleting because of incorrect size : Actual Size :" + lengthString + "; Stored Size :" + data.getData().length);
-                                                    deleteData(key, client, op);
+                                                    deleteData(key, client, op, "Length");
                                                     break;
                                                 }
                                                 final Checksum checksum = new CRC32();
                                                 checksum.update(data.getData(), 0, data.getData().length);
                                                 if(checksum.getValue() != Long.parseLong(checksumString)) {
                                                     if(log.isDebugEnabled()) log.debug("deleting because of incorrect checksum : Actual checksum :" + checksumString + "; Stored checksum :" + checksum.getValue());
-                                                    deleteData(key, client, op);
+                                                    deleteData(key, client, op, "Checksum");
                                                     break;
-                                                }
+                                                } 
+                                                DynamicCounter.increment("FailedWriteConsumer-DataMatch-Ignore", "APP" , client.getAppName(), "ServerGroup", client.getServerGroup().getName(), "Operation", op);
                                             } else {
                                                 if(log.isDebugEnabled()) log.debug("Read data is null. Ignoring this");
+                                                DynamicCounter.increment("FailedWriteConsumer-DataNotFound-Ignore", "APP" , client.getAppName(), "ServerGroup", client.getServerGroup().getName(), "Operation", op);
                                             }
                                         }
                                     }
@@ -169,9 +171,9 @@ public class FailedWriteConsumer implements Runnable {
         return prop.get().booleanValue();
     }
 
-    private void deleteData(String key, EVCacheClient client, String op) throws Exception {
+    private void deleteData(String key, EVCacheClient client, String op, String reason) throws Exception {
         if(op.equals("SET") || op.equals("DELETE")) {
-            DynamicCounter.increment("FailedWriteConsumer-Delete", "APP" , client.getAppName(), "ServerGroup", client.getServerGroup().getName(), "Operation", op);
+            DynamicCounter.increment("FailedWriteConsumer-Delete", "APP" , client.getAppName(), "ServerGroup", client.getServerGroup().getName(), "Operation", op, "Reason", reason);
             client.delete(key);
         }
     }
