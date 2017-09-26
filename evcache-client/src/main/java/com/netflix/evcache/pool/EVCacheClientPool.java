@@ -585,6 +585,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             memcachedReadInstancesByServerGroup.put(serverGroup, newClients);
         }
         memcachedWriteInstancesByServerGroup.put(serverGroup, newClients);
+        setupAllEVCacheWriteClientsArray();
 
         if (currentClients == null || currentClients.isEmpty()) return;
 
@@ -675,8 +676,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     private void cleanupMemcachedInstances(boolean force) {
         pingServers();
-        for (Iterator<Entry<ServerGroup, List<EVCacheClient>>> it = memcachedInstancesByServerGroup.entrySet()
-                .iterator(); it.hasNext();) {
+        for (Iterator<Entry<ServerGroup, List<EVCacheClient>>> it = memcachedInstancesByServerGroup.entrySet().iterator(); it.hasNext();) {
             final Entry<ServerGroup, List<EVCacheClient>> serverGroupEntry = it.next();
             final List<EVCacheClient> instancesInAServerGroup = serverGroupEntry.getValue();
             boolean removeEntry = false;
@@ -690,9 +690,9 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 final ServerGroup serverGroup = serverGroupEntry.getKey();
                 memcachedReadInstancesByServerGroup.remove(serverGroup);
                 memcachedWriteInstancesByServerGroup.remove(serverGroup);
+                setupAllEVCacheWriteClientsArray();
                 for (EVCacheClient client : instancesInAServerGroup) {
-                    if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
-                            + " has no active servers. Cleaning up this ServerGroup.");
+                    if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup + " has no active servers. Cleaning up this ServerGroup.");
                     client.shutdown(0, TimeUnit.SECONDS);
                     client.getConnectionObserver().shutdown();
                 }
@@ -732,6 +732,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     final List<EVCacheClient> clients = memcachedInstancesByServerGroup.remove(serverGroup);
                     memcachedReadInstancesByServerGroup.remove(serverGroup);
                     memcachedWriteInstancesByServerGroup.remove(serverGroup);
+                    setupAllEVCacheWriteClientsArray();
                     for (EVCacheClient client : clients) {
                         if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                                 + "\n\tClient : " + client + " will be shutdown in 30 seconds.");
@@ -792,28 +793,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             }
             
             if(updateAllEVCacheWriteClients) {
-                final List<EVCacheClient[]> newClients = new ArrayList<EVCacheClient[]>(_poolSize.get());
-                try {
-                    final int serverGroupSize = memcachedWriteInstancesByServerGroup.size();
-                    for(int ind = 0; ind < _poolSize.get(); ind++) {
-                        final EVCacheClient[] clientArr = new EVCacheClient[serverGroupSize];
-                        int i = 0;
-                        for (ServerGroup serverGroup : memcachedWriteInstancesByServerGroup.keySet()) {
-                            final List<EVCacheClient> clients = memcachedWriteInstancesByServerGroup.get(serverGroup);
-                            if (clients.size() == 1) {
-                                clientArr[i++] = clients.get(0); // frequently used usecase
-                            } else {
-                                final long currentVal = numberOfModOps.incrementAndGet();
-                                final int index = (int) (currentVal % clients.size());
-                                clientArr[i++] = (index < 0) ? clients.get(0) : clients.get(index);
-                            }
-                        }
-                        newClients.add(clientArr);
-                    }
-                } catch (Throwable t) {
-                    log.error("Exception trying to get an array of writable EVCache Instances", t);
-                }
-                allEVCacheWriteClients = new CircularIterator<EVCacheClient[]>(newClients);
+                setupAllEVCacheWriteClientsArray();
             }
 
             // Check to see if a zone has been removed, if so remove them from
@@ -833,6 +813,31 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
 
         if (log.isDebugEnabled()) log.debug("refresh APP : " + _appName + "; DONE");
+    }
+    
+    private void setupAllEVCacheWriteClientsArray() {
+        final List<EVCacheClient[]> newClients = new ArrayList<EVCacheClient[]>(_poolSize.get());
+        try {
+            final int serverGroupSize = memcachedWriteInstancesByServerGroup.size();
+            for(int ind = 0; ind < _poolSize.get(); ind++) {
+                final EVCacheClient[] clientArr = new EVCacheClient[serverGroupSize];
+                int i = 0;
+                for (ServerGroup serverGroup : memcachedWriteInstancesByServerGroup.keySet()) {
+                    final List<EVCacheClient> clients = memcachedWriteInstancesByServerGroup.get(serverGroup);
+                    if (clients.size() == 1) {
+                        clientArr[i++] = clients.get(0); // frequently used usecase
+                    } else {
+                        final long currentVal = numberOfModOps.incrementAndGet();
+                        final int index = (int) (currentVal % clients.size());
+                        clientArr[i++] = (index < 0) ? clients.get(0) : clients.get(index);
+                    }
+                }
+                newClients.add(clientArr);
+            }
+        } catch (Throwable t) {
+            log.error("Exception trying to get an array of writable EVCache Instances", t);
+        }
+        this.allEVCacheWriteClients = new CircularIterator<EVCacheClient[]>(newClients);
     }
 
     private void updateQueueStats() {
@@ -883,6 +888,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             final List<EVCacheClient> clients = memcachedInstancesByServerGroup.remove(serverGroup);
             memcachedReadInstancesByServerGroup.remove(serverGroup);
             memcachedWriteInstancesByServerGroup.remove(serverGroup);
+            setupAllEVCacheWriteClientsArray();
             for (EVCacheClient client : clients) {
                 if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                         + "\n\tClient : " + client + " will be shutdown in 30 seconds.");
