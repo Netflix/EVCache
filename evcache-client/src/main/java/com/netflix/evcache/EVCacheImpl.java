@@ -1043,8 +1043,7 @@ final public class EVCacheImpl implements EVCache {
             if (future instanceof EVCacheFuture) {
                 eFutures[i] = (EVCacheFuture) future;
             } else if (future instanceof EVCacheOperationFuture) {
-                eFutures[i] = new EVCacheFuture(futures.get(i), key, _appName, ((EVCacheOperationFuture<T>) futures.get(
-                        i)).getServerGroup());
+                eFutures[i] = new EVCacheFuture(futures.get(i), key, _appName, ((EVCacheOperationFuture<T>) futures.get(i)).getServerGroup());
             } else {
                 eFutures[i] = new EVCacheFuture(futures.get(i), key, _appName, null);
             }

@@ -824,13 +824,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 int i = 0;
                 for (ServerGroup serverGroup : memcachedWriteInstancesByServerGroup.keySet()) {
                     final List<EVCacheClient> clients = memcachedWriteInstancesByServerGroup.get(serverGroup);
-                    if (clients.size() == 1) {
-                        clientArr[i++] = clients.get(0); // frequently used usecase
-                    } else {
-                        final long currentVal = numberOfModOps.incrementAndGet();
-                        final int index = (int) (currentVal % clients.size());
-                        clientArr[i++] = (index < 0) ? clients.get(0) : clients.get(index);
-                    }
+                    clientArr[i++] = clients.get(ind); // frequently used usecase
                 }
                 newClients.add(clientArr);
             }
