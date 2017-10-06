@@ -244,6 +244,7 @@ final public class EVCacheImpl implements EVCache {
 
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(canonicalKey), Call.GET);
         if (event != null) {
+        	event.setCanonicalKeys(Arrays.asList(canonicalKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -334,8 +335,10 @@ final public class EVCacheImpl implements EVCache {
             return Single.error(new EVCacheException("Could not find a client to get the data APP " + _appName));
         }
 
+        final String canonicalKey = getCanonicalizedKey(key);
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key), Call.GET);
         if (event != null) {
+        	event.setCanonicalKeys(Arrays.asList(canonicalKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -347,7 +350,6 @@ final public class EVCacheImpl implements EVCache {
             startEvent(event);
         }
 
-        final String canonicalKey = getCanonicalizedKey(key);
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.GET, stats, Operation.TYPE.MILLI);
         final boolean hasZF = hasZoneFallback();
         boolean throwEx = hasZF ? false : throwExc;
@@ -463,8 +465,10 @@ final public class EVCacheImpl implements EVCache {
             return Single.error(new EVCacheException("Could not find a client to get and touch the data for APP " + _appName));
         }
 
+        final String canonicalKey = getCanonicalizedKey(key);
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key), Call.GET_AND_TOUCH);
         if (event != null) {
+        	event.setCanonicalKeys(Arrays.asList(canonicalKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -477,7 +481,6 @@ final public class EVCacheImpl implements EVCache {
             startEvent(event);
         }
 
-        final String canonicalKey = getCanonicalizedKey(key);
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.GET_AND_TOUCH, stats, Operation.TYPE.MILLI);
         final boolean hasZF = hasZoneFallback();
         boolean throwEx = hasZF ? false : throwExc;
@@ -573,6 +576,7 @@ final public class EVCacheImpl implements EVCache {
 
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(canonicalKey), Call.GET_AND_TOUCH);
         if (event != null) {
+        	event.setCanonicalKeys(Arrays.asList(canonicalKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -770,9 +774,11 @@ final public class EVCacheImpl implements EVCache {
             return null; // Fast failure
         }
 
+        final String canonicalKey = getCanonicalizedKey(key);
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Collections.singletonList(key),
                 Call.ASYNC_GET);
         if (event != null) {
+        	event.setCanonicalKeys(Arrays.asList(canonicalKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -791,7 +797,6 @@ final public class EVCacheImpl implements EVCache {
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.ASYNC_GET, stats,
                 Operation.TYPE.MILLI);
         try {
-            final String canonicalKey = getCanonicalizedKey(key);
             if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
             r = client.asyncGet(canonicalKey, tc, throwExc, false);
             if (event != null) endEvent(event);
@@ -841,8 +846,15 @@ final public class EVCacheImpl implements EVCache {
             return Collections.<String, T> emptyMap();// Fast failure
         }
 
+        final Collection<String> canonicalKeys = new ArrayList<String>();
+        /* Canonicalize keys and perform fast failure checking */
+        for (String k : keys) {
+            final String canonicalK = getCanonicalizedKey(k);
+            canonicalKeys.add(canonicalK);
+        }
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), keys, Call.BULK);
         if (event != null) {
+        	event.setCanonicalKeys(canonicalKeys);
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -858,12 +870,6 @@ final public class EVCacheImpl implements EVCache {
             startEvent(event);
         }
 
-        final Collection<String> canonicalKeys = new ArrayList<String>();
-        /* Canonicalize keys and perform fast failure checking */
-        for (String k : keys) {
-            final String canonicalK = getCanonicalizedKey(k);
-            canonicalKeys.add(canonicalK);
-        }
 
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.BULK, stats, Operation.TYPE.MILLI);
         try {
@@ -1325,9 +1331,11 @@ final public class EVCacheImpl implements EVCache {
             return -1;
         }
 
+        final String canonicalKey = getCanonicalizedKey(key);
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key),
                 Call.INCR);
         if (event != null) {
+        	event.setCanonicalKeys(Arrays.asList(canonicalKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -1345,7 +1353,6 @@ final public class EVCacheImpl implements EVCache {
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.INCR, stats, Operation.TYPE.MILLI);
         try {
             final long[] vals = new long[clients.length];
-            final String canonicalKey = getCanonicalizedKey(key);
             int index = 0;
             long currentValue = -1;
             for (EVCacheClient client : clients) {
@@ -1394,9 +1401,11 @@ final public class EVCacheImpl implements EVCache {
             return -1;
         }
 
+        final String canonicalKey = getCanonicalizedKey(key);
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key),
                 Call.DECR);
         if (event != null) {
+        	event.setCanonicalKeys(Arrays.asList(canonicalKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -1414,7 +1423,6 @@ final public class EVCacheImpl implements EVCache {
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.DECR, stats, Operation.TYPE.MILLI);
         try {
             final long[] vals = new long[clients.length];
-            final String canonicalKey = getCanonicalizedKey(key);
             int index = 0;
             long currentValue = -1;
             for (EVCacheClient client : clients) {
