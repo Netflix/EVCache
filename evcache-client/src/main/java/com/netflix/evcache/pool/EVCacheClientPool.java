@@ -690,14 +690,15 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 final ServerGroup serverGroup = serverGroupEntry.getKey();
                 memcachedReadInstancesByServerGroup.remove(serverGroup);
                 memcachedWriteInstancesByServerGroup.remove(serverGroup);
-                setupAllEVCacheWriteClientsArray();
                 for (EVCacheClient client : instancesInAServerGroup) {
                     if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup + " has no active servers. Cleaning up this ServerGroup.");
                     client.shutdown(0, TimeUnit.SECONDS);
                     client.getConnectionObserver().shutdown();
                 }
                 it.remove();
+                allEVCacheWriteClients = null;
             }
+
         }
     }
 
@@ -824,14 +825,21 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 int i = 0;
                 for (ServerGroup serverGroup : memcachedWriteInstancesByServerGroup.keySet()) {
                     final List<EVCacheClient> clients = memcachedWriteInstancesByServerGroup.get(serverGroup);
-                    clientArr[i++] = clients.get(ind); // frequently used usecase
+                    if(clients.size() > ind) {
+                    	clientArr[i++] = clients.get(ind); // frequently used usecase
+                    } else {
+                    	log.warn("Incorrect pool size detected for AppName : " + _appName + "; PoolSize " + _poolSize.get() + "; serverGroup : " + serverGroup + "; ind : " + ind + "; i : " + i);
+                    	if(clients.size() > 0) {
+                    		clientArr[i++] = clients.get(0);
+                    	}
+                    }
                 }
                 newClients.add(clientArr);
             }
+            this.allEVCacheWriteClients = new CircularIterator<EVCacheClient[]>(newClients);
         } catch (Throwable t) {
-            log.error("Exception trying to get an array of writable EVCache Instances", t);
+            log.error("Exception trying to create an array of writable EVCache Instances for App : " + _appName, t);
         }
-        this.allEVCacheWriteClients = new CircularIterator<EVCacheClient[]>(newClients);
     }
 
     private void updateQueueStats() {

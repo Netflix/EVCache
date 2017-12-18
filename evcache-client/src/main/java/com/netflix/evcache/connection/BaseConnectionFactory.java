@@ -155,8 +155,16 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
         return this.serverGroup.getZone();
     }
 
+    public String getServerGroupName() {
+        return this.serverGroup.getName();
+    }
+
     public String getReplicaSetName() {
         return this.serverGroup.getName();
+    }
+
+    public String getAppName() {
+        return this.appName;
     }
 
     public String toString() {
