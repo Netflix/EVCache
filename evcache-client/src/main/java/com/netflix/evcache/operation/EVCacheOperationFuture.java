@@ -146,18 +146,22 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                     if (gcStartTime > startTime) {
                         gcPause = true;
                         final long gcDuration = lastGcInfo.getDuration();
-                        EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DelayDueToGCPause", DataSourceType.COUNTER).increment(gcDuration);
-                        if (log.isDebugEnabled()) log.debug("Total duration due to gc event = " + gcDuration
-                                + " msec.");
+                        final long pauseDuration = System.currentTimeMillis() - gcStartTime;
+                        //EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, appName + "-DelayDueToGCPause").record(pauseDuration);
+                        EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, appName + "-GCPauseDuration").record(gcDuration);
+                        EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, appName + "-DelayDueToGCPause").record(pauseDuration);
+                        if (log.isDebugEnabled()) log.debug("Total GC duration = " + gcDuration + " msec.");
+                        if (log.isDebugEnabled()) log.debug("Total pause duration due to gc event = " + pauseDuration + " msec.");
                         break;
                     }
                 }
             }
             if (!gcPause) {
-                final long gcDuration = System.currentTimeMillis() - startTime;
-                gcPause = (gcDuration > units.toMillis(duration) + 10);
+                final long pauseDuration = System.currentTimeMillis() - startTime;
+                gcPause = (pauseDuration > units.toMillis(duration) + 10);
                 if (gcPause) {
-                    EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-DelayProbablyDueToGCPause", DataSourceType.COUNTER).increment(gcDuration);
+                    EVCacheMetricsFactory.getStatsTimer(appName, serverGroup, appName + "-DelayInScheduling").record(pauseDuration);
+                    if (log.isDebugEnabled()) log.debug("Total pause duration due to NON-GC event = " + pauseDuration + " msec.");
                 }
             }
             // redo the same op once more since there was a chance of gc pause
