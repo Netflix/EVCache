@@ -1145,10 +1145,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     /*
-     * Block the thread until all the queues are processed.
-     * Will return true if the queues are empty. Will the return false if the queues are not empty and there thread is blocked for at least 30 seconds.
+     * Block the thread until all the queues are processed or at most 30 seconds.
+     * Will return the count of items left in the queues. 0 means none left.
      */
-    public boolean join() {
+    public int join() {
         int size = 0;
         int counter = 0;
         do {
@@ -1167,7 +1167,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             }
             if(counter++ > 3000) break;
         } while(size > 0);
-        return (size == 0);
+        return size;
     }
 
 }
