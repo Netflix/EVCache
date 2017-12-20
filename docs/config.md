@@ -12,8 +12,10 @@ The below properties can be set as a Persisted Property or in the property file 
 ## Client Configuration
 
 Property Name | Override Property Name | Default Value | Dynamic |
-:----------- |:-------------:| -----------|-----------:
+:----------- |:-------------|:-----------|:-----------
 evcache.appsToInit| | | no
+evcache.use.simple.node.list.provider| | false | no
+EVCacheClientPoolManager.<CACHE\>.alias| | | yes
 <CACHE\>.EVCacheClientPool.poolSize| | 1 | yes
 <CACHE\>.EVCacheClientPool.refresh.connection.on.readQueueFull| EVCacheClientPool.refresh.connection.on.readQueueFull | false | yes
 <CACHE\>.EVCacheClientPool.refresh.connection.on.readQueueFull.size| EVCacheClientPool.refresh.connection.on.readQueueFull.size | 100 | yes
@@ -24,18 +26,16 @@ evcache.appsToInit| | | no
 <CACHE\>.clone.writes.to| | | yes
 <CACHE\>.ping.servers| evcache.ping.servers | false | yes
 <CACHE\>.<asg\>.EVCacheClientPool.writeOnly| <CACHE\>.<zone\>.EVCacheClientPool.writeOnly| | yes
-EVCacheClientPoolManager.<CACHE\>.alias| | | no
-evcache.use.simple.node.list.provider| | false | yes
 <asg\>.chunk.data | <CACHE\>.chunk.data | false | no
 <asg\>.chunk.size | <CACHE\>.chunk.size | 1180 | no
 <CACHE\>.<asg\>.write.block.duration | <CACHE\>.write.block.duration | 25 | yes
 <CACHE\>.<asg\>.ignore.touch | <CACHE\>.ignore.touch | false | yes
 <CACHE\>.<asg\>.bucket.size | <CACHE\>.bucket.size | 160 | yes
-EVCacheNodeLocator.<CACHE\>.<asg\>.hash.on.partial.key | EVCacheNodeLocator.<CACHE\>.hash.on.partial.key | false | yes
-EVCacheNodeLocator.<CACHE\>.<asg\>.hash.delimiter | EVCacheNodeLocator.<CACHE\>.hash.delimiter | : | yes
-EVCacheScheduledExecutor.<CACHE\>.max.size | | (set to processor count) | yes
-EVCacheScheduledExecutor.<CACHE\>.core.size | | 1 | yes
-evache.mutate.timeout | | <CACHE\>.operation.timeout | yes
+<CACHE\>.<asg\>.hash.on.partial.key | <CACHE\>.hash.on.partial.key | false | yes
+<CACHE\>.<asg\>.hash.delimiter | <CACHE\>.hash.delimiter | : | yes
+<CACHE\>.executor.max.size | | (set to processor count) | yes
+<CACHE\>.executor.core.size | | 1 | yes
+<CACHE\>.mutate.timeout | | <CACHE\>.operation.timeout | yes
 <asg\>.failure.mode | <CACHE\>.failure.mode | Retry | yes
 evcache.thread.daemon | | false | no
 <CACHE\>.<prefix\>.throw.exception | <CACHE\>.throw.exception | false | yes
@@ -52,7 +52,7 @@ evcache.request.expiry.optout | | true | yes
 ## Read & Write Operations
 
 Property Name | Override Property Name | Default Value | Dynamic |
-:----------- |:-------------:| -----------|-----------:
+:----------- |:-------------|:-----------|:-----------
 <CACHE\>.EVCacheClientPool.readTimeout|default.read.timeout| 20 | yes
 <CACHE\>.EVCacheClientPool.bulkReadTimeout|| <CACHE\>.EVCacheClientPool.readTimeout | yes
 <CACHE\>.operation.timeout| | 2500 | yes
@@ -65,7 +65,7 @@ Property Name | Override Property Name | Default Value | Dynamic |
 
 ## Cross Region Replication 
 Property Name | Override Property Name | Default Value | Dynamic |
-:----------- |:-------------:| -----------|-----------:
+:----------- |:-------------|:-----------|:-----------
 EVCacheReplicationManager.use.schlep | | false | yes
 <CACHE\>.region.replication | | false | yes
 <CACHE\>.use.kafka | | true | yes
@@ -94,7 +94,7 @@ EVCacheReplicationManager.<cache\>.partitioner.class | EVCacheReplicationManager
 
 ## Fixing Write Failues 
 Property Name | Override Property Name | Default Value | Dynamic |
-:----------- |:-------------:| -----------|-----------:
+:----------- |:-------------|:-----------|:-----------
 <CACHE\>.WriteFailure.to.kafka | WriteFailure.to.kafka | false | yes
 WriteFailureListener.bootstrap.servers | | evcachereplvpc.kafka.us-east-1.dynprod.netflix.net:7101 | yes
 WriteFailureListener.retries | | 1 |  yes
@@ -106,7 +106,7 @@ WriteFailureListener.stickyPartitioner.intervalMs | 1000 | yes
 
 ## In Memory
 Property Name | Override Property Name | Default Value | Dynamic |
-:----------- |:-------------:| -----------|-----------:
+:----------- |:-------------|:-----------|:-----------
 <CACHE\>.use.inmemory.cache | evcache.use.inmemory.cache | false | yes
 <CACHE\>.inmemory.expire.after.write.duration.ms | <CACHE\>.inmemory.cache.duration.ms | 0 | yes
 <CACHE\>.inmemory.expire.after.access.duration.ms | | 0 | yes
@@ -118,7 +118,7 @@ Property Name | Override Property Name | Default Value | Dynamic |
 ## Throttling
 
 Property Name | Override Property Name | Default Value | Dynamic |
-:----------- |:-------------:| -----------|-----------:
+:----------- |:-------------|:-----------|:-----------
 <CACHE\>.enable.throttling | | false | yes
 <CACHE\>.disable.writes | | false | yes
 <CACHE\>.throttle.percent | | 0 | yes
@@ -136,8 +136,19 @@ EVCacheThrottler.<CACHE\>.throttle.value | | 3 | yes |
 ## Simple Node List
 
 System Property | Override Property Name | Default Value |
-:----------- |:-------------:| -----------|
+:----------- |:-------------|:-----------|
 NETFLIX_ENVIRONMENT | @environment <br> or <br> eureka.environment | 
 EC2_REGION | @region <br> or <br> eureka.region | 
 <CACHE\>-NODES | | 
 <CACHE\>.use.batch.port | evcache.use.batch.port | false 
+
+
+## changed properties
+Old Property | New Property |
+:----------- |:-------------| 
+EVCacheScheduledExecutor.<CACHE\>.max.size | <CACHE\>.executor.max.size
+EVCacheScheduledExecutor.<CACHE\>.core.size | <CACHE\>.executor.core.size
+EVCacheNodeLocator.<CACHE\>.<asg\>.hash.on.partial.key | <CACHE\>.<asg\>.hash.on.partial.key
+EVCacheNodeLocator.<CACHE\>.hash.on.partial.key | <CACHE\>.hash.on.partial.key
+EVCacheNodeLocator.<CACHE\>.<asg\>.hash.delimiter | <CACHE\>.<asg\>.hash.delimiter
+EVCacheNodeLocator.<CACHE\>.hash.delimiter | <CACHE\>.hash.delimiter
