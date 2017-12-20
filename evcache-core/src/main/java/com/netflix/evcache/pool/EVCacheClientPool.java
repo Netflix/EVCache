@@ -874,17 +874,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         setupMonitoring();
     }
 
-    /*private Counter getCounter(String name) {
-        Counter counter = counterMap.get(name);
-        if(counter != null) return counter;
-
-        final List<Tag> tags = new ArrayList<Tag>(3);
-        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
-        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, name));
-        counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.CONFIG, tags);
-        counterMap.put(name, counter);
-        return counter;
-    }*/
     private Gauge getConfigGauge(String name) {
         return getConfigGauge(name, null);
     }
@@ -1153,6 +1142,32 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     public ChainedDynamicProperty.IntProperty getBulkReadTimeout() {
         return _bulkReadTimeout;
+    }
+
+    /*
+     * Block the thread until all the queues are processed.
+     * Will return true if the queues are empty. Will the return false if the queues are not empty and there thread is blocked for at least 30 seconds.
+     */
+    public boolean join() {
+        int size = 0;
+        int counter = 0;
+        do {
+            for(List<EVCacheClient> clientList : memcachedInstancesByServerGroup.values()) {
+                for(EVCacheClient client : clientList) {
+                    size +=client.getWriteQueueLength();
+                    size +=client.getReadQueueLength();
+                }
+            }
+            if(size > 0) {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    log.error("");
+                }
+            }
+            if(counter++ > 3000) break;
+        } while(size > 0);
+        return (size == 0);
     }
 
 }
