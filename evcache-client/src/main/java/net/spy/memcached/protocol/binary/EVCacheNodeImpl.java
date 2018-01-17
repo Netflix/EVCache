@@ -56,7 +56,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     protected final DynamicBooleanProperty sendMetrics;
     protected final MonitorConfig baseConfig;
     protected final TagList baseTags;
-	protected final TagList tags;
+    protected final TagList tags;
 
     private long timeoutStartTime;
 
@@ -78,7 +78,6 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         this.metricPrefix = "EVCacheNode";
         this.baseConfig = MonitorConfig.builder(metricPrefix).build();
         baseTags = BasicTagList.concat(tags, BasicTagList.of("HOST", hostName));
-        setupMonitoring(appName, serverGroup);
     }
 
     private String getMonitorName() {
@@ -87,7 +86,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
                 + "_" + stTime;
     }
 
-    private void setupMonitoring(String appName, ServerGroup serverGroup) {
+    public void setupMonitoring(String appName, ServerGroup serverGroup) {
         try {
             final ObjectName mBeanName = ObjectName.getInstance(getMonitorName());
             final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();

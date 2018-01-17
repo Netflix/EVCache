@@ -96,6 +96,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
                 createWriteOperationQueue(), createOperationQueue(),
                 opMaxBlockTime, doAuth, getOperationTimeout(), getAuthWaitTime(), this, appName, id, serverGroup,
                 startTime);
+        node.setupMonitoring(appName, serverGroup);
         return node;
     }
 
