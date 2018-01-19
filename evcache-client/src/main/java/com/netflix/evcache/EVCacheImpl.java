@@ -199,7 +199,7 @@ final public class EVCacheImpl implements EVCache {
     }
 
     private void increment(String metric) {
-        increment(null, null, _metricPrefix + metric);
+        increment(null, null, metric);
     }
 
     private void increment(String serverGroup, String cachePrefix, String metric) {
