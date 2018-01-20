@@ -106,7 +106,7 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                 useRendBatchPortMap.put(asgName, useBatchPort);
             }
             int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);
-            final ChainedDynamicProperty.BooleanProperty isSecure = EVCacheConfig.getInstance().getChainedBooleanProperty(asgName + ".is.secure", _appName + ".is.secure", false, null);
+            final ChainedDynamicProperty.BooleanProperty isSecure = EVCacheConfig.getInstance().getChainedBooleanProperty(asgName + ".use.secure", _appName + ".use.secure", false, null);
             if(isSecure.get()) {
                 port = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.secure.port")) ? metaInfo.get("evcache.secure.port") : DEFAULT_SECURE_PORT);
             }

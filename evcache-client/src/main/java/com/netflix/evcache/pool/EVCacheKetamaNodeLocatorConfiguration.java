@@ -20,20 +20,12 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
     private final EVCacheClientPoolManager poolManager;
 
     private final ChainedDynamicProperty.IntProperty bucketSize;
-    private final ChainedDynamicProperty.BooleanProperty isSecure;
 
     public EVCacheKetamaNodeLocatorConfiguration(String appId, ServerGroup serverGroup, EVCacheClientPoolManager poolManager) {
         this.appId = appId;
         this.serverGroup = serverGroup;
         this.poolManager = poolManager;
         bucketSize = EVCacheConfig.getInstance().getChainedIntProperty(appId + "." + serverGroup.getName() + ".bucket.size",appId + ".bucket.size", super.getNodeRepetitions(), null);
-        final Runnable callback =new Runnable() {
-            public void run() {
-                poolManager.getEVCacheClientPool(appId).refreshPool();
-            }
-        }; 
-
-        isSecure = EVCacheConfig.getInstance().getChainedBooleanProperty(this.serverGroup.getName() + ".is.secure", appId + ".is.secure", false, callback);
     }
 
     /**
@@ -72,21 +64,15 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
 	                            final String ip = info.getIPAddr();
 	                            String port = info.getMetadata().get("evcache.port");
 	                            if(port == null) port = "11211";
-	                            if(isSecure.get()) {
-	                                final String securePort = info.getMetadata().get("evcache.secure.port");
-	                                port = securePort == null ? "11443": securePort;
-	                            }
 	                            result = hostName + '/' + ip + ':' + port;
 	                            break;
 	                        }
 	                    }
                     } else {
-                        final String port = isSecure.get() ? "11443" : "11211";
-                    	result = ((InetSocketAddress)socketAddress).getHostName() + '/' + ((InetSocketAddress)socketAddress).getAddress().getHostAddress() + ":" + port;
+                    	result = ((InetSocketAddress)socketAddress).getHostName() + '/' + ((InetSocketAddress)socketAddress).getAddress().getHostAddress() + ":11211";
                     }
                 } else {
-                    final String port = isSecure.get() ? "11443" : "11211";
-                    result = ((InetSocketAddress)socketAddress).getHostName() + '/' + ((InetSocketAddress)socketAddress).getAddress().getHostAddress()  + ":" + port;
+                    result = ((InetSocketAddress)socketAddress).getHostName() + '/' + ((InetSocketAddress)socketAddress).getAddress().getHostAddress()  + ":11211";
                 }
             } else {
                 result=String.valueOf(socketAddress);
