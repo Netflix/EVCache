@@ -72,7 +72,10 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
 	                            final String ip = info.getIPAddr();
 	                            String port = info.getMetadata().get("evcache.port");
 	                            if(port == null) port = "11211";
-	                            if(isSecure.get()) port = "11443";
+	                            if(isSecure.get()) {
+	                                final String securePort = info.getMetadata().get("evcache.secure.port");
+	                                port = securePort == null ? "11443": securePort;
+	                            }
 	                            result = hostName + '/' + ip + ':' + port;
 	                            break;
 	                        }
