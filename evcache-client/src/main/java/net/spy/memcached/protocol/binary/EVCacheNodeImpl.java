@@ -78,6 +78,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         this.metricPrefix = "EVCacheNode";
         this.baseConfig = MonitorConfig.builder(metricPrefix).build();
         baseTags = BasicTagList.concat(tags, BasicTagList.of("HOST", hostName));
+        setupMonitoring();
     }
 
     private String getMonitorName() {
@@ -86,7 +87,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
                 + "_" + stTime;
     }
 
-    public void setupMonitoring(String appName, ServerGroup serverGroup) {
+    private void setupMonitoring() {
         try {
             final ObjectName mBeanName = ObjectName.getInstance(getMonitorName());
             final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
@@ -96,9 +97,16 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
                 mbeanServer.unregisterMBean(mBeanName);
             }
             mbeanServer.registerMBean(this, mBeanName);
+        } catch (Exception e) {
+            if (log.isWarnEnabled()) log.warn("Exception while setting up monitoring.", e);
+        }
+    }
+
+    public void registerMonitors() {
+        try {
             Monitors.registerObject(this);
         } catch (Exception e) {
-            if (log.isDebugEnabled()) log.debug("Exception while setting up the monitoring.", e);
+            if (log.isWarnEnabled()) log.warn("Exception while registering.", e);
         }
     }
 
