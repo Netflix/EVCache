@@ -29,6 +29,7 @@ import com.netflix.servo.tag.BasicTagList;
 
 public class DiscoveryNodeListProvider implements EVCacheNodeList {
     public static final String DEFAULT_PORT = "11211";
+    public static final String DEFAULT_SECURE_PORT = "11443";
 
     private static Logger log = LoggerFactory.getLogger(DiscoveryNodeListProvider.class);
     private final DiscoveryClient _discoveryClient;
@@ -37,13 +38,11 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
     private final Map<String, ChainedDynamicProperty.BooleanProperty> useRendBatchPortMap = new HashMap<String, ChainedDynamicProperty.BooleanProperty>();
     private final DynamicStringSetProperty ignoreHosts;
 
-    public DiscoveryNodeListProvider(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient,
-            String appName) {
+    public DiscoveryNodeListProvider(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient, String appName) {
         this.applicationInfoManager = applicationInfoManager;
         this._discoveryClient = discoveryClient;
         this._appName = appName;
         ignoreHosts = new DynamicStringSetProperty(appName + ".ignore.hosts", "");
-
     }
 
     /*
@@ -106,7 +105,11 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                 useBatchPort = EVCacheConfig.getInstance().getChainedBooleanProperty(_appName + ".use.batch.port", "evcache.use.batch.port", Boolean.FALSE, null);
                 useRendBatchPortMap.put(asgName, useBatchPort);
             }
-            final int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);
+            int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);
+            final ChainedDynamicProperty.BooleanProperty isSecure = EVCacheConfig.getInstance().getChainedBooleanProperty(asgName + ".is.secure", _appName + ".is.secure", false, null);
+            if(isSecure.get()) {
+                port = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.secure.port")) ? metaInfo.get("evcache.secure.port") : DEFAULT_SECURE_PORT);
+            }
 
             final ServerGroup serverGroup = new ServerGroup(zone, asgName);
             final Set<InetSocketAddress> instances;
