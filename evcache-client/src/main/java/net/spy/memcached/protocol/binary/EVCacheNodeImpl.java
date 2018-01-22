@@ -1,5 +1,6 @@
 package net.spy.memcached.protocol.binary;
 
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -14,6 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
+import org.joda.time.format.ISODateTimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -265,4 +267,35 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     public int getTotalReconnectCount() {
         return reconnectCount.get();
     }
+
+	@Override
+	public String getSocketChannelLocalAddress() {
+		try {
+			if(getChannel() != null) {
+				return getChannel().getLocalAddress().toString();
+			}
+		} catch (IOException e) {
+			log.error("Exception", e);
+		}
+		return "NULL";
+	}
+
+	@Override
+	public String getSocketChannelRemoteAddress() {
+		try {
+			if(getChannel() != null) {
+				return getChannel().getRemoteAddress().toString();
+			}
+		} catch (IOException e) {
+			log.error("Exception", e);
+		}
+		return "NULL";
+	}
+
+	@Override
+	public String getConnectTime() {
+		return ISODateTimeFormat.dateTime().print(stTime);
+	}
+    
+    
 }
