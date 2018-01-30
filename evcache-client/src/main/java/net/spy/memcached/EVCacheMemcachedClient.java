@@ -484,7 +484,6 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 operationDuration.stop();
                 if (log.isDebugEnabled()) log.debug("Storing Key : " + key + "; Status : " + val.getStatusCode().name()
                         + "; Message : " + val.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS));
-                rv.set(val.isSuccess(), val);
                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                     getCounter(operationSuccessStr).increment();
                 } else {
@@ -496,9 +495,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                         if (log.isInfoEnabled()) log.info(val.getStatusCode().name() + " Storing Key : " + key + "; Status : " + val.getStatusCode().name()
                                 + "; Message : " + val.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS), new Exception());
                         getCounter(operationStr + "-" + val.getStatusCode().name()).increment();
-                        rv.set(true, val);
                     }
                 }
+                rv.set(val.isSuccess(), val);
             }
 
             @Override
