@@ -5,7 +5,7 @@ buildscript {
 }
 
 plugins {
-    id 'nebula.netflixoss' version '3.1.2'
+    id 'nebula.netflixoss' version '5.0.0'
 }
 
 subprojects {
@@ -24,8 +24,4 @@ subprojects {
     configurations.all {
         exclude group: 'com.netflix.rxjava'
     }
-}
-
-task wrapper(type: Wrapper) {
-   gradleVersion = '2.13'
 }
