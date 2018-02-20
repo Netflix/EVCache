@@ -210,6 +210,7 @@ public final class EVCacheMetricsFactory {
     public static final String CACHE                            = "evc.cache";
     public static final String SERVERGROUP                      = "evc.serverGroup";
     public static final String STATUS                           = "evc.status";
+    public static final String CONNECTION_ID                    = "evc.connectionId";
 
     public static final String CALL_TAG                         = "evc.call";
     public static final String LATCH                            = "evc.latch";
@@ -250,6 +251,7 @@ public final class EVCacheMetricsFactory {
     public static final String NO                               = "no";
     public static final String PARTIAL                          = "partial";
     public static final String UNKNOWN                          = "unknown";
+    public static final String SCHEDULE                         = "Scheduling";
     public static final String GC                               = "gc";
     public static final String NULL_CLIENT                      = "nullClient";
     public static final String NULL_ZONE                        = "nullZone";

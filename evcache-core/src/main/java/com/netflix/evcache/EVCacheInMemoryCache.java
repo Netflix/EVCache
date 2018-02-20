@@ -89,8 +89,8 @@ public class EVCacheInMemoryCache<T> {
             }
         });
         final List<Tag> tags = new ArrayList<Tag>(3);
-        tags.add(new BasicTag("cache", appName));
-        tags.add(new BasicTag("metric", "size"));
+        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+        tags.add(new BasicTag(EVCacheMetricsFactory.METRIC, "size"));
 
         this.sizeId = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.IN_MEMORY, tags);
         setupCache();
@@ -210,8 +210,8 @@ public class EVCacheInMemoryCache<T> {
         if(counter != null) return counter;
 
         final List<Tag> tags = new ArrayList<Tag>(3);
-        tags.add(new BasicTag("cache", appName));
-        tags.add(new BasicTag("metric", name));
+        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+        tags.add(new BasicTag(EVCacheMetricsFactory.METRIC, name));
         counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.IN_MEMORY, tags);
         counterMap.put(name, counter);
         return counter;
@@ -222,8 +222,8 @@ public class EVCacheInMemoryCache<T> {
         if(gauge != null) return gauge;
 
         final List<Tag> tags = new ArrayList<Tag>(3);
-        tags.add(new BasicTag("cache", appName));
-        tags.add(new BasicTag("metric", name));
+        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+        tags.add(new BasicTag(EVCacheMetricsFactory.METRIC, name));
 
         final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.IN_MEMORY, tags);
         gauge = EVCacheMetricsFactory.getInstance().getRegistry().gauge(id);

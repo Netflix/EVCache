@@ -181,7 +181,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                         gcDuration = System.currentTimeMillis() - start;
                         gcPause = (gcDuration > units.toMillis(duration) + 10);
                         if (gcPause) {
-                            tagList.add(new BasicTag(EVCacheMetricsFactory.PAUSE_REASON, EVCacheMetricsFactory.UNKNOWN));
+                            tagList.add(new BasicTag(EVCacheMetricsFactory.PAUSE_REASON, EVCacheMetricsFactory.SCHEDULE));
                         }
                     }
             }

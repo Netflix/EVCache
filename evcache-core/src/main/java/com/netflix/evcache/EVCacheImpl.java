@@ -1123,9 +1123,6 @@ final public class EVCacheImpl implements EVCache {
                     } else {
                         cd = client.getTranscoder().encode(value);
                     }
-
-                    //EVCacheMetricsFactory.getInstance().getDistributionSummary(_appName + "-SetData-TTL", tags).record(timeToLive);
-                    //if (cd != null)  EVCacheMetricsFactory.getInstance().getDistributionSummary(_appName + "-SetData-Size", tags).record(cd.getData().length);
                 }
                 final Future<Boolean> future = client.set(canonicalKey, cd, timeToLive, latch);
                 if (log.isDebugEnabled() && shouldLog()) log.debug("SET : APP " + _appName + ", Future " + future + " for key : " + canonicalKey);
