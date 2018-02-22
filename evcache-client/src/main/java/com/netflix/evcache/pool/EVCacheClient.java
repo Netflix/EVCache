@@ -6,6 +6,7 @@ import java.net.SocketAddress;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -781,6 +782,10 @@ public class EVCacheClient {
             final Object obj = evcacheMemcachedClient.asyncGet(hKey, evcacheValueTranscoder, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
             if(obj instanceof EVCacheValue) {
                 final EVCacheValue val = (EVCacheValue)obj;
+                if(val == null || !(val.getKey().equals(key))) {
+                    EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-KEY_HASH_COLLISION");
+                    return null;
+                }
                 final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
                 if(tc == null) {
                     return (T)evcacheMemcachedClient.getTranscoder().decode(cd);
@@ -816,6 +821,10 @@ public class EVCacheClient {
             final Object obj = evcacheMemcachedClient.asyncGet(hKey, evcacheValueTranscoder, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
             if(obj instanceof EVCacheValue) {
                 final EVCacheValue val = (EVCacheValue)obj;
+                if(val == null || !(val.getKey().equals(key))) {
+                    EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-KEY_HASH_COLLISION");
+                    return null;
+                }
                 final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
                 if(tc == null) {
                     return Single.just((T)evcacheMemcachedClient.getTranscoder().decode(cd));
@@ -873,6 +882,10 @@ public class EVCacheClient {
             }
             if(obj != null && obj instanceof EVCacheValue) {
                 final EVCacheValue val = (EVCacheValue)obj;
+                if(val == null || !(val.getKey().equals(key))) {
+                    EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-KEY_HASH_COLLISION");
+                    return null;
+                }
                 final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
                 if(tc == null) {
                     return (T)_client.getTranscoder().decode(cd);
@@ -916,6 +929,10 @@ public class EVCacheClient {
                     return value.flatMap(r -> {
                         final CASValue<Object> rObj = (CASValue<Object>)r;
                         final EVCacheValue val = (EVCacheValue)rObj.getValue();
+                        if(val == null || !(val.getKey().equals(key))) {
+                            EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-KEY_HASH_COLLISION");
+                            return null;
+                        }
                         final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
                         if(tc == null) {
                             return Single.just((T)_client.getTranscoder().decode(cd));
@@ -929,6 +946,10 @@ public class EVCacheClient {
                         return value.flatMap(r -> {
                             final CASValue<Object> rObj = (CASValue<Object>)r;
                             final EVCacheValue val = (EVCacheValue)rObj.getValue();
+                            if(val == null || !(val.getKey().equals(key))) {
+                                EVCacheMetricsFactory.increment(appName, null, serverGroup.getName(), appName + "-KEY_HASH_COLLISION");
+                                return null;
+                            }
                             final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
                             if(tc == null) {
                                 return Single.just((T)_client.getTranscoder().decode(cd));
@@ -1118,7 +1139,7 @@ public class EVCacheClient {
 
     protected String getHashedKey(String key) {
         messageDigest.update(key.getBytes(), 0, key.length());
-        final String hKey = new String(messageDigest.digest());
+        final String hKey = Base64.getEncoder().encodeToString(messageDigest.digest());
         if(log.isDebugEnabled()) log.debug("Key : " + key +"; MD5Hash : " + hKey);
         return hKey;
         
