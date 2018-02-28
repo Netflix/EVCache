@@ -93,7 +93,6 @@ public class EVCacheClient {
     private Counter addCounter = null;
     private final ChainedDynamicProperty.BooleanProperty ignoreTouch;
     protected final TagList tags;
-    private MessageDigest messageDigest;
 
     EVCacheClient(String appName, String zone, int id, EVCacheServerGroupConfig config,
             List<InetSocketAddress> memcachedNodesInZone, int maxQueueSize, DynamicIntProperty maxReadQueueSize,
@@ -132,12 +131,6 @@ public class EVCacheClient {
         evcacheValueTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
 
         this.hashKey = EVCacheConfig.getInstance().getChainedBooleanProperty(this.serverGroup.getName()+ ".hash.key", appName + ".hash.key", Boolean.FALSE, null);
-        try {
-            messageDigest = MessageDigest.getInstance("MD5");
-        } catch (NoSuchAlgorithmException e) {
-            messageDigest = null;
-            log.error(e.getMessage(), e);
-        }
     }
 
     private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys) throws EVCacheException {
@@ -1138,10 +1131,16 @@ public class EVCacheClient {
     }
 
     protected String getHashedKey(String key) {
-        messageDigest.update(key.getBytes(), 0, key.length());
-        final String hKey = Base64.getEncoder().encodeToString(messageDigest.digest());
-        if(log.isDebugEnabled()) log.debug("Key : " + key +"; MD5Hash : " + hKey);
-        return hKey;
+        try {
+            final MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+            messageDigest.update(key.getBytes(), 0, key.length());
+            final String hKey = Base64.getEncoder().encodeToString(messageDigest.digest());
+            if(log.isDebugEnabled()) log.debug("Key : " + key +"; MD5Hash : " + hKey);
+            return hKey;
+        } catch(NoSuchAlgorithmException ex){
+            log.error("Exception while trying to conver key to its md5 hash", ex);
+            return key;
+        }
         
     }
 
