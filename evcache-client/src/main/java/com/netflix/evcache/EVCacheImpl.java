@@ -1644,6 +1644,14 @@ final public class EVCacheImpl implements EVCache {
         }
     }
 
+    public <T> Future<Boolean>[] appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
+        final EVCacheLatch latch = this.appendOrAdd(key, value, tc, timeToLive, Policy.ALL_MINUS_1);
+        if(latch != null) return latch.getAllFutures().toArray(new Future[latch.getAllFutures().size()]);
+        return new EVCacheFuture[0];
+    }
+    
+
+    /*
     @Override
     public <T> Future<Boolean>[] appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
@@ -1725,7 +1733,7 @@ final public class EVCacheImpl implements EVCache {
             op.stop();
             if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Took " + op.getDuration() + " milliSec for key : " + canonicalKey);
         }
-    }
+    }*/
 
     public <T> boolean add(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
         final EVCacheLatch latch = add(key, value, tc, timeToLive, Policy.NONE);

@@ -1141,7 +1141,6 @@ public class EVCacheClient {
             log.error("Exception while trying to conver key to its md5 hash", ex);
             return key;
         }
-        
     }
 
     public <T> Future<Boolean> appendOrAdd(String key, CachedData value, int timeToLive, EVCacheLatch evcacheLatch) throws Exception {
