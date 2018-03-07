@@ -103,6 +103,21 @@ public class EVCacheRESTService {
         DefaultMonitorRegistry.getInstance().register(sizeCounter);
     }
 
+    @GET
+    @Path("set/{appId}/{key}/{value}/{ttl}")
+    @Produces(MediaType.TEXT_PLAIN)
+    public Response setOperation(@PathParam("appId") String appId, @PathParam("key") String key, @PathParam("value") String val, @PathParam("ttl") String ttl) {
+        appId = appId.toUpperCase();
+        if (logger.isDebugEnabled()) logger.debug("Set for application " + appId + " for Key " + key);
+        try {
+            return setData(appId, ttl, "0", key, val.getBytes(), false, false);
+        } catch (Exception e) {
+            logger.error("EVCacheException", e);
+            return Response.serverError().build();
+
+        }
+    }
+    
     @POST
     @Path("{appId}/{key}")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
