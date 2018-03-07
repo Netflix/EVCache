@@ -52,7 +52,7 @@ public class FailedWriteConsumer implements Runnable {
         map.put("value.deserializer", "com.netflix.nfkafka.schlep.serialization.SchlepDeserializer");
         map.put("bootstrap.servers",NetflixConfiguration.getInstanceNoThrows().getString("bootstrap.servers", "share.kafka.${EC2_REGION}.dyntest.netflix.net:7101"));
         map.put("enable.auto.commit", "false");
-        this.consumer = nfKafkaConsumerBuilder.build("FailWriteFixer",map);
+        this.consumer = (KafkaConsumer<Void, IncomingMessage>)nfKafkaConsumerBuilder.build("FailWriteFixer",map);
         try {
             consumer.subscribe(ImmutableList.of("evcache-write_failures"));
         } catch(Exception e) {

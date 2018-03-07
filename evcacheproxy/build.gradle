@@ -30,6 +30,7 @@ dependencies {
         compile 'com.netflix.governator:governator-servlet'
         compile 'com.sun.jersey:jersey-servlet'
         compile 'com.sun.jersey.contribs:jersey-guice'
+        compile group:"com.netflix.nfkafka",        name:"nfkafka-consumer",           version:"1.+"
         
         compile 'netflix:platform'
         compile 'netflix:evcache-client2'
