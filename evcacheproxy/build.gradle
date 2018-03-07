@@ -1,5 +1,4 @@
-apply plugin: 'nebula'
-apply plugin: 'jetty'
+apply plugin: 'netflix.nebula'
 apply plugin: 'netflix.ospackage-tomcat'
 apply plugin: 'war'
 apply plugin: 'eclipse'
@@ -13,7 +12,6 @@ nebula {
 
 repositories {
         mavenLocal()
-        mavenCentral() // maven { url 'http://jcenter.bintray.com' }
 }
 
 configurations.all {
@@ -34,7 +32,7 @@ dependencies {
         compile 'com.sun.jersey.contribs:jersey-guice'
         
         compile 'netflix:platform'
-        compile 'netflix:evcache-client2:latest.candidate'
+        compile 'netflix:evcache-client2'
         compile 'netflix:base-server'
         compile 'netflix:nflibrary'
 }
