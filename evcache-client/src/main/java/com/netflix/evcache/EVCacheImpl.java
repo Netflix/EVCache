@@ -985,10 +985,10 @@ final public class EVCacheImpl implements EVCache {
                 if (value != null) {
                     decanonicalR.put(deCanKey, value);
                     if (touch) touchData(key, deCanKey, ttl);
-                } else if (fbClients != null && fbClients.size() > 0) {
+                } else {
                     // this ensures the fallback was tried
                     decanonicalR.put(deCanKey, null);
-                }
+                } 
             }
             if (!decanonicalR.isEmpty()) {
                 if (decanonicalR.size() == keys.size()) {
