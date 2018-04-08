@@ -34,6 +34,7 @@ import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.Counter;
 import com.netflix.servo.monitor.Stopwatch;
 import com.netflix.servo.monitor.Timer;
+import com.netflix.servo.tag.TagList;
 import com.netflix.spectator.api.DistributionSummary;
 
 import net.spy.memcached.internal.GetFuture;
@@ -443,13 +444,18 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return timer;
     }
 
-    private Counter getCounter(String counterMetric) {
-        Counter counter = counterMap.get(counterMetric);
+    private Counter getCounter(String counterMetric, TagList tagList) {
+    	final String name = tagList == null ? counterMetric  : counterMetric + tagList; 
+        Counter counter = counterMap.get(name);
         if(counter != null) return counter;
 
-        counter = EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-" + counterMetric, DataSourceType.COUNTER);
-        counterMap.put(counterMetric, counter);
+        counter = EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-" + counterMetric, tagList);
+        counterMap.put(name, counter);
         return counter;
+    }
+
+    private Counter getCounter(String counterMetric) {
+        return getCounter(counterMetric, null);
     }
 
     private <T> OperationFuture<Boolean> asyncStore(final StoreType storeType, final String key, int exp, T value, Transcoder<T> tc, EVCacheLatch evcacheLatch) {
@@ -474,8 +480,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         }
 
         final Timer timer = getTimer(operationStr);
-        final OperationFuture<Boolean> rv = new EVCacheOperationFuture<Boolean>(key, latch, new AtomicReference<Boolean>(null), connectionFactory.getOperationTimeout(), executorService, appName, serverGroup);
-        Operation op = opFact.store(storeType, key, co.getFlags(), exp, co.getData(), new StoreOperation.Callback() {
+        final EVCacheOperationFuture<Boolean> rv = new EVCacheOperationFuture<Boolean>(key, latch, new AtomicReference<Boolean>(null), connectionFactory.getOperationTimeout(), executorService, appName, serverGroup);
+        final Operation op = opFact.store(storeType, key, co.getFlags(), exp, co.getData(), new StoreOperation.Callback() {
             
             final Stopwatch operationDuration = timer.start();
 
@@ -488,7 +494,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     getCounter(operationSuccessStr).increment();
                 } else {
                     if (val.getStatusCode().equals(StatusCode.TIMEDOUT)) {
-                        getCounter(operationStr + "-TIMEDOUT").increment();
+                    	if(rv.getOperation() != null && rv.getOperation().getHandlingNode() instanceof EVCacheNodeImpl) {
+                    		getCounter(operationStr + "-TIMEDOUT").increment();
+                    	} else {
+                    		getCounter(operationStr + "-TIMEDOUT").increment();
+                    	}
                         if (log.isInfoEnabled()) log.info("Timedout Storing Key : " + key + "; Status : " + val.getStatusCode().name()
                                 + "; Message : " + val.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS), new Exception());
                     } else {

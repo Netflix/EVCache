@@ -193,14 +193,19 @@ public final class EVCacheMetricsFactory {
     }
     
     public static Counter getCounter(String appName, String cacheName, String serverGroupName, String metricName, Tag tag) {
-        final String name =  new StringBuilder(128).append(appName).append((cacheName != null ? cacheName : "")).append((serverGroupName != null ? serverGroupName : "")).append(metricName).append(tag.tagString()).toString();
+        final TagList tags = tag != null ? BasicTagList.of(tag) : null;
+        return getCounter(appName, cacheName, serverGroupName, metricName, tags);
+    }
+
+    public static Counter getCounter(String appName, String cacheName, String serverGroupName, String metricName, TagList tags) {
+    	if(tags == null) tags = BasicTagList.of("APP", appName, DataSourceType.COUNTER.getKey(), DataSourceType.COUNTER.getValue());
+        final String name =  new StringBuilder(128).append(appName).append((cacheName != null ? cacheName : "")).append((serverGroupName != null ? serverGroupName : "")).append(metricName).append(tags.toString()).toString();
         Counter counter = (Counter) monitorMap.get(name);
         if (counter == null) {
-            TagList tags = BasicTagList.of("APP", appName, tag.getKey(), tag.getValue());
-            if (cacheName != null && cacheName.length() > 0) {
+            if (cacheName != null && cacheName.length() > 0 && !tags.containsKey("CACHE")) {
                 tags = BasicTagList.concat(tags, new BasicTag("CACHE", cacheName));
             }
-            if(serverGroupName != null && serverGroupName.length() > 0) {
+            if(serverGroupName != null && serverGroupName.length() > 0 && !tags.containsKey("ServerGroup")) {
                 tags = BasicTagList.concat(tags, new BasicTag("ServerGroup", serverGroupName));
             }
             if(!tags.containsKey(DataSourceType.COUNTER.getKey())) {
