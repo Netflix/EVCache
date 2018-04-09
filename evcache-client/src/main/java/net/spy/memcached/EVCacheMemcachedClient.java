@@ -113,12 +113,16 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
                 	getCounter(GET_OPERATION_STRING + "-SUCCESS").increment();
                 } else {
-	            	final MemcachedNode node = getEVCacheNode(key);
-	            	if(node instanceof EVCacheNodeImpl) {
-	            		getCounter(GET_OPERATION_STRING + "-" + status.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
-	            	} else {
-	            		getCounter(GET_OPERATION_STRING + "-"+ status.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
-	            	}
+                	if (status.getStatusCode().equals(StatusCode.TIMEDOUT)) {
+		            	final MemcachedNode node = getEVCacheNode(key);
+		            	if(node instanceof EVCacheNodeImpl) {
+		            		getCounter(GET_OPERATION_STRING + "-" + status.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
+		            	} else {
+		            		getCounter(GET_OPERATION_STRING + "-"+ status.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
+		            	}
+                	} else {
+                		getCounter(GET_OPERATION_STRING + "-"+ status.getStatusCode().name()).increment();
+                	}
                 }                
             	
                 try {
@@ -261,12 +265,16 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
                 	getCounter(GET_AND_TOUCH_OPERATION_STRING + "-SUCCESS").increment();
                 } else {
-	            	final MemcachedNode node = getEVCacheNode(key);
-	            	if(node instanceof EVCacheNodeImpl) {
-	            		getCounter(GET_AND_TOUCH_OPERATION_STRING + "-" + status.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
-	            	} else {
-	            		getCounter(GET_AND_TOUCH_OPERATION_STRING + "-"+ status.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
-	            	}
+                	if (status.getStatusCode().equals(StatusCode.TIMEDOUT)) {
+		            	final MemcachedNode node = getEVCacheNode(key);
+		            	if(node instanceof EVCacheNodeImpl) {
+		            		getCounter(GET_AND_TOUCH_OPERATION_STRING + "-" + status.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
+		            	} else {
+		            		getCounter(GET_AND_TOUCH_OPERATION_STRING + "-"+ status.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
+		            	}
+                	} else {
+                		getCounter(GET_AND_TOUCH_OPERATION_STRING + "-"+ status.getStatusCode().name()).increment();
+                	}
                 }                
                 rv.set(val, status);
             }
@@ -327,11 +335,15 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
                     getCounter(DELETE_OPERATION_SUCCESS_STRING).increment();
                 } else {
-                	final MemcachedNode node = getEVCacheNode(key);
-                	if(node instanceof EVCacheNodeImpl) {
-                		getCounter("DeleteOperation-"+ status.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
+                	if (status.getStatusCode().equals(StatusCode.TIMEDOUT)) {
+	                	final MemcachedNode node = getEVCacheNode(key);
+	                	if(node instanceof EVCacheNodeImpl) {
+	                		getCounter("DeleteOperation-"+ status.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
+	                	} else {
+	                		getCounter("DeleteOperation-"+ status.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
+	                	}
                 	} else {
-                		getCounter("DeleteOperation-"+ status.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
+                		getCounter("DeleteOperation-"+ status.getStatusCode().name());
                 	}
                 }
             }
@@ -368,12 +380,16 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
                 	getCounter(TOUCH_OPERATION_SUCCESS_STRING + "-SUCCESS").increment();
                 } else {
-	            	final MemcachedNode node = getEVCacheNode(key);
-	            	if(node instanceof EVCacheNodeImpl) {
-	            		getCounter(TOUCH_OPERATION_SUCCESS_STRING + "-" + status.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
-	            	} else {
-	            		getCounter(TOUCH_OPERATION_SUCCESS_STRING + "-"+ status.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
-	            	}
+                	if (status.getStatusCode().equals(StatusCode.TIMEDOUT)) {
+		            	final MemcachedNode node = getEVCacheNode(key);
+		            	if(node instanceof EVCacheNodeImpl) {
+		            		getCounter(TOUCH_OPERATION_SUCCESS_STRING + "-" + status.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
+		            	} else {
+		            		getCounter(TOUCH_OPERATION_SUCCESS_STRING + "-"+ status.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
+		            	}
+                	} else {
+                		getCounter(TOUCH_OPERATION_SUCCESS_STRING + "-"+ status.getStatusCode().name()).increment();
+                	}
                 }
             }
 
@@ -440,13 +456,16 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                                             getCounter("AoA-RetryAppendOperation-SUCCESS").increment();
                                         } else {
                                             rv.set(Boolean.FALSE, retryAppendStatus);
-                        	            	final MemcachedNode node = getEVCacheNode(key);
-                        	            	if(node instanceof EVCacheNodeImpl) {
-                        	            		getCounter("AoA-RetryAppendOperation-"+ retryAppendStatus.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
-                        	            	} else {
-                        	            		getCounter("AoA-RetryAppendOperation-"+ retryAppendStatus.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
-                        	            	}
-                                            
+                                            if (retryAppendStatus.getStatusCode().equals(StatusCode.TIMEDOUT)) {
+	                        	            	final MemcachedNode node = getEVCacheNode(key);
+	                        	            	if(node instanceof EVCacheNodeImpl) {
+	                        	            		getCounter("AoA-RetryAppendOperation-"+ retryAppendStatus.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
+	                        	            	} else {
+	                        	            		getCounter("AoA-RetryAppendOperation-"+ retryAppendStatus.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
+	                        	            	}
+                                            } else {
+                                            	getCounter("AoA-RetryAppendOperation-"+ retryAppendStatus.getStatusCode().name()).increment();
+                                            }
                                         }
                                     }
                                     public void complete() {
@@ -544,34 +563,20 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                     getCounter(operationSuccessStr).increment();
                 } else {
-                	final MemcachedNode node = getEVCacheNode(key);
-                	if(node instanceof EVCacheNodeImpl) {
-                		if (log.isInfoEnabled()) log.info(val.getStatusCode().name() + " Storing Key : " + key + "; Status : " + val.getStatusCode().name()
-                				+ "; Node : " + node + "; Message : " + val.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS), new Exception());
-                		if(node instanceof EVCacheNodeImpl) {
-                			getCounter(operationStr + "-" + val.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
-                		} else {
-                			getCounter(operationStr + "-" + val.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
-                		}
+                	if (val.getStatusCode().equals(StatusCode.TIMEDOUT)) {
+	                	final MemcachedNode node = getEVCacheNode(key);
+	                	if(node instanceof EVCacheNodeImpl) {
+	                		if (log.isInfoEnabled()) log.info(val.getStatusCode().name() + " Storing Key : " + key + "; Status : " + val.getStatusCode().name()
+	                				+ "; Node : " + node + "; Message : " + val.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS), new Exception());
+	                		if(node instanceof EVCacheNodeImpl) {
+	                			getCounter(operationStr + "-" + val.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
+	                		} else {
+	                			getCounter(operationStr + "-" + val.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
+	                		}
+	                	}
+                	} else {
+                		getCounter(operationStr + "-" + val.getStatusCode().name()).increment();
                 	}
-                	
-//                    if (val.getStatusCode().equals(StatusCode.TIMEDOUT)) {
-//                    	if(rv.getOperation() != null && rv.getOperation().getHandlingNode() instanceof EVCacheNodeImpl) {
-//                    		getCounter(operationStr + "-TIMEDOUT", ((EVCacheNodeImpl)rv.getOperation().getHandlingNode()).getBaseTags()).increment();
-//                    	} else {
-//                    		getCounter(operationStr + "-TIMEDOUT").increment();
-//                    	}
-//                        if (log.isInfoEnabled()) log.info("Timedout Storing Key : " + key + "; Status : " + val.getStatusCode().name()
-//                                + "; Message : " + val.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS), new Exception());
-//                    } else {
-//                        if (log.isInfoEnabled()) log.info(val.getStatusCode().name() + " Storing Key : " + key + "; Status : " + val.getStatusCode().name()
-//                                + "; Message : " + val.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS), new Exception());
-//                    	if(rv.getOperation() != null && rv.getOperation().getHandlingNode() instanceof EVCacheNodeImpl) {
-//                    		getCounter(operationStr + "-" + val.getStatusCode().name(), ((EVCacheNodeImpl)rv.getOperation().getHandlingNode()).getBaseTags()).increment();
-//                    	} else {
-//                    		getCounter(operationStr + "-" + val.getStatusCode().name()).increment();
-//                    	}
-//                    }
                 }
                 rv.set(val.isSuccess(), val);
             }
