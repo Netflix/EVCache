@@ -19,12 +19,15 @@ import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.servo.annotations.DataSourceType;
+import com.netflix.servo.tag.BasicTagList;
+import com.netflix.servo.tag.TagList;
 import com.sun.management.GcInfo;
 
 import net.spy.memcached.MemcachedConnection;
 import net.spy.memcached.internal.CheckedOperationTimeoutException;
 import net.spy.memcached.internal.OperationFuture;
 import net.spy.memcached.ops.Operation;
+import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
 import rx.Scheduler;
 import rx.Single;
 import rx.functions.Action0;
@@ -167,7 +170,14 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
             // whenever timeout occurs, continuous timeout counter will increase by 1.
             MemcachedConnection.opTimedOut(op);
             if (op != null) op.timeOut();
-            if (!hasZF) EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-get-CheckedOperationTimeout", DataSourceType.COUNTER).increment();
+            TagList tags = null;
+            if(op.getHandlingNode() instanceof EVCacheNodeImpl) {
+            	tags = ((EVCacheNodeImpl)op.getHandlingNode()).getBaseTags();
+            } else {
+            	tags = BasicTagList.of(DataSourceType.COUNTER);
+            	
+            }
+            if (!hasZF) EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-get-CheckedOperationTimeout", tags).increment();
             if (throwException) {
                 throw new CheckedOperationTimeoutException("Timed out waiting for operation", op);
             }
@@ -182,13 +192,20 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
             }
         }
         if (isCancelled()) {
-            if (!hasZF) EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-get-Cancelled", DataSourceType.COUNTER).increment();
+            TagList tags = null;
+            if(op.getHandlingNode() instanceof EVCacheNodeImpl) {
+            	tags = ((EVCacheNodeImpl)op.getHandlingNode()).getBaseTags();
+            } else {
+            	tags = BasicTagList.of(DataSourceType.COUNTER);
+            	
+            }
+            if (!hasZF) EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-get-Cancelled", tags).increment();
             if (throwException) {
                 throw new ExecutionException(new CancellationException("Cancelled"));
             }
         }
         if (op != null && op.isTimedOut()) {
-            if (!hasZF) EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-get-Error", DataSourceType.COUNTER).increment();
+//            if (!hasZF) EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-get-Error", DataSourceType.COUNTER).increment();
             if (throwException) {
                 throw new ExecutionException(new CheckedOperationTimeoutException("Operation timed out.", op));
             }

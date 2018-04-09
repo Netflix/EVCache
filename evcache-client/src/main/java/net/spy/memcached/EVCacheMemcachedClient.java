@@ -343,7 +343,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 	                		getCounter("DeleteOperation-"+ status.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
 	                	}
                 	} else {
-                		getCounter("DeleteOperation-"+ status.getStatusCode().name());
+                		getCounter("DeleteOperation-"+ status.getStatusCode().name()).increment();
                 	}
                 }
             }
