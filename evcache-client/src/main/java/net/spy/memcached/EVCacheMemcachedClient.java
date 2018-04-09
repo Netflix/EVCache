@@ -111,7 +111,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 		+ (log.isTraceEnabled() ?  " Node : " + getEVCacheNode(key) : "")
                 		+ "; Message : " + status.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS));
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
-                	getCounter(GET_OPERATION_STRING + "-SUCCESS");
+                	getCounter(GET_OPERATION_STRING + "-SUCCESS").increment();
                 } else {
 	            	final MemcachedNode node = getEVCacheNode(key);
 	            	if(node instanceof EVCacheNodeImpl) {
@@ -206,7 +206,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (log.isDebugEnabled()) log.debug("GetBulk Keys : " + keys + "; Status : " + status.getStatusCode().name()
                 		+ "; Message : " + status.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS));
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
-                	getCounter(BULK_OPERATION_STRING + "-SUCCESS");
+                	getCounter(BULK_OPERATION_STRING + "-SUCCESS").increment();
                 } else {
                 	getCounter(BULK_OPERATION_STRING + "-" + status.getStatusCode().name()).increment();//First lets get some data and then we can add Host info
                 }                
@@ -259,7 +259,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 		+ (log.isTraceEnabled() ?  " Node : " + getEVCacheNode(key) : "")
                 		+ "; Message : " + status.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS));
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
-                	getCounter(GET_AND_TOUCH_OPERATION_STRING + "-SUCCESS");
+                	getCounter(GET_AND_TOUCH_OPERATION_STRING + "-SUCCESS").increment();
                 } else {
 	            	final MemcachedNode node = getEVCacheNode(key);
 	            	if(node instanceof EVCacheNodeImpl) {
@@ -366,7 +366,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 rv.set(status.isSuccess(), status);
 
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
-                	getCounter(TOUCH_OPERATION_SUCCESS_STRING + "-SUCCESS");
+                	getCounter(TOUCH_OPERATION_SUCCESS_STRING + "-SUCCESS").increment();
                 } else {
 	            	final MemcachedNode node = getEVCacheNode(key);
 	            	if(node instanceof EVCacheNodeImpl) {
