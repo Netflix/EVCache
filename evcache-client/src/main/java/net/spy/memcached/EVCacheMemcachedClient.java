@@ -378,18 +378,18 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 rv.set(status.isSuccess(), status);
 
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
-                	getCounter(TOUCH_OPERATION_SUCCESS_STRING + "-SUCCESS").increment();
+                    getCounter(TOUCH_OPERATION_STRING + "-SUCCESS").increment();
                 } else {
-                	if (status.getStatusCode().equals(StatusCode.TIMEDOUT)) {
-		            	final MemcachedNode node = getEVCacheNode(key);
-		            	if(node instanceof EVCacheNodeImpl) {
-		            		getCounter(TOUCH_OPERATION_SUCCESS_STRING + "-" + status.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
-		            	} else {
-		            		getCounter(TOUCH_OPERATION_SUCCESS_STRING + "-"+ status.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
-		            	}
-                	} else {
-                		getCounter(TOUCH_OPERATION_SUCCESS_STRING + "-"+ status.getStatusCode().name()).increment();
-                	}
+                    if (status.getStatusCode().equals(StatusCode.TIMEDOUT)) {
+                        final MemcachedNode node = getEVCacheNode(key);
+                        if(node instanceof EVCacheNodeImpl) {
+                            getCounter(TOUCH_OPERATION_STRING + "-" + status.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
+                        } else {
+                            getCounter(TOUCH_OPERATION_STRING + "-"+ status.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
+                        }
+                    } else {
+                        getCounter(TOUCH_OPERATION_STRING + "-"+ status.getStatusCode().name()).increment();
+                    }
                 }
             }
 
