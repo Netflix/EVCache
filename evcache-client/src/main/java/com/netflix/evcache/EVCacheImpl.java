@@ -977,6 +977,8 @@ final public class EVCacheImpl implements EVCache {
             }
 
             /* Decanonicalize the keys */
+            boolean partialHit = false;
+            final List<String> decanonicalHitKeys = new ArrayList<String>(retMap.size());
             final Map<String, T> decanonicalR = new HashMap<String, T>((canonicalKeys.size() * 4) / 3 + 1);
             for (Iterator<String> itr = canonicalKeys.iterator(); itr.hasNext();) {
                 final String key = itr.next();
@@ -985,20 +987,22 @@ final public class EVCacheImpl implements EVCache {
                 if (value != null) {
                     decanonicalR.put(deCanKey, value);
                     if (touch) touchData(key, deCanKey, ttl);
+                    decanonicalHitKeys.add(deCanKey);
                 } else {
+                    partialHit = true;
                     // this ensures the fallback was tried
                     decanonicalR.put(deCanKey, null);
                 } 
             }
             if (!decanonicalR.isEmpty()) {
-                if (decanonicalR.size() == keys.size()) {
+                if (!partialHit) {
                     stats.cacheHit(Call.BULK);
                     increment(client.getServerGroupName(), _cacheName, "BULK_HIT");
                     if (event != null) event.setAttribute("status", "BHIT");
                 } else {
                     if (event != null) {
                         event.setAttribute("status", "BHIT_PARTIAL");
-                        event.setAttribute("BHIT_PARTIAL_KEYS", decanonicalR);
+                        event.setAttribute("BHIT_PARTIAL_KEYS", decanonicalHitKeys);
                     }
                     increment(client.getServerGroupName(), _cacheName, "BULK_HIT_PARTIAL");
                     if (log.isInfoEnabled() && shouldLog()) log.info("BULK_HIT_PARTIAL for APP " + _appName + ", keys in cache [" + decanonicalR + "], all keys [" + keys + "]");
