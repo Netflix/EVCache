@@ -2,6 +2,7 @@ package com.netflix.evcache;
 
 import static com.netflix.evcache.util.Sneaky.sneakyThrow;
 
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -39,6 +40,7 @@ import com.netflix.servo.monitor.Counter;
 import com.netflix.spectator.api.DistributionSummary;
 
 import net.spy.memcached.CachedData;
+import net.spy.memcached.MemcachedClientIF;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.util.StringUtils;
 import rx.Observable;
@@ -108,13 +110,25 @@ final public class EVCacheImpl implements EVCache {
     }
 
     private String getCanonicalizedKey(String key) {
+    	if(key == null || key.length() == 0) throw new NullPointerException("Key cannot be null or empty");
+    	int keyLength = key.length();
         final String cKey;
         if (this._cacheName == null) {
             cKey = key;
         } else {
-            cKey = _cacheName + ':' + key;
+        	keyLength = _cacheName.length() + 1 + key.length();
+            cKey = new StringBuilder(keyLength).append(_cacheName).append(':').append(key).toString();
         }
-        StringUtils.validateKey(cKey, false);
+
+        if (keyLength > MemcachedClientIF.MAX_KEY_LENGTH) {
+        	throw new IllegalArgumentException("Key is too long (maxlen = " + MemcachedClientIF.MAX_KEY_LENGTH + ')');
+        }
+
+        for(int i = 0; i < cKey.length(); i++) {
+        	if(Character.isWhitespace(cKey.charAt(i))){
+        		throw new IllegalArgumentException("Key contains invalid characters:  ``" + key + "''");
+        	}
+        }
         return  cKey;
     }
 
@@ -1336,8 +1350,7 @@ final public class EVCacheImpl implements EVCache {
         }
 
         final String canonicalKey = getCanonicalizedKey(key);
-        final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key),
-                Call.INCR);
+        final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.INCR);
         if (event != null) {
         	event.setCanonicalKeys(Arrays.asList(canonicalKey));
             try {
