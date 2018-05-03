@@ -108,7 +108,7 @@ public class EVCacheClientPoolManager {
         } else {
             fullVersion = "unknown";
         }
-        if(this.getClass().getPackage().getImplementationVersion() != null) {
+        if(this.getClass().getPackage().getImplementationTitle() != null) {
             jarName = this.getClass().getPackage().getImplementationTitle();
         } else {
             jarName = "unknown";
