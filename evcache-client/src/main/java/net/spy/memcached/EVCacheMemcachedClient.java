@@ -685,7 +685,6 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private final String GET_AND_TOUCH_OPERATION_STRING = "GetAndTouchOperation";
     private final String DELETE_STRING = "DeleteOperation";
     private final String TOUCH_OPERATION_STRING = "TouchOperation";
-    private final String TOUCH_OPERATION_SUCCESS_STRING = "TouchOperation-SUCCESS";
     private final String AOA_STRING = "AoAOperation";
     private final String SET_OPERATION_STRING = "SetOperation";
     private final String ADD_OPERATION_STRING = "AddOperation";

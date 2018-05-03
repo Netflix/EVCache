@@ -2,7 +2,6 @@ package com.netflix.evcache;
 
 import static com.netflix.evcache.util.Sneaky.sneakyThrow;
 
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -42,7 +41,6 @@ import com.netflix.spectator.api.DistributionSummary;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.MemcachedClientIF;
 import net.spy.memcached.transcoders.Transcoder;
-import net.spy.memcached.util.StringUtils;
 import rx.Observable;
 import rx.Scheduler;
 import rx.Single;
@@ -1146,8 +1144,6 @@ final public class EVCacheImpl implements EVCache {
                 if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
                     latch.scheduledFutureValidation();
-//                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
-//                    latch.setScheduledFuture(scheduledFuture);
                 } else {
                     endEvent(event);
                 }

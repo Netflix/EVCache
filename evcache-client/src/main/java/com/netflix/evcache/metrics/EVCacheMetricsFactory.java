@@ -15,6 +15,7 @@ import com.netflix.servo.DefaultMonitorRegistry;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.BasicCounter;
 import com.netflix.servo.monitor.Counter;
+import com.netflix.servo.monitor.DoubleGauge;
 import com.netflix.servo.monitor.LongGauge;
 import com.netflix.servo.monitor.Monitor;
 import com.netflix.servo.monitor.MonitorConfig;
@@ -118,6 +119,26 @@ public final class EVCacheMetricsFactory {
                     gauge = (LongGauge) monitorMap.get(name);
                 } else {
                     gauge = new LongGauge(MonitorConfig.builder(cName).withTags(tag).withTag(OWNER).build());
+                    monitorMap.put(name, gauge);
+                    DefaultMonitorRegistry.getInstance().register(gauge);
+                }
+            } finally {
+                writeLock.unlock();
+            }
+        }
+        return gauge;
+    }
+
+    public static DoubleGauge getDoubleGauge(String cName, TagList tag) {
+        final String name = new StringBuilder(128).append(cName).append(tag.toString()).append(".DoubleGauge").toString();
+        DoubleGauge gauge = (DoubleGauge) monitorMap.get(name);
+        if (gauge == null) {
+            writeLock.lock();
+            try {
+                if (monitorMap.containsKey(name)) {
+                    gauge = (DoubleGauge) monitorMap.get(name);
+                } else {
+                    gauge = new DoubleGauge(MonitorConfig.builder(cName).withTags(tag).withTag(OWNER).build());
                     monitorMap.put(name, gauge);
                     DefaultMonitorRegistry.getInstance().register(gauge);
                 }
