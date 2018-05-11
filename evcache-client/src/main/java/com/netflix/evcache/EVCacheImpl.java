@@ -1625,7 +1625,7 @@ final public class EVCacheImpl implements EVCache {
                         cd = client.getTranscoder().encode(value);
                     }
                     if (cd != null) {
-                        if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AppendData-Size", _appName, null);
+                        if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AppendOrAddData-Size", _appName, null);
                         if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
                     }
                 }

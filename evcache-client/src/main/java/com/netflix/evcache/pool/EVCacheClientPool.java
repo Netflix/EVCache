@@ -311,22 +311,46 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     public EVCacheClient[] getWriteOnlyEVCacheClients() {
         try {
-            int size = memcachedWriteInstancesByServerGroup.size() - memcachedReadInstancesByServerGroup.size();
-            if (size == 0) return new EVCacheClient[0];
-            final EVCacheClient[] clientArr = new EVCacheClient[size];
-            for (ServerGroup serverGroup : memcachedWriteInstancesByServerGroup.keySet()) {
-                if (!memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
-                    final List<EVCacheClient> clients = memcachedWriteInstancesByServerGroup.get(serverGroup);
-                    if (clients.size() == 1) {
-                        clientArr[--size] = clients.get(0); // frequently used use case
-                    } else {
-                        final long currentVal = numberOfModOps.incrementAndGet();
-                        final int index = (int) (currentVal % clients.size());
-                        clientArr[--size] = (index < 0) ? clients.get(0) : clients.get(index);
+            if((cloneWrite.get().size() == 0)) {
+                int size = memcachedWriteInstancesByServerGroup.size() - memcachedReadInstancesByServerGroup.size();
+                if (size == 0) return new EVCacheClient[0];
+                final EVCacheClient[] clientArr = new EVCacheClient[size];
+                for (ServerGroup serverGroup : memcachedWriteInstancesByServerGroup.keySet()) {
+                    if (!memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
+                        final List<EVCacheClient> clients = memcachedWriteInstancesByServerGroup.get(serverGroup);
+                        if (clients.size() == 1) {
+                            clientArr[--size] = clients.get(0); // frequently used use case
+                        } else {
+                            final long currentVal = numberOfModOps.incrementAndGet();
+                            final int index = (int) (currentVal % clients.size());
+                            clientArr[--size] = (index < 0) ? clients.get(0) : clients.get(index);
+                        }
                     }
                 }
+                return clientArr;
+            } else {
+                final List<EVCacheClient> evcacheClientList = new ArrayList<EVCacheClient>();
+                for(String cloneApp : cloneWrite.get()) {
+                    final EVCacheClient[] clients = manager.getEVCacheClientPool(cloneApp).getWriteOnlyEVCacheClients();
+                    if(clients == null || clients.length == 0) continue;
+                    for(int i = 0; i < clients.length; i++) {
+                        evcacheClientList.add(clients[i]);
+                    }
+                }
+                for (ServerGroup serverGroup : memcachedWriteInstancesByServerGroup.keySet()) {
+                    if (!memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
+                        final List<EVCacheClient> clients = memcachedWriteInstancesByServerGroup.get(serverGroup);
+                        if (clients.size() == 1) {
+                            evcacheClientList.add(clients.get(0)); // frequently used use case
+                        } else {
+                            final long currentVal = numberOfModOps.incrementAndGet();
+                            final int index = (int) (currentVal % clients.size());
+                            evcacheClientList.add((index < 0) ? clients.get(0) : clients.get(index));
+                        }
+                    }
+                }
+                return evcacheClientList.toArray(new EVCacheClient[0]);
             }
-            return clientArr;
         } catch (Throwable t) {
             log.error("Exception trying to get an array of writable EVCache Instances", t);
             return new EVCacheClient[0];
