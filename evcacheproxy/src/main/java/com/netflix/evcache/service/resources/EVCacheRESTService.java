@@ -123,7 +123,7 @@ public class EVCacheRESTService {
     @Consumes({MediaType.TEXT_PLAIN})
     @Produces(MediaType.TEXT_PLAIN)
     public Response putIfAbsentOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
-            @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag) {
+            @PathParam("ttl") String ttl, @DefaultValue("0") @QueryParam("flag") String flag) {
         final String appId = pAppId.toUpperCase();
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
@@ -138,14 +138,10 @@ public class EVCacheRESTService {
                 final EVCacheLatch latch = evCache.add(key, cdData, evcacheTranscoder, Integer.parseInt(ttl), Policy.ALL_MINUS_1);
                 if(latch != null) {
                     final boolean status = latch.await(2500, TimeUnit.MILLISECONDS);
-                    if(status) {
-                        return Response.ok("Add Operation for Key - " + key + " was successful. \n").build();
-                    } else {
+                    if(!status) {
                         if(latch.getCompletedCount() > 0) {
                             if(latch.getSuccessCount() == 0) {
                                 return Response.serverError().build();
-                            } else if(latch.getSuccessCount() > 0 ) {
-                                return Response.ok("Add Operation for Key - " + key + " was successful in " + latch.getSuccessCount() + " Server Groups. \n").build();
                             }
                         } else {
                             return Response.serverError().build();
