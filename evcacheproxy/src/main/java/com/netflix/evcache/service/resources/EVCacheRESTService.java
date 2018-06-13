@@ -91,12 +91,12 @@ public class EVCacheRESTService {
 
         final LongGauge sizeCounter = new LongGauge(config) {
             @Override
-            public Number getValue() {
-                return Integer.valueOf(pool.getQueue().size());
+            public Long getValue() {
+                return Long.valueOf(pool.getQueue().size());
             }
 
             @Override
-            public Number getValue(int pollerIndex) {
+            public Long getValue(int pollerIndex) {
                 return getValue();
             }
         };
@@ -117,7 +117,55 @@ public class EVCacheRESTService {
 
         }
     }
-    
+
+    @POST
+    @Path("putIfAbsent/{appId}/{key}/{ttl}")
+    @Consumes({MediaType.TEXT_PLAIN})
+    @Produces(MediaType.TEXT_PLAIN)
+    public Response putIfAbsentOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
+            @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag) {
+        final String appId = pAppId.toUpperCase();
+        if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
+        try {
+            final EVCache evCache = getEVCache(appId);
+            final CachedData cachedData = (CachedData) evCache.get(key, evcacheTranscoder);
+            if (cachedData != null) {
+                return Response.status(200).type(MediaType.TEXT_PLAIN).entity(new String(cachedData.getData())).header("X-EVCache-Flags", flag).build();
+            } else {
+                final String value = IOUtils.toString(in);
+                final byte[] bytes = value.getBytes();
+                final CachedData cdData = new CachedData(flag != null ? Integer.parseInt(flag): 0, bytes, Integer.MAX_VALUE);
+                final EVCacheLatch latch = evCache.add(key, cdData, evcacheTranscoder, Integer.parseInt(ttl), Policy.ALL_MINUS_1);
+                if(latch != null) {
+                    final boolean status = latch.await(2500, TimeUnit.MILLISECONDS);
+                    if(status) {
+                        return Response.ok("Add Operation for Key - " + key + " was successful. \n").build();
+                    } else {
+                        if(latch.getCompletedCount() > 0) {
+                            if(latch.getSuccessCount() == 0) {
+                                return Response.serverError().build();
+                            } else if(latch.getSuccessCount() > 0 ) {
+                                return Response.ok("Add Operation for Key - " + key + " was successful in " + latch.getSuccessCount() + " Server Groups. \n").build();
+                            }
+                        } else {
+                            return Response.serverError().build();
+                        }
+                    }
+                }
+                final CachedData cData = (CachedData) evCache.get(key, evcacheTranscoder);
+                if (cData == null ) return Response.serverError().build();
+                return Response.status(200).type(MediaType.TEXT_PLAIN).entity(new String(cData.getData())).header("X-EVCache-Flags", flag).build();
+            }
+        } catch (EVCacheException e) {
+            logger.error("EVCacheException", e);
+            return Response.serverError().build();
+
+        } catch (Throwable t) {
+            logger.error("Throwable", t);
+            return Response.serverError().build();
+        }
+    }
+
     @POST
     @Path("{appId}/{key}")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM})
