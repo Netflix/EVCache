@@ -119,11 +119,11 @@ public class EVCacheRESTService {
     }
 
     @POST
-    @Path("putIfAbsent/{appId}/{key}/{ttl}")
+    @Path("putIfAbsent/{appId}/{key}")
     @Consumes({MediaType.TEXT_PLAIN})
     @Produces(MediaType.TEXT_PLAIN)
     public Response putIfAbsentOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
-            @PathParam("ttl") String ttl, @DefaultValue("0") @QueryParam("flag") String flag) {
+    		@QueryParam("ttl") String ttl, @DefaultValue("0") @QueryParam("flag") String flag) {
         final String appId = pAppId.toUpperCase();
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
