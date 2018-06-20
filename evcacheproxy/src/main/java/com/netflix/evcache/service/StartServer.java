@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.inject.servlet.ServletModule;
+import com.netflix.config.DynamicPropertyFactory;
 import com.netflix.evcache.EVCacheClientModule;
 import com.netflix.evcache.event.write.FailedWriteConsumer;
 import com.netflix.evcache.service.resources.EVCacheRESTService;
@@ -62,7 +63,8 @@ public class StartServer extends BaseServerLifecycleListener
                 serve("/*").with(GuiceContainer.class, initParams);
                 bind(EVCacheRESTService.class).asEagerSingleton();
                 binder().bind(GuiceContainer.class).asEagerSingleton();
-                bind(FailedWriteConsumer.class).asEagerSingleton();
+                final boolean startFiledWriteConsumer = DynamicPropertyFactory.getInstance().getBooleanProperty("FailedWriteConsumer.enable", true).get();
+                if(startFiledWriteConsumer) bind(FailedWriteConsumer.class).asEagerSingleton();
             }
         };
     }
