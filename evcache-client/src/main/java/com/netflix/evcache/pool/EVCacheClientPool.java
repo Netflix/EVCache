@@ -279,8 +279,12 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     final EVCacheClient client = getEVCacheClientForReadExclude(serverGroupToExclude);
                     if (client != null) return Collections.singletonList(client);
                 } else {
+                    int maxNumberOfPossibleRetries = memcachedReadInstancesByServerGroup.size() - 1;
+                    if(maxNumberOfPossibleRetries > _maxRetries.get()) {
+                        maxNumberOfPossibleRetries = _maxRetries.get();
+                    }
                     final List<EVCacheClient> clients = new ArrayList<EVCacheClient>(_maxRetries.get());
-                    for(int i = 0; i < _maxRetries.get(); i++) {
+                    for(int i = 0; i < maxNumberOfPossibleRetries; i++) {
                         ServerGroup fallbackServerGroup = memcachedFallbackReadInstances.next(serverGroupToExclude);
                         if (fallbackServerGroup == null ) {
                             return clients;
@@ -730,7 +734,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         final Stopwatch op = EVCacheMetricsFactory.getStatsTimer("EVCacheClientPool-" + _appName + "-refresh").start();
         if (log.isDebugEnabled()) log.debug("refresh APP : " + _appName + "; force : " + force);
         try {
-            final Map<ServerGroup, EVCacheServerGroupConfig> instances = provider.discoverInstances();
+            final Map<ServerGroup, EVCacheServerGroupConfig> instances = provider.discoverInstances(_appName);
             if (log.isDebugEnabled()) log.debug("instances : " + instances);
             // if no instances are found check to see if a clean up is needed
             // and bail immediately.
@@ -785,7 +789,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 }
 
                 // Let us create a list of SocketAddress from the discovered
-                // instaces in zone
+                // instances in zone
                 final List<InetSocketAddress> memcachedSAInServerGroup = getMemcachedSocketAddressList(discoveredHostsInServerGroup);
 
                 if (memcachedSAInServerGroup.size() > 0) {

@@ -51,7 +51,7 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
      * @see com.netflix.evcache.pool.EVCacheNodeList#discoverInstances()
      */
     @Override
-    public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances() throws IOException {
+    public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances(String appName) throws IOException {
 
         if ((applicationInfoManager.getInfo().getStatus() == InstanceStatus.DOWN)) {
             return Collections.<ServerGroup, EVCacheServerGroupConfig> emptyMap();
