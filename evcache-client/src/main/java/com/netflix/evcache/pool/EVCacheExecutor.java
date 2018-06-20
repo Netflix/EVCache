@@ -98,12 +98,12 @@ public class EVCacheExecutor extends ThreadPoolExecutor implements EVCacheExecut
         final Builder builder = MonitorConfig.builder("EVCacheExecutor.currentQueueSize").withTag(DataSourceType.GAUGE).withTag(EVCacheMetricsFactory.OWNER);
         final LongGauge queueSize  = new LongGauge(builder.build()) {
             @Override
-            public Number getValue() {
+            public Long getValue() {
                 return Long.valueOf(getQueueSize());
             }
 
             @Override
-            public Number getValue(int pollerIndex) {
+            public Long getValue(int pollerIndex) {
                 return getValue();
             }
         };

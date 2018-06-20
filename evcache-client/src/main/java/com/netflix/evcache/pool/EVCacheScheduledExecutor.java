@@ -74,12 +74,12 @@ public class EVCacheScheduledExecutor extends ScheduledThreadPoolExecutor implem
         final Builder builder = MonitorConfig.builder("EVCacheScheduledExecutor.currentQueueSize").withTag(DataSourceType.GAUGE).withTag(EVCacheMetricsFactory.OWNER);
         final LongGauge queueSize  = new LongGauge(builder.build()) {
             @Override
-            public Number getValue() {
+            public Long getValue() {
                 return Long.valueOf(getQueueSize());
             }
 
             @Override
-            public Number getValue(int pollerIndex) {
+            public Long getValue(int pollerIndex) {
                 return getValue();
             }
         };
