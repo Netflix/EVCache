@@ -120,7 +120,7 @@ public class EVCacheRESTService {
 
     @POST
     @Path("putIfAbsent/{appId}/{key}")
-    @Consumes({MediaType.TEXT_PLAIN})
+    @Consumes({MediaType.TEXT_PLAIN, MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
     public Response putIfAbsentOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
     		@QueryParam("ttl") String ttl, @DefaultValue("0") @QueryParam("flag") String flag) {
@@ -164,7 +164,7 @@ public class EVCacheRESTService {
 
     @POST
     @Path("{appId}/{key}")
-    @Consumes({MediaType.APPLICATION_OCTET_STREAM})
+    @Consumes({MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
     @Produces(MediaType.TEXT_PLAIN)
     public Response setOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
             @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag,
@@ -185,7 +185,7 @@ public class EVCacheRESTService {
 
     @POST
     @Path("bulk/{appId}")
-    @Consumes({MediaType.APPLICATION_OCTET_STREAM})
+    @Consumes({MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
     @Produces(MediaType.TEXT_PLAIN)
     public Response bulkPostOperation(final InputStream in, @PathParam("appId") String pAppId, @DefaultValue("false") @QueryParam("async") String async, @DefaultValue("") @HeaderParam("Content-Encoding") String encoding) {
         return processBulkSetOperation(in, pAppId, Boolean.valueOf(async).booleanValue(), encoding);
@@ -193,7 +193,7 @@ public class EVCacheRESTService {
 
     @PUT
     @Path("bulk/{appId}")
-    @Consumes({MediaType.APPLICATION_OCTET_STREAM})
+    @Consumes({MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
     @Produces(MediaType.TEXT_PLAIN)
     public Response bulkPutOperation(final InputStream in, @PathParam("appId") String pAppId, @DefaultValue("false") @QueryParam("async") String async, @DefaultValue("") @HeaderParam("Content-Encoding") String encoding) {
         return processBulkSetOperation(in, pAppId, Boolean.valueOf(async).booleanValue(), encoding);
@@ -264,7 +264,7 @@ public class EVCacheRESTService {
 
     @PUT
     @Path("{appId}/{key}")
-    @Consumes({MediaType.APPLICATION_OCTET_STREAM})
+    @Consumes({MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
     @Produces(MediaType.TEXT_PLAIN)
     public Response putOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
             @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag, 
