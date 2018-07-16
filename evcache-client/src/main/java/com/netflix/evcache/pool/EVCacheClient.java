@@ -1067,11 +1067,31 @@ public class EVCacheClient {
         }
     }
 
+    public Future<Boolean> set(String key, CachedData value, int timeToLive) throws Exception {
+        return _set(key, value, timeToLive, null);
+    }
+
+    public Future<Boolean> set(String key, CachedData cd, int timeToLive, EVCacheLatch evcacheLatch) throws Exception {
+        return _set(key, cd, timeToLive, evcacheLatch);
+    }
+
+    @Deprecated
     public <T> Future<Boolean> set(String key, T value, int timeToLive) throws Exception {
         return set(key, value, timeToLive, null);
     }
 
+    @Deprecated
     public <T> Future<Boolean> set(String key, T value, int timeToLive, EVCacheLatch evcacheLatch) throws Exception {
+        final CachedData cd;
+        if (value instanceof CachedData) {
+            cd = (CachedData) value;
+        } else {
+            cd = getTranscoder().encode(value);
+        }
+        return _set(key, cd, timeToLive, evcacheLatch);
+    }
+
+    private Future<Boolean> _set(String key, CachedData value, int timeToLive, EVCacheLatch evcacheLatch) throws Exception {
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         if (!ensureWriteQueueSize(node, key)) {
             if (log.isInfoEnabled()) log.info("Node : " + node + " is not active. Failing fast and dropping the write event.");
@@ -1081,14 +1101,11 @@ public class EVCacheClient {
         }
 
         try {
-            int dataSize = Integer.MAX_VALUE;
-            if (value instanceof CachedData) {
-                dataSize = ((CachedData) value).getData().length;
-            }
+            final int dataSize = ((CachedData) value).getData().length;
 
             if (enableChunking.get()) {
-                if (value instanceof CachedData && dataSize > chunkSize.get()) {
-                    final CachedData[] cd = createChunks((CachedData) value, key);
+                if (dataSize > chunkSize.get()) {
+                    final CachedData[] cd = createChunks(value, key);
                     final int len = cd.length;
                     final OperationFuture<Boolean>[] futures = new OperationFuture[len];
                     for (int i = 0; i < cd.length; i++) {
@@ -1118,14 +1135,7 @@ public class EVCacheClient {
         }
     }
 
-    protected <T> CachedData getEVCacheValue(String key, T value, int timeToLive) {
-        CachedData cData = null;
-        if (value instanceof CachedData) {
-            cData = ((CachedData) value);
-        } else {
-            cData = evcacheMemcachedClient.getTranscoder().encode(value);
-        }
-
+    protected CachedData getEVCacheValue(String key, CachedData cData, int timeToLive) {
         final EVCacheValue val = new EVCacheValue(key, cData.getData(), cData.getFlags(), timeToLive, System.currentTimeMillis());
         return evcacheValueTranscoder.encode(val);
     }
@@ -1160,25 +1170,34 @@ public class EVCacheClient {
         }
     }
 
-    public <T> Future<Boolean> replace(String key, T value, int timeToLive, EVCacheLatch evcacheLatch)
-            throws Exception {
+    public Future<Boolean> replace(String key, CachedData cd, int timeToLive, EVCacheLatch evcacheLatch) throws Exception {
+        return _replace(key, cd, timeToLive, evcacheLatch);
+    }
+
+    @Deprecated
+    public <T> Future<Boolean> replace(String key, T value, int timeToLive, EVCacheLatch evcacheLatch) throws Exception {
+        final CachedData cd;
+        if (value instanceof CachedData) {
+            cd = (CachedData) value;
+        } else {
+            cd = getTranscoder().encode(value);
+        }
+        return _replace(key, cd, timeToLive, evcacheLatch);
+    }
+
+    private Future<Boolean> _replace(String key, CachedData value, int timeToLive, EVCacheLatch evcacheLatch) throws Exception {
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         if (!ensureWriteQueueSize(node, key)) {
-            if (log.isInfoEnabled()) log.info("Node : " + node
-                    + " is not active. Failing fast and dropping the replace event.");
+            if (log.isInfoEnabled()) log.info("Node : " + node + " is not active. Failing fast and dropping the replace event.");
             final ListenableFuture<Boolean, OperationCompletionListener> defaultFuture = (ListenableFuture<Boolean, OperationCompletionListener>) getDefaultFuture();
             if (evcacheLatch != null && evcacheLatch instanceof EVCacheLatchImpl && !isInWriteOnly()) ((EVCacheLatchImpl) evcacheLatch).addFuture(defaultFuture);
             return defaultFuture;
         }
 
         try {
-            int dataSize = Integer.MAX_VALUE;
-            if (value instanceof CachedData) {
-                dataSize = ((CachedData) value).getData().length;
-            }
-
-            if (value instanceof CachedData && enableChunking.get() && dataSize > chunkSize.get()) {
-                final CachedData[] cd = createChunks((CachedData) value, key);
+            final int dataSize = ((CachedData) value).getData().length;
+            if (enableChunking.get() && dataSize > chunkSize.get()) {
+                final CachedData[] cd = createChunks(value, key);
                 final int len = cd.length;
                 final OperationFuture<Boolean>[] futures = new OperationFuture[len];
                 for (int i = 0; i < cd.length; i++) {
@@ -1200,6 +1219,7 @@ public class EVCacheClient {
     }
 
 
+    /*
     public boolean appendOrAdd(String key, CachedData value, int timeToLive) throws EVCacheException {
         int i = 0;
         try {
@@ -1224,9 +1244,9 @@ public class EVCacheClient {
         } 
         return false;
     }
+    */
 
-
-    public <T> Future<Boolean> add(String key, int exp, T value) throws Exception {
+    private Future<Boolean> _add(String key, int exp, CachedData value, EVCacheLatch latch) throws Exception {
         if (enableChunking.get()) throw new EVCacheException("This operation is not supported as chunking is enabled on this EVCacheClient.");
         if (addCounter == null) addCounter = EVCacheMetricsFactory.getCounter(serverGroup.getName() + "-AddCall");
 
@@ -1237,46 +1257,56 @@ public class EVCacheClient {
         if(hashKey.get()) {
             final String hKey = getHashedKey(key);
             final CachedData cVal = getEVCacheValue(key, value, exp);
-            return evcacheMemcachedClient.add(hKey, exp, cVal, null);
-        } else {
-            return evcacheMemcachedClient.add(key, exp, value, null);
-        }
-    }
-
-    public <T> Future<Boolean> add(String key, int exp, T value, Transcoder<T> tc) throws Exception {
-        if (enableChunking.get()) throw new EVCacheException("This operation is not supported as chunking is enabled on this EVCacheClient.");
-        if (addCounter == null) addCounter = EVCacheMetricsFactory.getCounter(serverGroup.getName() + "-AddCall");
-
-        final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
-        if (!ensureWriteQueueSize(node, key)) return getDefaultFuture();
-
-        addCounter.increment();
-        if(hashKey.get()) {
-            final String hKey = getHashedKey(key);
-            final CachedData cVal = getEVCacheValue(key, (tc != null) ? tc.encode(value) : value, exp);
-            return evcacheMemcachedClient.add(hKey, exp, cVal, null);
-        } else {
-            return evcacheMemcachedClient.add(key, exp, value, tc);
-        }
-    }
-    
-    public <T> Future<Boolean> add(String key, int exp, T o, final Transcoder<T> tc, EVCacheLatch latch)  throws Exception {
-        if (enableChunking.get()) throw new EVCacheException("This operation is not supported as chunking is enabled on this EVCacheClient.");
-        if (addCounter == null) addCounter = EVCacheMetricsFactory.getCounter(serverGroup.getName() + "-AddCall");
-
-        final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
-        if (!ensureWriteQueueSize(node, key)) return getDefaultFuture();
-
-        addCounter.increment();
-        if(hashKey.get()) {
-            final String hKey = getHashedKey(key);
-            final CachedData cVal = getEVCacheValue(key, (tc != null) ? tc.encode(o) : o, exp);
             return evcacheMemcachedClient.add(hKey, exp, cVal, null, latch);
         } else {
-            return evcacheMemcachedClient.add(key, exp, o, tc, latch);
+            return evcacheMemcachedClient.add(key, exp, value, null, latch);
         }
     }
-    
+
+    @Deprecated
+    public <T> Future<Boolean> add(String key, int exp, T value) throws Exception {
+        final CachedData cd;
+        if (value instanceof CachedData) {
+            cd = (CachedData) value;
+        } else {
+            cd = getTranscoder().encode(value);
+        }
+        return _add(key, exp, cd, null);
+    }
+
+    @Deprecated
+    public <T> Future<Boolean> add(String key, int exp, T value, Transcoder<T> tc) throws Exception {
+        final CachedData cd;
+        if (value instanceof CachedData) {
+            cd = (CachedData) value;
+        } else {
+            if(tc == null) {
+                cd = getTranscoder().encode(value);
+            } else {
+                cd = tc.encode(value);
+            }
+        }
+        return _add(key, exp, cd, null);
+    }
+
+    @Deprecated
+    public <T> Future<Boolean> add(String key, int exp, T value, final Transcoder<T> tc, EVCacheLatch latch)  throws Exception {
+        final CachedData cd;
+        if (value instanceof CachedData) {
+            cd = (CachedData) value;
+        } else {
+            if(tc == null) {
+                cd = getTranscoder().encode(value);
+            } else {
+                cd = tc.encode(value);
+            }
+        }
+        return _add(key, exp, cd, latch);
+    }
+
+    public Future<Boolean> add(String key, int exp, CachedData value, EVCacheLatch latch)  throws Exception {
+        return _add(key, exp, value, latch);
+    }
 
     public <T> Future<Boolean> touch(String key, int timeToLive) throws Exception {
     	return touch(key, timeToLive, null);

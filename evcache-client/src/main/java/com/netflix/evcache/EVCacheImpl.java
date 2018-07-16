@@ -1375,6 +1375,7 @@ final public class EVCacheImpl implements EVCache {
             }
 
             if (currentValue != -1) {
+                CachedData cd = null;
                 if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + " current value = " + currentValue + " for key : " + key);
                 for (int i = 0; i < vals.length; i++) {
                     if (vals[i] == -1 && currentValue > -1) {
@@ -1382,9 +1383,10 @@ final public class EVCacheImpl implements EVCache {
                                 + " had a value = -1 so setting it to current value = " + currentValue + " for key : " + key);
                         clients[i].incr(canonicalKey, 0, currentValue, timeToLive);
                     } else if (vals[i] != currentValue) {
+                        if(cd == null) cd = clients[i].getTranscoder().encode(canonicalKey);
                         if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + "; Zone " + clients[i].getZone()
                                 + " had a value of " + vals[i] + " so setting it to current value = " + currentValue + " for key : " + key);
-                        clients[i].set(canonicalKey, String.valueOf(currentValue), timeToLive);
+                        clients[i].set(canonicalKey, cd, timeToLive);
                     }
                 }
             }
@@ -1445,6 +1447,7 @@ final public class EVCacheImpl implements EVCache {
             }
 
             if (currentValue != -1) {
+                CachedData cd = null;
                 if (log.isDebugEnabled()) log.debug("DECR : APP " + _appName + " current value = " + currentValue
                         + " for key : " + key);
                 for (int i = 0; i < vals.length; i++) {
@@ -1454,10 +1457,11 @@ final public class EVCacheImpl implements EVCache {
                                 + currentValue + " for key : " + key);
                         clients[i].decr(canonicalKey, 0, currentValue, timeToLive);
                     } else if (vals[i] != currentValue) {
+                        if(cd == null) cd = clients[i].getTranscoder().encode(canonicalKey);
                         if (log.isDebugEnabled()) log.debug("DECR : APP " + _appName + "; Zone " + clients[i].getZone()
                                 + " had a value of " + vals[i]
                                         + " so setting it to current value = " + currentValue + " for key : " + key);
-                        clients[i].set(canonicalKey, String.valueOf(currentValue), timeToLive);
+                        clients[i].set(canonicalKey, cd, timeToLive);
                     }
                 }
             }
@@ -1639,8 +1643,6 @@ final public class EVCacheImpl implements EVCache {
                 if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
                     latch.scheduledFutureValidation();
-//                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
-//                    latch.setScheduledFuture(scheduledFuture);
                 } else {
                     endEvent(event);
                 }
@@ -1663,90 +1665,6 @@ final public class EVCacheImpl implements EVCache {
         return new EVCacheFuture[0];
     }
     
-
-    /*
-    @Override
-    public <T> Future<Boolean>[] appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
-        if ((null == key) || (null == value)) throw new IllegalArgumentException();
-
-        final boolean throwExc = doThrowException();
-        final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
-        if (clients.length == 0) {
-            increment("NULL_CLIENT");
-            if (throwExc) throw new EVCacheException("Could not find a client to set the data");
-            return new EVCacheFuture[0]; // Fast failure
-        }
-
-        final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Collections.singletonList(key), Call.APPEND_OR_ADD);
-        if (event != null) {
-            try {
-                if (shouldThrottle(event)) {
-                    increment("THROTTLED");
-                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
-                    return new EVCacheFuture[0];
-                }
-            } catch(EVCacheException ex) {
-                if(throwExc) throw ex;
-                increment("THROTTLED");
-                return null;
-            }
-            startEvent(event);
-        }
-
-        final String canonicalKey = getCanonicalizedKey(key);
-        final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.APPEND_OR_ADD, stats, Operation.TYPE.MILLI);
-        try {
-            final EVCacheFuture[] futures = new EVCacheFuture[clients.length];
-            CachedData cd = null;
-            int index = 0;
-            for (EVCacheClient client : clients) {
-                if (cd == null) {
-                    if (tc != null) {
-                        cd = tc.encode(value);
-                    } else if ( _transcoder != null) { 
-                        cd = ((Transcoder<Object>)_transcoder).encode(value);
-                    } else {
-                        cd = client.getTranscoder().encode(value);
-                    }
-                    if (cd != null) {
-                        if (appendDataSizeSummary == null) this.appendDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AppendData-Size", _appName, null);
-                        if (appendDataSizeSummary != null) this.appendDataSizeSummary.record(cd.getData().length);
-                    }
-                }
-                final Future<Boolean> future = client.append(canonicalKey, cd);
-                futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup(), client);
-            }
-            if (event != null) {
-                event.setCanonicalKeys(Arrays.asList(canonicalKey));
-                event.setCachedData(cd);
-                event.setTTL(timeToLive);
-                endEvent(event);
-            }
-
-            for(int i = 0; i < futures.length; i++) {
-                final EVCacheFuture future = futures[i];
-
-                if(!future.get()) {
-                    final EVCacheClient client = future.getEVCacheClient();
-                    if(client != null) {
-                        final Future<Boolean> f = client.add(canonicalKey, timeToLive, cd);
-                        futures[i] = new EVCacheFuture(f, key, _appName, client.getServerGroup(), client);
-                    }
-                }
-            }
-
-            touchData(canonicalKey, key, timeToLive, clients);
-            return futures;
-        } catch (Exception ex) {
-            if (log.isDebugEnabled() && shouldLog()) log.debug("Exception setting the data for APP " + _appName + ", key : " + canonicalKey, ex);
-            if (event != null) eventError(event, ex);
-            if (!throwExc) return new EVCacheFuture[0];
-            throw new EVCacheException("Exception setting data for APP " + _appName + ", key : " + canonicalKey, ex);
-        } finally {
-            op.stop();
-            if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Took " + op.getDuration() + " milliSec for key : " + canonicalKey);
-        }
-    }*/
 
     public <T> boolean add(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
         final EVCacheLatch latch = add(key, value, tc, timeToLive, Policy.NONE);

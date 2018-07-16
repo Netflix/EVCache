@@ -457,14 +457,14 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                                         } else {
                                             rv.set(Boolean.FALSE, retryAppendStatus);
                                             if (retryAppendStatus.getStatusCode().equals(StatusCode.TIMEDOUT)) {
-	                        	            	final MemcachedNode node = getEVCacheNode(key);
-	                        	            	if(node instanceof EVCacheNodeImpl) {
-	                        	            		getCounter("AoA-RetryAppendOperation-"+ retryAppendStatus.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
-	                        	            	} else {
-	                        	            		getCounter("AoA-RetryAppendOperation-"+ retryAppendStatus.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
-	                        	            	}
+                                                final MemcachedNode node = getEVCacheNode(key);
+                                                if(node instanceof EVCacheNodeImpl) {
+                                                    getCounter("AoA-RetryAppendOperation-"+ retryAppendStatus.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
+                                                } else {
+                                                    getCounter("AoA-RetryAppendOperation-"+ retryAppendStatus.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
+                                                }
                                             } else {
-                                            	getCounter("AoA-RetryAppendOperation-"+ retryAppendStatus.getStatusCode().name()).increment();
+                                                getCounter("AoA-RetryAppendOperation-"+ retryAppendStatus.getStatusCode().name()).increment();
                                             }
                                         }
                                     }
