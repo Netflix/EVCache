@@ -100,7 +100,7 @@ public class CircularIterator<T> {
             if(startEntry.element.getClass().isArray()) {
                 for(int i = 0; i < Array.getLength(startEntry.element); i++) {
                     if(i > 0) current.append(",");
-                    current.append(Array.get(startEntry.element, i).toString());
+                    current.append("[").append(i).append(", ").append(Array.get(startEntry.element, i).toString()).append("]");
                 }
             } else {
                 current.append(startEntry.element);
@@ -109,10 +109,10 @@ public class CircularIterator<T> {
                 if(entry.next.element.getClass().isArray()) {
                     for(int i = 0; i < Array.getLength(entry.next.element); i++) {
                         if(i > 0) current.append(",");
-                        current.append(Array.get(entry.next.element, i).toString());
+                        current.append("[").append(i).append(", ").append(Array.get(entry.next.element, i).toString()).append("]");
                     }
                 } else {
-                    current.append(",").append(entry.next.element);
+                    current.append(",[").append(entry.next.element).append("]");
                 }
                 entry = entry.next;
             }

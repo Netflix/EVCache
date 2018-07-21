@@ -1190,4 +1190,11 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return _bulkReadTimeout;
     }
 
+    public long getLastReconcileTime() {
+        return lastReconcileTime;
+    }
+
+    public DynamicStringSetProperty getOperationToLog() {
+        return logOperationCalls;
+    }
 }
