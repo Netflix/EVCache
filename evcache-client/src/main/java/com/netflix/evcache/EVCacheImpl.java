@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.DynamicBooleanProperty;
+import com.netflix.config.DynamicStringProperty;
 import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.event.EVCacheEvent;
@@ -34,6 +35,7 @@ import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheClientUtil;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.evcache.util.KeyHasher;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.Counter;
 import com.netflix.spectator.api.DistributionSummary;
@@ -78,6 +80,9 @@ final public class EVCacheImpl implements EVCache {
     private EVCacheInMemoryCache<?> cache;
     private EVCacheClientUtil clientUtil = null;
 
+    private final DynamicBooleanProperty hashKey;
+    private final DynamicStringProperty hashingAlgo;
+
     private final EVCacheClientPoolManager _poolManager;
     private DistributionSummary setTTLSummary, replaceTTLSummary, touchTTLSummary, setDataSizeSummary, replaceDataSizeSummary, appendDataSizeSummary;
     private Counter touchCounter;
@@ -104,6 +109,8 @@ final public class EVCacheImpl implements EVCache {
         _bulkPartialZoneFallbackFP = config.getDynamicBooleanProperty(_appName+ ".bulk.partial.fallback.zone", Boolean.TRUE);
         _useInMemoryCache = config.getChainedBooleanProperty(_appName + ".use.inmemory.cache", "evcache.use.inmemory.cache", Boolean.FALSE, null);
         _eventsUsingLatchFP = config.getChainedBooleanProperty(_appName + ".events.using.latch", "evcache.events.using.latch", Boolean.FALSE, null);
+        this.hashKey = config.getDynamicBooleanProperty(appName + ".hash.key", Boolean.FALSE);
+        this.hashingAlgo = config.getDynamicStringProperty(appName + ".hash.algo", "MD5");
         _pool.pingServers();
     }
 
@@ -127,7 +134,12 @@ final public class EVCacheImpl implements EVCache {
         		throw new IllegalArgumentException("Key contains invalid characters:  ``" + key + "''");
         	}
         }
-        return  cKey;
+
+        if(hashKey.get()) {
+            return KeyHasher.getHashedKey(key, hashingAlgo.get());
+        } else {
+            return  cKey;
+        }
     }
 
     private String getKey(String canonicalizedKey) {
