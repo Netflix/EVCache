@@ -105,26 +105,26 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         Operation op = opFact.get(key, new GetOperation.Callback() {
             private Future<T> val = null;
 
-            public void receivedStatus(OperationStatus status) {            	
+            public void receivedStatus(OperationStatus status) {
                 operationDuration .stop();
                 if (log.isDebugEnabled()) log.debug("Getting Key : " + key + "; Status : " + status.getStatusCode().name()
-                		+ (log.isTraceEnabled() ?  " Node : " + getEVCacheNode(key) : "")
-                		+ "; Message : " + status.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS));
+                        + (log.isTraceEnabled() ?  " Node : " + getEVCacheNode(key) : "")
+                        + "; Message : " + status.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS));
                 if (status.getStatusCode().equals(StatusCode.SUCCESS)) {
-                	getCounter(GET_OPERATION_STRING + "-SUCCESS").increment();
+                    getCounter(GET_OPERATION_STRING + "-SUCCESS").increment();
                 } else {
-                	if (status.getStatusCode().equals(StatusCode.TIMEDOUT)) {
-		            	final MemcachedNode node = getEVCacheNode(key);
-		            	if(node instanceof EVCacheNodeImpl) {
-		            		getCounter(GET_OPERATION_STRING + "-" + status.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
-		            	} else {
-		            		getCounter(GET_OPERATION_STRING + "-"+ status.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
-		            	}
-                	} else {
-                		getCounter(GET_OPERATION_STRING + "-"+ status.getStatusCode().name()).increment();
-                	}
-                }                
-            	
+                    if (status.getStatusCode().equals(StatusCode.TIMEDOUT)) {
+                        final MemcachedNode node = getEVCacheNode(key);
+                        if(node instanceof EVCacheNodeImpl) {
+                            getCounter(GET_OPERATION_STRING + "-" + status.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
+                        } else {
+                            getCounter(GET_OPERATION_STRING + "-"+ status.getStatusCode().name(), BasicTagList.of("HOST", node.getSocketAddress().toString())).increment();
+                        }
+                    } else {
+                        getCounter(GET_OPERATION_STRING + "-"+ status.getStatusCode().name()).increment();
+                    }
+                }
+
                 try {
                     if (val != null) {
                         rv.set(val.get(), status);
