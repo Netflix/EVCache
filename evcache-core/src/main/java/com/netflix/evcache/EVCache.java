@@ -73,7 +73,8 @@ public interface EVCache {
      * @param key
      *            the key under which this object should be added. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the object to store
      * @return Array of futures representing the processing of this operation
@@ -103,7 +104,8 @@ public interface EVCache {
      * @param key
      *            the key under which this object should be added. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the object to store
      * @param timeToLive
@@ -136,7 +138,8 @@ public interface EVCache {
      * @param key
      *            the key under which this object should be added. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the object to store
      * @return Array of futures representing the processing of this operation
@@ -158,7 +161,10 @@ public interface EVCache {
      * <blockquote> The actual value sent may either be Unix time aka EPOC time (number of seconds since January 1, 1970, as a 32-bit int value), or a number of seconds starting from current time. In the latter case, this number of seconds may not exceed 60*60*24*30 (number of seconds in 30 days); if the number sent by a client is larger than that, the server will consider it to be real Unix time value rather than an offset from current time. </blockquote>
      *
      * @param key
-     *            the key under which this object should be added. Ensure the key is properly encoded and does not contain whitespace or control characters.
+     *            the key under which this object should be added. 
+     *            Ensure the key is properly encoded and does not 
+     *            contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the object to store
      * @param policy
@@ -178,7 +184,8 @@ public interface EVCache {
      * <blockquote> The actual value sent may either be Unix time a.k.a EPOC time (number of seconds since January 1, 1970, as a 32-bit int value), or a number of seconds starting from current time. In the latter case, this number of seconds may not exceed 60*60*24*30 (number of seconds in 30 days); if the number sent by a client is larger than that, the server will consider it to be real Unix time value rather than an offset from current time. </blockquote>
      *
      * @param key
-     *            the key under which this object should be added. Ensure the key is properly encoded and does not contain whitespace or control characters.
+     *            the key under which this object should be added. Ensure the key is properly encoded and does not contain whitespace or control characters.  The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the object to store
      * @param timeToLive
@@ -199,7 +206,8 @@ public interface EVCache {
      * <blockquote> The actual value sent may either be Unix time aka EPOC time (number of seconds since January 1, 1970, as a 32-bit int value), or a number of seconds starting from current time. In the latter case, this number of seconds may not exceed 60*60*24*30 (number of seconds in 30 days); if the number sent by a client is larger than that, the server will consider it to be real Unix time value rather than an offset from current time. </blockquote>
      *
      * @param key
-     *            the key under which this object should be added. Ensure the key is properly encoded and does not contain whitespace or control characters.
+     *            the key under which this object should be added. Ensure the key is properly encoded and does not contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the object to store
      * @param tc
@@ -230,7 +238,8 @@ public interface EVCache {
      * @param key
      *            the key under which this object should be added. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the object to store
      * @param tc
@@ -260,7 +269,8 @@ public interface EVCache {
      * @param key
      *            the key under which this object should be replaced. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the object to replace
      * @param policy
@@ -288,7 +298,8 @@ public interface EVCache {
      * @param key
      *            the key under which this object should be replaced. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the object to replace
      * @param tc
@@ -331,7 +342,8 @@ public interface EVCache {
      * @param key
      *            the key under which this object should be replaced. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the object to replace
      * @param tc
@@ -375,7 +387,8 @@ public interface EVCache {
      * @param key
      *            the key under which this object should be added. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the object to store
      * @param timeToLive
@@ -396,7 +409,8 @@ public interface EVCache {
      * @param key
      *            the non-null key corresponding to the relation to be removed.
      *            Ensure the key is properly encoded and does not contain
-     *            whitespace or control characters.
+     *            whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @return Array of futures representing the processing of this operation
      *         across all the replicas. If the future returns true then the key
      *         was deleted from Cache, if false then the key was not found thus
@@ -416,7 +430,8 @@ public interface EVCache {
      * @param key
      *            the non-null key corresponding to the relation to be removed.
      *            Ensure the key is properly encoded and does not contain
-     *            whitespace or control characters.
+     *            whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param policy
      *            The Latch will be returned based on the Policy. The Latch can
      *            then be used to await until the count down has reached to 0 or
@@ -438,7 +453,8 @@ public interface EVCache {
      *
      * @param key
      *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters.
+     *            contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @return the Value for the given key from the cache (null if there is
      *         none).
      * @throws EVCacheException
@@ -458,7 +474,8 @@ public interface EVCache {
      *
      * @param key
      *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters.
+     *            contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param scheduler
      *            the {@link Scheduler} to perform subscription actions on
      * @return the Value for the given key from the cache (null if there is
@@ -472,7 +489,8 @@ public interface EVCache {
      *
      * @param key
      *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters.
+     *            contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param tc
      *            the Transcoder to deserialize the data
      * @return the Value for the given key from the cache (null if there is
@@ -495,7 +513,8 @@ public interface EVCache {
      *
      * @param key
      *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters.
+     *            contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param tc
      *            the Transcoder to deserialize the data
      * @param scheduler
@@ -511,7 +530,8 @@ public interface EVCache {
      *
      * @param key
      *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters.
+     *            contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param timeToLive
      *            the new expiration of this object i.e. less than 30 days in
      *            seconds or the exact expiry time as UNIX time
@@ -528,7 +548,8 @@ public interface EVCache {
      *
      * @param key
      *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters.
+     *            contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param timeToLive
      *            the new expiration of this object i.e. less than 30 days in
      *            seconds or the exact expiry time as UNIX time
@@ -548,7 +569,8 @@ public interface EVCache {
      *
      * @param key
      *            the key to get. Ensure the key is properly encoded and does
-     *            not contain whitespace or control characters.
+     *            not contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param timeToLive
      *            the new expiration of this object i.e. less than 30 days in
      *            seconds or the exact expiry time as UNIX time
@@ -565,7 +587,8 @@ public interface EVCache {
      *
      * @param key
      *            the key to get. Ensure the key is properly encoded and does
-     *            not contain whitespace or control characters.
+     *            not contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param timeToLive
      *            the new expiration of this object i.e. less than 30 days in
      *            seconds or the exact expiry time as UNIX time
@@ -583,7 +606,9 @@ public interface EVCache {
      * Retrieve the value of a set of keys.
      *
      * @param keys
-     *            the keys for which we need the values
+     *            the keys for which we need the values. Ensure each key is properly encoded and does
+     *            not contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @return a map of the values (for each value that exists). If the Returned
      *         map contains the key but the value in null then the key does not
      *         exist in the cache. if a key is missing then we were not able to
@@ -600,7 +625,9 @@ public interface EVCache {
      * deserialization.
      *
      * @param keys
-     *            keys to which we need the values
+     *            keys to which we need the values.Ensure each key is properly encoded and does
+     *            not contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param tc
      *            the transcoder to use for deserialization
      * @return a map of the values (for each value that exists). If the Returned
@@ -619,7 +646,9 @@ public interface EVCache {
      * Transcoder for deserialization.
      *
      * @param keys
-     *            The collection of keys for which we need the values
+     *            The collection of keys for which we need the values. Ensure each key is properly encoded and does
+     *            not contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @return a map of the values (for each value that exists). If the Returned
      *         map contains the key but the value in null then the key does not
      *         exist in the cache. if a key is missing then we were not able to
@@ -636,7 +665,9 @@ public interface EVCache {
      * Transcoder for deserialization.
      *
      * @param keys
-     *            The collection of keys for which we need the values
+     *            The collection of keys for which we need the values. Ensure each key is properly encoded and does
+     *            not contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param tc
      *            the transcoder to use for deserialization
      * @return a map of the values (for each value that exists). If the Returned
@@ -655,7 +686,9 @@ public interface EVCache {
      * Transcoder for deserialization.
      *
      * @param keys
-     *            The collection of keys for which we need the values
+     *            The collection of keys for which we need the values. Ensure each key is properly encoded and does
+     *            not contain whitespace or control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param tc
      *            the transcoder to use for deserialization
      * @param timeToLive
@@ -680,7 +713,8 @@ public interface EVCache {
      * @param key
      *            the key for which we need the value. Ensure the key is
      *            properly encoded and does not contain whitespace or control
-     *            characters.
+     *            characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @return the Futures containing the Value or null.
      * @throws EVCacheException
      *             in the circumstance where queue is too full to accept any
@@ -699,7 +733,8 @@ public interface EVCache {
      * @param key
      *            the key for which we need the value. Ensure the key is
      *            properly encoded and does not contain whitespace or control
-     *            characters.
+     *            characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param tc
      *            the transcoder to use for deserialization
      * @return the Futures containing the Value or null.
@@ -717,7 +752,10 @@ public interface EVCache {
      * Increment the given counter, returning the new value.
      *
      * @param key
-     *            the key
+     *            the key. Ensure the key is
+     *            properly encoded and does not contain whitespace or control
+     *            characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param by
      *            the amount to increment
      * @param def
@@ -736,7 +774,10 @@ public interface EVCache {
      * Decrement the given counter, returning the new value.
      *
      * @param key
-     *            the key
+     *            the key. Ensure the key is
+     *            properly encoded and does not contain whitespace or control
+     *            characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param by
      *            the amount to decrement
      * @param def
@@ -759,7 +800,8 @@ public interface EVCache {
      * @param key
      *            the key under which this object should be appended. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters.  The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the value to be appended
      * @param tc
@@ -785,7 +827,8 @@ public interface EVCache {
      * @param key
      *            the key under which this object should be appended. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the value to be appended
      * @param timeToLive
@@ -807,7 +850,8 @@ public interface EVCache {
      * @param key
      *            the key which this object should be added to. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the value to be added
      * @param tc
@@ -834,7 +878,8 @@ public interface EVCache {
      * @param key
      *            the key which this object should be added to. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the value to be added
      * @param tc
@@ -863,7 +908,10 @@ public interface EVCache {
      * Touch the given key and reset its expiration time.
      *
      * @param key
-     *            the key to touch
+     *            the key to touch.  Ensure the
+     *            key is properly encoded and does not contain whitespace or
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param ttl
      *            the new expiration time in seconds
      * 
@@ -883,7 +931,10 @@ public interface EVCache {
      * Touch the given key and reset its expiration time.
      *
      * @param key
-     *            the key to touch
+     *            the key to touch.  Ensure the
+     *            key is properly encoded and does not contain whitespace or
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param ttl
      *            the new expiration time in seconds
      * 
@@ -910,7 +961,8 @@ public interface EVCache {
      * @param key
      *            the key under which this object should be appended or Added. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the value to be appended
      * @param tc
@@ -936,7 +988,8 @@ public interface EVCache {
      * @param key
      *            the key under which this object should be appended or Added. Ensure the
      *            key is properly encoded and does not contain whitespace or
-     *            control characters.
+     *            control characters. The max length of the key (including prefix) 
+     *            is 250 characters.
      * @param T
      *            the value to be appended
      * @param tc

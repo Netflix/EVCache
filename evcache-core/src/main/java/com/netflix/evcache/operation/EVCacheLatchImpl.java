@@ -15,6 +15,7 @@ import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.event.EVCacheEventListener;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
@@ -22,6 +23,7 @@ import com.netflix.spectator.api.Tag;
 import net.spy.memcached.internal.ListenableFuture;
 import net.spy.memcached.internal.OperationCompletionListener;
 import net.spy.memcached.internal.OperationFuture;
+import net.spy.memcached.ops.StatusCode;
 
 public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     private static final Logger log = LoggerFactory.getLogger(EVCacheLatchImpl.class);
@@ -207,8 +209,13 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
         completeCount++;
         if(evcacheEvent != null) {
             if (log.isDebugEnabled()) log.debug(";App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
-            if(future.isDone() && future.get().equals(Boolean.FALSE)) {
+            try {
+                if(future.isDone() && future.get().equals(Boolean.FALSE)) {
+                    failureCount++;
+                }
+            } catch (Exception e) {
                 failureCount++;
+                if(log.isDebugEnabled()) log.debug(e.getMessage(), e);
             }
             if(!onCompleteDone && getCompletedCount() >= getExpectedSuccessCount()) {
                 if(evcacheEvent.getClients().size() > 0) {
@@ -259,6 +266,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                     fail++;
                 }
             } catch (Exception e) {
+                fail++;
                 log.error(e.getMessage(), e);
             }
         }
@@ -381,23 +389,36 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             for (Future<Boolean> future : futures) {
                 boolean fail = false;
                 try {
-                    fail = future.get().equals(Boolean.FALSE);
+                    if(future.isDone()) {
+                        fail = future.get(0, TimeUnit.MILLISECONDS).equals(Boolean.FALSE);
+                    } else {
+                        long delayms = 0;
+                        if(scheduledFuture != null) {
+                            delayms = scheduledFuture.getDelay(TimeUnit.MILLISECONDS);
+                        }
+                        if(delayms < 0 ) delayms = 0;//making sure wait is not negative. It might be ok but as this is implementation dependent let us stick with 0
+                        fail = future.get(delayms, TimeUnit.MILLISECONDS).equals(Boolean.FALSE);
+                    }
                 } catch (Exception e) {
                     fail = true;
                     if(log.isDebugEnabled()) log.debug(e.getMessage(), e);
                 }
 
                 if (fail) {
-                    failCount++;
                     if(future instanceof EVCacheOperationFuture) {
                         final EVCacheOperationFuture<Boolean> evcFuture = (EVCacheOperationFuture<Boolean>)future;
-                        List<ServerGroup> listOfFailedServerGroups = (List<ServerGroup>) evcacheEvent.getAttribute("FailedServerGroups");
-                        if(listOfFailedServerGroups == null) {
-                            listOfFailedServerGroups = new ArrayList<ServerGroup>(failCount);
-                            evcacheEvent.setAttribute("FailedServerGroups", listOfFailedServerGroups);
+                        final StatusCode code = evcFuture.getStatus().getStatusCode(); 
+                        if(code != StatusCode.SUCCESS && code != StatusCode.ERR_NOT_FOUND && code != StatusCode.ERR_EXISTS) {
+                            List<ServerGroup> listOfFailedServerGroups = (List<ServerGroup>) evcacheEvent.getAttribute("FailedServerGroups");
+                            if(listOfFailedServerGroups == null) {
+                                listOfFailedServerGroups = new ArrayList<ServerGroup>(failCount);
+                                evcacheEvent.setAttribute("FailedServerGroups", listOfFailedServerGroups);
+                            }
+                            listOfFailedServerGroups.add(evcFuture.getServerGroup());
+                            failCount++;
                         }
-                        listOfFailedServerGroups.add(evcFuture.getServerGroup());
-                        tags.add(new BasicTag(EVCacheMetricsFactory.FAILED_SERVERGROUP, evcFuture.getServerGroup().getName()));
+                    } else {
+                        failCount++;
                     }
                 }
             }
@@ -417,7 +438,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                 }
             } 
         }
-        EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_LATCH, tags).record(System.currentTimeMillis()- start, TimeUnit.MILLISECONDS);
+        EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_LATCH_VERIFY, tags).record(System.currentTimeMillis()- start, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -449,6 +470,16 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     public void setScheduledFuture(ScheduledFuture<?> scheduledFuture) {
         this.scheduledFuture = scheduledFuture;
+    }
+
+    public void scheduledFutureValidation() {
+        if(evcacheEvent != null) {
+            final EVCacheClientPool pool = evcacheEvent.getEVCacheClientPool();
+            final ScheduledFuture<?> scheduledFuture = pool.getEVCacheClientPoolManager().getEVCacheScheduledExecutor().schedule(this, pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
+            setScheduledFuture(scheduledFuture);
+        } else {
+            if(log.isWarnEnabled()) log.warn("Future cannot be scheduled as EVCacheEvent is null!");
+        }
     }
 
 }

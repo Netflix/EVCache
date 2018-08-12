@@ -16,7 +16,14 @@ public interface EVCacheNodeImplMBean {
 
     long getNumOfOps();
 
+    String getSocketChannelLocalAddress();
+    
+    String getSocketChannelRemoteAddress();
+    
+    String getConnectTime();
+
     void flushInputQueue();
 
     void removeMonitoring();
+        
 }

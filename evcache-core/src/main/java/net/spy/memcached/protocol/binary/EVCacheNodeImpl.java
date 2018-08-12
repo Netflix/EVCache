@@ -1,5 +1,6 @@
 package net.spy.memcached.protocol.binary;
 
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -25,6 +26,7 @@ import net.spy.memcached.ConnectionFactory;
 import net.spy.memcached.ops.Operation;
 import sun.misc.Cleaner;
 import sun.nio.ch.DirectBuffer;
+import org.joda.time.format.ISODateTimeFormat;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "FCBL_FIELD_COULD_BE_LOCAL", "EXS_EXCEPTION_SOFTENING_NO_CHECKED",
         "REC_CATCH_EXCEPTION", "SCII_SPOILED_CHILD_INTERFACE_IMPLEMENTATOR" })
@@ -81,6 +83,15 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
             if (log.isDebugEnabled()) log.debug("Exception while setting up the monitoring.", e);
         }
     }
+
+    public void registerMonitors() {
+//        try {
+//            EVCacheMetricsFactory.getInstance().getRegistry().register(this);
+//        } catch (Exception e) {
+//            if (log.isWarnEnabled()) log.warn("Exception while registering.", e);
+//        }
+    }
+
 
     public boolean isAvailable() {
         return isActive();
@@ -182,5 +193,34 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
 
     public int getTotalReconnectCount() {
         return (int)reconnectCounter.count();
+    }
+
+    @Override
+    public String getSocketChannelLocalAddress() {
+        try {
+            if(getChannel() != null) {
+                return getChannel().getLocalAddress().toString();
+            }
+        } catch (IOException e) {
+            log.error("Exception", e);
+        }
+        return "NULL";
+    }
+
+    @Override
+    public String getSocketChannelRemoteAddress() {
+        try {
+            if(getChannel() != null) {
+                return getChannel().getRemoteAddress().toString();
+            }
+        } catch (IOException e) {
+            log.error("Exception", e);
+        }
+        return "NULL";
+    }
+
+    @Override
+    public String getConnectTime() {
+        return ISODateTimeFormat.dateTime().print(stTime);
     }
 }

@@ -93,6 +93,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
                 createWriteOperationQueue(), createOperationQueue(),
                 opMaxBlockTime, doAuth, getOperationTimeout(), getAuthWaitTime(), this, client,
                 startTime);
+        node.registerMonitors();
         return node;
     }
 
@@ -141,7 +142,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public ExecutorService getListenerExecutorService() {
-        return client.getPool().getEVCacheClientPoolManager().getEVCacheScheduledExecutor();
+        return client.getPool().getEVCacheClientPoolManager().getEVCacheExecutor();
     }
 
     public int getId() {
@@ -152,8 +153,16 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
         return client.getServerGroup().getZone();
     }
 
+    public String getServerGroupName() {
+        return client.getServerGroup().getName();
+    }
+
     public String getReplicaSetName() {
         return client.getServerGroup().getName();
+    }
+
+    public String getAppName() {
+        return this.appName;
     }
 
     public String toString() {

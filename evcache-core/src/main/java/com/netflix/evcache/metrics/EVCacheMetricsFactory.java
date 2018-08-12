@@ -182,6 +182,7 @@ public final class EVCacheMetricsFactory {
     public static final String INTERNAL_CONFIG                  = "internal-evc.client.config";
     public static final String INTERNAL_PAUSE                   = "internal-evc.client.pause";
     public static final String INTERNAL_LATCH                   = "internal-evc.client.latch";
+    public static final String INTERNAL_LATCH_VERIFY            = "internal-evc.client.latch-verify";
     public static final String INTERNAL                         = "internal-evc.client";
 
     public static final String INTERNAL_NUM_CHUNK_SIZE          = "internal-evc.client.chunking.numOfChunks";
@@ -232,6 +233,7 @@ public final class EVCacheMetricsFactory {
     public static final String NUMBER_OF_KEYS                   = "evc.numberOfKeys";
     public static final String METRIC                           = "evc.metric";
     public static final String PREFIX                           = "evc.prefix";
+    public static final String FAIL_REASON                      = "evc.failReason";
 
     /**
      * Metric Tags Values  
@@ -242,6 +244,7 @@ public final class EVCacheMetricsFactory {
     public static final String DISCONNECT                       = "disconnect";
     public static final String SUCCESS                          = "success";
     public static final String TIMEOUT                          = "timeout";
+    public static final String CHECKED_OP_TIMEOUT               = "CheckedOperationTimeout";
     public static final String CANCELLED                        = "cancelled";
     public static final String THROTTLED                        = "throttled";
     public static final String ERROR                            = "error";
@@ -261,9 +264,11 @@ public final class EVCacheMetricsFactory {
     public static final String VERIFY                           = "verify";
     public static final String READ_QUEUE_FULL                  = "readQueueFull";
     public static final String INACTIVE_NODE                    = "inactiveNode";
+    public static final String IGNORE_INACTIVE_NODES            = "ignoreInactiveNode";
     public static final String INCORRECT_CHUNKS                 = "incorrectNumOfChunks";
     public static final String INVALID_CHUNK_SIZE               = "invalidChunkSize";
     public static final String CHECK_SUM_ERROR                  = "checkSumError";
+    public static final String KEY_HASH_COLLISION               = "KeyHashCollision";
     public static final String NUM_CHUNK_SIZE                   = "numOfChunks";
     public static final String CHUNK_DATA_SIZE                  = "dataSize";
     public static final String NOT_AVAILABLE                    = "notAvailable";
@@ -276,9 +281,13 @@ public final class EVCacheMetricsFactory {
     public static final String GET_AND_TOUCH_OPERATION          = "GET_AND_TOUCH";
     public static final String DELETE_OPERATION                 = "DELETE";
     public static final String TOUCH_OPERATION                  = "TOUCH";
-    public static final String AOA_OPERATION                    = "APPEND_OR_ADD";
+    public static final String AOA_OPERATION_APPEND             = "APPEND_OR_ADD-APPEND";
+    public static final String AOA_OPERATION_ADD                = "APPEND_OR_ADD-ADD";
+    public static final String AOA_OPERATION_REAPPEND           = "APPEND_OR_ADD-RETRY-APPEND";
     public static final String SET_OPERATION                    = "SET";
     public static final String ADD_OPERATION                    = "ADD";
     public static final String REPLACE_OPERATION                = "REPLACE";
 
+
+    public static final String OWNER                            = "owner";
 }

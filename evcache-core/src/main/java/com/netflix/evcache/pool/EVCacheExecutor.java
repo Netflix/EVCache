@@ -2,9 +2,9 @@ package com.netflix.evcache.pool;
 
 import java.lang.management.ManagementFactory;
 import java.util.Collections;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import javax.management.MBeanServer;
@@ -21,26 +21,26 @@ import com.netflix.spectator.api.Gauge;
 import com.netflix.spectator.api.Id;
 import com.netflix.spectator.api.Tag;
 
-public class EVCacheScheduledExecutor extends ScheduledThreadPoolExecutor implements EVCacheScheduledExecutorMBean {
+public class EVCacheExecutor extends ThreadPoolExecutor implements EVCacheExecutorMBean {
 
-    private static final Logger log = LoggerFactory.getLogger(EVCacheScheduledExecutor.class);
+    private static final Logger log = LoggerFactory.getLogger(EVCacheExecutor.class);
     private final DynamicIntProperty maxAsyncPoolSize;
     private final DynamicIntProperty coreAsyncPoolSize;
     private final String name;
     private Id completedTaskCount;
     private Gauge currentQueueSize; 
 
-    public EVCacheScheduledExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, RejectedExecutionHandler handler, String name) {
-        super(corePoolSize, handler);
+    public EVCacheExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, RejectedExecutionHandler handler, String name) {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit,
+                new LinkedBlockingQueue<Runnable>(), 
+                new ThreadFactoryBuilder().setDaemon(true).setNameFormat( "EVCacheExecutor-" + name + "-%d").build());
         this.name = name;
 
-        maxAsyncPoolSize = EVCacheConfig.getInstance().getDynamicIntProperty(name + ".executor.max.size", maximumPoolSize);
+        maxAsyncPoolSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheExecutor." + name + ".max.size", maximumPoolSize);
         setMaximumPoolSize(maxAsyncPoolSize.get());
-        coreAsyncPoolSize = EVCacheConfig.getInstance().getDynamicIntProperty(name + ".executor.core.size", corePoolSize);
+        coreAsyncPoolSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheExecutor." + name + ".core.size", corePoolSize);
         setCorePoolSize(coreAsyncPoolSize.get());
         setKeepAliveTime(keepAliveTime, unit);
-        final ThreadFactory asyncFactory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat( "EVCacheScheduledExecutor-" + name + "-%d").build();
-        setThreadFactory(asyncFactory);
         maxAsyncPoolSize.addCallback(new Runnable() {
             public void run() {
                 setMaximumPoolSize(maxAsyncPoolSize.get());
@@ -55,10 +55,10 @@ public class EVCacheScheduledExecutor extends ScheduledThreadPoolExecutor implem
         
         setupMonitoring(name);
         this.completedTaskCount = EVCacheMetricsFactory.getInstance().getId("EVCacheExecutor.completedTaskCount", Collections.<Tag>emptyList());
-        EVCacheMetricsFactory.getInstance().getRegistry().gauge(completedTaskCount, this, EVCacheScheduledExecutor::reportMetrics);
+        EVCacheMetricsFactory.getInstance().getRegistry().gauge(completedTaskCount, this, EVCacheExecutor::reportMetrics);
         this.currentQueueSize = EVCacheMetricsFactory.getInstance().getRegistry().gauge(EVCacheMetricsFactory.getInstance().getId("EVCacheExecutor.currentQueueSize", Collections.<Tag>emptyList()));
     }
-
+    
     private long reportMetrics() {
         currentQueueSize.set(getQueueSize());
         return getCompletedTaskCount();
@@ -76,7 +76,6 @@ public class EVCacheScheduledExecutor extends ScheduledThreadPoolExecutor implem
         } catch (Exception e) {
             if (log.isDebugEnabled()) log.debug("Exception", e);
         }
-
     }
 
     public void shutdown() {

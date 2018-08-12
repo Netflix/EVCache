@@ -9,7 +9,9 @@ public interface EVCacheNodeList {
     /**
      * Discover memcached instances suitable for our use from the Discovery
      * Service.
-     *
+     * 
+     * 
+     * @param appName The EVCache app for which we need instances
      * @throws UnknownServiceException
      *             if no suitable instances can be found
      * @throws IllegalStateException

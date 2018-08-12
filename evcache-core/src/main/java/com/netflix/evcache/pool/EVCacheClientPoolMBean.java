@@ -27,5 +27,7 @@ public interface EVCacheClientPoolMBean {
     void refreshPool();
 
     String getPoolDetails();
+    
+    String getEVCacheWriteClientsCircularIterator();
 
 }

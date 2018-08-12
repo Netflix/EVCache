@@ -200,7 +200,7 @@ public class EVCacheNodeLocator implements NodeLocator {
         if (log.isDebugEnabled()) log.debug("NewNodeMapSize : " + newNodeMap.size() + "; MapSize : " + (numReps * nodes.size()));
         if (log.isTraceEnabled()) {
             for(Long key : newNodeMap.keySet()) {
-                if (log.isTraceEnabled()) log.trace("Hash : " + key + "; Node : " + newNodeMap.get(key));
+                log.trace("Hash : " + key + "; Node : " + newNodeMap.get(key));
             }
         }
         ketamaNodes = newNodeMap;

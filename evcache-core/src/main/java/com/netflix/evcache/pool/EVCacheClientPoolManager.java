@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
@@ -29,7 +30,10 @@ import com.netflix.evcache.EVCacheInMemoryCache;
 import com.netflix.evcache.connection.ConnectionFactoryBuilder;
 import com.netflix.evcache.connection.IConnectionBuilder;
 import com.netflix.evcache.event.EVCacheEventListener;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Tag;
 
 import net.spy.memcached.transcoders.Transcoder;
 
@@ -73,11 +77,16 @@ public class EVCacheClientPoolManager {
 
     private final Map<String, EVCacheClientPool> poolMap = new ConcurrentHashMap<String, EVCacheClientPool>();
     private final Map<EVCacheClientPool, ScheduledFuture<?>> scheduledTaskMap = new HashMap<EVCacheClientPool, ScheduledFuture<?>>();
-    private final EVCacheScheduledExecutor asyncExecutor; 
+    private final EVCacheScheduledExecutor asyncExecutor;
+    private final EVCacheExecutor syncExecutor;
+//    private final DiscoveryClient discoveryClient;
+//    private final ApplicationInfoManager applicationInfoManager;
     private final List<EVCacheEventListener> evcacheEventListenerList;
     private final IConnectionBuilder connectionFactoryProvider;
     private final EVCacheNodeList evcacheNodeList;
 
+
+    private final AtomicLong versionGauge;
 
     @Inject
     public EVCacheClientPoolManager(IConnectionBuilder connectionFactoryprovider, EVCacheNodeList evcacheNodeList) {
@@ -87,29 +96,46 @@ public class EVCacheClientPoolManager {
         this.evcacheNodeList = evcacheNodeList;
         this.evcacheEventListenerList = new ArrayList<EVCacheEventListener>();
 
-        this.asyncExecutor = new EVCacheScheduledExecutor(1,Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "async");
+        this.asyncExecutor = new EVCacheScheduledExecutor(Runtime.getRuntime().availableProcessors(),Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "scheduled");
         asyncExecutor.prestartAllCoreThreads();
-        defaultRefreshInterval.addCallback(new Runnable() {
-            public void run() {
-                refreshScheduler();
-            }
-        });
+        this.syncExecutor = new EVCacheExecutor(Runtime.getRuntime().availableProcessors(),Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "pool");
+        syncExecutor.prestartAllCoreThreads();
+
+        final String fullVersion;
+        final String jarName;
+        if(this.getClass().getPackage().getImplementationVersion() != null) {
+            fullVersion = this.getClass().getPackage().getImplementationVersion();
+        } else {
+            fullVersion = "unknown";
+        }
+        if(this.getClass().getPackage().getImplementationTitle() != null) {
+            jarName = this.getClass().getPackage().getImplementationTitle();
+        } else {
+            jarName = "unknown";
+        }
+
+        final List<Tag> tagList = new ArrayList<Tag>(2);
+        tagList.add(new BasicTag("version", fullVersion));
+        tagList.add(new BasicTag("jarName", jarName));
+        
+        versionGauge = EVCacheMetricsFactory.getInstance().getLongGauge("evcache-client", tagList);
+        versionGauge.set(Long.valueOf(1));
 
         initAtStartup();
     }
-    
-    private void refreshScheduler() {
-        for (Iterator<?> itr = scheduledTaskMap.keySet().iterator(); itr.hasNext();) {
-            final Object obj = itr.next();
-            if(obj instanceof EVCacheClientPool) {
-                final EVCacheClientPool pool = (EVCacheClientPool)obj;
-                final ScheduledFuture<?> task = scheduledTaskMap.get(pool);
-                itr.remove();
-                task.cancel(false);
-                scheduleRefresh(pool);
-            }
-        }
-    }    
+
+//    private void refreshScheduler() {
+//        for (Iterator<?> itr = scheduledTaskMap.keySet().iterator(); itr.hasNext();) {
+//            final Object obj = itr.next();
+//            if(obj instanceof EVCacheClientPool) {
+//                final EVCacheClientPool pool = (EVCacheClientPool)obj;
+//                final ScheduledFuture<?> task = scheduledTaskMap.get(pool);
+//                itr.remove();
+//                task.cancel(false);
+//                scheduleRefresh(pool);
+//            }
+//        }
+//    }    
 
     public IConnectionBuilder getConnectionFactoryProvider() {
         return connectionFactoryProvider;
@@ -209,6 +235,7 @@ public class EVCacheClientPoolManager {
     @PreDestroy
     public void shutdown() {
         asyncExecutor.shutdown();
+        syncExecutor.shutdown();
         for (EVCacheClientPool pool : poolMap.values()) {
             pool.shutdown();
         }
@@ -230,6 +257,10 @@ public class EVCacheClientPoolManager {
 
     public EVCacheScheduledExecutor getEVCacheScheduledExecutor() {
         return asyncExecutor;
+    }
+
+    public EVCacheExecutor getEVCacheExecutor() {
+        return syncExecutor;
     }
 
     private String getAppName(String _app) {

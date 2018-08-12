@@ -34,6 +34,7 @@ import com.netflix.spectator.api.Tag;
 
 public class EurekaNodeListProvider implements EVCacheNodeList {
     public static final String DEFAULT_PORT = "11211";
+    public static final String DEFAULT_SECURE_PORT = "11443";
 
     private static Logger log = LoggerFactory.getLogger(EurekaNodeListProvider.class);
     private final DiscoveryClient _discoveryClient;
@@ -43,7 +44,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
 
     public EurekaNodeListProvider(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient) {
         this.applicationInfoManager = applicationInfoManager;
-        this._discoveryClient = discoveryClient;
+        this._discoveryClient = discoveryClient ;
     }
 
     /*
@@ -74,8 +75,9 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
 
             /* Only AWS instances are usable; bypass all others */
             if (DataCenterInfo.Name.Amazon != dcInfo.getName() || !(dcInfo instanceof AmazonInfo)) {
-                log.error("This is not a AWSDataCenter. You will not be able to use Discovery Nodelist Provider. Cannot proceed. DataCenterInfo : "
-                        + dcInfo + "; appName - " + _appName + ". Please use SimpleNodeList provider and specify the server groups manually.");
+                log.error("This is not an AWSDataCenter. You will not be able to use Discovery Nodelist Provider. Cannot proceed. " +
+                          "DataCenterInfo : {}; appName - {}. Please use SimpleNodeList provider and specify the server groups manually.",
+                          dcInfo, _appName);
                 continue;
             }
 
@@ -110,7 +112,11 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
                 useBatchPort = EVCacheConfig.getInstance().getChainedBooleanProperty(_appName + ".use.batch.port", "evcache.use.batch.port", Boolean.FALSE, null);
                 useRendBatchPortMap.put(asgName, useBatchPort);
             }
-            final int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);
+            int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);
+            final ChainedDynamicProperty.BooleanProperty isSecure = EVCacheConfig.getInstance().getChainedBooleanProperty(asgName + ".use.secure", _appName + ".use.secure", false, null);
+            if(isSecure.get()) {
+                port = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.secure.port")) ? metaInfo.get("evcache.secure.port") : DEFAULT_SECURE_PORT);
+            }
 
             final ServerGroup serverGroup = new ServerGroup(zone, asgName);
             final Set<InetSocketAddress> instances;
