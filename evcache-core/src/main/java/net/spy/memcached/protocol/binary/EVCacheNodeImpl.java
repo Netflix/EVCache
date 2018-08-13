@@ -12,6 +12,7 @@ import java.util.concurrent.BlockingQueue;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
+import org.joda.time.format.ISODateTimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +27,6 @@ import net.spy.memcached.ConnectionFactory;
 import net.spy.memcached.ops.Operation;
 import sun.misc.Cleaner;
 import sun.nio.ch.DirectBuffer;
-import org.joda.time.format.ISODateTimeFormat;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "FCBL_FIELD_COULD_BE_LOCAL", "EXS_EXCEPTION_SOFTENING_NO_CHECKED",
         "REC_CATCH_EXCEPTION", "SCII_SPOILED_CHILD_INTERFACE_IMPLEMENTATOR" })

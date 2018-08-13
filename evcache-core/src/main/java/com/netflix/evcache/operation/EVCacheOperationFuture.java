@@ -28,7 +28,6 @@ import net.spy.memcached.MemcachedConnection;
 import net.spy.memcached.internal.CheckedOperationTimeoutException;
 import net.spy.memcached.internal.OperationFuture;
 import net.spy.memcached.ops.Operation;
-import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
 import rx.Scheduler;
 import rx.Single;
 import rx.functions.Action0;

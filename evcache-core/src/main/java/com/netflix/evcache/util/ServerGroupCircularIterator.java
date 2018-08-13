@@ -1,9 +1,9 @@
 package com.netflix.evcache.util;
 
-import com.netflix.evcache.pool.ServerGroup;
-
 import java.util.Iterator;
 import java.util.Set;
+
+import com.netflix.evcache.pool.ServerGroup;
 
 /**
  * A circular iterator for ReplicaSets. This ensures that all ReplicaSets are

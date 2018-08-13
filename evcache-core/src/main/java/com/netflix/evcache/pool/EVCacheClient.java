@@ -35,10 +35,10 @@ import com.netflix.evcache.operation.EVCacheFutures;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.evcache.util.KeyHasher;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
 import com.netflix.spectator.api.Tag;
-import com.netflix.evcache.util.KeyHasher;
 
 import net.spy.memcached.CASValue;
 import net.spy.memcached.CachedData;

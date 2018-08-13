@@ -36,12 +36,11 @@ import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheClientUtil;
 import com.netflix.evcache.pool.EVCacheValue;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.evcache.util.KeyHasher;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
 import com.netflix.spectator.api.Tag;
 import com.netflix.spectator.api.Timer;
-import com.netflix.evcache.util.KeyHasher;
-import com.netflix.spectator.api.DistributionSummary;
 
 import net.spy.memcached.CachedData;
 import net.spy.memcached.MemcachedClientIF;
@@ -236,7 +235,7 @@ final public class EVCacheImpl implements EVCache {
         if(counter == null) {
             final List<Tag> tagList = new ArrayList<Tag>(3);
             tagList.addAll(tags);
-            tagList.add(new BasicTag(EVCacheMetricsFactory.CAUSE, metric));
+            tagList.add(new BasicTag(EVCacheMetricsFactory.FAIL_REASON, metric));
             counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.FAST_FAIL, tagList);
             counterMap.put(metric, counter);
         }

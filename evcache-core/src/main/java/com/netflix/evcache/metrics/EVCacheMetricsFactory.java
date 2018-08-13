@@ -167,17 +167,18 @@ public final class EVCacheMetricsFactory {
 
 
     /**
-     * External Metric Names
+     * External IPC Metric Names
      */
-    public static final String CALL                             = "evcache.client.call";
-    public static final String FAST_FAIL                        = "evcache.client.fastfail";
-    public static final String CONFIG                           = "evcache.client.config";
-    public static final String DATA_SIZE                        = "evcache.client.datasize";
-    public static final String IN_MEMORY                        = "evcache.client.inmemorycache";
+    public static final String CALL                             = "ipc.client.call";
+    public static final String OWNER                            = "owner";
 
     /**
      * Internal Metric Names
      */
+    public static final String CONFIG                           = "internal-evc.client.config";
+    public static final String DATA_SIZE                        = "internal-evc.client.datasize";
+    public static final String IN_MEMORY                        = "internal-evc.client.inmemorycache";
+    public static final String FAST_FAIL                        = "internal-evc.client.fastfail";
     public static final String INTERNAL_CALL                    = "internal-evc.client.call";
     public static final String INTERNAL_CONFIG                  = "internal-evc.client.config";
     public static final String INTERNAL_PAUSE                   = "internal-evc.client.pause";
@@ -208,18 +209,29 @@ public final class EVCacheMetricsFactory {
     /**
      * Metric Tags Names
      */
-    public static final String CACHE                            = "evc.cache";
-    public static final String SERVERGROUP                      = "evc.serverGroup";
-    public static final String STATUS                           = "evc.status";
-    public static final String CONNECTION_ID                    = "evc.connectionId";
+    public static final String CACHE                            = "ipc.server.app";
+    public static final String SERVERGROUP                      = "ipc.server.asg";
+    public static final String ATTEMPT                          = "ipc.attempt";
+    public static final String STATUS                           = "ipc.result";
+    public static final String FAIL_REASON                      = "ipc.error.group";
+    public static final String PAUSE_REASON                     = "ipc.error.reason";
 
+    /*
+     * Metric Tags moved to IPC format
+     */
+//    public static final String CACHE                            = "evc.cache";
+//    public static final String SERVERGROUP                      = "evc.serverGroup";
+//    public static final String STATUS                           = "evc.status";
+//    public static final String CAUSE                            = "evc.cause";
+//    public static final String ATTEMPT                          = "evc.attempt";
+//    public static final String PAUSE_REASON                     = "evc.pauseReason";
+
+    public static final String CONNECTION_ID                    = "evc.connectionId";
     public static final String CALL_TAG                         = "evc.call";
     public static final String LATCH                            = "evc.latch";
-    public static final String CAUSE                            = "evc.cause";
     public static final String FAIL_COUNT                       = "evc.failCount";
     public static final String COMPLETE_COUNT                   = "evc.completeCount";
     public static final String RECONNECT_COUNT                  = "evc.reconnectCount";
-    public static final String PAUSE_REASON                     = "evc.pauseReason";
     public static final String FETCH_AFTER_PAUSE                = "evc.fetchAfterPause";
     public static final String FAILED_SERVERGROUP               = "evc.failedServerGroup";
     public static final String CONFIG_NAME                      = "evc.config";
@@ -229,11 +241,9 @@ public final class EVCacheMetricsFactory {
     public static final String OPERATION_TYPE                   = "evc.operationType";
     public static final String OPERATION_STATUS                 = "evc.operationStatus";
     public static final String NUMBER_OF_ATTEMPTS               = "evc.numberOfAttempts";
-    public static final String ATTEMPT                          = "evc.attempt";
     public static final String NUMBER_OF_KEYS                   = "evc.numberOfKeys";
     public static final String METRIC                           = "evc.metric";
     public static final String PREFIX                           = "evc.prefix";
-    public static final String FAIL_REASON                      = "evc.failReason";
 
     /**
      * Metric Tags Values  
@@ -289,5 +299,4 @@ public final class EVCacheMetricsFactory {
     public static final String REPLACE_OPERATION                = "REPLACE";
 
 
-    public static final String OWNER                            = "owner";
 }

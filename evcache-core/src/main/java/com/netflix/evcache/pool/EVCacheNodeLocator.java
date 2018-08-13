@@ -8,18 +8,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.netflix.config.ChainedDynamicProperty;
+import com.netflix.evcache.util.EVCacheConfig;
+
 import net.spy.memcached.DefaultHashAlgorithm;
 import net.spy.memcached.EVCacheMemcachedNodeROImpl;
 import net.spy.memcached.HashAlgorithm;
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.NodeLocator;
 import net.spy.memcached.util.KetamaNodeLocatorConfiguration;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.evcache.util.EVCacheConfig;
 
 public class EVCacheNodeLocator implements NodeLocator {
 
