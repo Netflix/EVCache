@@ -185,6 +185,7 @@ public final class EVCacheMetricsFactory {
     public static final String INTERNAL_LATCH                   = "internal-evc.client.latch";
     public static final String INTERNAL_LATCH_VERIFY            = "internal-evc.client.latch-verify";
     public static final String INTERNAL                         = "internal-evc.client";
+    public static final String INTERNAL_RECONNECT               = "internal-evc.client.reconnect";
 
     public static final String INTERNAL_NUM_CHUNK_SIZE          = "internal-evc.client.chunking.numOfChunks";
     public static final String INTERNAL_CHUNK_DATA_SIZE         = "internal-evc.client.chunking.dataSize";
@@ -253,6 +254,7 @@ public final class EVCacheMetricsFactory {
     public static final String CONNECT                          = "connect";
     public static final String DISCONNECT                       = "disconnect";
     public static final String SUCCESS                          = "success";
+    public static final String FAIL                             = "fail";
     public static final String TIMEOUT                          = "timeout";
     public static final String CHECKED_OP_TIMEOUT               = "CheckedOperationTimeout";
     public static final String CANCELLED                        = "cancelled";
