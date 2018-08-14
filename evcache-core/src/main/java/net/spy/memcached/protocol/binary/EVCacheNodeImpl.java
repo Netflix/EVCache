@@ -28,6 +28,7 @@ import net.spy.memcached.ops.Operation;
 import sun.misc.Cleaner;
 import sun.nio.ch.DirectBuffer;
 
+@SuppressWarnings("restriction")
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "FCBL_FIELD_COULD_BE_LOCAL", "EXS_EXCEPTION_SOFTENING_NO_CHECKED",
         "REC_CATCH_EXCEPTION", "SCII_SPOILED_CHILD_INTERFACE_IMPLEMENTATOR" })
 public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheNodeImplMBean {

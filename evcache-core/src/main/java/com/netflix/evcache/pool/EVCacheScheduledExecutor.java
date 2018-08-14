@@ -30,6 +30,7 @@ public class EVCacheScheduledExecutor extends ScheduledThreadPoolExecutor implem
     private Id completedTaskCount;
     private Gauge currentQueueSize; 
 
+    @SuppressWarnings("deprecation")
     public EVCacheScheduledExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, RejectedExecutionHandler handler, String name) {
         super(corePoolSize, handler);
         this.name = name;

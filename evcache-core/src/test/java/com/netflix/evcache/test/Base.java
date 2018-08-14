@@ -182,6 +182,7 @@ public abstract class Base  {
         return true;
     }
 
+    @SuppressWarnings("deprecation")
     protected boolean insertUsingLatch(int i, String app) throws Exception {
         String val = "val_" + i;
         String key = "key_" + i;

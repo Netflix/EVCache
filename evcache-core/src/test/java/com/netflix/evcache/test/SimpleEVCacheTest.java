@@ -25,7 +25,7 @@ import com.netflix.evcache.pool.EVCacheClientPoolManager;
 
 import rx.schedulers.Schedulers;
 
-@SuppressWarnings({"unused"})
+@SuppressWarnings({"unused","deprecation"})
 public class SimpleEVCacheTest extends Base {
     private static final Logger log = LogManager.getLogger(SimpleEVCacheTest.class);
 

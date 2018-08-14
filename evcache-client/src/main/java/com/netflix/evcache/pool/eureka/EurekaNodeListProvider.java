@@ -52,6 +52,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
      * 
      * @see com.netflix.evcache.pool.EVCacheNodeList#discoverInstances()
      */
+    @SuppressWarnings("deprecation")
     @Override
     public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances(String _appName) throws IOException {
         if ((applicationInfoManager.getInfo().getStatus() == InstanceStatus.DOWN)) {

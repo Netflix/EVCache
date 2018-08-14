@@ -201,6 +201,7 @@ public class EVCacheInMemoryCache<T> {
         return size;
     }
 
+    @SuppressWarnings("deprecation")
     private void setupMonitoring(final String appName) {
         EVCacheMetricsFactory.getInstance().getRegistry().gauge(sizeId, this, EVCacheInMemoryCache::getSize);
     }

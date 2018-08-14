@@ -30,6 +30,7 @@ public class EVCacheExecutor extends ThreadPoolExecutor implements EVCacheExecut
     private Id completedTaskCount;
     private Gauge currentQueueSize; 
 
+    @SuppressWarnings("deprecation")
     public EVCacheExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, RejectedExecutionHandler handler, String name) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit,
                 new LinkedBlockingQueue<Runnable>(), 

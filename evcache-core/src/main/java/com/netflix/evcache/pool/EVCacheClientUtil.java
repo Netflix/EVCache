@@ -84,7 +84,7 @@ public class EVCacheClientUtil {
         };
 
         for (EVCacheClient client : clients) {
-            final Future<Boolean> future = client.add(canonicalKey, timeToLive, cd, ct, latch);
+            final Future<Boolean> future = client.add(canonicalKey, timeToLive, cd, latch);
             if(log.isDebugEnabled()) log.debug("ADD : Op Submitted : APP " + _appName + ", key " + canonicalKey + "; future : " + future);
         }
         return latch;

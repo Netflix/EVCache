@@ -1003,6 +1003,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return size;
     }
 
+    @SuppressWarnings("deprecation")
     private void setupMonitoring() {
         try {
             final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + _appName

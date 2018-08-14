@@ -64,6 +64,7 @@ public final class EVCacheMetricsFactory {
         return getLongGauge(name, null);
     }
 
+    @SuppressWarnings("deprecation")
     public AtomicLong getLongGauge(String cName, Collection<Tag> tags) {
         final String name = tags != null ? cName + tags.toString() : cName;
         AtomicLong gauge = (AtomicLong)monitorMap.get(name);

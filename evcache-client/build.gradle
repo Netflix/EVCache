@@ -14,7 +14,7 @@ repositories {
 dependencies {
         compile project(':evcache-core')
         compile group:"com.netflix.evcache",          name:"evcache-core",                     version:"5.+"
-        compile group:"net.spy",                      name:"spymemcached",                     version:"2.12.2"
+        compile group:"net.spy",                      name:"spymemcached",                     version:"2.11.4"
         compile group:"com.google.code.findbugs",     name:"annotations",                      version:"latest.release"
         compile group:"com.netflix.archaius",         name:"archaius2-core",                   version:"latest.release"
         compile group:"com.netflix.governator",       name:"governator",                       version:"latest.release"

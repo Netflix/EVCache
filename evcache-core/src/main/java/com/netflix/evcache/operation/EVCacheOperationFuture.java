@@ -48,6 +48,7 @@ import rx.functions.Action0;
  * @param <T>
  *            Type of object returned from this future.
  */
+@SuppressWarnings("restriction")
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings("EXS_EXCEPTION_SOFTENING_HAS_CHECKED")
 public class EVCacheOperationFuture<T> extends OperationFuture<T> {
 
@@ -132,7 +133,6 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
      * @throws TimeoutException
      * @throws ExecutionException
      */
-    @SuppressWarnings("restriction")
     public T get(long duration, TimeUnit units, boolean throwException, boolean hasZF) throws InterruptedException, TimeoutException, ExecutionException {
         boolean status = latch.await(duration, units);
         if (!status) {

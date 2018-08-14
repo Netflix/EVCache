@@ -1307,9 +1307,6 @@ public class EVCacheClient {
         return _add(key, exp, cd, null);
     }
 
-//<<<<<<< HEAD:evcache-core/src/main/java/com/netflix/evcache/pool/EVCacheClient.java
-//        return evcacheMemcachedClient.add(key, exp, o, tc, latch);
-//=======
     @Deprecated
     public <T> Future<Boolean> add(String key, int exp, T value, final Transcoder<T> tc, EVCacheLatch latch)  throws Exception {
         final CachedData cd;
@@ -1324,7 +1321,6 @@ public class EVCacheClient {
         }
         return _add(key, exp, cd, latch);
     }
-//>>>>>>> master:evcache-client/src/main/java/com/netflix/evcache/pool/EVCacheClient.java
 
     public Future<Boolean> add(String key, int exp, CachedData value, EVCacheLatch latch)  throws Exception {
         return _add(key, exp, value, latch);

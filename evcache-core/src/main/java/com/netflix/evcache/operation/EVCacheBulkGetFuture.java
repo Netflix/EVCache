@@ -42,6 +42,7 @@ import rx.Single;
  *
  * types of objects returned from the GETBULK
  */
+@SuppressWarnings("restriction")
 public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
 
     private Logger log = LoggerFactory.getLogger(EVCacheBulkGetFuture.class);
