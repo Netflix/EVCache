@@ -1,7 +1,6 @@
 package com.netflix.evcache.pool;
 
 import java.lang.management.ManagementFactory;
-import java.util.Collections;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -17,9 +16,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
-import com.netflix.spectator.api.Gauge;
-import com.netflix.spectator.api.Id;
-import com.netflix.spectator.api.Tag;
+import com.netflix.spectator.api.patterns.ThreadPoolMonitor;
 
 public class EVCacheExecutor extends ThreadPoolExecutor implements EVCacheExecutorMBean {
 
@@ -27,10 +24,6 @@ public class EVCacheExecutor extends ThreadPoolExecutor implements EVCacheExecut
     private final DynamicIntProperty maxAsyncPoolSize;
     private final DynamicIntProperty coreAsyncPoolSize;
     private final String name;
-    private Id completedTaskCount;
-    private Gauge currentQueueSize; 
-
-    @SuppressWarnings("deprecation")
     public EVCacheExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, RejectedExecutionHandler handler, String name) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit,
                 new LinkedBlockingQueue<Runnable>(), 
@@ -55,15 +48,9 @@ public class EVCacheExecutor extends ThreadPoolExecutor implements EVCacheExecut
         });
         
         setupMonitoring(name);
-        this.completedTaskCount = EVCacheMetricsFactory.getInstance().getId("EVCacheExecutor.completedTaskCount", Collections.<Tag>emptyList());
-        EVCacheMetricsFactory.getInstance().getRegistry().gauge(completedTaskCount, this, EVCacheExecutor::reportMetrics);
-        this.currentQueueSize = EVCacheMetricsFactory.getInstance().getRegistry().gauge(EVCacheMetricsFactory.getInstance().getId("EVCacheExecutor.currentQueueSize", Collections.<Tag>emptyList()));
+        ThreadPoolMonitor.attach(EVCacheMetricsFactory.getInstance().getRegistry(), this, EVCacheMetricsFactory.INTERNAL_EXECUTOR + "-" + name);
     }
-    
-    private long reportMetrics() {
-        currentQueueSize.set(getQueueSize());
-        return getCompletedTaskCount();
-    }
+
 
     private void setupMonitoring(String name) {
         try {

@@ -5,7 +5,6 @@ import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 
@@ -16,10 +15,8 @@ import org.joda.time.format.ISODateTimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
-import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
 import com.netflix.spectator.api.Tag;
 
@@ -39,9 +36,9 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     protected final BlockingQueue<Operation> readQ;
     protected final BlockingQueue<Operation> inputQueue;
     protected final EVCacheClient client;
-    protected final Counter operationsCounter;
-    protected final Counter reconnectCounter;
+    //protected Counter reconnectCounter;
     private long timeoutStartTime;
+    protected final Counter operationsCounter;
 
     public EVCacheNodeImpl(SocketAddress sa, SocketChannel c, int bufSize, BlockingQueue<Operation> rq, BlockingQueue<Operation> wq, BlockingQueue<Operation> iq,
             long opQueueMaxBlockTimeMillis, boolean waitForAuth, long dt, long at, ConnectionFactory fa, EVCacheClient client, long stTime) {
@@ -52,15 +49,13 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         this.readQ = rq;
         this.inputQueue = iq;
         this.hostName = ((InetSocketAddress) getSocketAddress()).getHostName();
-        final List<Tag> tagsCounter = new ArrayList<Tag>(5);
+//        final List<Tag> tagsCounter = new ArrayList<Tag>(5);
+//        tagsCounter.add(new BasicTag(EVCacheMetricsFactory.CACHE, client.getAppName()));
+//        tagsCounter.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, client.getServerGroupName()));
+//        tagsCounter.add(new BasicTag(EVCacheMetricsFactory.ZONE, client.getZone()));
         //tagsCounter.add(new BasicTag(EVCacheMetricsFactory.HOST, hostName)); //TODO : enable this and see what is the impact
-        tagsCounter.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.OPERATION));
-        operationsCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_CALL, tagsCounter);
+        this.operationsCounter = client.getOperationCounter();
 
-        final List<Tag> tags = new ArrayList<Tag>(5);
-        tags.add(new BasicTag(EVCacheMetricsFactory.HOST, hostName));
-        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.RECONNECT));
-        reconnectCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_CALL, tags);
         setConnectTime(stTime);
         setupMonitoring(appName);
     }
@@ -169,7 +164,17 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
 
     public void setConnectTime(long cTime) {
         this.stTime = cTime;
-        reconnectCounter.increment();
+//        if(reconnectCounter == null) {
+//            final List<Tag> tags = new ArrayList<Tag>(5);
+//            tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, client.getAppName()));
+//            tags.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, client.getServerGroupName()));
+//            tags.add(new BasicTag(EVCacheMetricsFactory.ZONE, client.getZone()));
+//            tags.add(new BasicTag(EVCacheMetricsFactory.HOST, hostName));
+//            tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.RECONNECT));
+//            this.reconnectCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_RECONNECT, tags);
+//            
+//        }
+//        reconnectCounter.increment();
     }
 
     public String getAppName() {
@@ -193,7 +198,9 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     }
 
     public int getTotalReconnectCount() {
-        return (int)reconnectCounter.count();
+//        if(reconnectCounter == null) return 0;
+//        return (int)reconnectCounter.count();
+        return getReconnectCount();
     }
 
     @Override

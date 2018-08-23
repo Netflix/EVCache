@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -161,7 +162,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
         tagList = new ArrayList<Tag>(1);
         tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
-        this.poolSizeId = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.CONFIG, tagList);
+        this.poolSizeId = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_POOL_CONFIG, tagList);
  
         this._pingServers = config.getChainedBooleanProperty(appName + ".ping.servers", "evcache.ping.servers", Boolean.FALSE, null); 
         setupMonitoring();
@@ -828,12 +829,12 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         } catch (Throwable t) {
             log.error("Exception while refreshing the Server list", t);
         } finally {
-            EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_POOL, tagList).record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS);
+            EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_POOL_REFRESH, tagList, Duration.ofMillis(100)).record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS);
         }
 
         if (log.isDebugEnabled()) log.debug("refresh APP : " + _appName + "; DONE");
     }
-    
+
     private void setupAllEVCacheWriteClientsArray() {
         final List<EVCacheClient[]> newClients = new ArrayList<EVCacheClient[]>(_poolSize.get());
         try {
@@ -963,7 +964,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, isInWriteOnly(serverGroup) ? "write_only" : "read_write"));
         }
 
-        final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_POOL, tags);
+        final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_POOL_CONFIG, tags);
         gauge = EVCacheMetricsFactory.getInstance().getRegistry().gauge(id);
         gaugeMap.put(name, gauge);
         return gauge;

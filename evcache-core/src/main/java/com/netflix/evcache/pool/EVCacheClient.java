@@ -94,6 +94,7 @@ public class EVCacheClient {
     private final List<Tag> tags;
     private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
     private final ChainedDynamicProperty.StringProperty hashingAlgo;
+    protected final Counter operationsCounter;
 
     EVCacheClient(String appName, String zone, int id, EVCacheServerGroupConfig config,
             List<InetSocketAddress> memcachedNodesInZone, int maxQueueSize, DynamicIntProperty maxReadQueueSize,
@@ -116,8 +117,10 @@ public class EVCacheClient {
         tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
         tagList.add(new BasicTag(EVCacheMetricsFactory.CONNECTION_ID, String.valueOf(id)));
         tagList.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
-        
-        this.tags = Collections.<Tag>unmodifiableList(tagList); 
+        tagList.add(new BasicTag(EVCacheMetricsFactory.ZONE, serverGroup.getZone()));
+        this.tags = Collections.<Tag>unmodifiableList(tagList);
+
+        operationsCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_OPERATION, tags);
 
         this.enableChunking = EVCacheConfig.getInstance().getChainedBooleanProperty(this.serverGroup.getName()+ ".chunk.data", appName + ".chunk.data", Boolean.FALSE, null);
         this.chunkSize = EVCacheConfig.getInstance().getChainedIntProperty(this.serverGroup.getName() + ".chunk.size", appName + ".chunk.size", 1180, null);
@@ -177,8 +180,8 @@ public class EVCacheClient {
         if(counter == null) {
             final List<Tag> tagList = new ArrayList<Tag>(4);
             tagList.addAll(tags);
-            tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, metric));
-            counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_CALL, tagList);
+            tagList.add(new BasicTag(EVCacheMetricsFactory.METRIC, metric));
+            counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL, tagList);
             counterMap.put(metric, counter);
         }
         counter.increment();
@@ -1221,57 +1224,11 @@ public class EVCacheClient {
         }
     }
 
-
-    /*
-    public boolean appendOrAdd(String key, CachedData value, int timeToLive) throws EVCacheException {
-        int i = 0;
-        try {
-            do {
-                final Future<Boolean> future = evcacheMemcachedClient.append(key, value);
-                try {
-                    if(future.get(operationTimeout.get(), TimeUnit.MILLISECONDS) == Boolean.FALSE) {
-                        final Future<Boolean> f = evcacheMemcachedClient.add(key, timeToLive, value);
-                        if(f.get(operationTimeout.get(), TimeUnit.MILLISECONDS) == Boolean.TRUE) {
-                            return true;
-                        }
-                    } else {
-                        return true;
-                    }
-                } catch(TimeoutException te) {
-                    return false;
-                }
-            } while(i++ < 2);
-        } catch (Exception ex) {
-            if (log.isDebugEnabled() ) log.debug("Exception appendOrAdd data for APP " + appName + ", key : " + key, ex);
-            return false;
-        } 
-        return false;
-    }
-    */
-
     private Future<Boolean> _add(String key, int exp, CachedData value, EVCacheLatch latch) throws Exception {
         if (enableChunking.get()) throw new EVCacheException("This operation is not supported as chunking is enabled on this EVCacheClient.");
 
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         if (!ensureWriteQueueSize(node, key)) return getDefaultFuture();
-
-//<<<<<<< HEAD:evcache-core/src/main/java/com/netflix/evcache/pool/EVCacheClient.java
-//        return evcacheMemcachedClient.add(key, exp, value, null);
-//    }
-//
-//    public <T> Future<Boolean> add(String key, int exp, T value, Transcoder<T> tc) throws Exception {
-//        if (enableChunking.get()) throw new EVCacheException("This operation is not supported as chunking is enabled on this EVCacheClient.");
-//
-//        final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
-//        if (!ensureWriteQueueSize(node, key)) return getDefaultFuture();
-//
-//        return evcacheMemcachedClient.add(key, exp, value, tc);
-//    }
-//    
-//    public <T> Future<Boolean> add(String key, int exp, T o, final Transcoder<T> tc, EVCacheLatch latch)  throws Exception {
-//        if (enableChunking.get()) throw new EVCacheException("This operation is not supported as chunking is enabled on this EVCacheClient.");
-//=======
-//        addCounter.increment();
         if(shouldHashKey()) {
             final String hKey = getHashedKey(key);
             final CachedData cVal = getEVCacheValue(key, value, exp);
@@ -1777,6 +1734,10 @@ public class EVCacheClient {
 
     public List<Tag> getTagList() {
         return tags;
+    }
+
+    public Counter getOperationCounter() {
+        return operationsCounter;
     }
 
 }

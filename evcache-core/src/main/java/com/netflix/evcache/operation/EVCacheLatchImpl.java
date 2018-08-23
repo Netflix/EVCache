@@ -1,5 +1,6 @@
 package com.netflix.evcache.operation;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -17,6 +18,7 @@ import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
 
@@ -247,7 +249,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             tags.add(new BasicTag(EVCacheMetricsFactory.FAIL_COUNT, String.valueOf(failureCount)));
             tags.add(new BasicTag(EVCacheMetricsFactory.COMPLETE_COUNT, String.valueOf(completeCount)));
             tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.CALLBACK));
-            EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_LATCH, tags).record(System.currentTimeMillis()- start, TimeUnit.MILLISECONDS);
+            EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_LATCH, tags, Duration.ofMillis(EVCacheConfig.getInstance().getChainedIntProperty(getAppName() + ".max.write.duration.metric", "evcache.max.write.duration.metric", 50, null).get().intValue())).record(System.currentTimeMillis()- start, TimeUnit.MILLISECONDS);
         }
         if (log.isDebugEnabled()) log.debug("END : onComplete - Calling Countdown. Completed Future = " + future + "; App : " + appName); 
     }
@@ -379,13 +381,8 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     @SuppressWarnings("unchecked")
     @Override
     public void run() {
-        final List<Tag> tags = new ArrayList<Tag>(4);
-        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
-        tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.VERIFY));
-
         if(evcacheEvent != null) {
-            int failCount = 0;
-
+            int failCount = 0, completeCount = 0;
             for (Future<Boolean> future : futures) {
                 boolean fail = false;
                 try {
@@ -420,10 +417,11 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                     } else {
                         failCount++;
                     }
+                } else {
+                    completeCount++;
                 }
             }
             if(log.isDebugEnabled()) log.debug("Fail Count : " + failCount);
-            tags.add(new BasicTag(EVCacheMetricsFactory.FAIL_COUNT, String.valueOf(failCount)));
 
             if(failCount > 0) {
                 if(evcacheEvent.getClients().size() > 0) {
@@ -436,9 +434,14 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                         break;
                     }
                 }
-            } 
+            }
+            final List<Tag> tags = new ArrayList<Tag>(4);
+            tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+            tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.VERIFY));
+            tags.add(new BasicTag(EVCacheMetricsFactory.FAIL_COUNT, String.valueOf(failCount)));
+            tags.add(new BasicTag(EVCacheMetricsFactory.COMPLETE_COUNT, String.valueOf(completeCount)));
+            EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_LATCH_VERIFY, tags);
         }
-        EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_LATCH_VERIFY, tags).record(System.currentTimeMillis()- start, TimeUnit.MILLISECONDS);
     }
 
     @Override

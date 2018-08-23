@@ -53,7 +53,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         evCacheInActiveStringSet.remove(inetAdd);
         if (log.isDebugEnabled()) log.debug(client.getAppName() + ":CONNECTION ESTABLISHED : To " + address + " was established after " + reconnectCount + " retries");
         if(log.isTraceEnabled()) log.trace("Stack", new Exception());
-        final ArrayList<Tag> tags = new ArrayList<Tag>(4);
+        final ArrayList<Tag> tags = new ArrayList<Tag>(client.getTagList().size() + 3);
         tags.addAll(client.getTagList());
         tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.CONNECT ));
         tags.add(new BasicTag(EVCacheMetricsFactory.HOST, address ));

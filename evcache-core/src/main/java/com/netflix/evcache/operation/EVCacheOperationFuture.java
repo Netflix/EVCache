@@ -3,6 +3,7 @@ package com.netflix.evcache.operation;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CancellationException;
@@ -20,6 +21,7 @@ import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
 import com.sun.management.GcInfo;
@@ -169,28 +171,29 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
             status = latch.await(duration, units);
 
             if (log.isDebugEnabled()) log.debug("re-await status : " + status);
+            String failReason = null;
+            final long pauseDuration = System.currentTimeMillis() - start;
             if (op != null && !status) {
-                final long pauseDuration = System.currentTimeMillis() - start;
                 // whenever timeout occurs, continuous timeout counter will increase by 1.
                 MemcachedConnection.opTimedOut(op);
                 op.timeOut();
                 ExecutionException t = null;
-                String failReason = null;
                 if(throwException && !hasZF) {
                     if (op.isTimedOut()) { t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op)); failReason = EVCacheMetricsFactory.CHECKED_OP_TIMEOUT; } 
                     else if (op.isCancelled()  && throwException) { t = new ExecutionException(new CancellationException("Cancelled"));failReason = EVCacheMetricsFactory.CANCELLED; }
                     else if (op.hasErrored() ) { t = new ExecutionException(op.getException());failReason = EVCacheMetricsFactory.ERROR; }
                 }   
-                final List<Tag> tagList = new ArrayList<Tag>(client.getTagList().size() + 4);
-                tagList.addAll(client.getTagList());
-                tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.GET_OPERATION));
-                tagList.add(new BasicTag(EVCacheMetricsFactory.PAUSE_REASON, gcPause ? "GC":"Scheduling"));
-                tagList.add(new BasicTag(EVCacheMetricsFactory.FETCH_AFTER_PAUSE, status ? "Succcess":"Fail"));
-                if(failReason != null) tagList.add(new BasicTag(EVCacheMetricsFactory.FAIL_REASON, failReason));
-                EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList).record(pauseDuration, TimeUnit.MILLISECONDS);
 
                 if(t != null) throw t; //finally throw the exception if needed 
             }
+
+            final List<Tag> tagList = new ArrayList<Tag>(client.getTagList().size() + 4);
+            tagList.addAll(client.getTagList());
+            tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.GET_OPERATION));
+            tagList.add(new BasicTag(EVCacheMetricsFactory.PAUSE_REASON, gcPause ? EVCacheMetricsFactory.GC:EVCacheMetricsFactory.SCHEDULE));
+            tagList.add(new BasicTag(EVCacheMetricsFactory.FETCH_AFTER_PAUSE, status ? EVCacheMetricsFactory.YES:EVCacheMetricsFactory.NO));
+            if(failReason != null) tagList.add(new BasicTag(EVCacheMetricsFactory.FAIL_REASON, failReason));
+            EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList, Duration.ofMillis(EVCacheConfig.getInstance().getChainedIntProperty(getApp() + ".max.write.duration.metric", "evcache.max.write.duration.metric", 50, null).get().intValue())).record(pauseDuration, TimeUnit.MILLISECONDS);
         }
 
         if (status)  MemcachedConnection.opSucceeded(op);// continuous timeout counter will be reset

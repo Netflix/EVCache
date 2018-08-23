@@ -1,5 +1,6 @@
 package com.netflix.evcache.metrics;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -20,6 +21,7 @@ import com.netflix.spectator.api.Tag;
 import com.netflix.spectator.api.Timer;
 import com.netflix.spectator.api.histogram.PercentileTimer;
 
+@SuppressWarnings("deprecation")
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = { "NF_LOCAL_FAST_PROPERTY",
         "PMB_POSSIBLE_MEMORY_BLOAT" }, justification = "Creates only when needed")
 public final class EVCacheMetricsFactory {
@@ -64,7 +66,6 @@ public final class EVCacheMetricsFactory {
         return getLongGauge(name, null);
     }
 
-    @SuppressWarnings("deprecation")
     public AtomicLong getLongGauge(String cName, Collection<Tag> tags) {
         final String name = tags != null ? cName + tags.toString() : cName;
         AtomicLong gauge = (AtomicLong)monitorMap.get(name);
@@ -132,7 +133,12 @@ public final class EVCacheMetricsFactory {
         counter.increment();
     }
 
+    @Deprecated
     public Timer getPercentileTimer(String metric, Collection<Tag> tags) {
+        return getPercentileTimer(metric, tags, Duration.ofMillis(100));
+    }
+
+    public Timer getPercentileTimer(String metric, Collection<Tag> tags, Duration max) {
         final String name = tags != null ? metric + tags.toString() : metric;
         final Timer duration = timerMap.get(name);
         if (duration != null) return duration;
@@ -143,7 +149,7 @@ public final class EVCacheMetricsFactory {
                 return timerMap.get(name);
             else {
                 Id id = getId(metric, tags);
-                final Timer _duration = PercentileTimer.get(getRegistry(), id);
+                final Timer _duration = PercentileTimer.builder(getRegistry()).withId(id).withRange(Duration.ofNanos(100000), max).build();
                 timerMap.put(name, _duration);
                 return _duration;
             }
@@ -171,6 +177,9 @@ public final class EVCacheMetricsFactory {
      * External IPC Metric Names
      */
     public static final String CALL                             = "ipc.client.call";
+    public static final String SIZE_INBOUND                     = "ipc.client.call.size.inbound";
+    public static final String SIZE_OUTBOUND                    = "ipc.client.call.size.outbound";
+
     public static final String OWNER                            = "owner";
 
     /**
@@ -181,18 +190,21 @@ public final class EVCacheMetricsFactory {
     public static final String IN_MEMORY                        = "internal-evc.client.inmemorycache";
     public static final String FAST_FAIL                        = "internal-evc.client.fastfail";
     public static final String INTERNAL_CALL                    = "internal-evc.client.call";
-    public static final String INTERNAL_CONFIG                  = "internal-evc.client.config";
+    public static final String INTERNAL_OPERATION               = "internal-evc.client.operation";
     public static final String INTERNAL_PAUSE                   = "internal-evc.client.pause";
     public static final String INTERNAL_LATCH                   = "internal-evc.client.latch";
     public static final String INTERNAL_LATCH_VERIFY            = "internal-evc.client.latch-verify";
     public static final String INTERNAL                         = "internal-evc.client";
     public static final String INTERNAL_RECONNECT               = "internal-evc.client.reconnect";
+    public static final String INTERNAL_EXECUTOR                = "internal-evc.client.executor";
+    public static final String INTERNAL_EXECUTOR_SCHEDULED      = "internal-evc.client.scheduledExecutor";
 
     public static final String INTERNAL_NUM_CHUNK_SIZE          = "internal-evc.client.chunking.numOfChunks";
     public static final String INTERNAL_CHUNK_DATA_SIZE         = "internal-evc.client.chunking.dataSize";
     public static final String INTERNAL_ADD_CALL_FIXUP          = "internal-evc.client.addCall.fixUp";
 
-    public static final String INTERNAL_POOL                    = "internal-evc.client.pool";
+    public static final String INTERNAL_POOL_CONFIG             = "internal-evc.client.pool.config";
+    public static final String INTERNAL_POOL_REFRESH            = "internal-evc.client.pool.refresh";
     /*
      * Internal pool config values
      */
@@ -213,6 +225,7 @@ public final class EVCacheMetricsFactory {
      */
     public static final String CACHE                            = "ipc.server.app";
     public static final String SERVERGROUP                      = "ipc.server.asg";
+    public static final String ZONE                             = "ipc.zone";
     public static final String ATTEMPT                          = "ipc.attempt";
     public static final String STATUS                           = "ipc.result";
     public static final String FAIL_REASON                      = "ipc.error.group";
@@ -255,7 +268,7 @@ public final class EVCacheMetricsFactory {
     public static final String CONNECT                          = "connect";
     public static final String DISCONNECT                       = "disconnect";
     public static final String SUCCESS                          = "success";
-    public static final String FAIL                             = "fail";
+    public static final String FAIL                             = "failure";
     public static final String TIMEOUT                          = "timeout";
     public static final String CHECKED_OP_TIMEOUT               = "CheckedOperationTimeout";
     public static final String CANCELLED                        = "cancelled";
@@ -294,6 +307,7 @@ public final class EVCacheMetricsFactory {
     public static final String GET_AND_TOUCH_OPERATION          = "GET_AND_TOUCH";
     public static final String DELETE_OPERATION                 = "DELETE";
     public static final String TOUCH_OPERATION                  = "TOUCH";
+    public static final String AOA_OPERATION                    = "APPEND_OR_ADD";
     public static final String AOA_OPERATION_APPEND             = "APPEND_OR_ADD-APPEND";
     public static final String AOA_OPERATION_ADD                = "APPEND_OR_ADD-ADD";
     public static final String AOA_OPERATION_REAPPEND           = "APPEND_OR_ADD-RETRY-APPEND";

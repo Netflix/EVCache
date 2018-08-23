@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.netflix.config.ChainedDynamicProperty;
+import com.netflix.config.ChainedDynamicProperty.IntProperty;
 import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicStringProperty;
 import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
@@ -83,10 +84,11 @@ final public class EVCacheImpl implements EVCache {
     private final DynamicBooleanProperty hashKey;
     private final DynamicStringProperty hashingAlgo;
     private final EVCacheTranscoder evcacheValueTranscoder;
+//    private final IntProperty maxReadDuration, maxWriteDuration;
 
     private final EVCacheClientPoolManager _poolManager;
     private final ChainedDynamicProperty.BooleanProperty _eventsUsingLatchFP;
-    private final Map<String, Timer> timerMap = new ConcurrentHashMap<String, Timer>();
+//    private final Map<String, Timer> timerMap = new ConcurrentHashMap<String, Timer>();
     private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
@@ -113,6 +115,8 @@ final public class EVCacheImpl implements EVCache {
         _bulkPartialZoneFallbackFP = config.getDynamicBooleanProperty(_appName+ ".bulk.partial.fallback.zone", Boolean.TRUE);
         _useInMemoryCache = config.getChainedBooleanProperty(_appName + ".use.inmemory.cache", "evcache.use.inmemory.cache", Boolean.FALSE, null);
         _eventsUsingLatchFP = config.getChainedBooleanProperty(_appName + ".events.using.latch", "evcache.events.using.latch", Boolean.FALSE, null);
+//        maxReadDuration = config.getChainedIntProperty(_appName + ".max.read.duration.metric", "evcache.max.write.duration.metric", 20, null);
+//        maxWriteDuration = config.getChainedIntProperty(_appName + ".max.write.duration.metric", "evcache.max.write.duration.metric", 50, null);
 
         this.hashKey = config.getDynamicBooleanProperty(appName + ".hash.key", Boolean.FALSE);
         this.hashingAlgo = config.getDynamicStringProperty(appName + ".hash.algo", "MD5");
@@ -359,7 +363,7 @@ final public class EVCacheImpl implements EVCache {
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             //latencyGetTimer.record(duration, TimeUnit.MILLISECONDS);
-            getTimer(Call.GET.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.GET.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("GET : APP " + _appName + ", Took " + duration + " milliSec.");
         }
     }
@@ -436,7 +440,7 @@ final public class EVCacheImpl implements EVCache {
             }
         }).doAfterTerminate(() -> {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.GET_AND_TOUCH.name(), EVCacheMetricsFactory.READ, null, null, 1).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.GET_AND_TOUCH.name(), EVCacheMetricsFactory.READ, null, null, 1, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("GET : APP " + _appName + ", Took " + duration + " milliSec.");
         });
     }
@@ -598,7 +602,7 @@ final public class EVCacheImpl implements EVCache {
             }
         }).doAfterTerminate(() -> {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.GET_AND_TOUCH.name(), EVCacheMetricsFactory.READ, null, null, 1).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.GET_AND_TOUCH.name(), EVCacheMetricsFactory.READ, null, null, 1, maxReadDuration.get().intValue(),client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("GET_AND_TOUCH : APP " + _appName + ", Took " + duration+ " milliSec.");
         });
     }
@@ -728,7 +732,7 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception executing getAndTouch APP " + _appName + ", key = " + canonicalKey, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.GET_AND_TOUCH.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.GET_AND_TOUCH.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("Took " + duration + " milliSec to get&Touch the value for APP " + _appName + ", key " + canonicalKey);
         }
     }
@@ -793,8 +797,6 @@ final public class EVCacheImpl implements EVCache {
                 if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
                     latch.scheduledFutureValidation();
-//                    final ScheduledFuture<?> scheduledFuture =_poolManager.getEVCacheScheduledExecutor().schedule(latch, _pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
-//                    latch.setScheduledFuture(scheduledFuture);
                 } else {
                     endEvent(event);
                 }
@@ -807,7 +809,7 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception setting data for APP " + _appName + ", key : " + canonicalKey, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.TOUCH.name(), EVCacheMetricsFactory.WRITE, null, null, 1).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.TOUCH.name(), EVCacheMetricsFactory.WRITE, null, null, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("TOUCH : APP " + _appName + " for key : " + canonicalKey + " with ttl : " + timeToLive);
         }
     }
@@ -928,7 +930,7 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception getting data for APP " + _appName + ", key : " + key, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.ASYNC_GET.name(), EVCacheMetricsFactory.READ, null, null, 1).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.ASYNC_GET.name(), EVCacheMetricsFactory.READ, null, null, 1, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("Took " + duration + " milliSec to execute AsyncGet the value for APP " + _appName + ", key " + key);
         }
 
@@ -1166,7 +1168,7 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception getting bulk data for APP " + _appName + ", keys = " + canonicalKeys, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.BULK.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries, keys.size()).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.BULK.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries, keys.size(), maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("BULK : APP " + _appName + " Took " + duration + " milliSec to get the value for key " + canonicalKeys);
         }
     }
@@ -1287,7 +1289,7 @@ final public class EVCacheImpl implements EVCache {
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             //timer.record(duration, TimeUnit.MILLISECONDS);
-            getTimer(Call.SET.name(), EVCacheMetricsFactory.WRITE, null, status, 1).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.SET.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("SET : APP " + _appName + ", Took " + duration + " milliSec for key : " + canonicalKey);
         }
     }
@@ -1364,7 +1366,7 @@ final public class EVCacheImpl implements EVCache {
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             //timer.record(duration, TimeUnit.MILLISECONDS);
-            getTimer(Call.APPEND.name(), EVCacheMetricsFactory.WRITE, null, status, 1).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.APPEND.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND : APP " + _appName + ", Took " + duration + " milliSec for key : " + canonicalKey);
         }
     }
@@ -1459,7 +1461,7 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception while deleting the data for APP " + _appName + ", key : " + key, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.DELETE.name(), EVCacheMetricsFactory.WRITE, null, status, 1).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.DELETE.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             //timer.record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("DELETE : APP " + _appName + " Took " + duration + " milliSec for key : " + key);
         }
@@ -1540,7 +1542,7 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception incrementing value for APP " + _appName + ", key : " + key, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.INCR.name(), EVCacheMetricsFactory.WRITE, null, status, 1).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.INCR.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("INCR : APP " + _appName + ", Took " + duration
                     + " milliSec for key : " + key);
         }
@@ -1619,7 +1621,7 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception decrementing value for APP " + _appName + ", key : " + key, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.DECR.name(), EVCacheMetricsFactory.WRITE, null, status, 1).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.DECR.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("DECR : APP " + _appName + ", Took " + duration + " milliSec for key : " + key);
         }
     }
@@ -1710,7 +1712,7 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception setting data for APP " + _appName + ", key : " + canonicalKey, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.REPLACE.name(), EVCacheMetricsFactory.WRITE, null, status, 1).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.REPLACE.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("REPLACE : APP " + _appName + ", Took " + duration + " milliSec for key : " + canonicalKey);
         }
     }
@@ -1794,7 +1796,7 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception while appendOrAdd data for APP " + _appName + ", key : " + canonicalKey, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.APPEND_OR_ADD.name(), EVCacheMetricsFactory.WRITE, null, status, 1).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.APPEND_OR_ADD.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Took " + duration + " milliSec for key : " + canonicalKey);
         }
     }
@@ -1892,37 +1894,41 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception adding data for APP " + _appName + ", key : " + canonicalKey, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.ADD.name(), EVCacheMetricsFactory.WRITE, null, status, 1).record(duration, TimeUnit.MILLISECONDS);
+            //getTimer(Call.ADD.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("ADD : APP " + _appName + ", Took " + duration + " milliSec for key : " + canonicalKey);
         }
     }
 
-    private Timer getTimer(String operation, String operationType, String hit, String status, int tries) {
-        return getTimer(operation, operationType, hit, status, tries, 0);
-    }
-
-    private Timer getTimer(String operation, String operationType, String hit, String status, int tries, int numOfKeys) {
-        String name = ((hit != null) ? operation + hit : operation);
-        if(status != null) name += status;
-        if(tries >= 0) name += tries;
-        if(numOfKeys >= 0) name += numOfKeys;
-
-        Timer timer = timerMap.get(name);
-        if(timer != null) return timer;
-
-        final List<Tag> tagList = new ArrayList<Tag>(7);
-        tagList.addAll(tags);
-        if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, operation));
-        if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_TYPE, operationType));
-        if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, status));
-        if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
-        if(tries >= 0) tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, String.valueOf(tries)));
-        if(numOfKeys >= 1) tagList.add(new BasicTag(EVCacheMetricsFactory.NUMBER_OF_KEYS, String.valueOf(numOfKeys)));
-
-        timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.CALL, tagList);
-        timerMap.put(name, timer);
-        return timer;
-    }
+//    private Timer getTimer(String operation, String operationType, String hit, String status, int tries, long duration, ServerGroup serverGroup) {
+//        return getTimer(operation, operationType, hit, status, tries, 0, duration, serverGroup);
+//    }
+//
+//    private Timer getTimer(String operation, String operationType, String hit, String status, int tries, int numOfKeys, long duration, ServerGroup serverGroup) {
+//        String name = ((hit != null) ? operation + hit : operation);
+//        if(status != null) name += status;
+//        if(tries >= 0) name += tries;
+//        if(numOfKeys >= 0) name += numOfKeys;
+//
+//        Timer timer = timerMap.get(name);
+//        if(timer != null) return timer;
+//
+//        final List<Tag> tagList = new ArrayList<Tag>(7);
+//        tagList.addAll(tags);
+//        if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, operation));
+//        if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_TYPE, operationType));
+//        if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, status));
+//        if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
+//        if(tries >= 0) tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, String.valueOf(tries)));
+//        if(serverGroup != null) {
+//            tagList.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
+//            tagList.add(new BasicTag(EVCacheMetricsFactory.ZONE, serverGroup.getZone()));
+//        }
+//        if(numOfKeys >= 1) tagList.add(new BasicTag(EVCacheMetricsFactory.NUMBER_OF_KEYS, String.valueOf(numOfKeys)));
+//
+//        timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.CALL, tagList, Duration.ofMillis(duration));
+//        timerMap.put(name, timer);
+//        return timer;
+//    }
 
     protected CachedData getEVCacheValue(String key, CachedData cData, int timeToLive) {
         final EVCacheValue val = new EVCacheValue(key, cData.getData(), cData.getFlags(), timeToLive, System.currentTimeMillis());

@@ -3,6 +3,7 @@ package com.netflix.evcache.operation;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -24,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
 import com.sun.management.GcInfo;
@@ -144,7 +146,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         } finally {
             if(gcDuration > 0) {
                 tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, statusString));
-                EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList).record(gcDuration, TimeUnit.MILLISECONDS);
+                EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList, Duration.ofMillis(EVCacheConfig.getInstance().getChainedIntProperty(getApp() + ".max.read.duration.metric", "evcache.max.read.duration.metric", 20, null).get().intValue())).record(gcDuration, TimeUnit.MILLISECONDS);
             }
         }
     }
