@@ -33,7 +33,7 @@ dependencies {
         compile group:"com.netflix.nfkafka",        name:"nfkafka-consumer",           version:"1.+"
         
         compile 'netflix:platform'
-        compile 'netflix:evcache-client2'
+        compile 'netflix:evcache-client2:latest.candidate'
         compile 'netflix:base-server'
         compile 'netflix:nflibrary'
 }
