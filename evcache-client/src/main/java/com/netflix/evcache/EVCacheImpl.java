@@ -89,7 +89,7 @@ final public class EVCacheImpl implements EVCache {
     private final EVCacheClientPoolManager _poolManager;
     private DistributionSummary setTTLSummary, replaceTTLSummary, touchTTLSummary, setDataSizeSummary, replaceDataSizeSummary, appendDataSizeSummary;
     private Counter touchCounter;
-    private final ChainedDynamicProperty.BooleanProperty _eventsUsingLatchFP;
+    private final ChainedDynamicProperty.BooleanProperty _eventsUsingLatchFP, autoHashKeys;
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
             boolean throwException, EVCacheClientPoolManager poolManager) {
@@ -114,7 +114,8 @@ final public class EVCacheImpl implements EVCache {
         _eventsUsingLatchFP = config.getChainedBooleanProperty(_appName + ".events.using.latch", "evcache.events.using.latch", Boolean.FALSE, null);
 
         this.hashKey = config.getDynamicBooleanProperty(appName + ".hash.key", Boolean.FALSE);
-        this.hashingAlgo = config.getDynamicStringProperty(appName + ".hash.algo", "MD5");
+        this.hashingAlgo = config.getDynamicStringProperty(appName + ".hash.algo", "siphash24");
+        this.autoHashKeys = config.getChainedBooleanProperty(_appName + ".auto.hash.keys", "evcache.auto.hash.keys", Boolean.FALSE, null);
         this.evcacheValueTranscoder = new EVCacheTranscoder();
         evcacheValueTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
 
@@ -124,16 +125,12 @@ final public class EVCacheImpl implements EVCache {
     private String getCanonicalizedKey(String key) {
     	if(key == null || key.length() == 0) throw new NullPointerException("Key cannot be null or empty");
     	int keyLength = key.length();
-        final String cKey;
+        String cKey;
         if (this._cacheName == null) {
             cKey = key;
         } else {
         	keyLength = _cacheName.length() + 1 + key.length();
             cKey = new StringBuilder(keyLength).append(_cacheName).append(':').append(key).toString();
-        }
-
-        if (keyLength > MemcachedClientIF.MAX_KEY_LENGTH) {
-        	throw new IllegalArgumentException("Key is too long (maxlen = " + MemcachedClientIF.MAX_KEY_LENGTH + ')');
         }
 
         for(int i = 0; i < cKey.length(); i++) {
@@ -143,10 +140,17 @@ final public class EVCacheImpl implements EVCache {
         }
 
         if(hashKey.get()) {
-            return KeyHasher.getHashedKey(cKey, hashingAlgo.get());
-        } else {
-            return  cKey;
+            cKey = KeyHasher.getHashedKey(cKey, hashingAlgo.get());
+        } else  if(autoHashKeys.get() && cKey.length() > MemcachedClientIF.MAX_KEY_LENGTH) {
+            cKey = KeyHasher.getHashedKey(cKey, hashingAlgo.get());
         }
+
+        if (cKey.length() > MemcachedClientIF.MAX_KEY_LENGTH) {
+            throw new IllegalArgumentException("Key is too long (maxlen = " + MemcachedClientIF.MAX_KEY_LENGTH + ')');
+        }
+        if (log.isDebugEnabled() && shouldLog()) log.debug("Key : " + key + "; CanonicalizedKey : " + cKey);
+
+        return  cKey;
     }
 
     private String getKey(String canonicalizedKey) {
