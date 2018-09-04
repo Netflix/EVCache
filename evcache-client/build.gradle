@@ -30,7 +30,7 @@ dependencies {
         compile group:"io.reactivex",                 name:"rxjava",                           version:"latest.release"
         compile group:"org.slf4j",                    name:"slf4j-log4j12",                    version:"1.7.+"
         compile group:"org.slf4j",                    name:"slf4j-api",                        version:"1.7.+"
-        compile group:"org.json",                     name:"json",                             version:"latest.release"
+        compile group:"org.json",                     name:"json",                             version:"20180813"
 
         testCompile group:"org.testng",               name:"testng",                           version:"latest.release"
         testCompile group:"org.mockito",              name:"mockito-all",                      version:"latest.release"
