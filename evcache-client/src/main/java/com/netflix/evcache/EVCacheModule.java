@@ -5,7 +5,10 @@ import com.google.inject.Singleton;
 import com.netflix.archaius.api.annotations.ConfigurationSource;
 import com.netflix.evcache.event.hotkey.HotKeyListener;
 import com.netflix.evcache.event.throttle.ThrottleListener;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.servo.monitor.LongGauge;
+import com.netflix.servo.tag.BasicTagList;
 
 @Singleton
 public class EVCacheModule extends AbstractModule {
@@ -26,6 +29,7 @@ public class EVCacheModule extends AbstractModule {
         
         bind(HotKeyListener.class).asEagerSingleton();
         bind(ThrottleListener.class).asEagerSingleton();
+        bind(VersionTracker.class).asEagerSingleton();
         
 
         // Make sure connection factory provider Module is initialized in your Module when you init EVCacheModule 
@@ -42,4 +46,24 @@ public class EVCacheModule extends AbstractModule {
         return (obj != null) && (obj.getClass() == getClass());
     }
 
+    @Singleton
+    private static class VersionTracker {
+        private VersionTracker() {
+        	
+            final String fullVersion;
+            final String jarName;
+            if(this.getClass().getPackage().getImplementationVersion() != null) {
+                fullVersion = this.getClass().getPackage().getImplementationVersion();
+            } else {
+                fullVersion = "unknown";
+            }
+            if(this.getClass().getPackage().getImplementationTitle() != null) {
+                jarName = this.getClass().getPackage().getImplementationTitle();
+            } else {
+                jarName = "unknown";
+            }
+
+            EVCacheMetricsFactory.getLongGauge("evcache-client", BasicTagList.of("version", fullVersion, "jarName", jarName)).set(Long.valueOf(1));
+        }
+    }
 }

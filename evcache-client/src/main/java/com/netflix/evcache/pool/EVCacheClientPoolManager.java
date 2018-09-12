@@ -87,8 +87,6 @@ public class EVCacheClientPoolManager {
     private final List<EVCacheEventListener> evcacheEventListenerList;
     private final Provider<IConnectionFactoryProvider> connectionFactoryprovider;
 
-    private final LongGauge versionGauge;
-
     @Inject
     public EVCacheClientPoolManager(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient, Provider<IConnectionFactoryProvider> connectionFactoryprovider) {
         instance = this;
@@ -100,22 +98,6 @@ public class EVCacheClientPoolManager {
         asyncExecutor.prestartAllCoreThreads();
         this.syncExecutor = new EVCacheExecutor(Runtime.getRuntime().availableProcessors(),Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "pool");
         syncExecutor.prestartAllCoreThreads();
-
-        final String fullVersion;
-        final String jarName;
-        if(this.getClass().getPackage().getImplementationVersion() != null) {
-            fullVersion = this.getClass().getPackage().getImplementationVersion();
-        } else {
-            fullVersion = "unknown";
-        }
-        if(this.getClass().getPackage().getImplementationTitle() != null) {
-            jarName = this.getClass().getPackage().getImplementationTitle();
-        } else {
-            jarName = "unknown";
-        }
-
-        versionGauge = EVCacheMetricsFactory.getLongGauge("evcache-client", BasicTagList.of("version", fullVersion, "jarName", jarName));
-        versionGauge.set(Long.valueOf(1));
 
         initAtStartup();
     }
