@@ -7,7 +7,6 @@ import com.netflix.evcache.event.hotkey.HotKeyListener;
 import com.netflix.evcache.event.throttle.ThrottleListener;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
-import com.netflix.servo.monitor.LongGauge;
 import com.netflix.servo.tag.BasicTagList;
 
 @Singleton

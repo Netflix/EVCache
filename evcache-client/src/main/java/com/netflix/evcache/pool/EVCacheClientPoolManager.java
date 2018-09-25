@@ -31,10 +31,7 @@ import com.netflix.evcache.EVCacheInMemoryCache;
 import com.netflix.evcache.connection.DefaultFactoryProvider;
 import com.netflix.evcache.connection.IConnectionFactoryProvider;
 import com.netflix.evcache.event.EVCacheEventListener;
-import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
-import com.netflix.servo.monitor.LongGauge;
-import com.netflix.servo.tag.BasicTagList;
 
 import net.spy.memcached.transcoders.Transcoder;
 

@@ -196,9 +196,14 @@ final public class EVCacheImpl implements EVCache {
 
     private boolean shouldThrottle(EVCacheEvent event) throws EVCacheException {
         for (EVCacheEventListener evcacheEventListener : getEVCacheEventListeners()) {
-            if (evcacheEventListener.onThrottle(event)) {
-                return true;
-            }
+        	try {
+	            if (evcacheEventListener.onThrottle(event)) {
+	                return true;
+	            }
+        	} catch(Exception e) {
+        		increment("EVENT_LISTENER_ERROR");
+        		if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing throttle event on listener " + evcacheEventListener + " for event " + event, e);	
+        	}
         }
         return false;
     }
@@ -206,21 +211,36 @@ final public class EVCacheImpl implements EVCache {
     private void startEvent(EVCacheEvent event) {
         final List<EVCacheEventListener> evcacheEventListenerList = getEVCacheEventListeners();
         for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
-            evcacheEventListener.onStart(event);
+        	try {
+        		evcacheEventListener.onStart(event);
+        	} catch(Exception e) {
+        		increment("EVENT_LISTENER_ERROR");
+        		if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing start event on listener " + evcacheEventListener + " for event " + event, e);	
+        	}
         }
     }
 
     private void endEvent(EVCacheEvent event) {
         final List<EVCacheEventListener> evcacheEventListenerList = getEVCacheEventListeners();
         for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
-            evcacheEventListener.onComplete(event);
+        	try {
+        		evcacheEventListener.onComplete(event);
+        	} catch(Exception e) {
+        		increment("EVENT_LISTENER_ERROR");
+        		if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing end event on listener " + evcacheEventListener + " for event " + event, e);	
+        	}
         }
     }
 
     private void eventError(EVCacheEvent event, Throwable t) {
         final List<EVCacheEventListener> evcacheEventListenerList = getEVCacheEventListeners();
         for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
-            evcacheEventListener.onError(event, t);
+            try {
+            	evcacheEventListener.onError(event, t);
+        	} catch(Exception e) {
+        		increment("EVENT_LISTENER_ERROR");
+        		if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing error event on listener " + evcacheEventListener + " for event " + event, e);	
+        	}
         }
     }
 
