@@ -7,6 +7,7 @@ import com.netflix.evcache.event.hotkey.HotKeyListener;
 import com.netflix.evcache.event.throttle.ThrottleListener;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.evcache.version.VersionTracker;
 import com.netflix.servo.tag.BasicTagList;
 
 @Singleton
@@ -45,24 +46,4 @@ public class EVCacheModule extends AbstractModule {
         return (obj != null) && (obj.getClass() == getClass());
     }
 
-    @Singleton
-    private static class VersionTracker {
-        private VersionTracker() {
-        	
-            final String fullVersion;
-            final String jarName;
-            if(this.getClass().getPackage().getImplementationVersion() != null) {
-                fullVersion = this.getClass().getPackage().getImplementationVersion();
-            } else {
-                fullVersion = "unknown";
-            }
-            if(this.getClass().getPackage().getImplementationTitle() != null) {
-                jarName = this.getClass().getPackage().getImplementationTitle();
-            } else {
-                jarName = "unknown";
-            }
-
-            EVCacheMetricsFactory.getLongGauge("evcache-client", BasicTagList.of("version", fullVersion, "jarName", jarName)).set(Long.valueOf(1));
-        }
-    }
 }
