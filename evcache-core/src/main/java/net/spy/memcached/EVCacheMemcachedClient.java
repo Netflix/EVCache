@@ -458,10 +458,6 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return distributionSummary;
     }
 
-//    private Counter getCounter(String counterMetric) {
-//        return getCounter(counterMetric, null);
-//    }
-
     private <T> OperationFuture<Boolean> asyncStore(final StoreType storeType, final String key, int exp, T value, Transcoder<T> tc, EVCacheLatch evcacheLatch) {
         final CachedData co;
         if (value instanceof CachedData) {
