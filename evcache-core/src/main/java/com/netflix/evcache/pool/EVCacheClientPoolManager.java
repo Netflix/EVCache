@@ -10,7 +10,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
@@ -29,10 +28,7 @@ import com.netflix.evcache.EVCacheInMemoryCache;
 import com.netflix.evcache.connection.ConnectionFactoryBuilder;
 import com.netflix.evcache.connection.IConnectionBuilder;
 import com.netflix.evcache.event.EVCacheEventListener;
-import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
-import com.netflix.spectator.api.BasicTag;
-import com.netflix.spectator.api.Tag;
 
 import net.spy.memcached.transcoders.Transcoder;
 
@@ -85,8 +81,6 @@ public class EVCacheClientPoolManager {
     private final EVCacheNodeList evcacheNodeList;
 
 
-    private final AtomicLong versionGauge;
-
     @Inject
     public EVCacheClientPoolManager(IConnectionBuilder connectionFactoryprovider, EVCacheNodeList evcacheNodeList) {
         instance = this;
@@ -99,26 +93,6 @@ public class EVCacheClientPoolManager {
         asyncExecutor.prestartAllCoreThreads();
         this.syncExecutor = new EVCacheExecutor(Runtime.getRuntime().availableProcessors(),Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "pool");
         syncExecutor.prestartAllCoreThreads();
-
-        final String fullVersion;
-        final String jarName;
-        if(this.getClass().getPackage().getImplementationVersion() != null) {
-            fullVersion = this.getClass().getPackage().getImplementationVersion();
-        } else {
-            fullVersion = "unknown";
-        }
-        if(this.getClass().getPackage().getImplementationTitle() != null) {
-            jarName = this.getClass().getPackage().getImplementationTitle();
-        } else {
-            jarName = "unknown";
-        }
-
-        final List<Tag> tagList = new ArrayList<Tag>(2);
-        tagList.add(new BasicTag("version", fullVersion));
-        tagList.add(new BasicTag("jarName", jarName));
-        
-        versionGauge = EVCacheMetricsFactory.getInstance().getLongGauge("evcache-client", tagList);
-        versionGauge.set(Long.valueOf(1));
 
         initAtStartup();
     }

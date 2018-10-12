@@ -16,6 +16,7 @@ import com.netflix.evcache.event.throttle.ThrottleListener;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheNodeList;
 import com.netflix.evcache.pool.eureka.DIEVCacheNodeListProvider;
+import com.netflix.evcache.version.VersionTracker;
 
 @Singleton
 @SuppressWarnings("deprecation")
@@ -46,6 +47,7 @@ public class EVCacheModule extends AbstractModule {
         
         bind(HotKeyListener.class).asEagerSingleton();
         bind(ThrottleListener.class).asEagerSingleton();
+        bind(VersionTracker.class).asEagerSingleton();
     }
 
     @Inject

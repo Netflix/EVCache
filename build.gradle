@@ -25,3 +25,7 @@ subprojects {
         exclude group: 'com.netflix.rxjava'
     }
 }
+
+task wrapper(type: Wrapper) {
+   gradleVersion = '2.10'
+}

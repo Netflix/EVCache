@@ -185,26 +185,32 @@ public final class EVCacheMetricsFactory {
     /**
      * Internal Metric Names
      */
-    public static final String CONFIG                           = "internal-evc.client.config";
-    public static final String DATA_SIZE                        = "internal-evc.client.datasize";
-    public static final String IN_MEMORY                        = "internal-evc.client.inmemorycache";
-    public static final String FAST_FAIL                        = "internal-evc.client.fastfail";
-    public static final String INTERNAL_CALL                    = "internal-evc.client.call";
-    public static final String INTERNAL_OPERATION               = "internal-evc.client.operation";
-    public static final String INTERNAL_PAUSE                   = "internal-evc.client.pause";
-    public static final String INTERNAL_LATCH                   = "internal-evc.client.latch";
-    public static final String INTERNAL_LATCH_VERIFY            = "internal-evc.client.latch-verify";
-    public static final String INTERNAL                         = "internal-evc.client";
-    public static final String INTERNAL_RECONNECT               = "internal-evc.client.reconnect";
-    public static final String INTERNAL_EXECUTOR                = "internal-evc.client.executor";
-    public static final String INTERNAL_EXECUTOR_SCHEDULED      = "internal-evc.client.scheduledExecutor";
+    public static final String INTERNAL_CALL                    = "evcache.client.call";
+    public static final String INTERNAL_KEYS_SIZE               = "evcache.client.call.keys.size";
 
-    public static final String INTERNAL_NUM_CHUNK_SIZE          = "internal-evc.client.chunking.numOfChunks";
-    public static final String INTERNAL_CHUNK_DATA_SIZE         = "internal-evc.client.chunking.dataSize";
-    public static final String INTERNAL_ADD_CALL_FIXUP          = "internal-evc.client.addCall.fixUp";
+    public static final String CONFIG                           = "internal.evc.client.config";
+    public static final String DATA_SIZE                        = "internal.evc.client.datasize";
+    public static final String IN_MEMORY                        = "internal.evc.client.inmemorycache";
+    public static final String FAST_FAIL                        = "internal.evc.client.fastfail";
+    public static final String INTERNAL_OPERATION               = "internal.evc.client.operation";
+    public static final String INTERNAL_PAUSE                   = "internal.evc.client.pause";
+    public static final String INTERNAL_LATCH                   = "internal.evc.client.latch";
+    public static final String INTERNAL_LATCH_VERIFY            = "internal.evc.client.latch.verify";
+    public static final String INTERNAL_FAIL                    = "internal.evc.client.fail";
+    public static final String INTERNAL_RECONNECT               = "internal.evc.client.reconnect";
+    public static final String INTERNAL_EXECUTOR                = "internal.evc.client.executor";
+    public static final String INTERNAL_EXECUTOR_SCHEDULED      = "internal.evc.client.scheduledExecutor";
 
-    public static final String INTERNAL_POOL_CONFIG             = "internal-evc.client.pool.config";
-    public static final String INTERNAL_POOL_REFRESH            = "internal-evc.client.pool.refresh";
+    public static final String INTERNAL_NUM_CHUNK_SIZE          = "internal.evc.client.chunking.numOfChunks";
+    public static final String INTERNAL_CHUNK_DATA_SIZE         = "internal.evc.client.chunking.dataSize";
+    public static final String INTERNAL_ADD_CALL_FIXUP          = "internal.evc.client.addCall.fixUp";
+
+    public static final String INTERNAL_POOL_SG_CONFIG          = "internal.evc.client.pool.serverGroup.config";
+    public static final String INTERNAL_POOL_CONFIG             = "internal.evc.client.pool.config";
+    public static final String INTERNAL_POOL_REFRESH            = "internal.evc.client.pool.refresh";
+
+    public static final String INTERNAL_STATS                   = "internal.evc.client.stats";
+
     /*
      * Internal pool config values
      */
@@ -218,6 +224,7 @@ public final class EVCacheMetricsFactory {
     public static final String POOL_WRITE_Q_SIZE                = "writeQueue";
     public static final String POOL_REFRESH_QUEUE_FULL          = "refreshOnQueueFull";
     public static final String POOL_REFRESH_ASYNC               = "refreshAsync";
+    public static final String POOL_OPERATIONS                  = "operations";
 
 
     /**
@@ -234,13 +241,6 @@ public final class EVCacheMetricsFactory {
     /*
      * Metric Tags moved to IPC format
      */
-//    public static final String CACHE                            = "evc.cache";
-//    public static final String SERVERGROUP                      = "evc.serverGroup";
-//    public static final String STATUS                           = "evc.status";
-//    public static final String CAUSE                            = "evc.cause";
-//    public static final String ATTEMPT                          = "evc.attempt";
-//    public static final String PAUSE_REASON                     = "evc.pauseReason";
-
     public static final String CONNECTION_ID                    = "evc.connectionId";
     public static final String CALL_TAG                         = "evc.call";
     public static final String LATCH                            = "evc.latch";
@@ -258,6 +258,7 @@ public final class EVCacheMetricsFactory {
     public static final String NUMBER_OF_ATTEMPTS               = "evc.numberOfAttempts";
     public static final String NUMBER_OF_KEYS                   = "evc.numberOfKeys";
     public static final String METRIC                           = "evc.metric";
+    public static final String REASON                           = "evc.failReason";
     public static final String PREFIX                           = "evc.prefix";
 
     /**

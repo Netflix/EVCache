@@ -117,10 +117,10 @@ public class EVCacheClient {
         tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
         tagList.add(new BasicTag(EVCacheMetricsFactory.CONNECTION_ID, String.valueOf(id)));
         tagList.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
-        tagList.add(new BasicTag(EVCacheMetricsFactory.ZONE, serverGroup.getZone()));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.POOL_OPERATIONS));
         this.tags = Collections.<Tag>unmodifiableList(tagList);
 
-        operationsCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_OPERATION, tags);
+        operationsCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_STATS, tags);
 
         this.enableChunking = EVCacheConfig.getInstance().getChainedBooleanProperty(this.serverGroup.getName()+ ".chunk.data", appName + ".chunk.data", Boolean.FALSE, null);
         this.chunkSize = EVCacheConfig.getInstance().getChainedIntProperty(this.serverGroup.getName() + ".chunk.size", appName + ".chunk.size", 1180, null);
@@ -164,7 +164,7 @@ public class EVCacheClient {
                 // Size - " + size + " for app " + appName + " & zone " + zone +
                 // " ; node " + node);
                 if (!canAddToOpQueue) {
-                    increment(EVCacheMetricsFactory.READ_QUEUE_FULL);
+                    incrementFailure(EVCacheMetricsFactory.READ_QUEUE_FULL);
                     if (log.isDebugEnabled()) log.debug("Read Queue Full on Bulk Operation for app : " + appName
                             + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get() * 2);
                 } else {
@@ -175,13 +175,13 @@ public class EVCacheClient {
         return retKeys;
     }
 
-    private void increment(String metric) {
+    private void incrementFailure(String metric) {
         Counter counter = counterMap.get(metric);
         if(counter == null) {
             final List<Tag> tagList = new ArrayList<Tag>(4);
             tagList.addAll(tags);
-            tagList.add(new BasicTag(EVCacheMetricsFactory.METRIC, metric));
-            counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL, tagList);
+            tagList.add(new BasicTag(EVCacheMetricsFactory.REASON, metric));
+            counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_FAIL, tagList);
             counterMap.put(metric, counter);
         }
         counter.increment();
@@ -204,7 +204,7 @@ public class EVCacheClient {
                 }
 
                 if(i++ > 3) {
-                    increment(EVCacheMetricsFactory.INACTIVE_NODE);
+                    incrementFailure(EVCacheMetricsFactory.INACTIVE_NODE);
                     if (log.isDebugEnabled()) log.debug("Node : " + evcNode + " for app : " + appName + "; zone : "
                             + zone + " is not active. Will Fail Fast and the write will be dropped for key : " + key);
                     evcNode.shutdown();
@@ -221,7 +221,7 @@ public class EVCacheClient {
         if (node instanceof EVCacheNodeImpl) {
             final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
             if (!evcNode.isAvailable()) {
-                increment(EVCacheMetricsFactory.INACTIVE_NODE);
+                incrementFailure(EVCacheMetricsFactory.INACTIVE_NODE);
                 if (log.isDebugEnabled()) log.debug("Node : " + node + " for app : " + appName + "; zone : " + zone
                         + " is not active. Will Fail Fast so that we can fallback to Other Zone if available.");
                 if (_throwException) throw new EVCacheConnectException("Connection for Node : " + node + " for app : " + appName
@@ -234,7 +234,7 @@ public class EVCacheClient {
             if (log.isDebugEnabled()) log.debug("Current Read Queue Size - " + size + " for app " + appName + " & zone "
                     + zone + " and node : " + evcNode);
             if (!canAddToOpQueue) {
-                increment(EVCacheMetricsFactory.READ_QUEUE_FULL);
+                incrementFailure(EVCacheMetricsFactory.READ_QUEUE_FULL);
                 if (log.isDebugEnabled()) log.debug("Read Queue Full for Node : " + node + "; app : " + appName
                         + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get());
                 if (_throwException) throw new EVCacheReadQueueException("Read Queue Full for Node : " + node + "; app : "
@@ -321,7 +321,7 @@ public class EVCacheClient {
                         .getSome(readTimeout.get(), TimeUnit.MILLISECONDS, false, false);
 
                 if (dataMap.size() != ci.getChunks() - 1) {
-                    increment(EVCacheMetricsFactory.INCORRECT_CHUNKS);
+                    incrementFailure(EVCacheMetricsFactory.INCORRECT_CHUNKS);
                     return null;
                 }
 
@@ -342,7 +342,7 @@ public class EVCacheClient {
                             .getChunkSize()) ? ci.getChunkSize() : ci.getLastChunk())
                             : val.length;
                     if (len != ci.getChunkSize() && i != keys.size() - 1) {
-                        increment(EVCacheMetricsFactory.INVALID_CHUNK_SIZE);
+                        incrementFailure(EVCacheMetricsFactory.INVALID_CHUNK_SIZE);
                         if (log.isWarnEnabled()) log.warn("CHUNK_SIZE_ERROR : Chunks : " + ci.getChunks() + " ; "
                                 + "length : " + len + "; expectedLength : " + ci.getChunkSize() + " for key : " + _key);
                     }
@@ -395,7 +395,7 @@ public class EVCacheClient {
                     .getSome(readTimeout.get(), TimeUnit.MILLISECONDS, false, false, scheduler)
                     .map(dataMap -> {
                         if (dataMap.size() != ci.getChunks() - 1) {
-                            increment(EVCacheMetricsFactory.INCORRECT_CHUNKS);
+                            incrementFailure(EVCacheMetricsFactory.INCORRECT_CHUNKS);
                             return null;
                         }
 
@@ -416,7 +416,7 @@ public class EVCacheClient {
                                 .getChunkSize()) ? ci.getChunkSize() : ci.getLastChunk())
                                 : val.length;
                             if (len != ci.getChunkSize() && i != keys.size() - 1) {
-                                increment(EVCacheMetricsFactory.INVALID_CHUNK_SIZE);
+                                incrementFailure(EVCacheMetricsFactory.INVALID_CHUNK_SIZE);
                                 if (log.isWarnEnabled()) log.warn("CHUNK_SIZE_ERROR : Chunks : " + ci.getChunks() + " ; "
                                     + "length : " + len + "; expectedLength : " + ci.getChunkSize() + " for key : " + _key);
                             }
@@ -467,7 +467,7 @@ public class EVCacheClient {
                 if (log.isWarnEnabled()) log.warn("CHECKSUM_ERROR : Chunks : " + ci.getChunks() + " ; "
                         + "currentChecksum : " + currentChecksum + "; expectedChecksum : " + expectedChecksum
                         + " for key : " + ci.getKey());
-                increment(EVCacheMetricsFactory.CHECK_SUM_ERROR);
+                incrementFailure(EVCacheMetricsFactory.CHECK_SUM_ERROR);
             }
             return false;
         }
@@ -787,7 +787,7 @@ public class EVCacheClient {
             if(obj instanceof EVCacheValue) {
                 final EVCacheValue val = (EVCacheValue)obj;
                 if(val == null || !(val.getKey().equals(key))) {
-                    increment(EVCacheMetricsFactory.KEY_HASH_COLLISION);
+                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION);
                     return null;
                 }
                 final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
@@ -808,7 +808,7 @@ public class EVCacheClient {
     public <T> T get(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF) throws Exception {
         if (!validateNode(key, _throwException)) {
             if(ignoreInactiveNodes.get()) {
-                increment(EVCacheMetricsFactory.IGNORE_INACTIVE_NODES);
+                incrementFailure(EVCacheMetricsFactory.IGNORE_INACTIVE_NODES);
                 return pool.getEVCacheClientForReadExclude(serverGroup).get(key, tc, _throwException, hasZF, enableChunking.get());
             } else {
                 return null;
@@ -826,7 +826,7 @@ public class EVCacheClient {
             if(obj instanceof EVCacheValue) {
                 final EVCacheValue val = (EVCacheValue)obj;
                 if(val == null || !(val.getKey().equals(key))) {
-                    increment(EVCacheMetricsFactory.KEY_HASH_COLLISION);
+                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION);
                     return null;
                 }
                 final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
@@ -848,7 +848,7 @@ public class EVCacheClient {
         try {
             if (!validateNode(key, _throwException)) {
                 if(ignoreInactiveNodes.get()) {
-                    increment(EVCacheMetricsFactory.IGNORE_INACTIVE_NODES);
+                    incrementFailure(EVCacheMetricsFactory.IGNORE_INACTIVE_NODES);
                     return pool.getEVCacheClientForReadExclude(serverGroup).get(key, tc, _throwException, hasZF, enableChunking.get(), scheduler);
                 } else {
                     return Single.just(null);
@@ -864,7 +864,7 @@ public class EVCacheClient {
         EVCacheMemcachedClient _client = evcacheMemcachedClient;
         if (!validateNode(key, _throwException)) {
             if(ignoreInactiveNodes.get()) {
-                increment(EVCacheMetricsFactory.IGNORE_INACTIVE_NODES);
+                incrementFailure(EVCacheMetricsFactory.IGNORE_INACTIVE_NODES);
                 _client = pool.getEVCacheClientForReadExclude(serverGroup).getEVCacheMemcachedClient();
             } else {
                 return null;
@@ -887,7 +887,7 @@ public class EVCacheClient {
             if(obj != null && obj instanceof EVCacheValue) {
                 final EVCacheValue val = (EVCacheValue)obj;
                 if(val == null || !(val.getKey().equals(key))) {
-                    increment(EVCacheMetricsFactory.KEY_HASH_COLLISION);
+                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION);
                     return null;
                 }
                 final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
@@ -915,7 +915,7 @@ public class EVCacheClient {
             EVCacheMemcachedClient client = evcacheMemcachedClient;
             if (!validateNode(key, _throwException)) {
                 if(ignoreInactiveNodes.get()) {
-                    increment(EVCacheMetricsFactory.IGNORE_INACTIVE_NODES);
+                    incrementFailure(EVCacheMetricsFactory.IGNORE_INACTIVE_NODES);
                     client = pool.getEVCacheClientForReadExclude(serverGroup).getEVCacheMemcachedClient();
                 } else {
                     return null;
@@ -934,7 +934,7 @@ public class EVCacheClient {
                         final CASValue<Object> rObj = (CASValue<Object>)r;
                         final EVCacheValue val = (EVCacheValue)rObj.getValue();
                         if(val == null || !(val.getKey().equals(key))) {
-                            increment(EVCacheMetricsFactory.KEY_HASH_COLLISION);
+                            incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION);
                             return null;
                         }
                         final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
@@ -951,7 +951,7 @@ public class EVCacheClient {
                             final CASValue<Object> rObj = (CASValue<Object>)r;
                             final EVCacheValue val = (EVCacheValue)rObj.getValue();
                             if(val == null || !(val.getKey().equals(key))) {
-                                increment(EVCacheMetricsFactory.KEY_HASH_COLLISION);
+                                incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION);
                                 return null;
                             }
                             final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);

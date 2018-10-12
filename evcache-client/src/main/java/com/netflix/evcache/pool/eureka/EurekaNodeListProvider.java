@@ -52,7 +52,6 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
      * 
      * @see com.netflix.evcache.pool.EVCacheNodeList#discoverInstances()
      */
-    @SuppressWarnings("deprecation")
     @Override
     public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances(String _appName) throws IOException {
         if ((applicationInfoManager.getInfo().getStatus() == InstanceStatus.DOWN)) {
@@ -129,7 +128,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
                 instances = new HashSet<InetSocketAddress>();
                 config = new EVCacheServerGroupConfig(serverGroup, instances, rendPort, udsproxyMemcachedPort, udsproxyMementoPort);
                 instancesSpecific.put(serverGroup, config);
-                EVCacheMetricsFactory.getInstance().getRegistry().gauge(EVCacheMetricsFactory.getInstance().getRegistry().createId(_appName + "-port", "ServerGroup", asgName, "APP", _appName), Long.valueOf(port));
+                //EVCacheMetricsFactory.getInstance().getRegistry().gauge(EVCacheMetricsFactory.getInstance().getRegistry().createId(_appName + "-port", "ServerGroup", asgName, "APP", _appName), Long.valueOf(port));
             }
 
             /* Don't try to use downed instances */

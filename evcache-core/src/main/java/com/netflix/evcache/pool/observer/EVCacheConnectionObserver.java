@@ -3,7 +3,6 @@ package com.netflix.evcache.pool.observer;
 import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -15,11 +14,7 @@ import javax.management.ObjectName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.spectator.api.BasicTag;
-import com.netflix.spectator.api.Counter;
-import com.netflix.spectator.api.Tag;
 
 import net.spy.memcached.ConnectionObserver;
 
@@ -34,7 +29,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
     private final Set<SocketAddress> evCacheInActiveSet;
     private final Map<InetSocketAddress, Long> evCacheActiveStringSet;
     private final Map<InetSocketAddress, Long> evCacheInActiveStringSet;
-    private final Counter connectCounter, connLostCounter; 
+//    private final Counter connectCounter, connLostCounter; 
 
     public EVCacheConnectionObserver(EVCacheClient client) {
     	this.client = client;
@@ -43,15 +38,15 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         this.evCacheActiveStringSet = new ConcurrentHashMap<InetSocketAddress, Long>();
         this.evCacheInActiveStringSet = new ConcurrentHashMap<InetSocketAddress, Long>();
 
-        final ArrayList<Tag> tags = new ArrayList<Tag>(client.getTagList().size() + 3);
-        tags.addAll(client.getTagList());
-        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.CONNECT ));
-        connectCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.CONFIG, tags);
-
-        tags.clear();
-        tags.addAll(client.getTagList());
-        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.DISCONNECT ));
-        connLostCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.CONFIG, tags);
+//        final ArrayList<Tag> tags = new ArrayList<Tag>(client.getTagList().size() + 3);
+//        tags.addAll(client.getTagList());
+//        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.CONNECT ));
+//        connectCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.CONFIG, tags);
+//
+//        tags.clear();
+//        tags.addAll(client.getTagList());
+//        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.DISCONNECT ));
+//        connLostCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.CONFIG, tags);
         setupMonitoring(false);
     }
 
@@ -64,7 +59,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         evCacheInActiveStringSet.remove(inetAdd);
         if (log.isDebugEnabled()) log.debug(client.getAppName() + ":CONNECTION ESTABLISHED : To " + address + " was established after " + reconnectCount + " retries");
         if(log.isTraceEnabled()) log.trace("Stack", new Exception());
-        connectCounter.increment();
+//        connectCounter.increment();
         connectCount++;
     }
 
@@ -78,7 +73,7 @@ public class EVCacheConnectionObserver implements ConnectionObserver, EVCacheCon
         if (log.isDebugEnabled()) log.debug(client.getAppName() + ":CONNECTION LOST : To " + address);
         if(log.isTraceEnabled()) log.trace("Stack", new Exception());
         lostCount++;
-        connLostCounter.increment();
+//        connLostCounter.increment();
     }
 
     public int getActiveServerCount() {

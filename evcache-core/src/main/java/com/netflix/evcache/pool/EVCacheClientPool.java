@@ -436,7 +436,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             final int inActiveServerCount = connectionObserver.getInActiveServerCount();
             final int sizeInDiscovery = discoveredHostsInServerGroup.size();
             final int sizeInHashing = client.getNodeLocator().getAll().size();
-            if (i == 0) getConfigGauge("sizeInDiscovery").set(Long.valueOf(sizeInDiscovery)); 
+            if (i == 0) getConfigGauge("sizeInDiscovery", serverGroup).set(Long.valueOf(sizeInDiscovery)); 
             if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup + "\n\tActive Count : " + activeServerCount 
                     + "\n\tInactive Count : " + inActiveServerCount + "\n\tDiscovery Count : " + sizeInDiscovery + "\n\tsizeInHashing : " + sizeInHashing);
             if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
@@ -447,9 +447,9 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             if (currentTime - lastReconcileTime > reconcileInterval.get()) {
                 reconcile = true;
                 lastReconcileTime = currentTime;
-                getConfigGauge(EVCacheMetricsFactory.POOL_RECONCILE).set(Long.valueOf(1));
+                getPoolConfigGauge(EVCacheMetricsFactory.POOL_RECONCILE).set(Long.valueOf(1));
             } else {
-                getConfigGauge(EVCacheMetricsFactory.POOL_RECONCILE).set(Long.valueOf(0));
+                getPoolConfigGauge(EVCacheMetricsFactory.POOL_RECONCILE).set(Long.valueOf(0));
             }
             final boolean hashingSizeDiff = (sizeInHashing != sizeInDiscovery && sizeInHashing != activeServerCount);
             if (reconcile || activeServerCount != sizeInDiscovery || inActiveServerCount > 0 || hashingSizeDiff) {
@@ -467,7 +467,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                         if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
                                 + "; instance : " + instance
                                 + " not found and will shutdown the client and init it again.");
-                        getConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(1));
+                        getPoolConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(1));
                         return true;
                     }
                 }
@@ -487,7 +487,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     if ((currentTime - entry.getValue().longValue()) > 1200000 && !discoveredHostsInServerGroup.contains(entry.getKey())) {
                         if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup + "; instance : " + entry.getKey()
                                 + " not found in discovery and will shutdown the client and init it again.");
-                        getConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(2));
+                        getPoolConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(2));
                         return true;
                     }
                 }
@@ -505,7 +505,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                             if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
                                     + "; Node : " + node + " is not active. Will shutdown the client and init it again.");
 
-                            getConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(3));
+                            getPoolConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(3));
                             return true;
                         }
                     }
@@ -520,7 +520,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                             + "; InHashing : " + sizeInHashing + "; hashingSizeDiff : " + hashingSizeDiff
                             + ". Since there is a diff in hashing size will shutdown the client and init it again.");
 
-                    getConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(4));
+                    getPoolConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(4));
                     return true;
                 }
 
@@ -538,7 +538,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                             if (lostDur >= 1200000) {
                                 if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
                                         + "; instance : " + instance + " not found in discovery for the past 20 mins and will shutdown the client and init it again.");
-                                getConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(5));
+                                getPoolConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(5));
                                 evCacheDiscoveryConnectionLostSet.remove(instance);
                                 return true;
                             } else {
@@ -555,12 +555,12 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     if (activeServerCount == 0 || inActiveServerCount > activeServerCount) {
                         if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
                                 + "; Will shutdown the client since there are no active servers and no servers for this ServerGroup in disocvery.");
-                        getConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(9));
+                        getPoolConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(9));
                         return true;
                     }
                 }
             }
-            getConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(0));
+            getPoolConfigGauge(EVCacheMetricsFactory.POOL_CHANGED).set(Long.valueOf(0));
         }
         return false;
     }
@@ -660,9 +660,11 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                         final int inActiveServerCount = connectionObserver.getInActiveServerCount();
                         if (inActiveServerCount > activeServerCount) {
                             memcachedReadInstancesByServerGroup.remove(serverGroup);
+                            getConfigGauge(EVCacheMetricsFactory.POOL_SERVERGROUP_STATUS, serverGroup).set(Long.valueOf(1));
+                        } else {
+                            getConfigGauge(EVCacheMetricsFactory.POOL_SERVERGROUP_STATUS, serverGroup).set(Long.valueOf(2));
                         }
                     }
-                    getConfigGauge(EVCacheMetricsFactory.POOL_SERVERGROUP_STATUS, serverGroup).set(Long.valueOf(1));
                 }
             } else {
                 final List<EVCacheClient> clientsWrite = memcachedInstancesByServerGroup.get(serverGroup);
@@ -865,8 +867,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         for (ServerGroup serverGroup : memcachedInstancesByServerGroup.keySet()) {
             List<EVCacheClient> clients = memcachedInstancesByServerGroup.get(serverGroup);
             for(EVCacheClient client : clients) {
-                getConfigGauge(EVCacheMetricsFactory.POOL_WRITE_Q_SIZE, serverGroup).set(Long.valueOf(client.getWriteQueueLength()));
-                getConfigGauge(EVCacheMetricsFactory.POOL_READ_Q_SIZE, serverGroup).set(Long.valueOf(client.getReadQueueLength()));
+                getStatsGauge(EVCacheMetricsFactory.POOL_WRITE_Q_SIZE, client).set(Long.valueOf(client.getWriteQueueLength()));
+                getStatsGauge(EVCacheMetricsFactory.POOL_READ_Q_SIZE, client).set(Long.valueOf(client.getReadQueueLength()));
                 if(refreshConnectionOnReadQueueFull.get()) {
                     final Collection<MemcachedNode> allNodes = client.getNodeLocator().getAll();
                     for (MemcachedNode node : allNodes) {
@@ -947,22 +949,13 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         setupMonitoring();
     }
 
-    private Gauge getConfigGauge(String name) {
-        return getConfigGauge(name, null);
-    }
-
-    private Gauge getConfigGauge(String metric, ServerGroup serverGroup) {
-        final String name = (serverGroup == null ? metric : metric + serverGroup.getName() + isInWriteOnly(serverGroup));
+    private Gauge getPoolConfigGauge(String name) {
         Gauge gauge = gaugeMap.get(name );
         if(gauge != null) return gauge;
 
         final List<Tag> tags = new ArrayList<Tag>(2);
         tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
-        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, metric));
-        if(serverGroup != null) {
-            tags.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
-            tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, isInWriteOnly(serverGroup) ? "write_only" : "read_write"));
-        }
+        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, name));
 
         final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_POOL_CONFIG, tags);
         gauge = EVCacheMetricsFactory.getInstance().getRegistry().gauge(id);
@@ -970,12 +963,48 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return gauge;
     }
 
+    private Gauge getConfigGauge(String metric, ServerGroup serverGroup) {
+        final String name = (serverGroup == null ? metric : metric + serverGroup.getName() + isInWriteOnly(serverGroup));
+        Gauge gauge = gaugeMap.get(name );
+        if(gauge != null) return gauge;
+
+        final List<Tag> tags = new ArrayList<Tag>(4);
+        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, metric));
+        if(serverGroup != null) {
+            tags.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
+            tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, isInWriteOnly(serverGroup) ? "write_only" : "read_write"));
+        }
+
+        final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_POOL_SG_CONFIG, tags);
+        gauge = EVCacheMetricsFactory.getInstance().getRegistry().gauge(id);
+        gaugeMap.put(name, gauge);
+        return gauge;
+    }
+
+    private Gauge getStatsGauge(String metric, EVCacheClient client) {
+        final String name = metric + client.getServerGroupName();
+        Gauge gauge = gaugeMap.get(name );
+        if(gauge != null) return gauge;
+
+        final List<Tag> tags = new ArrayList<Tag>(3);
+        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, metric));
+        tags.add(new BasicTag(EVCacheMetricsFactory.CONNECTION_ID, String.valueOf(client.getId())));
+        tags.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, client.getServerGroupName()));
+
+        final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_STATS, tags);
+        gauge = EVCacheMetricsFactory.getInstance().getRegistry().gauge(id);
+        gaugeMap.put(name, gauge);
+        return gauge;
+    }
+
     private int reportPoolConifg() {
         final int size = getPoolSize();
-        getConfigGauge("readTimeout").set(getReadTimeout().get());
-        getConfigGauge("bulkReadTimeout").set(getBulkReadTimeout().get());
-        getConfigGauge("numberOfServerGoups").set(memcachedInstancesByServerGroup.size());
-        getConfigGauge("maxReadQueueLength").set(_maxReadQueueSize.get());
+//        getConfigGauge("readTimeout").set(getReadTimeout().get());
+//        getConfigGauge("bulkReadTimeout").set(getBulkReadTimeout().get());
+//        getConfigGauge("numberOfServerGoups").set(memcachedInstancesByServerGroup.size());
+//        getConfigGauge("maxReadQueueLength").set(_maxReadQueueSize.get());
         for(ServerGroup key : memcachedInstancesByServerGroup.keySet()) {
             getConfigGauge("poolSize", key).set(memcachedInstancesByServerGroup.get(key).size());
             final EVCacheClient client = memcachedInstancesByServerGroup.get(key).get(0);
