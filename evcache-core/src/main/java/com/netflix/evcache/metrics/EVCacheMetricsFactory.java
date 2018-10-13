@@ -205,7 +205,7 @@ public final class EVCacheMetricsFactory {
     public static final String INTERNAL_CHUNK_DATA_SIZE         = "internal.evc.client.chunking.dataSize";
     public static final String INTERNAL_ADD_CALL_FIXUP          = "internal.evc.client.addCall.fixUp";
 
-    public static final String INTERNAL_POOL_SG_CONFIG          = "internal.evc.client.pool.serverGroup.config";
+    public static final String INTERNAL_POOL_SG_CONFIG          = "internal.evc.client.pool.asg.config";
     public static final String INTERNAL_POOL_CONFIG             = "internal.evc.client.pool.config";
     public static final String INTERNAL_POOL_REFRESH            = "internal.evc.client.pool.refresh";
 
@@ -217,8 +217,8 @@ public final class EVCacheMetricsFactory {
     public static final String POOL_READ_INSTANCES              = "readInstances";
     public static final String POOL_WRITE_INSTANCES             = "writeInstances";
     public static final String POOL_RECONCILE                   = "reconcile";
-    public static final String POOL_CHANGED                     = "serverGroupChanged";
-    public static final String POOL_SERVERGROUP_STATUS          = "serverGroupStatus";
+    public static final String POOL_CHANGED                     = "asgChanged";
+    public static final String POOL_SERVERGROUP_STATUS          = "asgStatus";
     public static final String POOL_INIT_ERROR                  = "init.error";
     public static final String POOL_READ_Q_SIZE                 = "readQueue";
     public static final String POOL_WRITE_Q_SIZE                = "writeQueue";
@@ -236,24 +236,24 @@ public final class EVCacheMetricsFactory {
     public static final String ATTEMPT                          = "ipc.attempt";
     public static final String STATUS                           = "ipc.result";
     public static final String FAIL_REASON                      = "ipc.error.group";
-    public static final String PAUSE_REASON                     = "ipc.error.reason";
 
     /*
      * Metric Tags moved to IPC format
      */
+    public static final String PAUSE_REASON                     = "evc.pauseReason";
     public static final String CONNECTION_ID                    = "evc.connectionId";
     public static final String CALL_TAG                         = "evc.call";
+    public static final String CALL_TYPE_TAG                    = "evc.callType";
     public static final String LATCH                            = "evc.latch";
     public static final String FAIL_COUNT                       = "evc.failCount";
     public static final String COMPLETE_COUNT                   = "evc.completeCount";
     public static final String RECONNECT_COUNT                  = "evc.reconnectCount";
     public static final String FETCH_AFTER_PAUSE                = "evc.fetchAfterPause";
-    public static final String FAILED_SERVERGROUP               = "evc.failedServerGroup";
+    public static final String FAILED_SERVERGROUP               = "evc.failedASG";
     public static final String CONFIG_NAME                      = "evc.config";
     public static final String HOST                             = "evc.host";
     public static final String CACHE_HIT                        = "evc.cacheHit";
     public static final String OPERATION                        = "evc.operation";
-    public static final String OPERATION_TYPE                   = "evc.operationType";
     public static final String OPERATION_STATUS                 = "evc.operationStatus";
     public static final String NUMBER_OF_ATTEMPTS               = "evc.numberOfAttempts";
     public static final String NUMBER_OF_KEYS                   = "evc.numberOfKeys";
@@ -285,7 +285,7 @@ public final class EVCacheMetricsFactory {
     public static final String GC                               = "gc";
     public static final String NULL_CLIENT                      = "nullClient";
     public static final String NULL_ZONE                        = "nullZone";
-    public static final String NULL_SERVERGROUP                 = "nullServerGroup";
+    public static final String NULL_SERVERGROUP                 = "nullASG";
     public static final String RECONNECT                        = "reconnect";
     public static final String CALLBACK                         = "callback";
     public static final String VERIFY                           = "verify";

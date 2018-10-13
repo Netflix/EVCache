@@ -67,7 +67,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
             throws InterruptedException, ExecutionException {
         boolean status = latch.await(to, unit);
         if(log.isDebugEnabled()) log.debug("Took " + (System.currentTimeMillis() - start)+ " to fetch " + rvMap.size() + " keys from " + client);
-        long gcDuration = -1;
+        long pauseDuration = -1;
         List<Tag> tagList = null;
         Collection<Operation> timedoutOps = null;
         String statusString = EVCacheMetricsFactory.SUCCESS;
@@ -75,8 +75,9 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         try {
             if (!status) {
                 boolean gcPause = false;
-                tagList = new ArrayList<Tag>(6);
+                tagList = new ArrayList<Tag>(7);
                 tagList.addAll(client.getTagList());
+                    tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, EVCacheMetricsFactory.BULK_OPERATION));
                 final RuntimeMXBean runtimeBean = ManagementFactory.getRuntimeMXBean();
                 final long vmStartTime = runtimeBean.getStartTime();
                 final List<GarbageCollectorMXBean> gcMXBeans = ManagementFactory.getGarbageCollectorMXBeans();
@@ -110,7 +111,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                 } else {
                     tagList.add(new BasicTag(EVCacheMetricsFactory.PAUSE_REASON, EVCacheMetricsFactory.SCHEDULE));
                 }
-                gcDuration = System.currentTimeMillis() - start;
+                pauseDuration = System.currentTimeMillis() - start;
                 if (log.isDebugEnabled()) log.debug("Total duration due to gc event = " + (System.currentTimeMillis() - start) + " msec.");
             }
     
@@ -144,9 +145,9 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
             
             return m;
         } finally {
-            if(gcDuration > 0) {
-                tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, statusString));
-                EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList, Duration.ofMillis(EVCacheConfig.getInstance().getChainedIntProperty(getApp() + ".max.read.duration.metric", "evcache.max.read.duration.metric", 20, null).get().intValue())).record(gcDuration, TimeUnit.MILLISECONDS);
+            if(pauseDuration > 0) {
+                tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_STATUS, statusString));
+                EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList, Duration.ofMillis(EVCacheConfig.getInstance().getChainedIntProperty(getApp() + ".max.read.duration.metric", "evcache.max.read.duration.metric", 20, null).get().intValue())).record(pauseDuration, TimeUnit.MILLISECONDS);
             }
         }
     }

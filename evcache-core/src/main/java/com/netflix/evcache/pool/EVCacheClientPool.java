@@ -973,7 +973,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, metric));
         if(serverGroup != null) {
             tags.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
-            tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, isInWriteOnly(serverGroup) ? "write_only" : "read_write"));
         }
 
         final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_POOL_SG_CONFIG, tags);

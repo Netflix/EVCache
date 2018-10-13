@@ -426,8 +426,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
         final List<Tag> tagList = new ArrayList<Tag>(client.getTagList().size() + 4 + (host == null ? 0 : 1));
         tagList.addAll(client.getTagList());
-        if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, operation));
-        if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_TYPE, operationType));
+        if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
+        if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
         if(status != null) {
             if(status.getStatusCode() == StatusCode.SUCCESS || status.getStatusCode() == StatusCode.ERR_NOT_FOUND || status.getStatusCode() == StatusCode.ERR_EXISTS) {
                 tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, EVCacheMetricsFactory.SUCCESS));
@@ -451,8 +451,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
         final List<Tag> tagList = new ArrayList<Tag>(6);
         tagList.addAll(client.getTagList());
-        tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, operation));
-        tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_TYPE, type));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, type));
         distributionSummary = EVCacheMetricsFactory.getInstance().getDistributionSummary(metric, tagList);
         distributionSummaryMap.put(operation, distributionSummary);
         return distributionSummary;

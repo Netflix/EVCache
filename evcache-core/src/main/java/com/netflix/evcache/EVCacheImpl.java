@@ -83,7 +83,7 @@ final public class EVCacheImpl implements EVCache {
     private final List<Tag> tags;
     private EVCacheInMemoryCache<?> cache;
     private EVCacheClientUtil clientUtil = null;
-
+    private final DynamicBooleanProperty ignoreTouch;
     private final DynamicBooleanProperty hashKey;
     private final DynamicStringProperty hashingAlgo;
     private final EVCacheTranscoder evcacheValueTranscoder;
@@ -121,6 +121,8 @@ final public class EVCacheImpl implements EVCache {
         _eventsUsingLatchFP = config.getChainedBooleanProperty(_appName + ".events.using.latch", "evcache.events.using.latch", Boolean.FALSE, null);
          maxReadDuration = config.getChainedIntProperty(_appName + ".max.read.duration.metric", "evcache.max.write.duration.metric", 20, null);
          maxWriteDuration = config.getChainedIntProperty(_appName + ".max.write.duration.metric", "evcache.max.write.duration.metric", 50, null);
+         ignoreTouch = config.getDynamicBooleanProperty(appName + ".ignore.touch", Boolean.FALSE);
+
 
         this.hashKey = config.getDynamicBooleanProperty(appName + ".hash.key", Boolean.FALSE);
         this.hashingAlgo = config.getDynamicStringProperty(appName + ".hash.algo", "siphash24");
@@ -660,7 +662,11 @@ final public class EVCacheImpl implements EVCache {
                 return value;
             }
         }
-        return doGetAndTouch(canonicalKey, key, timeToLive, tc);
+        if(ignoreTouch.get()) {
+            return doGet(canonicalKey, tc);
+        } else {
+            return doGetAndTouch(canonicalKey, key, timeToLive, tc);
+        }
     }
 
     <T> T doGetAndTouch(String canonicalKey, String key, int timeToLive, Transcoder<T> tc) throws EVCacheException {
@@ -1195,8 +1201,8 @@ final public class EVCacheImpl implements EVCache {
             if(bulkKeysSize == null) {
                 final List<Tag> tagList = new ArrayList<Tag>(4);
                 tagList.addAll(tags);
-                tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.BULK_OPERATION));
-                tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_TYPE, EVCacheMetricsFactory.READ));
+                tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, EVCacheMetricsFactory.BULK_OPERATION));
+                tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, EVCacheMetricsFactory.READ));
 //                if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, status));
 //                if(tries >= 0) tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, String.valueOf(tries)));
                 bulkKeysSize = EVCacheMetricsFactory.getInstance().getDistributionSummary(EVCacheMetricsFactory.INTERNAL_KEYS_SIZE, tagList);
@@ -1944,8 +1950,8 @@ final public class EVCacheImpl implements EVCache {
 
         final List<Tag> tagList = new ArrayList<Tag>(7);
         tagList.addAll(tags);
-        if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, operation));
-        if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_TYPE, operationType));
+        if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
+        if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
         if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, status));
         if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
         if(tries >= 0) tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, String.valueOf(tries)));

@@ -237,6 +237,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                 if(onCompleteDone && !futureCancelled) {
                     if(completeCount == totalFutureCount && failureCount == 0) { // all futures are completed
                         final boolean status = scheduledFuture.cancel(true);
+                        run();//TODO: should we reschedule this method to run as part of EVCacheScheduledExecutor instead of running on the callback thread 
                         if (log.isDebugEnabled()) log.debug("Cancelled the scheduled task : " + status);
                     }
                 }
@@ -244,8 +245,9 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             if (log.isDebugEnabled()) log.debug("App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
         }
         if(totalFutureCount == completeCount) {
-            final List<Tag> tags = new ArrayList<Tag>(3);
+            final List<Tag> tags = new ArrayList<Tag>(4);
             tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+            if(evcacheEvent != null) tags.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, evcacheEvent.getCall().name()));
             tags.add(new BasicTag(EVCacheMetricsFactory.FAIL_COUNT, String.valueOf(failureCount)));
             tags.add(new BasicTag(EVCacheMetricsFactory.COMPLETE_COUNT, String.valueOf(completeCount)));
             tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.CALLBACK));
@@ -437,6 +439,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             }
             final List<Tag> tags = new ArrayList<Tag>(4);
             tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+            if(evcacheEvent != null) tags.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, evcacheEvent.getCall().name()));
             tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.VERIFY));
             tags.add(new BasicTag(EVCacheMetricsFactory.FAIL_COUNT, String.valueOf(failCount)));
             tags.add(new BasicTag(EVCacheMetricsFactory.COMPLETE_COUNT, String.valueOf(completeCount)));

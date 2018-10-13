@@ -171,7 +171,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
             status = latch.await(duration, units);
 
             if (log.isDebugEnabled()) log.debug("re-await status : " + status);
-            String failReason = null;
+            String statusString = EVCacheMetricsFactory.SUCCESS;
             final long pauseDuration = System.currentTimeMillis() - start;
             if (op != null && !status) {
                 // whenever timeout occurs, continuous timeout counter will increase by 1.
@@ -179,9 +179,9 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                 op.timeOut();
                 ExecutionException t = null;
                 if(throwException && !hasZF) {
-                    if (op.isTimedOut()) { t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op)); failReason = EVCacheMetricsFactory.CHECKED_OP_TIMEOUT; } 
-                    else if (op.isCancelled()  && throwException) { t = new ExecutionException(new CancellationException("Cancelled"));failReason = EVCacheMetricsFactory.CANCELLED; }
-                    else if (op.hasErrored() ) { t = new ExecutionException(op.getException());failReason = EVCacheMetricsFactory.ERROR; }
+                    if (op.isTimedOut()) { t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op)); statusString = EVCacheMetricsFactory.CHECKED_OP_TIMEOUT; } 
+                    else if (op.isCancelled()  && throwException) { t = new ExecutionException(new CancellationException("Cancelled"));statusString = EVCacheMetricsFactory.CANCELLED; }
+                    else if (op.hasErrored() ) { t = new ExecutionException(op.getException());statusString = EVCacheMetricsFactory.ERROR; }
                 }   
 
                 if(t != null) throw t; //finally throw the exception if needed 
@@ -189,10 +189,10 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
 
             final List<Tag> tagList = new ArrayList<Tag>(client.getTagList().size() + 4);
             tagList.addAll(client.getTagList());
-            tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.GET_OPERATION));
+            tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, EVCacheMetricsFactory.GET_OPERATION));
             tagList.add(new BasicTag(EVCacheMetricsFactory.PAUSE_REASON, gcPause ? EVCacheMetricsFactory.GC:EVCacheMetricsFactory.SCHEDULE));
             tagList.add(new BasicTag(EVCacheMetricsFactory.FETCH_AFTER_PAUSE, status ? EVCacheMetricsFactory.YES:EVCacheMetricsFactory.NO));
-            if(failReason != null) tagList.add(new BasicTag(EVCacheMetricsFactory.FAIL_REASON, failReason));
+            tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_STATUS, statusString));
             EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList, Duration.ofMillis(EVCacheConfig.getInstance().getChainedIntProperty(getApp() + ".max.write.duration.metric", "evcache.max.write.duration.metric", 50, null).get().intValue())).record(pauseDuration, TimeUnit.MILLISECONDS);
         }
 
