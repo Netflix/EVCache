@@ -250,7 +250,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             if(evcacheEvent != null) tags.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, evcacheEvent.getCall().name()));
             tags.add(new BasicTag(EVCacheMetricsFactory.FAIL_COUNT, String.valueOf(failureCount)));
             tags.add(new BasicTag(EVCacheMetricsFactory.COMPLETE_COUNT, String.valueOf(completeCount)));
-            tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.CALLBACK));
+            //tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.CALLBACK));
             EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_LATCH, tags, Duration.ofMillis(EVCacheConfig.getInstance().getChainedIntProperty(getAppName() + ".max.write.duration.metric", "evcache.max.write.duration.metric", 50, null).get().intValue())).record(System.currentTimeMillis()- start, TimeUnit.MILLISECONDS);
         }
         if (log.isDebugEnabled()) log.debug("END : onComplete - Calling Countdown. Completed Future = " + future + "; App : " + appName); 
@@ -440,7 +440,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             final List<Tag> tags = new ArrayList<Tag>(4);
             tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
             if(evcacheEvent != null) tags.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, evcacheEvent.getCall().name()));
-            tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.VERIFY));
+            //tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.VERIFY));
             tags.add(new BasicTag(EVCacheMetricsFactory.FAIL_COUNT, String.valueOf(failCount)));
             tags.add(new BasicTag(EVCacheMetricsFactory.COMPLETE_COUNT, String.valueOf(completeCount)));
             EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_LATCH_VERIFY, tags);
