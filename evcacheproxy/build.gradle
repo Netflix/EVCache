@@ -17,6 +17,7 @@ repositories {
 configurations.all {
     exclude group: 'com.oracle'
     exclude group:'amazon', module: 'aws-java-sdk'
+    exclude group: 'netflix', module: 'evcache-client2'
 }
 
 dependencyRecommendations {
@@ -24,7 +25,8 @@ dependencyRecommendations {
 }
 dependencies {
         compile "net.sf.json-lib:json-lib:2.4:jdk15"
-        compile 'com.netflix.evcache:evcache-client'
+        compile 'com.netflix.evcache:evcache-core:latest.candidate'
+        compile 'com.netflix.evcache:evcache-client:latest.candidate'
         compile 'com.netflix.governator:governator'
         compile 'com.netflix.governator:governator-archaius'
         compile 'com.netflix.governator:governator-servlet'
@@ -33,7 +35,7 @@ dependencies {
         compile group:"com.netflix.nfkafka",        name:"nfkafka-consumer",           version:"1.+"
         
         compile 'netflix:platform'
-        compile 'netflix:evcache-client2:latest.candidate'
+        compile 'netflix:evcache-nflx-client:latest.candidate'
         compile 'netflix:base-server'
         compile 'netflix:nflibrary'
 }
