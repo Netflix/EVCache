@@ -269,7 +269,7 @@ final public class EVCacheImpl implements EVCache {
         if(counter == null) {
             final List<Tag> tagList = new ArrayList<Tag>(3);
             tagList.addAll(tags);
-            tagList.add(new BasicTag(EVCacheMetricsFactory.FAIL_REASON, metric));
+            tagList.add(new BasicTag(EVCacheMetricsFactory.FAILURE_REASON, metric));
             counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.FAST_FAIL, tagList);
             counterMap.put(metric, counter);
         }
@@ -1952,9 +1952,21 @@ final public class EVCacheImpl implements EVCache {
         tagList.addAll(tags);
         if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
         if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
-        if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, status));
+        if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_RESULT, status));
         if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
-        if(tries >= 0) tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, String.valueOf(tries)));
+        switch(tries) {
+            case 0 : 
+                tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, "initial")); 
+                break;
+            case 1 : 
+                tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, "second")); 
+                break;
+            default: 
+                tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, "third_up")); 
+                break;
+        }
+        
+        if(tries == 0) tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, String.valueOf(tries)));
         if(serverGroup != null) {
             tagList.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
             tagList.add(new BasicTag(EVCacheMetricsFactory.ZONE, serverGroup.getZone()));

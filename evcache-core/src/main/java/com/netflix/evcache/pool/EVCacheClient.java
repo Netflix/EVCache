@@ -119,7 +119,7 @@ public class EVCacheClient {
         tagList.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
         this.tags = Collections.<Tag>unmodifiableList(new ArrayList(tagList));
 
-        tagList.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.POOL_OPERATIONS));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.STAT_NAME, EVCacheMetricsFactory.POOL_OPERATIONS));
         operationsCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_STATS, tagList);
 
         this.enableChunking = EVCacheConfig.getInstance().getChainedBooleanProperty(this.serverGroup.getName()+ ".chunk.data", appName + ".chunk.data", Boolean.FALSE, null);
@@ -180,7 +180,7 @@ public class EVCacheClient {
         if(counter == null) {
             final List<Tag> tagList = new ArrayList<Tag>(4);
             tagList.addAll(tags);
-            tagList.add(new BasicTag(EVCacheMetricsFactory.REASON, metric));
+            tagList.add(new BasicTag(EVCacheMetricsFactory.FAILURE_REASON, metric));
             counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_FAIL, tagList);
             counterMap.put(metric, counter);
         }

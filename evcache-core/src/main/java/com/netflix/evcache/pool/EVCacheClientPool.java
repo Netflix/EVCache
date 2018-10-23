@@ -977,7 +977,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
         final List<Tag> tags = new ArrayList<Tag>(3);
         tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
-        tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, metric));
+        tags.add(new BasicTag(EVCacheMetricsFactory.STAT_NAME, metric));
         tags.add(new BasicTag(EVCacheMetricsFactory.CONNECTION_ID, String.valueOf(client.getId())));
         tags.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, client.getServerGroupName()));
 
@@ -1031,7 +1031,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
-    @SuppressWarnings("deprecation")
     private void setupMonitoring() {
         try {
             final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + _appName

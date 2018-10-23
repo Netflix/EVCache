@@ -48,7 +48,7 @@ public class EVCacheClientUtil {
             public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
                 final ArrayList<Tag> tags = new ArrayList<Tag>(2);
                 tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
-                tags.add(new BasicTag(EVCacheMetricsFactory.STATUS, "rejected"));
+                tags.add(new BasicTag(EVCacheMetricsFactory.IPC_RESULT, "rejected"));
                 EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_ADD_CALL_FIXUP, tags);
             }
         };
