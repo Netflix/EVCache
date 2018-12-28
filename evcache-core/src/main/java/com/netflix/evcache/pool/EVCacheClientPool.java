@@ -214,7 +214,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     private EVCacheClient selectClient(List<EVCacheClient> clients) {
         if (clients == null) {
-            if (log.isDebugEnabled()) log.debug("clients is null returning null!!!");
+            if (log.isDebugEnabled()) log.debug("clients is null returning null and forcing pool refresh!!!");
+            if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
             return null;
         }
         if (clients.size() == 1) {

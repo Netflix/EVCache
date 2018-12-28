@@ -28,6 +28,7 @@ dependencies {
 
         testCompile group:"org.testng",               name:"testng",                           version:"latest.release"
         testCompile group:"org.mockito",              name:"mockito-all",                      version:"latest.release"
+        testCompile group:'org.assertj',              name:'assertj-core',                     version:'latest.release'
 }
 
 javadoc {
