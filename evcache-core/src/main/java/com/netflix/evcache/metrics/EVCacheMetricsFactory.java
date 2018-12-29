@@ -289,6 +289,7 @@ public final class EVCacheMetricsFactory {
     public static final String SCHEDULE                         = "Scheduling";
     public static final String GC                               = "gc";
     public static final String NULL_CLIENT                      = "nullClient";
+    public static final String INVALID_TTL                      = "invalidTTL";
     public static final String NULL_ZONE                        = "nullZone";
     public static final String NULL_SERVERGROUP                 = "nullASG";
     public static final String RECONNECT                        = "reconnect";

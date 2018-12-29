@@ -537,6 +537,19 @@ final public class EVCacheImpl implements EVCache {
             });
         }
     }
+    
+    private final int MAX_IN_SEC = 2592000;
+    private void checkTTL(int timeToLive) throws IllegalArgumentException {
+        try { 
+            if(timeToLive < 0) throw new IllegalArgumentException ("Time to Live ( " + timeToLive + ") must be great than or equal to 0.");
+            final long currentTimeInMillis = System.currentTimeMillis();
+            if(timeToLive > currentTimeInMillis) throw new IllegalArgumentException ("Time to Live ( " + timeToLive + ") must be in seconds.");
+            if(timeToLive > MAX_IN_SEC && timeToLive < currentTimeInMillis/1000) throw new IllegalArgumentException ("If providing Time to Live ( " + timeToLive + ") in seconds as epoc value, it should be greater than current time " + currentTimeInMillis/1000);
+        } catch (IllegalArgumentException iae) {
+            incrementFastFail(EVCacheMetricsFactory.INVALID_TTL);
+            throw iae;
+        }
+    }
 
     public <T> T getAndTouch(String key, int timeToLive) throws EVCacheException {
         return this.getAndTouch(key, timeToLive, (Transcoder<T>) _transcoder);
@@ -549,6 +562,7 @@ final public class EVCacheImpl implements EVCache {
 
     public <T> Single<T> getAndTouch(String key, int timeToLive, Transcoder<T> tc, Scheduler scheduler) {
         if (null == key) return Single.error(new IllegalArgumentException("Key cannot be null"));
+        checkTTL(timeToLive);
         if(hashKey.get()) {
             return Single.error(new IllegalArgumentException("Not supported"));
         }
@@ -635,6 +649,7 @@ final public class EVCacheImpl implements EVCache {
     @Override
     public <T> T getAndTouch(String key, int timeToLive, Transcoder<T> tc) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException("Key cannot be null");
+        checkTTL(timeToLive);
         final String canonicalKey = getCanonicalizedKey(key);
         if (_useInMemoryCache.get()) {
             final boolean throwExc = doThrowException();
@@ -768,6 +783,7 @@ final public class EVCacheImpl implements EVCache {
 
     @Override
     public Future<Boolean>[] touch(String key, int timeToLive) throws EVCacheException {
+        checkTTL(timeToLive);
         final EVCacheLatch latch = this.touch(key, timeToLive, null);
         if (latch == null) return new EVCacheFuture[0];
         final List<Future<Boolean>> futures = latch.getAllFutures();
@@ -789,6 +805,7 @@ final public class EVCacheImpl implements EVCache {
 
     public <T> EVCacheLatch touch(String key, int timeToLive, Policy policy) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException();
+        checkTTL(timeToLive);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
@@ -839,7 +856,7 @@ final public class EVCacheImpl implements EVCache {
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.TOUCH.name(), EVCacheMetricsFactory.WRITE, null, null, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
-            if (log.isDebugEnabled() && shouldLog()) log.debug("TOUCH : APP " + _appName + " for key : " + canonicalKey + " with ttl : " + timeToLive);
+            if (log.isDebugEnabled() && shouldLog()) log.debug("TOUCH : APP " + _appName + " for key : " + canonicalKey + " with timeToLive : " + timeToLive);
         }
     }
 
@@ -853,6 +870,7 @@ final public class EVCacheImpl implements EVCache {
     }
 
     private EVCacheFuture[] touchData(String canonicalKey, String key, int timeToLive, EVCacheClient[] clients, EVCacheLatch latch ) throws Exception {
+        checkTTL(timeToLive);
         final EVCacheFuture[] futures = new EVCacheFuture[clients.length];
         int index = 0;
         for (EVCacheClient client : clients) {
@@ -1007,9 +1025,10 @@ final public class EVCacheImpl implements EVCache {
         return getBulk(keys, tc, true, timeToLive);
     }
 
-    private <T> Map<String, T> getBulk(final Collection<String> keys, Transcoder<T> tc, boolean touch, int ttl) throws EVCacheException {
+    private <T> Map<String, T> getBulk(final Collection<String> keys, Transcoder<T> tc, boolean touch, int timeToLive) throws EVCacheException {
         if (null == keys) throw new IllegalArgumentException();
         if (keys.isEmpty()) return Collections.<String, T> emptyMap();
+        checkTTL(timeToLive);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient client = _pool.getEVCacheClientForRead();
@@ -1039,7 +1058,7 @@ final public class EVCacheImpl implements EVCache {
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED);
                 return null;
             }
-            event.setTTL(ttl);
+            event.setTTL(timeToLive);
             startEvent(event);
         }
 
@@ -1157,7 +1176,7 @@ final public class EVCacheImpl implements EVCache {
                 final T value = retMap.get(key);
                 if (value != null) {
                     decanonicalR.put(deCanKey, value);
-                    if (touch) touchData(key, deCanKey, ttl);
+                    if (touch) touchData(key, deCanKey, timeToLive);
                     decanonicalHitKeys.add(deCanKey);
                 } else {
                     partialHit = true;
@@ -1259,6 +1278,7 @@ final public class EVCacheImpl implements EVCache {
 
     public <T> EVCacheLatch set(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
+        checkTTL(timeToLive);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
@@ -1340,6 +1360,7 @@ final public class EVCacheImpl implements EVCache {
 
     public <T> EVCacheFuture[] append(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
+        checkTTL(timeToLive);
 
         if(hashKey.get()) throw new EVCacheException("hashing of key is not supported for append operations");
             
@@ -1515,6 +1536,7 @@ final public class EVCacheImpl implements EVCache {
 
     public long incr(String key, long by, long defaultVal, int timeToLive) throws EVCacheException {
         if ((null == key) || by < 0 || defaultVal < 0 || timeToLive < 0) throw new IllegalArgumentException();
+        checkTTL(timeToLive);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
@@ -1590,6 +1612,7 @@ final public class EVCacheImpl implements EVCache {
 
     public long decr(String key, long by, long defaultVal, int timeToLive) throws EVCacheException {
         if ((null == key) || by < 0 || defaultVal < 0 || timeToLive < 0) throw new IllegalArgumentException();
+        checkTTL(timeToLive);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
@@ -1684,6 +1707,7 @@ final public class EVCacheImpl implements EVCache {
     public <T> EVCacheLatch replace(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy)
             throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
+        checkTTL(timeToLive);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
@@ -1772,6 +1796,7 @@ final public class EVCacheImpl implements EVCache {
 
     public <T> EVCacheLatch appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
+        checkTTL(timeToLive);
         if(hashKey.get()) throw new EVCacheException("hashing of key is not supported for appendOrAdd operations");
 
         final boolean throwExc = doThrowException();
@@ -1864,6 +1889,7 @@ final public class EVCacheImpl implements EVCache {
     @Override
     public <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
+        checkTTL(timeToLive);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
