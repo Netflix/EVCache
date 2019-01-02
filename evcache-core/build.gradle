@@ -15,6 +15,7 @@ test {
         useTestNG() 
         options.suites('src/test/java/test-suite.xml')
         minHeapSize = '1024m'
+        maxHeapSize = '1536m'
         testLogging.displayGranularity = 2
         testLogging.showStandardStreams = true
 }
