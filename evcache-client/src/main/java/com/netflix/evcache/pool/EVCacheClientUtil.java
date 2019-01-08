@@ -13,8 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.config.DynamicBooleanProperty;
-import com.netflix.config.DynamicIntProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
@@ -36,8 +35,8 @@ public class EVCacheClientUtil {
     private final String _appName;
     private final DistributionSummary addDataSizeSummary;
     private final DistributionSummary addTTLSummary;
-    private final DynamicBooleanProperty fixup;
-    private final DynamicIntProperty fixupPoolSize;
+    private final Property<Boolean> fixup;
+    private final Property<Integer> fixupPoolSize;
     private final EVCacheClientPool _pool;
     private ThreadPoolExecutor threadPool = null;
 
@@ -46,8 +45,8 @@ public class EVCacheClientUtil {
         this._appName = pool.getAppName();
         this.addDataSizeSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AddData-Size", _appName, null);
         this.addTTLSummary = EVCacheMetricsFactory.getDistributionSummary(_appName + "-AddData-TTL", _appName, null);
-        this.fixup = EVCacheConfig.getInstance().getDynamicBooleanProperty(_appName + ".addOperation.fixup", Boolean.FALSE);
-        this.fixupPoolSize = EVCacheConfig.getInstance().getDynamicIntProperty(_appName + ".addOperation.fixup.poolsize", 10);
+        this.fixup = EVCacheConfig.getInstance().getPropertyRepository().get(_appName + ".addOperation.fixup", Boolean.class).orElse(false);
+        this.fixupPoolSize = EVCacheConfig.getInstance().getPropertyRepository().get(_appName + ".addOperation.fixup.poolsize", Integer.class).orElse(10);
 
         RejectedExecutionHandler block = new RejectedExecutionHandler() {
             public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {

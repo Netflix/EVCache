@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import com.netflix.config.DynamicIntProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.EVCache.Call;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
@@ -43,7 +43,7 @@ public final class EVCacheMetricsFactory {
     private static final Map<String, DistributionSummary> distributionSummaryMap = new ConcurrentHashMap<String, DistributionSummary>();
     private static final Lock writeLock = (new ReentrantReadWriteLock()).writeLock();
     private static final Map<String, Timer> timerMap = new HashMap<String, Timer>();
-    private static final DynamicIntProperty sampleSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCache.metrics.sample.size", 100);
+    private static final Property<Integer> sampleSize = EVCacheConfig.getInstance().getPropertyRepository().get("EVCache.metrics.sample.size", Integer.class).orElse(100);
     public static final Tag OWNER = Tags.newTag("owner", "evcache");
 
     public static Operation getOperation(String name) {

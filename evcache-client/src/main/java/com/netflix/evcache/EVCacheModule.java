@@ -5,10 +5,9 @@ import com.google.inject.Singleton;
 import com.netflix.archaius.api.annotations.ConfigurationSource;
 import com.netflix.evcache.event.hotkey.HotKeyListener;
 import com.netflix.evcache.event.throttle.ThrottleListener;
-import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.version.VersionTracker;
-import com.netflix.servo.tag.BasicTagList;
 
 @Singleton
 public class EVCacheModule extends AbstractModule {
@@ -31,6 +30,7 @@ public class EVCacheModule extends AbstractModule {
         bind(ThrottleListener.class).asEagerSingleton();
         bind(VersionTracker.class).asEagerSingleton();
         
+        requestStaticInjection(EVCacheConfig.class);
 
         // Make sure connection factory provider Module is initialized in your Module when you init EVCacheModule 
         // bind(IConnectionFactoryProvider.class).toProvider(DefaultFactoryProvider.class);

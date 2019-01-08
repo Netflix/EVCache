@@ -1,6 +1,8 @@
 package com.netflix.evcache.event.hotkey;
 
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -11,9 +13,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import com.netflix.config.DynamicBooleanProperty;
-import com.netflix.config.DynamicIntProperty;
-import com.netflix.config.DynamicStringSetProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.event.EVCacheEventListener;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
@@ -46,27 +46,22 @@ import com.netflix.evcache.util.EVCacheConfig;
 public class HotKeyListener implements EVCacheEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(HotKeyListener.class);
-    private final Map<String, DynamicBooleanProperty> throttleMap;
+    private final Map<String, Property<Boolean>> throttleMap;
     private final Map<String, Cache<String, Integer>> cacheMap;
     private final Integer START_VAL = Integer.valueOf(1);
-    private final DynamicBooleanProperty enableThrottleHotKeys;
+    private final Property<Boolean> enableThrottleHotKeys;
     private final EVCacheClientPoolManager poolManager;
-    private final Map<String, DynamicStringSetProperty> throttleKeysMap;
+    private final Map<String, Property<Set<String>>> throttleKeysMap;
 
     @Inject 
     public HotKeyListener(EVCacheClientPoolManager poolManager) {
         this.poolManager = poolManager;
-        this.throttleKeysMap = new ConcurrentHashMap<String, DynamicStringSetProperty>();
+        this.throttleKeysMap = new ConcurrentHashMap<String, Property<Set<String>>>();
 
-        this.throttleMap = new ConcurrentHashMap<String, DynamicBooleanProperty>();
+        this.throttleMap = new ConcurrentHashMap<String, Property<Boolean>>();
         cacheMap = new ConcurrentHashMap<String, Cache<String, Integer>>();
-        enableThrottleHotKeys = EVCacheConfig.getInstance().getDynamicBooleanProperty("EVCacheThrottler.throttle.hot.keys", false);
-        enableThrottleHotKeys.addCallback(new Runnable() {
-            @Override
-            public void run() {
-                setupHotKeyListener();
-            }
-        });
+        enableThrottleHotKeys = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheThrottler.throttle.hot.keys", Boolean.class).orElse(false);
+        enableThrottleHotKeys.subscribe((i) -> setupHotKeyListener());
         if(enableThrottleHotKeys.get()) setupHotKeyListener();
     }
 
@@ -83,9 +78,9 @@ public class HotKeyListener implements EVCacheEventListener {
 
     private Cache<String, Integer> getCache(String appName) {
 
-        DynamicBooleanProperty throttleFlag = throttleMap.get(appName);
+        Property<Boolean> throttleFlag = throttleMap.get(appName);
         if(throttleFlag == null) {
-            throttleFlag = EVCacheConfig.getInstance().getDynamicBooleanProperty("EVCacheThrottler." + appName + ".throttle.hot.keys", false);
+            throttleFlag = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheThrottler." + appName + ".throttle.hot.keys", Boolean.class).orElse(false);
             throttleMap.put(appName, throttleFlag);
         }
         if(log.isDebugEnabled()) log.debug("Throttle hot keys : " + throttleFlag);
@@ -97,9 +92,9 @@ public class HotKeyListener implements EVCacheEventListener {
         Cache<String, Integer> cache = cacheMap.get(appName);
         if(cache != null) return cache; 
 
-        final DynamicIntProperty _cacheDuration = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheThrottler." + appName + ".inmemory.expire.after.write.duration.ms", 10000);
-        final DynamicIntProperty _exireAfterAccessDuration = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheThrottler." + appName + ".inmemory.expire.after.access.duration.ms", 10000);
-        final DynamicIntProperty _cacheSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheThrottler." + appName + ".inmemory.cache.size", 100);
+        final Property<Integer> _cacheDuration = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheThrottler." + appName + ".inmemory.expire.after.write.duration.ms", Integer.class).orElse(10000);
+        final Property<Integer> _exireAfterAccessDuration = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheThrottler." + appName + ".inmemory.expire.after.access.duration.ms", Integer.class).orElse(10000);
+        final Property<Integer> _cacheSize = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheThrottler." + appName + ".inmemory.cache.size", Integer.class).orElse(100);
 
         CacheBuilder<Object, Object> builder = CacheBuilder.newBuilder().recordStats();
         if(_cacheSize.get() > 0) {
@@ -135,10 +130,8 @@ public class HotKeyListener implements EVCacheEventListener {
         if(!enableThrottleHotKeys.get()) return false;
 
         final String appName = e.getAppName();
-        DynamicStringSetProperty throttleKeysSet = throttleKeysMap.get(appName);
-        if(throttleKeysSet == null) {
-            throttleKeysSet = new DynamicStringSetProperty(appName + ".throttle.keys", ""); //keys without the cache prefix
-        }
+        Property<Set<String>> throttleKeysSet = throttleKeysMap.get(appName).orElse(Collections.emptySet());
+
         if(throttleKeysSet.get().size() > 0) {
             if(log.isDebugEnabled()) log.debug("Throttle : " + throttleKeysSet);
             for(String key : e.getKeys()) {
@@ -152,7 +145,7 @@ public class HotKeyListener implements EVCacheEventListener {
         final Cache<String, Integer> cache = getCache(appName);
         if(cache == null) return false;
 
-        final DynamicIntProperty _throttleVal = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheThrottler." + appName + ".throttle.value", 3);
+        final Property<Integer> _throttleVal = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheThrottler." + appName + ".throttle.value", Integer.class).orElse(3);
         for(String key : e.getKeys()) {
             Integer val = cache.getIfPresent(key);
             if(val.intValue() > _throttleVal.get()) {

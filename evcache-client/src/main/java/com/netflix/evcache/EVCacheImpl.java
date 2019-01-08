@@ -18,9 +18,8 @@ import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.config.DynamicBooleanProperty;
-import com.netflix.config.DynamicStringProperty;
+import com.netflix.archaius.api.Property;
+import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.event.EVCacheEvent;
@@ -36,7 +35,6 @@ import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheClientUtil;
 import com.netflix.evcache.pool.EVCacheValue;
-import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.KeyHasher;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.Counter;
@@ -75,24 +73,24 @@ final public class EVCacheImpl implements EVCache {
     private final int _timeToLive; // defaults to 15 minutes
     private final EVCacheClientPool _pool;
 
-    private final ChainedDynamicProperty.BooleanProperty _throwExceptionFP, _zoneFallbackFP, _useInMemoryCache;
-    private final DynamicBooleanProperty _bulkZoneFallbackFP;
-    private final DynamicBooleanProperty _bulkPartialZoneFallbackFP;
+    private final Property<Boolean> _throwExceptionFP, _zoneFallbackFP, _useInMemoryCache;
+    private final Property<Boolean> _bulkZoneFallbackFP;
+    private final Property<Boolean> _bulkPartialZoneFallbackFP;
     private final Stats stats;
     private EVCacheInMemoryCache<?> cache;
     private EVCacheClientUtil clientUtil = null;
 
-    private final DynamicBooleanProperty hashKey;
-    private final DynamicStringProperty hashingAlgo;
+    private final Property<Boolean> hashKey;
+    private final Property<String> hashingAlgo;
     private final EVCacheTranscoder evcacheValueTranscoder;
 
     private final EVCacheClientPoolManager _poolManager;
     private DistributionSummary setTTLSummary, replaceTTLSummary, touchTTLSummary, setDataSizeSummary, replaceDataSizeSummary, appendDataSizeSummary;
     private Counter touchCounter;
-    private final ChainedDynamicProperty.BooleanProperty _eventsUsingLatchFP, autoHashKeys;
+    private final Property<Boolean> _eventsUsingLatchFP, autoHashKeys;
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
-            boolean throwException, EVCacheClientPoolManager poolManager) {
+            boolean throwException, EVCacheClientPoolManager poolManager, PropertyRepository propertyRepository) {
         this._appName = appName;
         this._cacheName = cacheName;
         this._timeToLive = timeToLive;
@@ -105,17 +103,18 @@ final public class EVCacheImpl implements EVCache {
         _metricPrefix = _appName + "-";
         this._poolManager = poolManager;
         this._pool = poolManager.getEVCacheClientPool(_appName);
-        final EVCacheConfig config = EVCacheConfig.getInstance();
-        _throwExceptionFP = config.getChainedBooleanProperty(_metricName + ".throw.exception", _appName + ".throw.exception", Boolean.FALSE, null);
-        _zoneFallbackFP = config.getChainedBooleanProperty(_metricName + ".fallback.zone", _appName + ".fallback.zone", Boolean.TRUE, null);
-        _bulkZoneFallbackFP = config.getDynamicBooleanProperty(_appName + ".bulk.fallback.zone", Boolean.TRUE);
-        _bulkPartialZoneFallbackFP = config.getDynamicBooleanProperty(_appName+ ".bulk.partial.fallback.zone", Boolean.TRUE);
-        _useInMemoryCache = config.getChainedBooleanProperty(_appName + ".use.inmemory.cache", "evcache.use.inmemory.cache", Boolean.FALSE, null);
-        _eventsUsingLatchFP = config.getChainedBooleanProperty(_appName + ".events.using.latch", "evcache.events.using.latch", Boolean.FALSE, null);
+        
+        _throwExceptionFP = propertyRepository.get(_metricName + ".throw.exception", Boolean.class).orElseGet(_appName + ".throw.exception").orElse(false);
+        
+        _zoneFallbackFP = propertyRepository.get(_metricName + ".fallback.zone", Boolean.class).orElseGet(_appName + ".fallback.zone").orElse(true);
+        _bulkZoneFallbackFP = propertyRepository.get(_appName + ".bulk.fallback.zone", Boolean.class).orElse(true);
+        _bulkPartialZoneFallbackFP = propertyRepository.get(_appName+ ".bulk.partial.fallback.zone", Boolean.class).orElse(true);
+        _useInMemoryCache = propertyRepository.get(_appName + ".use.inmemory.cache", Boolean.class).orElseGet("evcache.use.inmemory.cache").orElse(false);
+        _eventsUsingLatchFP = propertyRepository.get(_appName + ".events.using.latch", Boolean.class).orElseGet("evcache.events.using.latch").orElse(false);
 
-        this.hashKey = config.getDynamicBooleanProperty(appName + ".hash.key", Boolean.FALSE);
-        this.hashingAlgo = config.getDynamicStringProperty(appName + ".hash.algo", "siphash24");
-        this.autoHashKeys = config.getChainedBooleanProperty(_appName + ".auto.hash.keys", "evcache.auto.hash.keys", Boolean.FALSE, null);
+        this.hashKey = propertyRepository.get(appName + ".hash.key", Boolean.class).orElse(false);
+        this.hashingAlgo = propertyRepository.get(appName + ".hash.algo", String.class).orElse("siphash24");
+        this.autoHashKeys = propertyRepository.get(_appName + ".auto.hash.keys", Boolean.class).orElseGet("evcache.auto.hash.keys").orElse(false);
         this.evcacheValueTranscoder = new EVCacheTranscoder();
         evcacheValueTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
 

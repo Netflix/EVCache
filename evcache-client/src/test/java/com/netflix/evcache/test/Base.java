@@ -3,8 +3,9 @@ package com.netflix.evcache.test;
 
 import com.google.inject.Injector;
 import com.netflix.appinfo.ApplicationInfoManager;
-import com.netflix.config.ConfigurationManager;
-import com.netflix.discovery.guice.EurekaModule;
+import com.netflix.archaius.config.MapConfig;
+import com.netflix.archaius.guice.ArchaiusModule;
+import com.netflix.discovery.guice.EurekaClientModule;
 import com.netflix.evcache.EVCache;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheModule;
@@ -68,14 +69,18 @@ public abstract class Base  {
         Properties props = getProps();
 
         try {
-            ConfigurationManager.loadProperties(props);
 
             LifecycleInjectorBuilder builder = LifecycleInjector.builder();
             builder.withModules(
-                    new EurekaModule(),
+                    new EurekaClientModule(),
                     new EVCacheModule(), 
                     new ConnectionModule(),
-                    new SpectatorModule()
+                    new SpectatorModule(),
+                    new ArchaiusModule() {
+                    	protected void configureArchaius() {
+                    		bindApplicationConfigurationOverride().toInstance(MapConfig.from(props));
+                    	};
+                    }
                     );
 
             injector = builder.build().createInjector();

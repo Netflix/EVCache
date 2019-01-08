@@ -19,8 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.config.DynamicLongProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
@@ -63,7 +62,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private final int id;
     private final String appName;
     private final String zone;
-    private final ChainedDynamicProperty.IntProperty readTimeout;
+    private final Property<Integer> readTimeout;
     private final ServerGroup serverGroup;
     private final EVCacheClient client;
     private final ConnectionFactory connectionFactory;
@@ -71,10 +70,10 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private final Map<String, Timer> timerMap = new ConcurrentHashMap<String, Timer>();
 
     private DistributionSummary getDataSize, bulkDataSize, getAndTouchDataSize;
-    private DynamicLongProperty mutateOperationTimeout;
+    private Property<Long> mutateOperationTimeout;
 
     public EVCacheMemcachedClient(ConnectionFactory cf, List<InetSocketAddress> addrs,
-            ChainedDynamicProperty.IntProperty readTimeout, String appName, String zone, int id,
+            Property<Integer> readTimeout, String appName, String zone, int id,
             ServerGroup serverGroup, EVCacheClient client) throws IOException {
         super(cf, addrs);
         this.connectionFactory = cf;
@@ -657,7 +656,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         }));
         try {
             if(mutateOperationTimeout == null) {
-                mutateOperationTimeout = EVCacheConfig.getInstance().getDynamicLongProperty("evache.mutate.timeout", connectionFactory.getOperationTimeout());
+                mutateOperationTimeout = EVCacheConfig.getInstance().getPropertyRepository().get("evache.mutate.timeout", Long.class).orElse(connectionFactory.getOperationTimeout());
             }
 
             if (!latch.await(mutateOperationTimeout.get(), TimeUnit.MILLISECONDS)) {

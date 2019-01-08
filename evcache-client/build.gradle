@@ -23,7 +23,9 @@ dependencies {
         compile group:"com.google.code.findbugs",     name:"annotations",                      version:"latest.release"
         compile group:"com.netflix.archaius",         name:"archaius2-core",                   version:"latest.release"
         compile group:"com.netflix.governator",       name:"governator",                       version:"latest.release"
-        compile group:"com.netflix.eureka",           name:"eureka-client",                    version:"1.5.6"
+        compile(group:"com.netflix.eureka",           name:"eureka-client-archaius2",          version:"1.9.8") {
+			exclude module:"archaius-core"
+		}
         compile group:"com.netflix.servo",            name:"servo-core",                       version:"latest.release"
         compile group:"com.netflix.spectator",        name:"spectator-api",                    version:"latest.release"
         compile group:"com.netflix.spectator",        name:"spectator-nflx-plugin",            version:"latest.release"
@@ -32,6 +34,7 @@ dependencies {
         compile group:"org.slf4j",                    name:"slf4j-api",                        version:"1.7.+"
         compile group:"org.json",                     name:"json",                             version:"20180813"
 
+		testCompile group:"com.netflix.archaius",     name:"archaius2-guice",                  version:"latest.release"
         testCompile group:"org.testng",               name:"testng",                           version:"latest.release"
         testCompile group:"org.mockito",              name:"mockito-all",                      version:"latest.release"
         testCompile group:'org.assertj',              name:'assertj-core',                     version:'latest.release'

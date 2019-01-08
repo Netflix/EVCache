@@ -1,8 +1,5 @@
 package com.netflix.evcache;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.netflix.evcache.EVCacheLatch.Policy;
-import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -11,11 +8,19 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.function.BiFunction;
+
 import javax.annotation.Nullable;
 import javax.inject.Inject;
-import net.spy.memcached.transcoders.Transcoder;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.netflix.archaius.api.PropertyRepository;
+import com.netflix.evcache.EVCacheLatch.Policy;
+import com.netflix.evcache.pool.EVCacheClientPoolManager;
+
+import net.spy.memcached.transcoders.Transcoder;
 import rx.Scheduler;
 import rx.Single;
 
@@ -1060,6 +1065,9 @@ public interface EVCache {
 
         @Inject
         private EVCacheClientPoolManager _poolManager;
+        
+        @Inject
+        private PropertyRepository propertyRepository;
 
         /**
          * Customizers allow post-processing of the Builder. This affords a way for libraries to
@@ -1345,7 +1353,7 @@ public interface EVCache {
             customize();
 
             return new EVCacheImpl(
-                _appName, _cachePrefix, _ttl, _transcoder, _serverGroupRetry, _enableExceptionThrowing, _poolManager);
+                _appName, _cachePrefix, _ttl, _transcoder, _serverGroupRetry, _enableExceptionThrowing, _poolManager, propertyRepository);
         }
     }
 }

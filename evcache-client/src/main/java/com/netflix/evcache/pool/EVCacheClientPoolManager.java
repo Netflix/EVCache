@@ -22,8 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.netflix.appinfo.ApplicationInfoManager;
-import com.netflix.config.DynamicIntProperty;
-import com.netflix.config.DynamicStringProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.DiscoveryManager;
 import com.netflix.evcache.EVCacheImpl;
@@ -69,8 +68,8 @@ import net.spy.memcached.transcoders.Transcoder;
 @Singleton
 public class EVCacheClientPoolManager {
     private static final Logger log = LoggerFactory.getLogger(EVCacheClientPoolManager.class);
-    private static final DynamicIntProperty defaultReadTimeout = EVCacheConfig.getInstance().getDynamicIntProperty("default.read.timeout", 20);
-    private static final DynamicStringProperty logEnabledApps = EVCacheConfig.getInstance().getDynamicStringProperty("EVCacheClientPoolManager.log.apps", "*");
+    private static final Property<Integer> defaultReadTimeout = EVCacheConfig.getInstance().getPropertyRepository().get("default.read.timeout", Integer.class).orElse(20);
+    private static final Property<String> logEnabledApps = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager.log.apps", String.class).orElse("*");
 
     @Deprecated
     private volatile static EVCacheClientPoolManager instance;
@@ -125,7 +124,7 @@ public class EVCacheClientPoolManager {
     public static EVCacheClientPoolManager getInstance() {
         if (instance == null) {
             new EVCacheClientPoolManager(null, null, new DefaultFactoryProvider());
-            if (!EVCacheConfig.getInstance().getDynamicBooleanProperty("evcache.use.simple.node.list.provider", false).get()) {
+            if (!EVCacheConfig.getInstance().getPropertyRepository().get("evcache.use.simple.node.list.provider", Boolean.class).orElse(false).get()) {
                 log.warn("Please make sure EVCacheClientPoolManager is injected first. This is not the appropriate way to init EVCacheClientPoolManager."
                         + " If you are using simple node list provider please set evcache.use.simple.node.list.provider property to true.", new Exception());
             }
@@ -149,7 +148,7 @@ public class EVCacheClientPoolManager {
      */
     public void initAtStartup() {
         //final String appsToInit = ConfigurationManager.getConfigInstance().getString("evcache.appsToInit");
-        final String appsToInit = EVCacheConfig.getInstance().getDynamicStringProperty("evcache.appsToInit", "").get();
+        final String appsToInit = EVCacheConfig.getInstance().getPropertyRepository().get("evcache.appsToInit", String.class).orElse("").get();
         if (appsToInit != null && appsToInit.length() > 0) {
             final StringTokenizer apps = new StringTokenizer(appsToInit, ",");
             while (apps.hasMoreTokens()) {
@@ -173,7 +172,7 @@ public class EVCacheClientPoolManager {
         final String APP = getAppName(app);
         if (poolMap.containsKey(APP)) return;
         final EVCacheNodeList provider;
-        if (EVCacheConfig.getInstance().getChainedBooleanProperty(APP + ".use.simple.node.list.provider", "evcache.use.simple.node.list.provider", Boolean.FALSE, null).get()) {
+        if (EVCacheConfig.getInstance().getPropertyRepository().get(APP + ".use.simple.node.list.provider", Boolean.class).orElseGet("evcache.use.simple.node.list.provider").orElse(false).get()) {
             provider = new SimpleNodeListProvider();
         } else {
             provider = new DiscoveryNodeListProvider(applicationInfoManager, discoveryClient, APP);
@@ -226,7 +225,7 @@ public class EVCacheClientPoolManager {
         return false;
     }
 
-    public static DynamicIntProperty getDefaultReadTimeout() {
+    public static Property<Integer> getDefaultReadTimeout() {
         return defaultReadTimeout;
     }
 
@@ -240,7 +239,7 @@ public class EVCacheClientPoolManager {
 
     private String getAppName(String _app) {
         _app = _app.toUpperCase();
-        final String app = EVCacheConfig.getInstance().getDynamicStringProperty("EVCacheClientPoolManager." + _app + ".alias", _app).get().toUpperCase();
+        final String app = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager." + _app + ".alias", String.class).orElse(_app).get().toUpperCase();
         if (log.isDebugEnabled()) log.debug("Original App Name : " + _app + "; Alias App Name : " + app);
         return app;
     }

@@ -19,8 +19,7 @@ import com.netflix.appinfo.ApplicationInfoManager;
 import com.netflix.appinfo.DataCenterInfo;
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.appinfo.InstanceInfo.InstanceStatus;
-import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.config.DynamicStringSetProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.shared.Application;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
@@ -35,14 +34,15 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
     private final DiscoveryClient _discoveryClient;
     private final String _appName;
     private final ApplicationInfoManager applicationInfoManager;
-    private final Map<String, ChainedDynamicProperty.BooleanProperty> useRendBatchPortMap = new HashMap<String, ChainedDynamicProperty.BooleanProperty>();
-    private final DynamicStringSetProperty ignoreHosts;
+    private final Map<String, Property<Boolean>> useRendBatchPortMap = new HashMap<String, Property<Boolean>>();
+    @SuppressWarnings("rawtypes") // Archaius2 PropertyRepository does not support ParameterizedTypes
+	private final Property<Set> ignoreHosts;
 
     public DiscoveryNodeListProvider(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient, String appName) {
         this.applicationInfoManager = applicationInfoManager;
         this._discoveryClient = discoveryClient;
         this._appName = appName;
-        ignoreHosts = new DynamicStringSetProperty(appName + ".ignore.hosts", "");
+        ignoreHosts = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".ignore.hosts", Set.class).orElse(Collections.emptySet());
     }
 
     /*
@@ -100,13 +100,13 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             final int udsproxyMemcachedPort = (metaInfo != null && metaInfo.containsKey("udsproxy.memcached.port")) ? Integer.parseInt(metaInfo.get("udsproxy.memcached.port")) : 0;
             final int udsproxyMementoPort = (metaInfo != null && metaInfo.containsKey("udsproxy.memento.port")) ? Integer.parseInt(metaInfo.get("udsproxy.memento.port")) : 0;
 
-            ChainedDynamicProperty.BooleanProperty useBatchPort = useRendBatchPortMap.get(asgName);
+            Property<Boolean> useBatchPort = useRendBatchPortMap.get(asgName);
             if (useBatchPort == null) {
-                useBatchPort = EVCacheConfig.getInstance().getChainedBooleanProperty(_appName + ".use.batch.port", "evcache.use.batch.port", Boolean.FALSE, null);
+                useBatchPort = EVCacheConfig.getInstance().getPropertyRepository().get(_appName + ".use.batch.port", Boolean.class).orElseGet("evcache.use.batch.port").orElse(false);
                 useRendBatchPortMap.put(asgName, useBatchPort);
             }
             int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);
-            final ChainedDynamicProperty.BooleanProperty isSecure = EVCacheConfig.getInstance().getChainedBooleanProperty(asgName + ".use.secure", _appName + ".use.secure", false, null);
+            final Property<Boolean> isSecure = EVCacheConfig.getInstance().getPropertyRepository().get(asgName + ".use.secure", Boolean.class).orElseGet(_appName + ".use.secure").orElse(false);
             if(isSecure.get()) {
                 port = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.secure.port")) ? metaInfo.get("evcache.secure.port") : DEFAULT_SECURE_PORT);
             }

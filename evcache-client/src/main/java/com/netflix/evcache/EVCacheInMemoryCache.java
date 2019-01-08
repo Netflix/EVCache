@@ -22,8 +22,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.config.DynamicIntProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.servo.DefaultMonitorRegistry;
@@ -45,10 +44,10 @@ import net.spy.memcached.transcoders.Transcoder;
 public class EVCacheInMemoryCache<T> {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheInMemoryCache.class);
-    private final ChainedDynamicProperty.IntProperty _cacheDuration; // The key will be cached for this long
-    private final DynamicIntProperty _refreshDuration, _exireAfterAccessDuration;
-    private final DynamicIntProperty _cacheSize; // This many items will be cached
-    private final DynamicIntProperty _poolSize; // This many threads will be initialized to fetch data from evcache async
+    private final Property<Integer> _cacheDuration; // The key will be cached for this long
+    private final Property<Integer> _refreshDuration, _exireAfterAccessDuration;
+    private final Property<Integer> _cacheSize; // This many items will be cached
+    private final Property<Integer> _poolSize; // This many threads will be initialized to fetch data from evcache async
     private final String appName;
 
     private LoadingCache<String, T> cache;
@@ -62,29 +61,19 @@ public class EVCacheInMemoryCache<T> {
         this.tc = tc;
         this.impl = impl;
 
-        final Runnable setupCache = new Runnable() {
-            public void run() {
-                setupCache();
-            }
-        };
+        this._cacheDuration = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".inmemory.cache.duration.ms", Integer.class).orElseGet(appName + ".inmemory.expire.after.write.duration.ms").orElse(0);
+        this._cacheDuration.subscribe((i) -> setupCache());
+        this._exireAfterAccessDuration = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".inmemory.expire.after.access.duration.ms", Integer.class).orElse(0);
+        this._exireAfterAccessDuration.subscribe((i) -> setupCache());
 
-        this._cacheDuration = EVCacheConfig.getInstance().getChainedIntProperty(appName + ".inmemory.cache.duration.ms", appName + ".inmemory.expire.after.write.duration.ms", 0, setupCache);
+        this._refreshDuration = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".inmemory.refresh.after.write.duration.ms", Integer.class).orElse(0);
+        this._refreshDuration.subscribe((i) -> setupCache());
 
-        this._exireAfterAccessDuration = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.expire.after.access.duration.ms", 0);
-        this._exireAfterAccessDuration.addCallback(setupCache);
+        this._cacheSize = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".inmemory.cache.size", Integer.class).orElse(100);
+        this._cacheSize.subscribe((i) -> setupCache());
 
-        this._refreshDuration = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.refresh.after.write.duration.ms", 0);
-        this._refreshDuration.addCallback(setupCache);
-
-        this._cacheSize = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".inmemory.cache.size", 100);
-        this._cacheSize.addCallback(setupCache);
-
-        this._poolSize = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".thread.pool.size", 5);
-        this._poolSize.addCallback(new Runnable() {
-            public void run() {
-                initRefreshPool();
-            }
-        });
+        this._poolSize = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".thread.pool.size", Integer.class).orElse(5);
+        this._poolSize.subscribe((i) -> initRefreshPool());
 
         setupCache();
         setupMonitoring(appName);

@@ -19,7 +19,7 @@ import org.joda.time.format.ISODateTimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.config.DynamicBooleanProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
@@ -55,7 +55,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     protected final BlockingQueue<Operation> readQ;
     protected final BlockingQueue<Operation> inputQueue;
     protected final String metricPrefix;
-    protected final DynamicBooleanProperty sendMetrics;
+    protected final Property<Boolean> sendMetrics;
     protected final MonitorConfig baseConfig;
     protected final TagList baseTags;
     protected final TagList tags;
@@ -74,7 +74,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         setConnectTime(stTime);
         this.readQ = rq;
         this.inputQueue = iq;
-        this.sendMetrics = EVCacheConfig.getInstance().getDynamicBooleanProperty("EVCacheNodeImpl." + appName + ".sendMetrics", false);
+        this.sendMetrics = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheNodeImpl." + appName + ".sendMetrics", Boolean.class).orElse(false);
         this.tags = BasicTagList.of("ServerGroup", _serverGroup.getName(), "APP", appName, "Id", String.valueOf(id), EVCacheMetricsFactory.OWNER.getKey(), EVCacheMetricsFactory.OWNER.getValue());
         this.hostName = ((InetSocketAddress) getSocketAddress()).getHostName();
         this.metricPrefix = "EVCacheNode";

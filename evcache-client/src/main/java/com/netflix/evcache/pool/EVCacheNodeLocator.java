@@ -8,18 +8,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.netflix.archaius.api.Property;
+import com.netflix.evcache.util.EVCacheConfig;
+
 import net.spy.memcached.DefaultHashAlgorithm;
 import net.spy.memcached.EVCacheMemcachedNodeROImpl;
 import net.spy.memcached.HashAlgorithm;
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.NodeLocator;
 import net.spy.memcached.util.KetamaNodeLocatorConfiguration;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.evcache.util.EVCacheConfig;
 
 public class EVCacheNodeLocator implements NodeLocator {
 
@@ -28,8 +28,8 @@ public class EVCacheNodeLocator implements NodeLocator {
     private final String appName;
     private final ServerGroup serverGroup;
 
-    private ChainedDynamicProperty.BooleanProperty partialStringHash;
-    private ChainedDynamicProperty.StringProperty hashDelimiter;
+    private Property<Boolean> partialStringHash;
+    private Property<String> hashDelimiter;
 
     private final Collection<MemcachedNode> allNodes;
 
@@ -56,8 +56,8 @@ public class EVCacheNodeLocator implements NodeLocator {
         this.appName = appName;
         this.serverGroup = serverGroup;
 
-        this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty("EVCacheNodeLocator." + appName+ ".hash.on.partial.key", "EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.on.partial.key", Boolean.FALSE, null);
-        this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty("EVCacheNodeLocator." + appName + ".hash.delimiter", "EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.delimiter", ":", null);
+        this.partialStringHash = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheNodeLocator." + appName+ ".hash.on.partial.key", Boolean.class).orElseGet("EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.on.partial.key").orElse(false);
+        this.hashDelimiter = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheNodeLocator." + appName + ".hash.delimiter", String.class).orElseGet("EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.delimiter").orElse(":");
 
         setKetamaNodes(nodes);
     }
@@ -71,8 +71,8 @@ public class EVCacheNodeLocator implements NodeLocator {
         this.appName = appName;
         this.serverGroup = serverGroup;
 
-        this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty("EVCacheNodeLocator." + appName + ".hash.on.partial.key", "EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.on.partial.key", Boolean.FALSE, null);
-        this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty("EVCacheNodeLocator." + appName + ".hash.delimiter", "EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.delimiter", ":", null);
+        this.partialStringHash = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheNodeLocator." + appName + ".hash.on.partial.key", Boolean.class).orElseGet("EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.on.partial.key").orElse(false);
+        this.hashDelimiter = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheNodeLocator." + appName + ".hash.delimiter", String.class).orElseGet("EVCacheNodeLocator." + appName + "." + serverGroup.getName() + ".hash.delimiter").orElse(":");
     }
 
     /*

@@ -26,7 +26,11 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
+import org.mockito.Answers;
 import org.testng.annotations.Test;
+
+import com.netflix.archaius.api.PropertyRepository;
+import com.netflix.evcache.util.EVCacheConfig;
 
 /**
  * @author Scott Mansfield
@@ -36,7 +40,11 @@ public class EVCacheClientPoolTest {
     @Test
     public void selectClient_hugeNumOfModOps_noException() throws Exception {
         // Arrange
-
+    	PropertyRepository propertyRepository = mock(PropertyRepository.class, Answers.RETURNS_DEEP_STUBS);
+    	Method setPropertyRepositoryMethod = EVCacheConfig.class.getDeclaredMethod("setPropertyRepository", PropertyRepository.class);
+    	setPropertyRepositoryMethod.setAccessible(true);
+    	setPropertyRepositoryMethod.invoke(null, propertyRepository);
+    	
         // set up the object under test
         EVCacheNodeList evCacheNodeList = mock(EVCacheNodeList.class);
         EVCacheClientPoolManager evCacheClientPoolManager = mock(EVCacheClientPoolManager.class);

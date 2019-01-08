@@ -5,7 +5,7 @@ import java.net.SocketAddress;
 import java.util.List;
 
 import com.netflix.appinfo.InstanceInfo;
-import com.netflix.config.ChainedDynamicProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.shared.Application;
 import com.netflix.evcache.util.EVCacheConfig;
@@ -19,13 +19,13 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
     private final ServerGroup serverGroup;
     private final EVCacheClientPoolManager poolManager;
 
-    private final ChainedDynamicProperty.IntProperty bucketSize;
+    private final Property<Integer> bucketSize;
 
     public EVCacheKetamaNodeLocatorConfiguration(String appId, ServerGroup serverGroup, EVCacheClientPoolManager poolManager) {
         this.appId = appId;
         this.serverGroup = serverGroup;
         this.poolManager = poolManager;
-        bucketSize = EVCacheConfig.getInstance().getChainedIntProperty(appId + "." + serverGroup.getName() + ".bucket.size",appId + ".bucket.size", super.getNodeRepetitions(), null);
+        bucketSize = EVCacheConfig.getInstance().getPropertyRepository().get(appId + "." + serverGroup.getName() + ".bucket.size", Integer.class).orElseGet(appId + ".bucket.size").orElse(super.getNodeRepetitions());
     }
 
     /**
