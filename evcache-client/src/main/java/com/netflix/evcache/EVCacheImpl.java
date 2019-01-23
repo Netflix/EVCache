@@ -1127,19 +1127,37 @@ final public class EVCacheImpl implements EVCache {
             boolean partialHit = false;
             final List<String> decanonicalHitKeys = new ArrayList<String>(retMap.size());
             final Map<String, T> decanonicalR = new HashMap<String, T>((canonicalKeys.size() * 4) / 3 + 1);
-            for (Iterator<String> itr = canonicalKeys.iterator(); itr.hasNext();) {
-                final String key = itr.next();
-                final String deCanKey = getKey(key);
-                final T value = retMap.get(key);
-                if (value != null) {
-                    decanonicalR.put(deCanKey, value);
-                    if (touch) touchData(key, deCanKey, ttl);
-                    decanonicalHitKeys.add(deCanKey);
-                } else {
-                    partialHit = true;
-                    // this ensures the fallback was tried
-                    decanonicalR.put(deCanKey, null);
-                } 
+            if(hashKey.get()) {
+                for (Iterator<String> itr = keys.iterator(); itr.hasNext();) {
+                    final String key = itr.next();
+                    final String deCanKey = getKey(key);
+                    T value = retMap.get(key);
+                    if(value == null) value = retMap.get(deCanKey);
+                    if (value != null) {
+                        decanonicalR.put(deCanKey, value);
+                        if (touch) touchData(key, deCanKey, ttl);
+                        decanonicalHitKeys.add(deCanKey);
+                    } else {
+                        partialHit = true;
+                        // this ensures the fallback was tried
+                        decanonicalR.put(deCanKey, null);
+                    } 
+                }
+            } else {
+                for (Iterator<String> itr = canonicalKeys.iterator(); itr.hasNext();) {
+                    final String key = itr.next();
+                    final T value = retMap.get(key);
+                    final String deCanKey = getKey(key);
+                    if (value != null) {
+                        decanonicalR.put(deCanKey, value);
+                        if (touch) touchData(key, deCanKey, ttl);
+                        decanonicalHitKeys.add(deCanKey);
+                    } else {
+                        partialHit = true;
+                        // this ensures the fallback was tried
+                        decanonicalR.put(deCanKey, null);
+                    } 
+                }
             }
             if (!decanonicalR.isEmpty()) {
                 if (!partialHit) {
