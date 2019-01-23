@@ -1280,7 +1280,7 @@ final public class EVCacheImpl implements EVCache {
                         cd = client.getTranscoder().encode(value);
                     }
                     if(hashKey.get()) {
-                        final EVCacheValue val = new EVCacheValue(key, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
+                        final EVCacheValue val = new EVCacheValue(canonicalKey, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
                         cd = evcacheValueTranscoder.encode(val);
                     }
 
@@ -1699,7 +1699,7 @@ final public class EVCacheImpl implements EVCache {
                     }
 
                     if(hashKey.get()) {
-                        final EVCacheValue val = new EVCacheValue(key, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
+                        final EVCacheValue val = new EVCacheValue(canonicalKey, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
                         cd = evcacheValueTranscoder.encode(val);
                     }
 
@@ -1884,7 +1884,7 @@ final public class EVCacheImpl implements EVCache {
                 }
 
                 if(hashKey.get()) {
-                    final EVCacheValue val = new EVCacheValue(key, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
+                    final EVCacheValue val = new EVCacheValue(canonicalKey, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
                     cd = evcacheValueTranscoder.encode(val);
                 }
             }
@@ -1915,8 +1915,4 @@ final public class EVCacheImpl implements EVCache {
         }
     }
 
-    protected CachedData getEVCacheValue(String key, CachedData cData, int timeToLive) {
-        final EVCacheValue val = new EVCacheValue(key, cData.getData(), cData.getFlags(), timeToLive, System.currentTimeMillis());
-        return evcacheValueTranscoder.encode(val);
-    }
 }
