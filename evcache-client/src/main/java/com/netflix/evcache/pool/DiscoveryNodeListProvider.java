@@ -20,6 +20,7 @@ import com.netflix.appinfo.DataCenterInfo;
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.appinfo.InstanceInfo.InstanceStatus;
 import com.netflix.config.ChainedDynamicProperty;
+import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicStringSetProperty;
 import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.shared.Application;
@@ -90,6 +91,12 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
             final String asgName = iInfo.getASGName();
             if(asgName == null) {
                 EVCacheMetricsFactory.increment(_appName, null, "EVCacheClient-DiscoveryNodeListProvider-NULL_SERVER_GROUP");
+                continue;
+            }
+
+            final DynamicBooleanProperty asgEnabled = EVCacheConfig.getInstance().getDynamicBooleanProperty(asgName + ".enabled", true);
+            if (!asgEnabled.get()) {
+                if(log.isDebugEnabled()) log.debug("ASG " + asgName + " is disabled so ignoring it");
                 continue;
             }
 
