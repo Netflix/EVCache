@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.net.InetAddresses;
 import com.netflix.config.ChainedDynamicProperty;
+import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.evcache.util.EVCacheConfig;
 
 public class SimpleNodeListProvider implements EVCacheNodeList {
@@ -122,6 +123,12 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
                 final JSONObject metadataObj = instanceObj.getJSONObject("dataCenterInfo").getJSONObject("metadata");
 
                 final String asgName = instanceObj.getString("asgName");
+                final DynamicBooleanProperty asgEnabled = EVCacheConfig.getInstance().getDynamicBooleanProperty(asgName + ".enabled", true);
+                if (!asgEnabled.get()) {
+                    if(log.isDebugEnabled()) log.debug("ASG " + asgName + " is disabled so ignoring it");
+                    continue;
+                }
+                
                 final String zone = metadataObj.getString("availability-zone");
                 final ServerGroup rSet = new ServerGroup(zone, asgName);
                 final String localIp = metadataObj.getString("local-ipv4");

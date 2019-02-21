@@ -1170,19 +1170,37 @@ final public class EVCacheImpl implements EVCache {
             boolean partialHit = false;
             final List<String> decanonicalHitKeys = new ArrayList<String>(retMap.size());
             final Map<String, T> decanonicalR = new HashMap<String, T>((canonicalKeys.size() * 4) / 3 + 1);
-            for (Iterator<String> itr = canonicalKeys.iterator(); itr.hasNext();) {
-                final String key = itr.next();
-                final String deCanKey = getKey(key);
-                final T value = retMap.get(key);
-                if (value != null) {
-                    decanonicalR.put(deCanKey, value);
-                    if (touch) touchData(key, deCanKey, timeToLive);
-                    decanonicalHitKeys.add(deCanKey);
-                } else {
-                    partialHit = true;
-                    // this ensures the fallback was tried
-                    decanonicalR.put(deCanKey, null);
-                } 
+            if(hashKey.get()) {
+                for (Iterator<String> itr = keys.iterator(); itr.hasNext();) {
+                    final String key = itr.next();
+                    final String deCanKey = getKey(key);
+                    T value = retMap.get(key);
+                    if(value == null) value = retMap.get(deCanKey);
+                    if (value != null) {
+                        decanonicalR.put(deCanKey, value);
+                        if (touch) touchData(key, deCanKey, timeToLive);
+                        decanonicalHitKeys.add(deCanKey);
+                    } else {
+                        partialHit = true;
+                        // this ensures the fallback was tried
+                        decanonicalR.put(deCanKey, null);
+                    } 
+                }
+            } else {
+                for (Iterator<String> itr = canonicalKeys.iterator(); itr.hasNext();) {
+                    final String key = itr.next();
+                    final T value = retMap.get(key);
+                    final String deCanKey = getKey(key);
+                    if (value != null) {
+                        decanonicalR.put(deCanKey, value);
+                        if (touch) touchData(key, deCanKey, timeToLive);
+                        decanonicalHitKeys.add(deCanKey);
+                    } else {
+                        partialHit = true;
+                        // this ensures the fallback was tried
+                        decanonicalR.put(deCanKey, null);
+                    } 
+                }
             }
             if (!decanonicalR.isEmpty()) {
                 if (!partialHit) {
@@ -1321,7 +1339,7 @@ final public class EVCacheImpl implements EVCache {
                         cd = client.getTranscoder().encode(value);
                     }
                     if(hashKey.get()) {
-                        final EVCacheValue val = new EVCacheValue(key, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
+                        final EVCacheValue val = new EVCacheValue(canonicalKey, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
                         cd = evcacheValueTranscoder.encode(val);
                     }
                 }
@@ -1752,6 +1770,11 @@ final public class EVCacheImpl implements EVCache {
                     } else {
                         cd = client.getTranscoder().encode(value);
                     }
+
+                    if(hashKey.get()) {
+                        final EVCacheValue val = new EVCacheValue(canonicalKey, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
+                        cd = evcacheValueTranscoder.encode(val);
+                    }
                 }
                 final Future<Boolean> future = client.replace(canonicalKey, cd, timeToLive, latch);
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
@@ -1932,7 +1955,7 @@ final public class EVCacheImpl implements EVCache {
                 }
 
                 if(hashKey.get()) {
-                    final EVCacheValue val = new EVCacheValue(key, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
+                    final EVCacheValue val = new EVCacheValue(canonicalKey, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
                     cd = evcacheValueTranscoder.encode(val);
                 }
             }
@@ -2003,8 +2026,4 @@ final public class EVCacheImpl implements EVCache {
         return timer;
     }
 
-    protected CachedData getEVCacheValue(String key, CachedData cData, int timeToLive) {
-        final EVCacheValue val = new EVCacheValue(key, cData.getData(), cData.getFlags(), timeToLive, System.currentTimeMillis());
-        return evcacheValueTranscoder.encode(val);
-    }
 }

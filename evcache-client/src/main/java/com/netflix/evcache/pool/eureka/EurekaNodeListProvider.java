@@ -21,6 +21,7 @@ import com.netflix.appinfo.DataCenterInfo;
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.appinfo.InstanceInfo.InstanceStatus;
 import com.netflix.config.ChainedDynamicProperty;
+import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicStringSetProperty;
 import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.shared.Application;
@@ -97,6 +98,12 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
                 tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
                 tagList.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.NULL_SERVERGROUP));
                 EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.CONFIG, tagList);
+                continue;
+            }
+
+            final DynamicBooleanProperty asgEnabled = EVCacheConfig.getInstance().getDynamicBooleanProperty(asgName + ".enabled", true);
+            if (!asgEnabled.get()) {
+                if(log.isDebugEnabled()) log.debug("ASG " + asgName + " is disabled so ignoring it");
                 continue;
             }
 
