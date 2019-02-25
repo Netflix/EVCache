@@ -377,6 +377,7 @@ final public class EVCacheImpl implements EVCache {
             if (event != null) endEvent(event);
             return data;
         } catch (net.spy.memcached.internal.CheckedOperationTimeoutException ex) {
+            status = EVCacheMetricsFactory.TIMEOUT;
             if (event != null) eventError(event, ex);
             if (!throwExc) return null;
             throw new EVCacheException("CheckedOperationTimeoutException getting data for APP " + _appName + ", key = " + canonicalKey
