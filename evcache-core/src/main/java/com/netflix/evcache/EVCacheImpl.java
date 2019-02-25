@@ -384,6 +384,7 @@ final public class EVCacheImpl implements EVCache {
                     + ".\nYou can set the following property to increase the timeout " + _appName
                     + ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex);
         } catch (Exception ex) {
+            status = EVCacheMetricsFactory.ERROR;
             if (event != null) eventError(event, ex);
             if (!throwExc) return null;
             throw new EVCacheException("Exception getting data for APP " + _appName + ", key = " + canonicalKey, ex);
