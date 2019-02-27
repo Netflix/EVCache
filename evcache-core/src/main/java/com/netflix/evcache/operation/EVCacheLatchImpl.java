@@ -67,7 +67,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
         if (log.isDebugEnabled()) log.debug("Current Latch Count = " + latch.getCount() + "; await for "+ timeout + " " + unit.name() + " appName : " + appName);
         final long start = log.isDebugEnabled() ? System.currentTimeMillis() : 0;
         final boolean awaitSuccess = latch.await(timeout, unit);
-        if (log.isDebugEnabled()) log.debug("await success = " + awaitSuccess + " after " + (System.currentTimeMillis() - start) + " msec." + " appName : " + appName + ((evcacheEvent != null) ? " keys : " + evcacheEvent.getCanonicalKeys() : ""));
+        if (log.isDebugEnabled()) log.debug("await success = " + awaitSuccess + " after " + (System.currentTimeMillis() - start) + " msec." + " appName : " + appName + ((evcacheEvent != null) ? " keys : " + evcacheEvent.getEVCacheKeys() : ""));
         return awaitSuccess;
     }
 
@@ -210,7 +210,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
         countDown();
         completeCount++;
         if(evcacheEvent != null) {
-            if (log.isDebugEnabled()) log.debug(";App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
+            if (log.isDebugEnabled()) log.debug(";App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getEVCacheKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
             try {
                 if(future.isDone() && future.get().equals(Boolean.FALSE)) {
                     failureCount++;
@@ -233,7 +233,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             }
             if(scheduledFuture != null) {
                 final boolean futureCancelled = scheduledFuture.isCancelled(); 
-                if (log.isDebugEnabled()) log.debug("App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount + "; futureCancelled : " + futureCancelled);
+                if (log.isDebugEnabled()) log.debug("App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getEVCacheKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount + "; futureCancelled : " + futureCancelled);
                 if(onCompleteDone && !futureCancelled) {
                     if(completeCount == totalFutureCount && failureCount == 0) { // all futures are completed
                         final boolean status = scheduledFuture.cancel(true);
@@ -242,7 +242,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                     }
                 }
             }
-            if (log.isDebugEnabled()) log.debug("App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getCanonicalKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
+            if (log.isDebugEnabled()) log.debug("App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getEVCacheKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
         }
         if(totalFutureCount == completeCount) {
             final List<Tag> tags = new ArrayList<Tag>(4);

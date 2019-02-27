@@ -437,7 +437,6 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             }
             tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_STATUS, status.getStatusCode().name()));
         }
-        if(status != null) 
         if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
         if(host != null) tagList.add(new BasicTag(EVCacheMetricsFactory.FAILED_HOST, host));
 
