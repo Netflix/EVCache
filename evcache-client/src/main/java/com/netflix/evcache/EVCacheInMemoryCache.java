@@ -136,7 +136,7 @@ public class EVCacheInMemoryCache<T> {
                     new CacheLoader<String, T>() {
                         public T load(String key) throws EVCacheException { 
                             try {
-                                final T t = impl.doGet(key, tc);
+                                final T t = impl.doGet(impl.getCanonicalizedKey(key), tc);
                                 if(t == null) throw new  DataNotFoundException("Data for key : " + key + " could not be loaded as it was not found in EVCache");
                                 return t;
                             } catch (DataNotFoundException e) {
