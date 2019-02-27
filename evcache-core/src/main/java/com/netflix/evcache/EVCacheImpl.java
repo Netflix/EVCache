@@ -989,12 +989,14 @@ final public class EVCacheImpl implements EVCache {
         return r;
     }
 
-    private <T> Map<String, T> getBulkData(EVCacheClient client, Collection<EVCacheKey> canonicalKeys, Collection<String> canonicalKeyList, Transcoder<T> tc,
-            boolean throwException, boolean hasZF) throws Exception {
+    private <T> Map<String, T> getBulkData(EVCacheClient client, Collection<EVCacheKey> evcacheKeys, Transcoder<T> tc, boolean throwException, boolean hasZF) throws Exception {
         try {
             if(hashKey.get()) {
-
-                final Map<String, Object> objMap = client.getBulk(canonicalKeyList, evcacheValueTranscoder, throwException, hasZF);
+                final Collection<String> keyList = new ArrayList<String>(evcacheKeys.size());
+                for(EVCacheKey evcKey : evcacheKeys) {
+                    keyList.add(evcKey.getHashKey());
+                }
+                final Map<String, Object> objMap = client.getBulk(keyList, evcacheValueTranscoder, throwException, hasZF);
                 final Map<String, T> retMap = new HashMap<String, T>((int)(objMap.size()/0.75) + 1); 
                 for (Map.Entry<String, Object> i : objMap.entrySet()) {
                     final Object obj = i.getValue(); 
@@ -1013,10 +1015,14 @@ final public class EVCacheImpl implements EVCache {
                 return retMap;
             } else { 
                 if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
-                return client.getBulk(canonicalKeyList, tc, throwException, hasZF);
+                final Collection<String> keyList = new ArrayList<String>(evcacheKeys.size());
+                for(EVCacheKey evcKey : evcacheKeys) {
+                    keyList.add(evcKey.getCanonicalKey());
+                }
+                return client.getBulk(keyList, tc, throwException, hasZF);
             }            
         } catch (Exception ex) {
-            if (log.isDebugEnabled() && shouldLog()) log.debug("Exception while getBulk data for APP " + _appName + ", key : " + canonicalKeys, ex);
+            if (log.isDebugEnabled() && shouldLog()) log.debug("Exception while getBulk data for APP " + _appName + ", key : " + evcacheKeys, ex);
             if (!throwException || hasZF) return null;
             throw ex;
         }
@@ -1045,13 +1051,10 @@ final public class EVCacheImpl implements EVCache {
         }
 
         final Collection<EVCacheKey> evcKeys = new ArrayList<EVCacheKey>();
-        final Collection<String> canonicalKeyList = new ArrayList<String>();
         /* Canonicalize keys and perform fast failure checking */
         for (String k : keys) {
             final EVCacheKey evcKey = getEVCacheKey(k);
-            final String canonicalK = evcKey.getCanonicalKey();
             evcKeys.add(evcKey);
-            canonicalKeyList.add(canonicalK);
         }
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Call.BULK);
         if (event != null) {
@@ -1079,7 +1082,7 @@ final public class EVCacheImpl implements EVCache {
         try {
             final boolean hasZF = hasZoneFallbackForBulk();
             boolean throwEx = hasZF ? false : throwExc;
-            Map<String, T> retMap = getBulkData(client, evcKeys, canonicalKeyList, tc, throwEx, hasZF);
+            Map<String, T> retMap = getBulkData(client, evcKeys, tc, throwEx, hasZF);
             List<EVCacheClient> fbClients = null;
             if (hasZF) {
                 if (retMap == null || retMap.isEmpty()) {
@@ -1102,7 +1105,7 @@ final public class EVCacheImpl implements EVCache {
                                 }
                             }
                             tries++;
-                            retMap = getBulkData(fbClient, evcKeys, canonicalKeyList, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
+                            retMap = getBulkData(fbClient, evcKeys, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
                             if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + evcKeys + (log.isTraceEnabled() ? "], Value [" + retMap : "") + "], zone : " + fbClient.getZone());
                             if (retMap != null && !retMap.isEmpty()) break;
                         }
@@ -1110,13 +1113,11 @@ final public class EVCacheImpl implements EVCache {
                     }
                 } else if (retMap != null && keys.size() > retMap.size() && _bulkPartialZoneFallbackFP.get()) {
                     final int initRetrySize = keys.size() - retMap.size();
-                    List<String> retryKeys = new ArrayList<String>(initRetrySize);
-                    List<EVCacheKey> retryCanonicalKeys = new ArrayList<EVCacheKey>(initRetrySize);
+                    List<EVCacheKey> retryEVCacheKeys = new ArrayList<EVCacheKey>(initRetrySize);
                     for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext();) {
                         final EVCacheKey key = keysItr.next();
                         if (!retMap.containsKey(key.getCanonicalKey())) {
-                            retryKeys.add(key.getCanonicalKey());
-                            retryCanonicalKeys.add(key);
+                            retryEVCacheKeys.add(key);
                         }
                     }
 
@@ -1128,7 +1129,7 @@ final public class EVCacheImpl implements EVCache {
                                 try {
                                     if (shouldThrottle(event)) {
                                         status = EVCacheMetricsFactory.THROTTLED;
-                                        if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & keys " + retryKeys);
+                                        if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & keys " + retryEVCacheKeys);
                                         return null;
                                     }
                                 } catch(EVCacheException ex) {
@@ -1138,21 +1139,20 @@ final public class EVCacheImpl implements EVCache {
                                 }
                             }
                             tries++;
-                            final Map<String, T> fbRetMap = getBulkData(fbClient, retryCanonicalKeys, retryKeys, tc, false, hasZF);
-                            if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + retryKeys + "], Fallback Server Group : " + fbClient .getServerGroup().getName());
+
+                            final Map<String, T> fbRetMap = getBulkData(fbClient, retryEVCacheKeys, tc, false, hasZF);
+                            if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + retryEVCacheKeys + "], Fallback Server Group : " + fbClient .getServerGroup().getName());
                             for (Map.Entry<String, T> i : fbRetMap.entrySet()) {
                                 retMap.put(i.getKey(), i.getValue());
                                 if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + i.getKey() + (log.isTraceEnabled() ? "], Value [" + i.getValue(): "]"));
                             }
-                            if (retryKeys.size() == fbRetMap.size()) break;
+                            if (retryEVCacheKeys.size() == fbRetMap.size()) break;
                             if (ind < fbClients.size()) {
-                                retryKeys = new ArrayList<String>(keys.size() - retMap.size());
-                                retryCanonicalKeys = new ArrayList<EVCacheKey>(keys.size() - retMap.size());
+                                retryEVCacheKeys = new ArrayList<EVCacheKey>(keys.size() - retMap.size());
                                 for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext();) {
                                     final EVCacheKey key = keysItr.next();
                                     if (!retMap.containsKey(key.getCanonicalKey())) {
-                                        retryKeys.add(key.getCanonicalKey());
-                                        retryCanonicalKeys.add(key);
+                                        retryEVCacheKeys.add(key);
                                     }
                                 }
                             }
@@ -1393,9 +1393,6 @@ final public class EVCacheImpl implements EVCache {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
         checkTTL(timeToLive);
 
-        if(hashKey.get()) throw new EVCacheException("hashing of key is not supported for append operations");
-
-
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
@@ -1423,7 +1420,6 @@ final public class EVCacheImpl implements EVCache {
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         String status = EVCacheMetricsFactory.SUCCESS;
         final EVCacheKey evcKey = getEVCacheKey(key);
-
         try {
             final EVCacheFuture[] futures = new EVCacheFuture[clients.length];
             CachedData cd = null;
