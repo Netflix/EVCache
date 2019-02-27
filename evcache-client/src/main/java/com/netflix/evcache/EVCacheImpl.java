@@ -1336,9 +1336,6 @@ final public class EVCacheImpl implements EVCache {
     public <T> EVCacheFuture[] append(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
 
-        if(hashKey.get()) throw new EVCacheException("hashing of key is not supported for append operations");
-
-
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
