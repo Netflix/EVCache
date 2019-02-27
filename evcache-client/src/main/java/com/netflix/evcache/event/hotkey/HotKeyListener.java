@@ -14,6 +14,7 @@ import com.google.inject.Singleton;
 import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicStringSetProperty;
+import com.netflix.evcache.EVCacheKey;
 import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.event.EVCacheEventListener;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
@@ -120,7 +121,8 @@ public class HotKeyListener implements EVCacheEventListener {
 
         final Cache<String, Integer> cache = getCache(e.getAppName());
         if(cache == null) return;
-        for(String key : e.getKeys()) {
+        for(EVCacheKey evcKey : e.getEVCacheKeys()) {
+            final String key = evcKey.getKey();
             Integer val = cache.getIfPresent(key);
             if(val == null) {
                 cache.put(key, START_VAL);
@@ -141,7 +143,8 @@ public class HotKeyListener implements EVCacheEventListener {
         }
         if(throttleKeysSet.get().size() > 0) {
             if(log.isDebugEnabled()) log.debug("Throttle : " + throttleKeysSet);
-            for(String key : e.getKeys()) {
+            for(EVCacheKey evcKey : e.getEVCacheKeys()) {
+                final String key = evcKey.getKey();
                 if(throttleKeysSet.get().contains(key)) {
                     if(log.isDebugEnabled()) log.debug("Key : " + key + " is throttled");
                     return true;
@@ -153,7 +156,8 @@ public class HotKeyListener implements EVCacheEventListener {
         if(cache == null) return false;
 
         final DynamicIntProperty _throttleVal = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheThrottler." + appName + ".throttle.value", 3);
-        for(String key : e.getKeys()) {
+        for(EVCacheKey evcKey : e.getEVCacheKeys()) {
+            final String key = evcKey.getKey();
             Integer val = cache.getIfPresent(key);
             if(val.intValue() > _throttleVal.get()) {
                 if(log.isDebugEnabled()) log.debug("Key : " + key + " has exceeded " + _throttleVal.get() + ". Will throttle this request");
@@ -169,7 +173,8 @@ public class HotKeyListener implements EVCacheEventListener {
         final Cache<String, Integer> cache = getCache(appName);
         if(cache == null) return;
 
-        for(String key : e.getKeys()) {
+        for(EVCacheKey evcKey : e.getEVCacheKeys()) {
+            final String key = evcKey.getKey();
             Integer val = cache.getIfPresent(key);
             if(val != null) {
                 cache.put(key, Integer.valueOf(val.intValue() - 1));
@@ -183,7 +188,8 @@ public class HotKeyListener implements EVCacheEventListener {
         final Cache<String, Integer> cache = getCache(appName);
         if(cache == null) return;
 
-        for(String key : e.getKeys()) {
+        for(EVCacheKey evcKey : e.getEVCacheKeys()) {
+            final String key = evcKey.getKey();
             Integer val = cache.getIfPresent(key);
             if(val != null) {
                 cache.put(key, Integer.valueOf(val.intValue() - 1));
