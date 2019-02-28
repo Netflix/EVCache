@@ -476,27 +476,19 @@ final public class EVCacheImpl implements EVCache {
 
     private <T> T getData(EVCacheClient client, EVCacheKey evcKey, Transcoder<T> tc, boolean throwException, boolean hasZF) throws Exception {
         if (client == null) return null;
+        final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
         try {
             if(hashKey.get()) {
                 final Object obj = client.get(evcKey.getHashKey(), evcacheValueTranscoder, throwException, hasZF);
                 if(obj != null && obj instanceof EVCacheValue) {
                     final EVCacheValue val = (EVCacheValue)obj;
                     final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
-                    if(tc == null) {
-                        if(_transcoder == null) {
-                            return (T)client.getTranscoder().decode(cd);
-                        } else {
-                            return (T)_transcoder.decode(cd);
-                        }
-                    } else {
-                        return tc.decode(cd);
-                    }
+                    return transcoder.decode(cd);
                 } else {
                     return null;
                 }
             } else { 
-                if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
-                return client.get(evcKey.getCanonicalKey(), tc, throwException, hasZF);
+                return client.get(evcKey.getCanonicalKey(), transcoder, throwException, hasZF);
             }
         } catch (EVCacheConnectException ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheConnectException while getting data for APP " + _appName + ", key : " + evcKey + "; hasZF : " + hasZF, ex);
@@ -526,9 +518,9 @@ final public class EVCacheImpl implements EVCache {
         if (client == null) return Single.error(new IllegalArgumentException("Client cannot be null"));
         if(hashKey.get()) {
             return Single.error(new IllegalArgumentException("Not supported"));
-        } else { 
-            if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
-            return client.get(evcKey.getCanonicalKey(), tc, throwException, hasZF, scheduler).onErrorReturn(ex -> {
+        } else {
+            final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
+            return client.get(evcKey.getCanonicalKey(), transcoder, throwException, hasZF, scheduler).onErrorReturn(ex -> {
                 if (ex instanceof EVCacheReadQueueException) {
                     if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheReadQueueException while getting data for APP " + _appName + ", key : " + evcKey + "; hasZF : " + hasZF, ex);
                     if (!throwException || hasZF) return null;
@@ -583,7 +575,6 @@ final public class EVCacheImpl implements EVCache {
         }
 
         final EVCacheKey evcKey = getEVCacheKey(key);
-
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Call.GET_AND_TOUCH);
         if (event != null) {
             event.setEVCacheKeys(Arrays.asList(evcKey));
@@ -727,7 +718,6 @@ final public class EVCacheImpl implements EVCache {
         try {
             final boolean hasZF = hasZoneFallback();
             boolean throwEx = hasZF ? false : throwExc;
-            //T data = getAndTouchData(client, canonicalKey, tc, throwEx, hasZF, timeToLive);
             T data = getData(client, evcKey, tc, throwEx, hasZF);
             if (data == null && hasZF) {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
@@ -896,7 +886,7 @@ final public class EVCacheImpl implements EVCache {
 
     @Override
     public <T> Future<T> getAsynchronous(final String key, final Transcoder<T> tc) throws EVCacheException {
-        if (null == key) throw new IllegalArgumentException();
+        if (null == key) throw new IllegalArgumentException("Key is null.");
 
         final boolean throwExc = doThrowException();
         final EVCacheClient client = _pool.getEVCacheClientForRead();
@@ -956,15 +946,8 @@ final public class EVCacheImpl implements EVCache {
                         if(obj != null && obj instanceof EVCacheValue) {
                             final EVCacheValue val = (EVCacheValue)obj;
                             final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
-                            if(tc == null) {
-                                if(_transcoder == null) {
-                                    return (T)client.getTranscoder().decode(cd);
-                                } else {
-                                    return (T)_transcoder.decode(cd);
-                                }
-                            } else {
-                                return tc.decode(cd);
-                            }
+                            final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
+                            return transcoder.decode(cd);
                         } else {
                             return null;
                         }
@@ -976,8 +959,9 @@ final public class EVCacheImpl implements EVCache {
                         return getFromObj(objFuture.get(timeout, unit));
                     }
                 };
-            } else { 
-                r = client.asyncGet(evcKey.getCanonicalKey(), tc == null ? (Transcoder<T>)_transcoder : tc, throwExc, false);
+            } else {
+                final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
+                r = client.asyncGet(evcKey.getCanonicalKey(), transcoder, throwExc, false);
             }
             if (event != null) endEvent(event);
         } catch (Exception ex) {
@@ -997,38 +981,32 @@ final public class EVCacheImpl implements EVCache {
     private <T> Map<String, T> getBulkData(EVCacheClient client, Collection<EVCacheKey> evcacheKeys, Transcoder<T> tc, boolean throwException, boolean hasZF) throws Exception {
         try {
             if(hashKey.get()) {
-                final Collection<String> keyList = new ArrayList<String>(evcacheKeys.size());
+                final Collection<String> hashedKeyList = new ArrayList<String>(evcacheKeys.size());
                 for(EVCacheKey evcKey : evcacheKeys) {
-                    keyList.add(evcKey.getHashKey());
+                    hashedKeyList.add(evcKey.getHashKey());
                 }
-                final Map<String, Object> objMap = client.getBulk(keyList, evcacheValueTranscoder, throwException, hasZF);
+                final Map<String, Object> objMap = client.getBulk(hashedKeyList, evcacheValueTranscoder, throwException, hasZF);
+                if(objMap != null && !objMap.isEmpty()) return Collections.<String, T> emptyMap();
+
+                final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
                 final Map<String, T> retMap = new HashMap<String, T>((int)(objMap.size()/0.75) + 1); 
                 for (Map.Entry<String, Object> i : objMap.entrySet()) {
                     final Object obj = i.getValue(); 
                     if(obj instanceof EVCacheValue) {
                         final EVCacheValue val = (EVCacheValue)obj;
                         final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
-                        final T tVal; 
-                        if(tc == null) {
-                            if(_transcoder == null) {
-                                tVal = (T)client.getTranscoder().decode(cd);
-                            } else {
-                                tVal = (T)_transcoder.decode(cd);
-                            }
-                        } else {
-                            tVal = tc.decode(cd);
-                        }
+                        final T tVal = transcoder.decode(cd);
                         retMap.put(val.getKey(), tVal);
                     }
                 }
                 return retMap;
             } else { 
-                if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
+                final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
                 final Collection<String> keyList = new ArrayList<String>(evcacheKeys.size());
                 for(EVCacheKey evcKey : evcacheKeys) {
                     keyList.add(evcKey.getCanonicalKey());
                 }
-                return client.getBulk(keyList, tc, throwException, hasZF);
+                return client.getBulk(keyList, transcoder, throwException, hasZF);
             }            
         } catch (Exception ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception while getBulk data for APP " + _appName + ", key : " + evcacheKeys, ex);
