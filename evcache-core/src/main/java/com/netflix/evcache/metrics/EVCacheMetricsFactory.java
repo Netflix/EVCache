@@ -90,7 +90,7 @@ public final class EVCacheMetricsFactory {
     }
     
     public Id getId(String name, Collection<Tag> tags) {
-        List<Tag> tagList = new ArrayList<Tag>(1);
+        List<Tag> tagList = new ArrayList<Tag>(tags.size() + 1);
         tagList.addAll(tags);
         tagList.add(new BasicTag("owner", "evcache"));
         return getRegistry().createId(name, tagList);
@@ -105,7 +105,7 @@ public final class EVCacheMetricsFactory {
                 if (counterMap.containsKey(name)) {
                     counter = counterMap.get(name);
                 } else {
-                    List<Tag> tagList = new ArrayList<Tag>(1);
+                    List<Tag> tagList = new ArrayList<Tag>(tags.size() + 1);
                     tagList.addAll(tags);
                     tagList.add(new BasicTag("owner", "evcache"));
                     counter = getRegistry().counter(cName, tagList);

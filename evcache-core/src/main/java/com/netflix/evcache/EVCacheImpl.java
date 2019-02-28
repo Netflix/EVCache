@@ -99,6 +99,13 @@ final public class EVCacheImpl implements EVCache {
             boolean throwException, EVCacheClientPoolManager poolManager) {
         this._appName = appName;
         this._cacheName = cacheName;
+
+        for(int i = 0; i < cacheName.length(); i++) {
+            if(Character.isWhitespace(cacheName.charAt(i))){
+                throw new IllegalArgumentException("Cache Prefix ``" + cacheName  + "`` contains invalid character at position " + i );
+            }
+        }
+
         this._timeToLive = timeToLive;
         this._transcoder = transcoder;
         this._zoneFallback = enableZoneFallback;
@@ -135,19 +142,18 @@ final public class EVCacheImpl implements EVCache {
 
     EVCacheKey getEVCacheKey(final String key) {
         if(key == null || key.length() == 0) throw new NullPointerException("Key cannot be null or empty");
-        int keyLength = key.length();
+        for(int i = 0; i < key.length(); i++) {
+            if(Character.isWhitespace(key.charAt(i))){
+                throw new IllegalArgumentException("key ``" + key + "`` contains invalid character at position " + i );
+            }
+        }
+
         final String canonicalKey;
         if (this._cacheName == null) {
             canonicalKey = key;
         } else {
-            keyLength = _cacheName.length() + 1 + key.length();
+            final int keyLength = _cacheName.length() + 1 + key.length();
             canonicalKey  = new StringBuilder(keyLength).append(_cacheName).append(':').append(key).toString();
-        }
-
-        for(int i = 0; i < canonicalKey.length(); i++) {
-            if(Character.isWhitespace(canonicalKey.charAt(i))){
-                throw new IllegalArgumentException("Key contains invalid characters:  ``" + key + "''");
-            }
         }
 
         final String hashedKey;
@@ -263,7 +269,7 @@ final public class EVCacheImpl implements EVCache {
     private void incrementFastFail(String metric) {
         Counter counter = counterMap.get(metric);
         if(counter == null) {
-            final List<Tag> tagList = new ArrayList<Tag>(3);
+            final List<Tag> tagList = new ArrayList<Tag>(tags.size() + 1);
             tagList.addAll(tags);
             tagList.add(new BasicTag(EVCacheMetricsFactory.FAILURE_REASON, metric));
             counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.FAST_FAIL, tagList);
@@ -477,7 +483,11 @@ final public class EVCacheImpl implements EVCache {
                     final EVCacheValue val = (EVCacheValue)obj;
                     final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
                     if(tc == null) {
-                        return (T)client.getTranscoder().decode(cd);
+                        if(_transcoder == null) {
+                            return (T)client.getTranscoder().decode(cd);
+                        } else {
+                            return (T)_transcoder.decode(cd);
+                        }
                     } else {
                         return tc.decode(cd);
                     }
@@ -615,7 +625,7 @@ final public class EVCacheImpl implements EVCache {
                 if (event != null) event.setAttribute("status", "THIT");
                 // touch all copies
                 try {
-                    touchData(evcKey, key, timeToLive);
+                    touchData(evcKey, timeToLive);
                 } catch (Exception e) {
                     throw sneakyThrow(new EVCacheException("Exception performing touch for APP " + _appName + ", key = " + evcKey, e));
                 }
@@ -669,7 +679,7 @@ final public class EVCacheImpl implements EVCache {
             }
             if (value != null) {
                 try {
-                    touchData(evcKey, key, timeToLive);
+                    touchData(evcKey, timeToLive);
                 } catch (Exception e) {
                     if (throwExc) throw new EVCacheException("Exception executing getAndTouch APP " + _appName + ", key = " + evcKey, e);
                 }
@@ -679,11 +689,11 @@ final public class EVCacheImpl implements EVCache {
         if(ignoreTouch.get()) {
             return doGet(evcKey, tc);
         } else {
-            return doGetAndTouch(evcKey, key, timeToLive, tc);
+            return doGetAndTouch(evcKey, timeToLive, tc);
         }
     }
 
-    <T> T doGetAndTouch(EVCacheKey evcKey, String key, int timeToLive, Transcoder<T> tc) throws EVCacheException {
+    <T> T doGetAndTouch(EVCacheKey evcKey, int timeToLive, Transcoder<T> tc) throws EVCacheException {
         final boolean throwExc = doThrowException();
         EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
@@ -751,7 +761,7 @@ final public class EVCacheImpl implements EVCache {
                 if (event != null) event.setAttribute("status", "THIT");
 
                 // touch all copies
-                touchData(evcKey, key, timeToLive);
+                touchData(evcKey, timeToLive);
                 if (log.isDebugEnabled() && shouldLog()) log.debug("GET_AND_TOUCH : APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + client.getServerGroup());
             } else {
                 cacheOperation = EVCacheMetricsFactory.NO;
@@ -834,7 +844,7 @@ final public class EVCacheImpl implements EVCache {
         final EVCacheKey evcKey = getEVCacheKey(key);
         try {
             final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
-            touchData(evcKey, key, timeToLive, clients, latch);
+            touchData(evcKey, timeToLive, clients, latch);
 
             if (event != null) {
                 event.setEVCacheKeys(Arrays.asList(evcKey));
@@ -859,30 +869,25 @@ final public class EVCacheImpl implements EVCache {
         }
     }
 
-    private EVCacheFuture[] touchData(EVCacheKey evcKey, String key, int timeToLive) throws Exception {
+    private void touchData(EVCacheKey evcKey, int timeToLive) throws Exception {
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
-        return touchData(evcKey, key, timeToLive, clients);
+        touchData(evcKey, timeToLive, clients);
     }
 
-    private EVCacheFuture[] touchData(EVCacheKey evcKey, String key, int timeToLive, EVCacheClient[] clients) throws Exception {
-        return touchData(evcKey, key, timeToLive, clients, null);
+    private void touchData(EVCacheKey evcKey, int timeToLive, EVCacheClient[] clients) throws Exception {
+        touchData(evcKey, timeToLive, clients, null);
     }
 
 
-    private EVCacheFuture[] touchData(EVCacheKey evcKey, String key, int timeToLive, EVCacheClient[] clients, EVCacheLatch latch ) throws Exception {
+    private void touchData(EVCacheKey evcKey, int timeToLive, EVCacheClient[] clients, EVCacheLatch latch ) throws Exception {
         checkTTL(timeToLive);
-        final EVCacheFuture[] futures = new EVCacheFuture[clients.length];
-        int index = 0;
         for (EVCacheClient client : clients) {
             if(hashKey.get()) {
-                final Future<Boolean> future = client.touch(evcKey.getHashKey(), timeToLive, latch);
-                futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
+                client.touch(evcKey.getHashKey(), timeToLive, latch);
             } else {
-                final Future<Boolean> future = client.touch(evcKey.getCanonicalKey(), timeToLive, latch);
-                futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
+                client.touch(evcKey.getCanonicalKey(), timeToLive, latch);
             }
         }
-        return futures;
     }
 
     public <T> Future<T> getAsynchronous(String key) throws EVCacheException {
@@ -1005,7 +1010,11 @@ final public class EVCacheImpl implements EVCache {
                         final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
                         final T tVal; 
                         if(tc == null) {
-                            tVal = (T)client.getTranscoder().decode(cd);
+                            if(_transcoder == null) {
+                                tVal = (T)client.getTranscoder().decode(cd);
+                            } else {
+                                tVal = (T)_transcoder.decode(cd);
+                            }
                         } else {
                             tVal = tc.decode(cd);
                         }
@@ -1191,7 +1200,7 @@ final public class EVCacheImpl implements EVCache {
                     if(value == null) value = retMap.get(deCanKey);
                     if (value != null) {
                         decanonicalR.put(deCanKey, value);
-                        if (touch) touchData(key, key.getHashKey(), timeToLive);
+                        if (touch) touchData(key, timeToLive);
                         decanonicalHitKeys.add(deCanKey);
                     } else {
                         partialHit = true;
@@ -1206,7 +1215,7 @@ final public class EVCacheImpl implements EVCache {
                     final String deCanKey = key.getKey();
                     if (value != null) {
                         decanonicalR.put(deCanKey, value);
-                        if (touch) touchData(key, deCanKey, timeToLive);
+                        if (touch) touchData(key, timeToLive);
                         decanonicalHitKeys.add(deCanKey);
                     } else {
                         partialHit = true;
@@ -1444,7 +1453,7 @@ final public class EVCacheImpl implements EVCache {
                 event.setTTL(timeToLive);
                 endEvent(event);
             }
-            touchData(evcKey, key, timeToLive, clients);
+            touchData(evcKey, timeToLive, clients);
             return futures;
         } catch (Exception ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception setting the data for APP " + _appName + ", key : " + evcKey, ex);

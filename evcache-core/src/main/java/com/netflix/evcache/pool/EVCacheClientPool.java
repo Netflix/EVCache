@@ -213,7 +213,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     private EVCacheClient selectClient(List<EVCacheClient> clients) {
-        if (clients == null) {
+        if (clients == null || clients.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("clients is null returning null and forcing pool refresh!!!");
             if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
             return null;
@@ -230,7 +230,11 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public EVCacheClient getEVCacheClientForReadExclude(ServerGroup rsetUsed) {
-        if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) return null;
+        if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
+            if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
+            if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
+            return null;
+        }
         try {
             ServerGroup fallbackServerGroup = memcachedFallbackReadInstances.next(rsetUsed);
             if (fallbackServerGroup == null || fallbackServerGroup.equals(rsetUsed)) {
@@ -245,7 +249,11 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public EVCacheClient getEVCacheClient(ServerGroup serverGroup) {
-        if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) return null;
+        if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
+            if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
+            if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
+            return null;
+        }
 
         try {
             List<EVCacheClient> clients = memcachedReadInstancesByServerGroup.get(serverGroup);
@@ -265,8 +273,11 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public List<EVCacheClient> getEVCacheClientsForReadExcluding(ServerGroup serverGroupToExclude) {
-        if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty())
+        if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
+            if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
+            if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
             return Collections.<EVCacheClient> emptyList();
+        }
         try {
             if (_retryAcrossAllReplicas.get()) {
                 List<EVCacheClient> clients = new ArrayList<EVCacheClient>(memcachedReadInstancesByServerGroup.size() - 1);
@@ -371,7 +382,11 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         try {
             if(allEVCacheWriteClients != null) {
                 final EVCacheClient[] clientArray = allEVCacheWriteClients.next();
-                if(clientArray != null && clientArray.length > 0 ) return clientArray;
+                if(clientArray != null && clientArray.length > 0 ) {
+                    if (log.isDebugEnabled()) log.debug("allEVCacheWriteClients : " + allEVCacheWriteClients);
+                    if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
+                    return clientArray;
+                }
             }
             final EVCacheClient[] clientArr = new EVCacheClient[memcachedWriteInstancesByServerGroup.size()];
             int i = 0;

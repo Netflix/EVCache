@@ -26,7 +26,7 @@ public class EVCacheKey {
 
     @Override
     public String toString() {
-        return "EVCacheKey [key=" + key + ", canonicalKey=" + canonicalKey + hashKey != null ? ", hashKey=" + hashKey + "]" : "]";
+        return "EVCacheKey [key=" + key + ", canonicalKey=" + canonicalKey + (hashKey != null ? ", hashKey=" + hashKey + "]" : "]");
     }
 
 }

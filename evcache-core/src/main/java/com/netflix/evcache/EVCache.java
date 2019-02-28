@@ -1345,6 +1345,14 @@ public interface EVCache {
             if (_appName == null) {
                 throw new IllegalArgumentException("param appName cannot be null.");
             }
+            
+            if(_cachePrefix != null) {
+                for(int i = 0; i < _cachePrefix.length(); i++) {
+                    if(Character.isWhitespace(_cachePrefix.charAt(i))){
+                        throw new IllegalArgumentException("Cache Prefix ``" + _cachePrefix  + "`` contains invalid character at position " + i );
+                    }
+                }
+            }
 
             customize();
 
