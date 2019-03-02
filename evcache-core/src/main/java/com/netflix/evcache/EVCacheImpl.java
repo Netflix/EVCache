@@ -1242,7 +1242,7 @@ final public class EVCacheImpl implements EVCache {
                 tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, EVCacheMetricsFactory.READ));
 //                if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.STATUS, status));
 //                if(tries >= 0) tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, String.valueOf(tries)));
-                bulkKeysSize = EVCacheMetricsFactory.getInstance().getDistributionSummary(EVCacheMetricsFactory.INTERNAL_KEYS_SIZE, tagList);
+                bulkKeysSize = EVCacheMetricsFactory.getInstance().getDistributionSummary(EVCacheMetricsFactory.OVERALL_KEYS_SIZE, tagList);
             }
             bulkKeysSize.record(keys.size());
             getTimer(Call.BULK.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
@@ -1999,23 +1999,23 @@ final public class EVCacheImpl implements EVCache {
         if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
         switch(tries) {
             case 0 : 
-                tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, "initial")); 
+                tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, EVCacheMetricsFactory.INITIAL));
                 break;
             case 1 : 
-                tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, "second")); 
+                tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, EVCacheMetricsFactory.SECOND));
                 break;
             default: 
-                tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, "third_up")); 
+                tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, EVCacheMetricsFactory.THIRD_UP));
                 break;
         }
         
-        if(tries == 0) tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, String.valueOf(tries)));
+//        if(tries == 0) tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, String.valueOf(tries)));
         if(serverGroup != null) {
             tagList.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
             tagList.add(new BasicTag(EVCacheMetricsFactory.ZONE, serverGroup.getZone()));
         }
 
-        timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_CALL, tagList, Duration.ofMillis(duration));
+        timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.OVERALL_CALL, tagList, Duration.ofMillis(duration));
         timerMap.put(name, timer);
         return timer;
     }

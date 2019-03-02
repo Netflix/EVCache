@@ -175,8 +175,8 @@ public final class EVCacheMetricsFactory {
     /**
      * External Metric Names
      */
-    public static final String INTERNAL_CALL                        = "evcache.client.call";
-    public static final String INTERNAL_KEYS_SIZE                   = "evcache.client.call.keys.size";
+    public static final String OVERALL_CALL                         = "evcache.client.call";
+    public static final String OVERALL_KEYS_SIZE                    = "evcache.client.call.keys.size";
 
     /**
      * External IPC Metric Names
@@ -306,6 +306,9 @@ public final class EVCacheMetricsFactory {
     public static final String CHUNK_DATA_SIZE                  = "dataSize";
     public static final String NOT_AVAILABLE                    = "notAvailable";
 
+    public static final String INITIAL                          = "initial";
+    public static final String SECOND                           = "second";
+    public static final String THIRD_UP                         = "third_up";
     /**
      * Metric Tag Value for Operations
      */
