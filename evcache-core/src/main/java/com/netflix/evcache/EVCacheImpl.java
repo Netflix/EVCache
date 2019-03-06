@@ -100,9 +100,11 @@ final public class EVCacheImpl implements EVCache {
         this._appName = appName;
         this._cacheName = cacheName;
 
-        for(int i = 0; i < cacheName.length(); i++) {
-            if(Character.isWhitespace(cacheName.charAt(i))){
-                throw new IllegalArgumentException("Cache Prefix ``" + cacheName  + "`` contains invalid character at position " + i );
+        if(_cacheName != null && _cacheName.length() > 0) {
+            for(int i = 0; i < cacheName.length(); i++) {
+                if(Character.isWhitespace(cacheName.charAt(i))){
+                    throw new IllegalArgumentException("Cache Prefix ``" + cacheName  + "`` contains invalid character at position " + i );
+                }
             }
         }
 
