@@ -7,6 +7,7 @@ import java.net.SocketAddress;
 import java.nio.channels.SocketChannel;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -37,6 +38,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     protected final BlockingQueue<Operation> inputQueue;
     protected final EVCacheClient client;
     //protected Counter reconnectCounter;
+    private final AtomicInteger numOps = new AtomicInteger(0);
     private long timeoutStartTime;
     protected final Counter operationsCounter;
 
@@ -107,11 +109,11 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
 
     public long incrOps() {
         operationsCounter.increment();
-        return operationsCounter.count();
+        return numOps.incrementAndGet();
     }
 
     public long getNumOfOps() {
-        return operationsCounter.count();
+        return numOps.get();
     }
 
     public void flushInputQueue() {
