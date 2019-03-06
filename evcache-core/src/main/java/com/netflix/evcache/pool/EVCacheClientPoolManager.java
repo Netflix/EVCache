@@ -1,12 +1,12 @@
 package com.netflix.evcache.pool;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -74,8 +74,6 @@ public class EVCacheClientPoolManager {
     private final Map<EVCacheClientPool, ScheduledFuture<?>> scheduledTaskMap = new HashMap<EVCacheClientPool, ScheduledFuture<?>>();
     private final EVCacheScheduledExecutor asyncExecutor;
     private final EVCacheExecutor syncExecutor;
-//    private final DiscoveryClient discoveryClient;
-//    private final ApplicationInfoManager applicationInfoManager;
     private final List<EVCacheEventListener> evcacheEventListenerList;
     private final IConnectionBuilder connectionFactoryProvider;
     private final EVCacheNodeList evcacheNodeList;
@@ -87,7 +85,7 @@ public class EVCacheClientPoolManager {
 
         this.connectionFactoryProvider = connectionFactoryprovider;
         this.evcacheNodeList = evcacheNodeList;
-        this.evcacheEventListenerList = new ArrayList<EVCacheEventListener>();
+        this.evcacheEventListenerList = new CopyOnWriteArrayList<EVCacheEventListener>();
 
         this.asyncExecutor = new EVCacheScheduledExecutor(Runtime.getRuntime().availableProcessors(),Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "scheduled");
         asyncExecutor.prestartAllCoreThreads();

@@ -1,6 +1,8 @@
 package com.netflix.evcache.event;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,7 +21,6 @@ public class EVCacheEvent {
     private final String appName;
     private final String cacheName;
     private final EVCacheClientPool pool;
-    private final long startTime;
 
     private Collection<EVCacheClient> clients = null;
     private Collection<EVCacheKey> evcKeys = null;
@@ -34,7 +35,6 @@ public class EVCacheEvent {
         this.appName = appName;
         this.cacheName = cacheName;
         this.pool = pool;
-        this.startTime = System.currentTimeMillis();
     }
 
     public Call getCall() {
@@ -47,10 +47,6 @@ public class EVCacheEvent {
 
     public String getCacheName() {
         return cacheName;
-    }
-
-    public long getStartTimeUTC() {
-        return startTime;
     }
 
     public EVCacheClientPool getEVCacheClientPool() {
@@ -103,6 +99,47 @@ public class EVCacheEvent {
     public int hashCode() {
         return evcKeys.hashCode();
     }
+
+    /**
+     * @deprecated  replaced by {@link #getEVCacheKeys()}
+     */
+    @Deprecated
+    public Collection<String> getKeys() {
+        if(evcKeys == null || evcKeys.size() == 0) return Collections.<String>emptyList();
+
+        final Collection<String> keyList = new ArrayList<String>(evcKeys.size());
+        for(EVCacheKey key : evcKeys) {
+            keyList.add(key.getKey());
+        }
+        return keyList;
+    }
+
+    /**
+     * @deprecated  replaced by {@link #setEVCacheKeys(Collection)}
+     */
+    @Deprecated 
+    public void setKeys(Collection<String> keys) {
+    }
+
+    /**
+     * @deprecated  replaced by {@link #getEVCacheKeys()}
+     */
+    @Deprecated
+    public Collection<String> getCanonicalKeys() {
+        if(evcKeys == null || evcKeys.size() == 0) return Collections.<String>emptyList();
+
+        final Collection<String> keyList = new ArrayList<String>(evcKeys.size());
+        for(EVCacheKey key : evcKeys) {
+            keyList.add(key.getCanonicalKey());
+        }
+        return keyList;
+    }
+
+    /**
+     * @deprecated  replaced by {@link #setEVCacheKeys(Collection)}
+     */
+    public void setCanonicalKeys(Collection<String> canonicalKeys) {
+    }    
 
     @Override
     public boolean equals(Object obj) {
