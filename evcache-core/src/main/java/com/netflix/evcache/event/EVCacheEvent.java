@@ -3,6 +3,7 @@ package com.netflix.evcache.event;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,6 +22,7 @@ public class EVCacheEvent {
     private final String appName;
     private final String cacheName;
     private final EVCacheClientPool pool;
+    private final long startTime; 
 
     private Collection<EVCacheClient> clients = null;
     private Collection<EVCacheKey> evcKeys = null;
@@ -35,6 +37,7 @@ public class EVCacheEvent {
         this.appName = appName;
         this.cacheName = cacheName;
         this.pool = pool;
+        this.startTime = System.currentTimeMillis();
     }
 
     public Call getCall() {
@@ -169,11 +172,15 @@ public class EVCacheEvent {
             return false;
         return true;
     }
+    
+    public long getStartTime() {
+        return this.startTime;
+    }
 
     @Override
     public String toString() {
         return "EVCacheEvent [call=" + call + ", appName=" + appName + ", cacheName=" + cacheName + ", Num of Clients="
-                + clients.size() + ", evcKeys=" + evcKeys + ", ttl=" + ttl 
+                + clients.size() + ", evcKeys=" + evcKeys + ", ttl=" + ttl + ", event Time=" + (new Date(startTime)).toString()
                 + ", cachedData=" + (cachedData != null ? "[ Flags : " + cachedData.getFlags() + "; Data Array length : " +cachedData.getData().length + "] " : "null") 
                 + ", Attributes=" + data + "]";
     }
