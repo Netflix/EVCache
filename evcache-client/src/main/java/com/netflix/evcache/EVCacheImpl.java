@@ -386,7 +386,6 @@ final public class EVCacheImpl implements EVCache {
         }
 
         final EVCacheKey evcKey = getEVCacheKey(key);
-
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Call.GET);
         if (event != null) {
             event.setEVCacheKeys(Arrays.asList(evcKey));
@@ -539,7 +538,6 @@ final public class EVCacheImpl implements EVCache {
         }
 
         final EVCacheKey evcKey = getEVCacheKey(key);
-
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Call.GET_AND_TOUCH);
         if (event != null) {
             event.setEVCacheKeys(Arrays.asList(evcKey));
@@ -765,8 +763,10 @@ final public class EVCacheImpl implements EVCache {
             return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
         }
 
+        final EVCacheKey evcKey = getEVCacheKey(key);
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.TOUCH);
         if (event != null) {
+            event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -781,7 +781,6 @@ final public class EVCacheImpl implements EVCache {
             startEvent(event);
         }
 
-        final EVCacheKey evcKey = getEVCacheKey(key);
 
         try {
             final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
@@ -793,7 +792,6 @@ final public class EVCacheImpl implements EVCache {
             if (touchCounter == null) this.touchCounter = EVCacheMetricsFactory.getCounter(_appName, _cacheName, _metricPrefix + "TouchCall", DataSourceType.COUNTER);
             if (touchCounter != null) touchCounter.increment();
             if (event != null) {
-                event.setEVCacheKeys(Arrays.asList(evcKey));
                 event.setTTL(timeToLive);
                 if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
@@ -856,7 +854,6 @@ final public class EVCacheImpl implements EVCache {
         }
 
         final EVCacheKey evcKey = getEVCacheKey(key);
-
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Call.ASYNC_GET);
         if (event != null) {
             event.setEVCacheKeys(Arrays.asList(evcKey));
@@ -1260,8 +1257,10 @@ final public class EVCacheImpl implements EVCache {
             return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
         }
 
+        final EVCacheKey evcKey = getEVCacheKey(key);
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.SET);
         if (event != null) {
+            event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -1275,8 +1274,6 @@ final public class EVCacheImpl implements EVCache {
             }
             startEvent(event);
         }
-
-        final EVCacheKey evcKey = getEVCacheKey(key);
 
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.SET, stats, Operation.TYPE.MILLI);
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
@@ -1307,7 +1304,6 @@ final public class EVCacheImpl implements EVCache {
                 if (log.isDebugEnabled() && shouldLog()) log.debug("SET : APP " + _appName + ", Future " + future + " for key : " + evcKey);
             }
             if (event != null) {
-                event.setEVCacheKeys(Arrays.asList(evcKey));
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
                 if(_eventsUsingLatchFP.get()) {
@@ -1344,8 +1340,10 @@ final public class EVCacheImpl implements EVCache {
             return new EVCacheFuture[0]; // Fast failure
         }
 
+        final EVCacheKey evcKey = getEVCacheKey(key);
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.APPEND);
         if (event != null) {
+            event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -1359,8 +1357,6 @@ final public class EVCacheImpl implements EVCache {
             }
             startEvent(event);
         }
-
-        final EVCacheKey evcKey = getEVCacheKey(key);
 
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.APPEND, stats, Operation.TYPE.MILLI);
         try {
@@ -1385,7 +1381,6 @@ final public class EVCacheImpl implements EVCache {
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
             }
             if (event != null) {
-                event.setEVCacheKeys(Arrays.asList(evcKey));
                 event.setCachedData(cd);
                 event.setTTL(timeToLive);
                 endEvent(event);
@@ -1448,8 +1443,10 @@ final public class EVCacheImpl implements EVCache {
             return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
         }
 
+        final EVCacheKey evcKey = getEVCacheKey(key);
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.DELETE);
         if (event != null) {
+            event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -1464,9 +1461,6 @@ final public class EVCacheImpl implements EVCache {
             startEvent(event);
         }
 
-        final EVCacheKey evcKey = getEVCacheKey(key);
-
-
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.DELETE, stats);
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
         try {
@@ -1476,7 +1470,6 @@ final public class EVCacheImpl implements EVCache {
             }
 
             if (event != null) {
-                event.setEVCacheKeys(Arrays.asList(evcKey));
                 if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
                     latch.scheduledFutureValidation();
@@ -1515,7 +1508,6 @@ final public class EVCacheImpl implements EVCache {
         }
 
         final EVCacheKey evcKey = getEVCacheKey(key);
-
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.INCR);
         if (event != null) {
             event.setEVCacheKeys(Arrays.asList(evcKey));
@@ -1587,7 +1579,6 @@ final public class EVCacheImpl implements EVCache {
         }
 
         final EVCacheKey evcKey = getEVCacheKey(key);
-
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.DECR);
         if (event != null) {
             event.setEVCacheKeys(Arrays.asList(evcKey));
@@ -1676,8 +1667,10 @@ final public class EVCacheImpl implements EVCache {
             return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
         }
 
+        final EVCacheKey evcKey = getEVCacheKey(key);
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.REPLACE);
         if (event != null) {
+            event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -1691,8 +1684,6 @@ final public class EVCacheImpl implements EVCache {
             }
             startEvent(event);
         }
-
-        final EVCacheKey evcKey = getEVCacheKey(key);
 
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.REPLACE, stats, Operation.TYPE.MILLI);
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
@@ -1772,8 +1763,10 @@ final public class EVCacheImpl implements EVCache {
             return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
         }
 
+        final EVCacheKey evcKey = getEVCacheKey(key);
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.APPEND_OR_ADD);
         if (event != null) {
+            event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -1787,7 +1780,6 @@ final public class EVCacheImpl implements EVCache {
             }
             startEvent(event);
         }
-        final EVCacheKey evcKey = getEVCacheKey(key);
 
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.APPEND_OR_ADD, stats, Operation.TYPE.MILLI);
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
@@ -1811,7 +1803,6 @@ final public class EVCacheImpl implements EVCache {
                 if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Future " + future + " for key : " + evcKey);
             }
             if (event != null) {
-                event.setEVCacheKeys(Arrays.asList(evcKey));
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
                 if(_eventsUsingLatchFP.get()) {
@@ -1865,8 +1856,10 @@ final public class EVCacheImpl implements EVCache {
             return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
         }
 
+        final EVCacheKey evcKey = getEVCacheKey(key);
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.ADD);
         if (event != null) {
+            event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
                     increment("THROTTLED");
@@ -1880,8 +1873,6 @@ final public class EVCacheImpl implements EVCache {
             }
             startEvent(event);
         }
-
-        final EVCacheKey evcKey = getEVCacheKey(key);
 
         final Operation op = EVCacheMetricsFactory.getOperation(_metricName, Call.ADD, stats, Operation.TYPE.MILLI);
         EVCacheLatch latch = null;
@@ -1904,7 +1895,6 @@ final public class EVCacheImpl implements EVCache {
             if(clientUtil == null) clientUtil = new EVCacheClientUtil(_pool);
             latch = clientUtil.add(hashKey.get() ? evcKey.getHashKey() : evcKey.getCanonicalKey(), cd, timeToLive, policy);
             if (event != null) {
-                event.setEVCacheKeys(Arrays.asList(evcKey));
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
                 if(_eventsUsingLatchFP.get()) {
