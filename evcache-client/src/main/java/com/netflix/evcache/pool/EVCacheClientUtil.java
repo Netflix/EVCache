@@ -56,63 +56,35 @@ public class EVCacheClientUtil {
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
 
-        final List<EVCacheClient> writeOnlyClientList = new ArrayList<EVCacheClient>(_pool.getWriteOnlyEVCacheClients().length);
-        final List<EVCacheClient> successClientList = new ArrayList<EVCacheClient>(clients.length);
-        final List<EVCacheClient> existClientList = new ArrayList<EVCacheClient>(clients.length);
         Boolean firstStatus = null;
         for (EVCacheClient client : clients) {
             final Future<Boolean> f = client.add(canonicalKey, timeToLive, cd, latch);
-            if(log.isDebugEnabled()) log.debug("ADD : Op Submitted : APP " + _appName + ", key " + canonicalKey + "; future : " + f);
-            if(f instanceof EVCacheOperationFuture) {
-                final EVCacheOperationFuture<Boolean> future = (EVCacheOperationFuture<Boolean>)f;
-                if(future.getStatus().getStatusCode() == StatusCode.ERR_EXISTS) {
-                    existClientList.add(client);
+            if(log.isDebugEnabled()) log.debug("ADD : Op Submitted : APP " + _appName + ", key " + canonicalKey + "; future : " + f + "; client : " + client);
+            boolean status = f.get().booleanValue();
+            if(!status) { // most common case
+                if(firstStatus == null) {
+                    for(int i = 0; i < clients.length; i++) {
+                        latch.countDown();
+                    }
+                    return latch;
                 } else {
-                    if(client.isInWriteOnly()) writeOnlyClientList.add(client);
-                    else successClientList.add(client);
-                }
-            } else {
-                boolean flag = f.get().booleanValue();
-                if(flag) {
-                    if(client.isInWriteOnly()) writeOnlyClientList.add(client);
-                    else successClientList.add(client);
-                } else {
-                    existClientList.add(client);
+                    return fixup(client, clients, canonicalKey, timeToLive, policy);
                 }
             }
-            if(firstStatus == null) firstStatus = Boolean.valueOf(f.get());
+            if(firstStatus == null) firstStatus = Boolean.valueOf(status);
         }
-        if(writeOnlyClientList.size() > 0 && existClientList.size() > 0) {
-            fixup(existClientList, writeOnlyClientList, canonicalKey, timeToLive, policy);
-        }
-        if(existClientList.size() == 0 || successClientList.size() == 0) return latch;
-        if(existClientList.size() > successClientList.size()) return fixup(existClientList, successClientList, canonicalKey, timeToLive, policy);
-        if(firstStatus.booleanValue()) {
-            if(successClientList.size() == 1) return fixup(existClientList, successClientList, canonicalKey, timeToLive, policy);
-            if(successClientList.size() > existClientList.size()) {
-                if(writeOnlyClientList.size() > 0 ) fixup(successClientList, writeOnlyClientList, canonicalKey, timeToLive, policy);
-                return fixup(successClientList, existClientList, canonicalKey, timeToLive, policy);
-            }
-        } else {
-            return fixup(existClientList.subList(0, 1), successClientList, canonicalKey, timeToLive, policy);
-        }
-        return fixup(existClientList, successClientList, canonicalKey, timeToLive, policy);
+        return latch;
     }
 
-    public EVCacheLatch fixup(List<EVCacheClient> sourceClients, List<EVCacheClient> destClients, String canonicalKey, int timeToLive, Policy policy) {
-        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, destClients.size(), _appName);
+    private EVCacheLatch fixup(EVCacheClient sourceClient, EVCacheClient[] destClients, String canonicalKey, int timeToLive, Policy policy) {
+        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, destClients.length, _appName);
         try {
-            CachedData readData = null;
-            for(EVCacheClient sourceClient : sourceClients) {
-                if(readData == null) {
-                    readData = sourceClient.getAndTouch(canonicalKey, ct, timeToLive, false, false);
-                } else {
-                    sourceClient.touch(canonicalKey, timeToLive);
-                }
-            }
+            final CachedData readData = sourceClient.getAndTouch(canonicalKey, ct, timeToLive, false, false);
 
-            for(EVCacheClient destClient : destClients) {
-                destClient.set(canonicalKey, readData, timeToLive, latch);
+            if(readData != null) {
+                for(EVCacheClient destClient : destClients) {
+                    destClient.set(canonicalKey, readData, timeToLive, latch);
+                }
             }
             latch.await(_pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
         } catch (Exception e) {
@@ -120,5 +92,4 @@ public class EVCacheClientUtil {
         }
         return latch;
     }
-    
 }
