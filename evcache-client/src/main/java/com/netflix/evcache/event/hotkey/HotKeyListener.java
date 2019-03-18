@@ -14,6 +14,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.netflix.archaius.api.Property;
+import com.netflix.evcache.EVCacheKey;
 import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.event.EVCacheEventListener;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
@@ -78,9 +79,9 @@ public class HotKeyListener implements EVCacheEventListener {
 
     private Cache<String, Integer> getCache(String appName) {
 
-        Property<Boolean> throttleFlag = throttleMap.get(appName);
+    	Property<Boolean> throttleFlag = throttleMap.get(appName);
         if(throttleFlag == null) {
-            throttleFlag = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheThrottler." + appName + ".throttle.hot.keys", Boolean.class).orElse(false);
+        	throttleFlag = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheThrottler." + appName + ".throttle.hot.keys", Boolean.class).orElse(false);
             throttleMap.put(appName, throttleFlag);
         }
         if(log.isDebugEnabled()) log.debug("Throttle hot keys : " + throttleFlag);
@@ -115,7 +116,8 @@ public class HotKeyListener implements EVCacheEventListener {
 
         final Cache<String, Integer> cache = getCache(e.getAppName());
         if(cache == null) return;
-        for(String key : e.getKeys()) {
+        for(EVCacheKey evcKey : e.getEVCacheKeys()) {
+            final String key = evcKey.getKey();
             Integer val = cache.getIfPresent(key);
             if(val == null) {
                 cache.put(key, START_VAL);
@@ -131,10 +133,11 @@ public class HotKeyListener implements EVCacheEventListener {
 
         final String appName = e.getAppName();
         Property<Set<String>> throttleKeysSet = throttleKeysMap.get(appName).orElse(Collections.emptySet());
-
+        
         if(throttleKeysSet.get().size() > 0) {
             if(log.isDebugEnabled()) log.debug("Throttle : " + throttleKeysSet);
-            for(String key : e.getKeys()) {
+            for(EVCacheKey evcKey : e.getEVCacheKeys()) {
+                final String key = evcKey.getKey();
                 if(throttleKeysSet.get().contains(key)) {
                     if(log.isDebugEnabled()) log.debug("Key : " + key + " is throttled");
                     return true;
@@ -146,7 +149,8 @@ public class HotKeyListener implements EVCacheEventListener {
         if(cache == null) return false;
 
         final Property<Integer> _throttleVal = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheThrottler." + appName + ".throttle.value", Integer.class).orElse(3);
-        for(String key : e.getKeys()) {
+        for(EVCacheKey evcKey : e.getEVCacheKeys()) {
+            final String key = evcKey.getKey();
             Integer val = cache.getIfPresent(key);
             if(val.intValue() > _throttleVal.get()) {
                 if(log.isDebugEnabled()) log.debug("Key : " + key + " has exceeded " + _throttleVal.get() + ". Will throttle this request");
@@ -162,7 +166,8 @@ public class HotKeyListener implements EVCacheEventListener {
         final Cache<String, Integer> cache = getCache(appName);
         if(cache == null) return;
 
-        for(String key : e.getKeys()) {
+        for(EVCacheKey evcKey : e.getEVCacheKeys()) {
+            final String key = evcKey.getKey();
             Integer val = cache.getIfPresent(key);
             if(val != null) {
                 cache.put(key, Integer.valueOf(val.intValue() - 1));
@@ -176,7 +181,8 @@ public class HotKeyListener implements EVCacheEventListener {
         final Cache<String, Integer> cache = getCache(appName);
         if(cache == null) return;
 
-        for(String key : e.getKeys()) {
+        for(EVCacheKey evcKey : e.getEVCacheKeys()) {
+            final String key = evcKey.getKey();
             Integer val = cache.getIfPresent(key);
             if(val != null) {
                 cache.put(key, Integer.valueOf(val.intValue() - 1));

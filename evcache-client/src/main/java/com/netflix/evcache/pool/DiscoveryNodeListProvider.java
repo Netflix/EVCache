@@ -93,6 +93,12 @@ public class DiscoveryNodeListProvider implements EVCacheNodeList {
                 continue;
             }
 
+            final Property<Boolean> asgEnabled = EVCacheConfig.getInstance().getPropertyRepository().get(asgName + ".enabled", Boolean.class).orElse(true);
+            if (!asgEnabled.get()) {
+                if(log.isDebugEnabled()) log.debug("ASG " + asgName + " is disabled so ignoring it");
+                continue;
+            }
+
             final Map<String, String> metaInfo = iInfo.getMetadata();
             final int evcachePort = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.port")) ? metaInfo.get("evcache.port") : DEFAULT_PORT);
             final int rendPort = (metaInfo != null && metaInfo.containsKey("rend.port")) ? Integer.parseInt(metaInfo.get("rend.port")) : 0;

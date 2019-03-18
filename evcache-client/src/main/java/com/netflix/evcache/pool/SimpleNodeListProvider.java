@@ -122,6 +122,12 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
                 final JSONObject metadataObj = instanceObj.getJSONObject("dataCenterInfo").getJSONObject("metadata");
 
                 final String asgName = instanceObj.getString("asgName");
+                final Property<Boolean> asgEnabled = EVCacheConfig.getInstance().getPropertyRepository().get(asgName + ".enabled", Boolean.class).orElse(true);
+                if (!asgEnabled.get()) {
+                    if(log.isDebugEnabled()) log.debug("ASG " + asgName + " is disabled so ignoring it");
+                    continue;
+                }
+                
                 final String zone = metadataObj.getString("availability-zone");
                 final ServerGroup rSet = new ServerGroup(zone, asgName);
                 final String localIp = metadataObj.getString("local-ipv4");

@@ -1,10 +1,13 @@
 package com.netflix.evcache.event;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 import com.netflix.evcache.EVCache.Call;
+import com.netflix.evcache.EVCacheKey;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPool;
 
@@ -20,8 +23,7 @@ public class EVCacheEvent {
     private final EVCacheClientPool pool;
 
     private Collection<EVCacheClient> clients = null;
-    private Collection<String> keys = null;
-    private Collection<String> canonicalKeys = null;
+    private Collection<EVCacheKey> evcKeys = null;
     private int ttl = 0;
     private CachedData cachedData = null;
 
@@ -51,20 +53,12 @@ public class EVCacheEvent {
         return pool;
     }
 
-    public Collection<String> getKeys() {
-        return keys;
+    public Collection<EVCacheKey> getEVCacheKeys() {
+        return evcKeys;
     }
 
-    public void setKeys(Collection<String> keys) {
-        this.keys = keys;
-    }
-
-    public Collection<String> getCanonicalKeys() {
-        return canonicalKeys;
-    }
-
-    public void setCanonicalKeys(Collection<String> canonicalKeys) {
-        this.canonicalKeys = canonicalKeys;
+    public void setEVCacheKeys(Collection<EVCacheKey> evcacheKeys) {
+        this.evcKeys = evcacheKeys;
     }
 
     public int getTTL() {
@@ -103,8 +97,49 @@ public class EVCacheEvent {
 
     @Override
     public int hashCode() {
-        return canonicalKeys.hashCode();
+        return evcKeys.hashCode();
     }
+
+    /**
+     * @deprecated  replaced by {@link #getEVCacheKeys()}
+     */
+    @Deprecated
+    public Collection<String> getKeys() {
+        if(evcKeys == null || evcKeys.size() == 0) return Collections.<String>emptyList();
+
+        final Collection<String> keyList = new ArrayList<String>(evcKeys.size());
+        for(EVCacheKey key : evcKeys) {
+            keyList.add(key.getKey());
+        }
+        return keyList;
+    }
+
+    /**
+     * @deprecated  replaced by {@link #setEVCacheKeys(Collection)}
+     */
+    @Deprecated 
+    public void setKeys(Collection<String> keys) {
+    }
+
+    /**
+     * @deprecated  replaced by {@link #getEVCacheKeys()}
+     */
+    @Deprecated
+    public Collection<String> getCanonicalKeys() {
+        if(evcKeys == null || evcKeys.size() == 0) return Collections.<String>emptyList();
+
+        final Collection<String> keyList = new ArrayList<String>(evcKeys.size());
+        for(EVCacheKey key : evcKeys) {
+            keyList.add(key.getCanonicalKey());
+        }
+        return keyList;
+    }
+
+    /**
+     * @deprecated  replaced by {@link #setEVCacheKeys(Collection)}
+     */
+    public void setCanonicalKeys(Collection<String> canonicalKeys) {
+    }    
 
     @Override
     public boolean equals(Object obj) {
@@ -127,10 +162,10 @@ public class EVCacheEvent {
             return false;
         if (call != other.call)
             return false;
-        if (canonicalKeys == null) {
-            if (other.canonicalKeys != null)
+        if (evcKeys == null) {
+            if (other.evcKeys != null)
                 return false;
-        } else if (!canonicalKeys.equals(other.canonicalKeys))
+        } else if (!evcKeys.equals(other.evcKeys))
             return false;
         return true;
     }
@@ -138,7 +173,7 @@ public class EVCacheEvent {
     @Override
     public String toString() {
         return "EVCacheEvent [call=" + call + ", appName=" + appName + ", cacheName=" + cacheName + ", Num of Clients="
-                + clients.size() + ", keys=" + keys + ", canonicalKeys=" + canonicalKeys + ", ttl=" + ttl 
+                + clients.size() + ", evcKeys=" + evcKeys + ", ttl=" + ttl 
                 + ", cachedData=" + (cachedData != null ? "[ Flags : " + cachedData.getFlags() + "; Data Array length : " +cachedData.getData().length + "] " : "null") 
                 + ", Attributes=" + data + "]";
     }
