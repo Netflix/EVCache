@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -435,7 +436,7 @@ final public class EVCacheImpl implements EVCache {
             return null; // Fast failure
         }
 
-        int expectedSuccessCount = policyToCount(policy, clients.length);
+        final int expectedSuccessCount = policyToCount(policy, clients.length);
         if(expectedSuccessCount <= 1) return get(key, tc);
 
         final long startTime = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
@@ -451,10 +452,9 @@ final public class EVCacheImpl implements EVCache {
                 if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : APP " + _appName + ", Future " + future + " for key : " + key + " with policy : " + policy + " for client : " + client);
             }
     
-            final List<T> tList = new ArrayList<T>(clients.length);
-            final List<EVCacheClient> clientList = new ArrayList<EVCacheClient>(clients.length);
-            T t = null;
-            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : Total Requests " + clientList.size() + "; Expected Success Count : " + expectedSuccessCount);
+            final Map<T, List<EVCacheClient>> evcacheClientMap = new HashMap<T, List<EVCacheClient>>();
+            //final Map<T, Integer> tMap = new HashMap<T,Integer>();
+            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : Total Requests " + clients.length + "; Expected Success Count : " + expectedSuccessCount);
             for(Future<T> future : futureList) {
                 try {
                     if(future instanceof EVCacheOperationFuture) {
@@ -462,36 +462,34 @@ final public class EVCacheImpl implements EVCache {
                         long duration = endTime - System.currentTimeMillis();
                         if(duration < 20) duration = 20;
                         if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : block duration : " + duration);
-                        t = evcacheOperationFuture.get(duration, TimeUnit.MILLISECONDS, throwExc, false);
+                        final T t = evcacheOperationFuture.get(duration, TimeUnit.MILLISECONDS, throwExc, false);
                         if (log.isTraceEnabled() && shouldLog()) log.trace("GET : CONSISTENT : value : " + t);
                         if(t != null) {
-                            boolean added = tList.isEmpty();
-                            for(int i = 0; i < tList.size(); i++) {
-                                if(t.equals(tList.get(i))) {
-                                    if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : The value was found to be equal to existing value.");
-                                    --expectedSuccessCount;
-                                    added = true;
-                                    break;
-                                }
-                            }
-                            if(!added) clientList.add(evcacheOperationFuture.getEVCacheClient());
-                            tList.add(t);
+                            final List<EVCacheClient> cList = evcacheClientMap.computeIfAbsent(t, k -> new ArrayList<EVCacheClient>(clients.length));
+                            cList.add(evcacheOperationFuture.getEVCacheClient());
+                            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : Added Client to ArrayList " + cList);
                         }
-                        if(expectedSuccessCount == 0) break;
                     }
                 } catch (Exception e) {
                     log.error("Exception",e);
                 }
             }
-            /*
-             * use metaget to get TTL and set it
-            if(clientList.size() > 0 && expectedSuccessCount == 0) {
-                for(EVCacheClient client : clientList) client.set(key, t, timeToLive) 
+            T retVal = null;
+             /* TODO : use metaget to get TTL and set it. For now we will delete the inconsistent value */
+            for(Entry<T, List<EVCacheClient>> entry : evcacheClientMap.entrySet()) {
+                if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : Existing Count for Value : " + entry.getValue().size() + "; expectedSuccessCount : " + expectedSuccessCount);
+                if(entry.getValue().size() >= expectedSuccessCount) {
+                    retVal = entry.getKey();
+                } else {
+                    for(EVCacheClient client : entry.getValue()) {
+                        if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : Delete in-consistent vale from : " + client);
+                        client.delete(key);
+                    }
+                }
             }
-            */
-            if(expectedSuccessCount == 0) {
+            if(retVal != null) {
                 if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : policy : " + policy + " was met. Will return the value. Total Duration : " + (System.currentTimeMillis() - startTime) + " milli Seconds.");
-                return t;
+                return retVal;
             }
             if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : policy : " + policy + " was NOT met. Will return NULL. Total Duration : " + (System.currentTimeMillis() - startTime) + " milli Seconds.");
             return null;
