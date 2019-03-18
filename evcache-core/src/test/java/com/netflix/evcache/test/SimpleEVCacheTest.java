@@ -4,6 +4,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -11,14 +12,17 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.BasicConfigurator;
+import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
 import com.netflix.evcache.EVCache;
 import com.netflix.evcache.EVCacheImpl;
+import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
@@ -33,35 +37,34 @@ public class SimpleEVCacheTest extends Base {
 
     public static void main(String args[]) {
         SimpleEVCacheTest test = new SimpleEVCacheTest();
-        //System.setProperty("EVCACHE-NODES",args[0]);
         test.setProps();
+        test.setupEnv();
         test.testAll();
     }
 
     @BeforeSuite
     public void setProps() {
-        BasicConfigurator.configure();
+        BasicConfigurator.resetConfiguration();
+        BasicConfigurator.configure(new ConsoleAppender(new PatternLayout("%d{HH:mm:ss,SSS} [%t] %p %c %x - %m%n")));
         Logger.getRootLogger().setLevel(Level.INFO);
         Logger.getLogger(SimpleEVCacheTest.class).setLevel(Level.DEBUG);
         Logger.getLogger(Base.class).setLevel(Level.DEBUG);
-        Logger.getLogger(EVCacheImpl.class).setLevel(Level.ERROR);
+        Logger.getLogger(EVCacheImpl.class).setLevel(Level.DEBUG);
         Logger.getLogger(EVCacheClient.class).setLevel(Level.DEBUG);
         Logger.getLogger(EVCacheClientPool.class).setLevel(Level.DEBUG);
-        System.setProperty("EVCACHE_TEST.use.simple.node.list.provider", "true");
-        System.setProperty("EVCACHE_TEST-NODES", "EVCACHE_TEST-1=100.67.72.124:11211;EVCACHE_TEST-2=100.67.71.172:11211;");
-        System.setProperty("EVCACHE_TEST.EVCacheClientPool.readTimeout", "100000");
-        System.setProperty("EVCACHE_TEST.EVCacheClientPool.bulkReadTimeout", "10000");
-        System.setProperty("EVCACHE_TEST..max.read.queue.length", "100");
-        System.setProperty("EVCACHE_TEST.operation.timeout", "10000");
-        System.setProperty("EVCACHE_TEST.throw.exception", "false");
-        System.setProperty("EVCACHE_TEST.chunk.data", "false");
-        //System.setProperty("EVCACHE_TEST.chunk.size", "1180");
+
+        final Properties props = getProps();
+        props.setProperty("EVCACHE_TEST.use.simple.node.list.provider", "true");
+        props.setProperty("EVCACHE_TEST.EVCacheClientPool.readTimeout", "1000");
+        props.setProperty("EVCACHE_TEST.EVCacheClientPool.bulkReadTimeout", "1000");
+        props.setProperty("EVCACHE_TEST.max.read.queue.length", "100");
+        props.setProperty("EVCACHE_TEST.operation.timeout", "10000");
+        props.setProperty("EVCACHE_TEST.throw.exception", "false");
 
         int maxThreads = 2;
         final BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>(100000);
         pool = new ThreadPoolExecutor(maxThreads * 4, maxThreads * 4, 30, TimeUnit.SECONDS, queue);
         pool.prestartAllCoreThreads();
-
     }
 
     public SimpleEVCacheTest() {
@@ -69,7 +72,6 @@ public class SimpleEVCacheTest extends Base {
 
     @BeforeSuite(dependsOnMethods = { "setProps" })
     public void setupClusterDetails() {
-        System.setProperty("EVCACHE-NODES","evcache-useast1d-v000=100.66.36.72:11211");
         manager = EVCacheClientPoolManager.getInstance();
     }
     
@@ -82,10 +84,11 @@ public class SimpleEVCacheTest extends Base {
             boolean flag = true;
             while (flag) {
                 try {
-                    testAdd();
-//                    testInsert();
-////                    testAppend();
-//                    testGet();
+//                    testAdd();
+                    testInsert();
+//                    testAppend();
+                    testGet();
+                    testGetWithPolicy();
 //                    testGetObservable();
 //                    testGetAndTouch();
 //                    testBulk();
@@ -112,6 +115,7 @@ public class SimpleEVCacheTest extends Base {
 
     @BeforeSuite
     public void setupEnv() {
+        super.setupEnv();
     }
 
     protected EVCache evCache = null;
@@ -133,7 +137,7 @@ public class SimpleEVCacheTest extends Base {
     public void testInsert() throws Exception {
         for (int i = 0; i < 10; i++) {
             assertTrue(insert(i, evCache), "SET : Following Index failed - " + i + " for evcache - " + evCache);
-            insert(i, evCache);
+            //insert(i, evCache);
         }
     }
 
@@ -148,11 +152,19 @@ public class SimpleEVCacheTest extends Base {
     public void testGet() throws Exception {
         for (int i = 0; i < 10; i++) {
             final String val = get(i, evCache);
-            // assertNotNull(val);
+            assertNotNull(val);
         }
     }
 
     @Test(dependsOnMethods = { "testGet" })
+    public void testGetWithPolicy() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            final String val = getWithPolicy(i, evCache, Policy.QUORUM);
+            assertNotNull(val);
+        }
+    }
+
+    @Test(dependsOnMethods = { "testGetWithPolicy" })
     public void testGetAndTouch() throws Exception {
         for (int i = 0; i < 10; i++) {
             final String val = getAndTouch(i, evCache);

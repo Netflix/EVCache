@@ -3,6 +3,7 @@ package com.netflix.evcache.test;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -44,10 +45,19 @@ public abstract class Base  {
     private static final Logger log = LoggerFactory.getLogger(Base.class);
     protected EVCache evCache = null;
     protected EVCacheClientPoolManager manager = null;
+    protected Properties props = null;
 
+    
     protected Properties getProps() {
+        if(props != null) return props;
+        props = new Properties();
+        initProps();
+        return props;
+    }
+    
+    protected void initProps() {
+    
         String hostname = System.getenv("EC2_HOSTNAME");
-        Properties props = new Properties();
         if(hostname == null) {
             props.setProperty("eureka.datacenter", "datacenter");//change to ndc while running on desktop
             props.setProperty("eureka.validateInstanceId","false");
@@ -59,19 +69,10 @@ public abstract class Base  {
         }
 
         props.setProperty("eureka.environment", "test");
-        System.setProperty("eureka.region", "us-east-1");
-        System.setProperty("@region", "us-east-1");
-        System.setProperty("@environment", "test");
         props.setProperty("eureka.region", "us-east-1");
         props.setProperty("eureka.appid", "clatency");
-        props.setProperty("eureka.serviceUrl.default","http://${eureka.region}.discovery${eureka.environment}.netflix.net:7001/discovery/v2/");
         props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheNodeLocator", "ERROR");
         props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheClientUtil", "ERROR");
-
-        return props;
-    }
-
-    public void setupTest(Properties props) {
     }
 
     @BeforeSuite
@@ -79,6 +80,9 @@ public abstract class Base  {
         Properties props = getProps();
 
         try {
+            for(Entry<Object, Object> prop : props.entrySet()) {
+                System.setProperty(prop.getKey().toString(), prop.getValue().toString());
+            }
             ConfigurationManager.loadProperties(props);
         } catch (Throwable e) {
             e.printStackTrace();
@@ -214,6 +218,13 @@ public abstract class Base  {
         String key = "key_" + i;
         String value = gCache.<String>get(key);
         if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
+        return value;
+    }
+
+    public String getWithPolicy(int i, EVCache gCache, Policy policy) throws Exception {
+        String key = "key_" + i;
+        String value = gCache.<String>get(key, null, policy);
+        if(log.isDebugEnabled()) log.debug("get with Policy : key : " + key + " val = " + value);
         return value;
     }
 

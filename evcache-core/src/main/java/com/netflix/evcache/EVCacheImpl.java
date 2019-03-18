@@ -436,51 +436,75 @@ final public class EVCacheImpl implements EVCache {
         }
 
         int expectedSuccessCount = policyToCount(policy, clients.length);
+        if(expectedSuccessCount <= 1) return get(key, tc);
 
-        final List<Future<T>> futureList = new ArrayList<Future<T>>(clients.length);
-        final long endTime = System.currentTimeMillis() + _pool.getReadTimeout().get().intValue();
-        for (EVCacheClient client : clients) {
-            final Future<T> future = getGetFuture(client, key, tc, throwExc);
-            futureList.add(future);
-            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : APP " + _appName + ", Future " + future + " for key : " + key + " with policy : " + policy);
-        }
-
-        final List<T> tList = new ArrayList<T>(clients.length);
-        final List<EVCacheClient> clientList = new ArrayList<EVCacheClient>(clients.length);
-        T t = null;
-        for(Future<T> future : futureList) {
-            try {
-                if(future instanceof EVCacheOperationFuture) {
-                    EVCacheOperationFuture<T> evcacheOperationFuture = (EVCacheOperationFuture<T>)future;
-                    long duration = endTime - System.currentTimeMillis();
-                    if(duration < 20) duration = 20;
-                    t = evcacheOperationFuture.get(duration, TimeUnit.MILLISECONDS, throwExc, false);
-                    if(t != null) {
-                        boolean added = tList.isEmpty();
-                        for(int i = 0; i < tList.size(); i++) {
-                            if(t.equals(tList.get(i))) {
-                                --expectedSuccessCount;
-                                added = true;
-                                break;
-                            }
-                        }
-                        if(!added) clientList.add(evcacheOperationFuture.getEVCacheClient());
-                        tList.add(t);
-                    }
-                    if(expectedSuccessCount == 0) break;
-                }
-            } catch (Exception e) {
-                log.error("Exception",e);
+        final long startTime = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
+        String status = EVCacheMetricsFactory.SUCCESS;
+        String cacheOperation = EVCacheMetricsFactory.YES;
+        int tries = 1;
+        try {
+            final List<Future<T>> futureList = new ArrayList<Future<T>>(clients.length);
+            final long endTime = startTime + _pool.getReadTimeout().get().intValue();
+            for (EVCacheClient client : clients) {
+                final Future<T> future = getGetFuture(client, key, tc, throwExc);
+                futureList.add(future);
+                if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : APP " + _appName + ", Future " + future + " for key : " + key + " with policy : " + policy + " for client : " + client);
             }
+    
+            final List<T> tList = new ArrayList<T>(clients.length);
+            final List<EVCacheClient> clientList = new ArrayList<EVCacheClient>(clients.length);
+            T t = null;
+            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : Total Requests " + clientList.size() + "; Expected Success Count : " + expectedSuccessCount);
+            for(Future<T> future : futureList) {
+                try {
+                    if(future instanceof EVCacheOperationFuture) {
+                        EVCacheOperationFuture<T> evcacheOperationFuture = (EVCacheOperationFuture<T>)future;
+                        long duration = endTime - System.currentTimeMillis();
+                        if(duration < 20) duration = 20;
+                        if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : block duration : " + duration);
+                        t = evcacheOperationFuture.get(duration, TimeUnit.MILLISECONDS, throwExc, false);
+                        if (log.isTraceEnabled() && shouldLog()) log.trace("GET : CONSISTENT : value : " + t);
+                        if(t != null) {
+                            boolean added = tList.isEmpty();
+                            for(int i = 0; i < tList.size(); i++) {
+                                if(t.equals(tList.get(i))) {
+                                    if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : The value was found to be equal to existing value.");
+                                    --expectedSuccessCount;
+                                    added = true;
+                                    break;
+                                }
+                            }
+                            if(!added) clientList.add(evcacheOperationFuture.getEVCacheClient());
+                            tList.add(t);
+                        }
+                        if(expectedSuccessCount == 0) break;
+                    }
+                } catch (Exception e) {
+                    log.error("Exception",e);
+                }
+            }
+            /*
+             * use metaget to get TTL and set it
+            if(clientList.size() > 0 && expectedSuccessCount == 0) {
+                for(EVCacheClient client : clientList) client.set(key, t, timeToLive) 
+            }
+            */
+            if(expectedSuccessCount == 0) {
+                if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : policy : " + policy + " was met. Will return the value. Total Duration : " + (System.currentTimeMillis() - startTime) + " milli Seconds.");
+                return t;
+            }
+            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : policy : " + policy + " was NOT met. Will return NULL. Total Duration : " + (System.currentTimeMillis() - startTime) + " milli Seconds.");
+            return null;
+        } catch (Exception ex) {
+            status = EVCacheMetricsFactory.ERROR;
+            if (!throwExc) return null;
+            throw new EVCacheException("Exception getting data for APP " + _appName + ", key = " + key, ex);
+        } finally {
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- startTime;
+            getTimer(Call.GET_ALL.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries, maxReadDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
+            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : APP " + _appName + ", Took " + duration + " milliSec.");
         }
-        /*
-         * use metaget to get TTL and set it
-        if(clientList.size() > 0 && expectedSuccessCount == 0) {
-            for(EVCacheClient client : clientList) client.set(key, t, timeToLive) 
-        }
-        */
-        if(expectedSuccessCount == 0) return t;
-        return null;
+        
     }
 
     public <T> Single<T> get(String key, Scheduler scheduler) {
