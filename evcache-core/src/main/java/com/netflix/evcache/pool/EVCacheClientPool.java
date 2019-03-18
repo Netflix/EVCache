@@ -212,6 +212,34 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
+    public List<EVCacheClient> getAllEVCacheClientForRead() {
+        if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
+            if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
+            if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
+            return Collections.<EVCacheClient> emptyList();
+        }
+
+        try {
+            List<EVCacheClient> clients = null;
+            if (localServerGroupIterator != null) {
+                clients = memcachedReadInstancesByServerGroup.get(localServerGroupIterator.next());
+            }
+
+            if (clients == null) {
+                final ServerGroup fallbackServerGroup = memcachedFallbackReadInstances.next();
+                if (fallbackServerGroup == null) {
+                    if (log.isDebugEnabled()) log.debug("fallbackServerGroup is null.");
+                    return Collections.<EVCacheClient> emptyList();
+                }
+                clients = memcachedReadInstancesByServerGroup.get(fallbackServerGroup);
+            }
+            return clients;
+        } catch (Throwable t) {
+            log.error("Exception trying to get readable EVCache Instances for zone ", t);
+            return Collections.<EVCacheClient> emptyList();
+        }
+    }
+
     private EVCacheClient selectClient(List<EVCacheClient> clients) {
         if (clients == null || clients.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("clients is null returning null and forcing pool refresh!!!");

@@ -398,6 +398,91 @@ final public class EVCacheImpl implements EVCache {
         }
     }
 
+    private int policyToCount(Policy policy, int count) {
+        if (policy == null) return 0;
+        switch (policy) {
+        case NONE:
+            return 0;
+        case ONE:
+            return 1;
+        case QUORUM:
+            if (count == 0)
+                return 0;
+            else if (count <= 2)
+                return count;
+            else
+                return (count / 2) + 1;
+        case ALL_MINUS_1:
+            if (count == 0)
+                return 0;
+            else if (count <= 2)
+                return 1;
+            else
+                return count - 1;
+        default:
+            return count;
+        }
+    }
+
+    public <T> T get(String key, Transcoder<T> tc, Policy policy) throws EVCacheException {
+        if (null == key) throw new IllegalArgumentException();
+
+        final boolean throwExc = doThrowException();
+        final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
+        if (clients.length == 0) {
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            if (throwExc) throw new EVCacheException("Could not find a client to asynchronously get the data");
+            return null; // Fast failure
+        }
+
+        int expectedSuccessCount = policyToCount(policy, clients.length);
+
+        final List<Future<T>> futureList = new ArrayList<Future<T>>(clients.length);
+        final long endTime = System.currentTimeMillis() + _pool.getReadTimeout().get().intValue();
+        for (EVCacheClient client : clients) {
+            final Future<T> future = getGetFuture(client, key, tc, throwExc);
+            futureList.add(future);
+            if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : APP " + _appName + ", Future " + future + " for key : " + key + " with policy : " + policy);
+        }
+
+        final List<T> tList = new ArrayList<T>(clients.length);
+        final List<EVCacheClient> clientList = new ArrayList<EVCacheClient>(clients.length);
+        T t = null;
+        for(Future<T> future : futureList) {
+            try {
+                if(future instanceof EVCacheOperationFuture) {
+                    EVCacheOperationFuture<T> evcacheOperationFuture = (EVCacheOperationFuture<T>)future;
+                    long duration = endTime - System.currentTimeMillis();
+                    if(duration < 20) duration = 20;
+                    t = evcacheOperationFuture.get(duration, TimeUnit.MILLISECONDS, throwExc, false);
+                    if(t != null) {
+                        boolean added = tList.isEmpty();
+                        for(int i = 0; i < tList.size(); i++) {
+                            if(t.equals(tList.get(i))) {
+                                --expectedSuccessCount;
+                                added = true;
+                                break;
+                            }
+                        }
+                        if(!added) clientList.add(evcacheOperationFuture.getEVCacheClient());
+                        tList.add(t);
+                    }
+                    if(expectedSuccessCount == 0) break;
+                }
+            } catch (Exception e) {
+                log.error("Exception",e);
+            }
+        }
+        /*
+         * use metaget to get TTL and set it
+        if(clientList.size() > 0 && expectedSuccessCount == 0) {
+            for(EVCacheClient client : clientList) client.set(key, t, timeToLive) 
+        }
+        */
+        if(expectedSuccessCount == 0) return t;
+        return null;
+    }
+
     public <T> Single<T> get(String key, Scheduler scheduler) {
         return this.get(key, (Transcoder<T>) _transcoder, scheduler);
     }
@@ -897,6 +982,10 @@ final public class EVCacheImpl implements EVCache {
             return null; // Fast failure
         }
 
+        return getGetFuture(client, key, tc, throwExc);
+    }
+
+    private <T> Future<T> getGetFuture(final EVCacheClient client, final String key, final Transcoder<T> tc, final boolean throwExc) throws EVCacheException { 
         final EVCacheKey evcKey = getEVCacheKey(key);
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Call.ASYNC_GET);
         if (event != null) {
@@ -914,7 +1003,6 @@ final public class EVCacheImpl implements EVCache {
             }
             startEvent(event);
         }
-
         final Future<T> r;
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         try {
