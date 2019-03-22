@@ -281,6 +281,18 @@ final public class EVCacheImpl implements EVCache {
         counter.increment();
     }
 
+    private void incrementFailure(String metric) {
+        Counter counter = counterMap.get(metric);
+        if(counter == null) {
+            final List<Tag> tagList = new ArrayList<Tag>(tags.size() + 1);
+            tagList.addAll(tags);
+            tagList.add(new BasicTag(EVCacheMetricsFactory.FAILURE_REASON, metric));
+            counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_FAIL, tagList);
+            counterMap.put(metric, counter);
+        }
+        counter.increment();
+    }
+
     public <T> T get(String key, Transcoder<T> tc) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException("Key cannot be null");
         final EVCacheKey evcKey = getEVCacheKey(key);
@@ -590,6 +602,10 @@ final public class EVCacheImpl implements EVCache {
                 final Object obj = client.get(evcKey.getHashKey(), evcacheValueTranscoder, throwException, hasZF);
                 if(obj != null && obj instanceof EVCacheValue) {
                     final EVCacheValue val = (EVCacheValue)obj;
+                    if(!val.getKey().equals(evcKey.getCanonicalKey())) {
+                        incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION);
+                        return null;
+                    }
                     final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
                     return transcoder.decode(cd);
                 } else {
@@ -1056,6 +1072,10 @@ final public class EVCacheImpl implements EVCache {
                     private T getFromObj(Object obj) {
                         if(obj != null && obj instanceof EVCacheValue) {
                             final EVCacheValue val = (EVCacheValue)obj;
+                            if(!val.getKey().equals(evcKey.getCanonicalKey())) {
+                                incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION);
+                                return null;
+                            }
                             final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
                             final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
                             return transcoder.decode(cd);

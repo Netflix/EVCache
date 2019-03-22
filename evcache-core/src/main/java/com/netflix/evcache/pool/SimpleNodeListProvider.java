@@ -50,6 +50,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
             String propEnv = null;
             if(propEnv == null) propEnv = System.getProperty("@environment");
             if(propEnv == null) propEnv = System.getProperty("eureka.environment");
+            if(propEnv == null) propEnv = System.getProperty("netflix.environment");
             env = propEnv;
         }
 
@@ -60,6 +61,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
             String propRegion = null;
             if(propRegion == null) propRegion = System.getProperty("@region");
             if(propRegion == null) propRegion = System.getProperty("eureka.region");
+            if(propRegion == null) propRegion = System.getProperty("netflix.region");
             region = propRegion;
         }
 
