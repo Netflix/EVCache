@@ -1714,13 +1714,16 @@ final public class EVCacheImpl implements EVCache {
         String status = EVCacheMetricsFactory.SUCCESS;
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
 
+        long currentValue = -1;
         try {
             final long[] vals = new long[clients.length];
             int index = 0;
-            long currentValue = -1;
             for (EVCacheClient client : clients) {
                 vals[index] = client.incr(hashKey.get() ? evcKey.getHashKey() : evcKey.getCanonicalKey(), by, defaultVal, timeToLive);
-                if (vals[index] != -1 && currentValue < vals[index]) currentValue = vals[index];
+                if (vals[index] != -1 && currentValue < vals[index]) {
+                    currentValue = vals[index];
+                    if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + " current value = " + currentValue + " for key : " + key + " from client : " + client);
+                }
                 index++;
             }
 
@@ -1733,7 +1736,7 @@ final public class EVCacheImpl implements EVCache {
                                 + " had a value = -1 so setting it to current value = " + currentValue + " for key : " + key);
                         clients[i].incr(hashKey.get() ? evcKey.getHashKey() : evcKey.getCanonicalKey(), 0, currentValue, timeToLive);
                     } else if (vals[i] != currentValue) {
-                        if(cd == null) cd = clients[i].getTranscoder().encode(currentValue);
+                        if(cd == null) cd = clients[i].getTranscoder().encode(String.valueOf(currentValue));
                         if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + "; Zone " + clients[i].getZone()
                                 + " had a value of " + vals[i] + " so setting it to current value = " + currentValue + " for key : " + key);
                         clients[i].set(hashKey.get() ? evcKey.getHashKey() : evcKey.getCanonicalKey(), cd, timeToLive);
@@ -1741,6 +1744,7 @@ final public class EVCacheImpl implements EVCache {
                 }
             }
             if (event != null) endEvent(event);
+            if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + " returning value = " + currentValue + " for key : " + key);
             return currentValue;
         } catch (Exception ex) {
             status = EVCacheMetricsFactory.ERROR;
@@ -1752,7 +1756,7 @@ final public class EVCacheImpl implements EVCache {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.INCR.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("INCR : APP " + _appName + ", Took " + duration
-                    + " milliSec for key : " + key);
+                    + " milliSec for key : " + key + " with value as " + currentValue);
         }
     }
 
@@ -1789,14 +1793,16 @@ final public class EVCacheImpl implements EVCache {
 
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         String status = EVCacheMetricsFactory.SUCCESS;
-
+        long currentValue = -1;
         try {
             final long[] vals = new long[clients.length];
             int index = 0;
-            long currentValue = -1;
             for (EVCacheClient client : clients) {
                 vals[index] = client.decr(hashKey.get() ? evcKey.getHashKey() : evcKey.getCanonicalKey(), by, defaultVal, timeToLive);
-                if (vals[index] != -1 && currentValue < vals[index]) currentValue = vals[index];
+                if (vals[index] != -1 && currentValue < vals[index]) {
+                    currentValue = vals[index];
+                    if (log.isDebugEnabled()) log.debug("DECR : APP " + _appName + " current value = " + currentValue + " for key : " + key + " from client : " + client);
+                }
                 index++;
             }
 
@@ -1821,6 +1827,7 @@ final public class EVCacheImpl implements EVCache {
             }
 
             if (event != null) endEvent(event);
+            if (log.isDebugEnabled()) log.debug("DECR : APP " + _appName + " returning value = " + currentValue + " for key : " + key);
             return currentValue;
         } catch (Exception ex) {
             status = EVCacheMetricsFactory.ERROR;
@@ -1831,7 +1838,7 @@ final public class EVCacheImpl implements EVCache {
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.DECR.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
-            if (log.isDebugEnabled() && shouldLog()) log.debug("DECR : APP " + _appName + ", Took " + duration + " milliSec for key : " + key);
+            if (log.isDebugEnabled() && shouldLog()) log.debug("DECR : APP " + _appName + ", Took " + duration + " milliSec for key : " + key + " with value as " + currentValue);
         }
     }
 
