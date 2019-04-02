@@ -1117,7 +1117,7 @@ final public class EVCacheImpl implements EVCache {
                     hashedKeyList.add(evcKey.getHashKey());
                 }
                 final Map<String, Object> objMap = client.getBulk(hashedKeyList, evcacheValueTranscoder, throwException, hasZF);
-                if(objMap != null && !objMap.isEmpty()) return Collections.<String, T> emptyMap();
+                if(objMap == null || objMap.isEmpty()) return Collections.<String, T> emptyMap();
 
                 final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
                 final Map<String, T> retMap = new HashMap<String, T>((int)(objMap.size()/0.75) + 1); 
@@ -1315,7 +1315,7 @@ final public class EVCacheImpl implements EVCache {
                         partialHit = true;
                         // this ensures the fallback was tried
                         decanonicalR.put(deCanKey, null);
-                    } 
+                    }
                 }
             } else {
                 for (Iterator<EVCacheKey> itr = evcKeys.iterator(); itr.hasNext();) {
