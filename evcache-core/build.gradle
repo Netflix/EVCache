@@ -42,13 +42,3 @@ dependencies {
 javadoc {
     failOnError = false
 }
-
-task buildZip(type: Zip) {
-    from compileJava
-    from processResources
-    into('lib') {
-        from configurations.runtime
-    }           
-}
-
-build.dependsOn buildZip
