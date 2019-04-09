@@ -1169,37 +1169,6 @@ final public class EVCacheImpl implements EVCache {
                     decanonicalR.put(deCanKey, null);
                 } 
             }
-//            if(hashKey.get()) {
-//                for (Iterator<EVCacheKey> itr = evcKeys.iterator(); itr.hasNext();) {
-//                    final EVCacheKey key = itr.next();
-//                    final String deCanKey = key.getKey();
-//                    final T value = retMap.get(key);
-//                    if (value != null) {
-//                        decanonicalR.put(deCanKey, value);
-//                        if (touch) touchData(key, ttl);
-//                        decanonicalHitKeys.add(deCanKey);
-//                    } else {
-//                        partialHit = true;
-//                        // this ensures the fallback was tried
-//                        decanonicalR.put(deCanKey, null);
-//                    } 
-//                }
-//            } else {
-//                for (Iterator<EVCacheKey> itr = evcKeys.iterator(); itr.hasNext();) {
-//                    final EVCacheKey key = itr.next();
-//                    final T value = retMap.get(key);
-//                    final String deCanKey = key.getKey();
-//                    if (value != null) {
-//                        decanonicalR.put(deCanKey, value);
-//                        if (touch) touchData(key, ttl);
-//                        decanonicalHitKeys.add(deCanKey);
-//                    } else {
-//                        partialHit = true;
-//                        // this ensures the fallback was tried
-//                        decanonicalR.put(deCanKey, null);
-//                    } 
-//                }
-//            }
             if (!decanonicalR.isEmpty()) {
                 if (!partialHit) {
                     stats.cacheHit(Call.BULK);
