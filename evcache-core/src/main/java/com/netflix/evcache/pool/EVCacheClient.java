@@ -1768,7 +1768,7 @@ public class EVCacheClient {
                 printWriter.flush();
 
                 bufferedReader = new BufferedInputStream(socket.getInputStream());
-                while(isDataAvailableForRead(bufferedReader, waitInSec, TimeUnit.SECONDS)) {
+                while(isDataAvailableForRead(bufferedReader, waitInSec, TimeUnit.SECONDS, socket)) {
                     int read = bufferedReader.read(array);
                     if (log.isDebugEnabled()) log.debug("Number of bytes read = " +read);
                     if(read > 0) {
@@ -1830,15 +1830,22 @@ public class EVCacheClient {
         return keyList;
     }
 
-    private boolean isDataAvailableForRead(BufferedInputStream bufferedReader, long timeout, TimeUnit unit) throws IOException {
+    private boolean isDataAvailableForRead(BufferedInputStream bufferedReader, long timeout, TimeUnit unit, Socket socket) throws IOException {
         long expiry = System.currentTimeMillis() + unit.toMillis(timeout);
+        int tryCount = 0;
         while(expiry > System.currentTimeMillis()) {
+            if(log.isDebugEnabled()) log.debug("For Socket " + socket + " number of bytes available = " + bufferedReader.available() + " and try number is " + tryCount);
             if(bufferedReader.available() > 0) {
                 return true;
             }
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
+            if(tryCount++ < 5) {
+                try {
+                    if(log.isDebugEnabled()) log.debug("Sleep for 100 msec");
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                }
+            } else {
+                return false;
             }
         }
         return false;
