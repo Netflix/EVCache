@@ -1,5 +1,26 @@
 package com.netflix.evcache.pool.eureka;
 
+import com.google.common.net.InetAddresses;
+import com.netflix.appinfo.AmazonInfo;
+import com.netflix.appinfo.ApplicationInfoManager;
+import com.netflix.appinfo.DataCenterInfo;
+import com.netflix.appinfo.InstanceInfo;
+import com.netflix.appinfo.InstanceInfo.InstanceStatus;
+import com.netflix.config.ChainedDynamicProperty;
+import com.netflix.config.DynamicBooleanProperty;
+import com.netflix.config.DynamicStringSetProperty;
+import com.netflix.discovery.EurekaClient;
+import com.netflix.discovery.shared.Application;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.pool.EVCacheNodeList;
+import com.netflix.evcache.pool.EVCacheServerGroupConfig;
+import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Tag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -11,46 +32,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.net.InetAddresses;
-import com.netflix.appinfo.AmazonInfo;
-import com.netflix.appinfo.ApplicationInfoManager;
-import com.netflix.appinfo.DataCenterInfo;
-import com.netflix.appinfo.InstanceInfo;
-import com.netflix.appinfo.InstanceInfo.InstanceStatus;
-import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.config.DynamicBooleanProperty;
-import com.netflix.config.DynamicStringSetProperty;
-import com.netflix.discovery.DiscoveryClient;
-import com.netflix.discovery.shared.Application;
-import com.netflix.evcache.metrics.EVCacheMetricsFactory;
-import com.netflix.evcache.pool.EVCacheNodeList;
-import com.netflix.evcache.pool.EVCacheServerGroupConfig;
-import com.netflix.evcache.pool.ServerGroup;
-import com.netflix.evcache.util.EVCacheConfig;
-import com.netflix.spectator.api.BasicTag;
-import com.netflix.spectator.api.Tag;
-
 public class EurekaNodeListProvider implements EVCacheNodeList {
     public static final String DEFAULT_PORT = "11211";
     public static final String DEFAULT_SECURE_PORT = "11443";
 
     private static Logger log = LoggerFactory.getLogger(EurekaNodeListProvider.class);
-    private final DiscoveryClient _discoveryClient;
+    private final EurekaClient _eurekaClient;
     private final ApplicationInfoManager applicationInfoManager;
     private final Map<String, ChainedDynamicProperty.BooleanProperty> useRendBatchPortMap = new HashMap<String, ChainedDynamicProperty.BooleanProperty>();
     private DynamicStringSetProperty ignoreHosts = null;
 
-    public EurekaNodeListProvider(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient) {
+    public EurekaNodeListProvider(ApplicationInfoManager applicationInfoManager, EurekaClient eurekaClient) {
         this.applicationInfoManager = applicationInfoManager;
-        this._discoveryClient = discoveryClient ;
+        this._eurekaClient = eurekaClient;
     }
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.netflix.evcache.pool.EVCacheNodeList#discoverInstances()
      */
     @Override
@@ -60,7 +59,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
         }
 
         /* Get a list of EVCACHE instances from the DiscoveryManager */
-        final Application app = _discoveryClient.getApplication(_appName);
+        final Application app = _eurekaClient.getApplication(_appName);
         if (app == null) return Collections.<ServerGroup, EVCacheServerGroupConfig> emptyMap();
 
         final List<InstanceInfo> appInstances = app.getInstances();

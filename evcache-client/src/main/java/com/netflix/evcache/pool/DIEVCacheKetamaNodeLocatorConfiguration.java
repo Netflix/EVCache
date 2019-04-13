@@ -1,26 +1,24 @@
 package com.netflix.evcache.pool;
 
+import com.netflix.appinfo.InstanceInfo;
+import com.netflix.discovery.EurekaClient;
+import com.netflix.discovery.shared.Application;
+import net.spy.memcached.MemcachedNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.netflix.appinfo.InstanceInfo;
-import com.netflix.discovery.DiscoveryClient;
-import com.netflix.discovery.shared.Application;
-
-import net.spy.memcached.MemcachedNode;
-
 public class DIEVCacheKetamaNodeLocatorConfiguration extends EVCacheKetamaNodeLocatorConfiguration {
 
     private static Logger log = LoggerFactory.getLogger(DIEVCacheKetamaNodeLocatorConfiguration.class);
-    private final DiscoveryClient discoveryClient;
+    private final EurekaClient eurekaClient;
 
-    public DIEVCacheKetamaNodeLocatorConfiguration(EVCacheClient client, DiscoveryClient discoveryClient) {
+    public DIEVCacheKetamaNodeLocatorConfiguration(EVCacheClient client, EurekaClient eurekaClient) {
         super(client);
-        this.discoveryClient = discoveryClient;
+        this.eurekaClient = eurekaClient;
     }
 
     /**
@@ -38,8 +36,8 @@ public class DIEVCacheKetamaNodeLocatorConfiguration extends EVCacheKetamaNodeLo
             final SocketAddress socketAddress = node.getSocketAddress();
             if(socketAddress instanceof InetSocketAddress) {
                 final InetSocketAddress isa = (InetSocketAddress)socketAddress;
-                if(discoveryClient != null ) {
-                    final Application app = discoveryClient.getApplication(client.getAppName());
+                if(eurekaClient != null ) {
+                    final Application app = eurekaClient.getApplication(client.getAppName());
                     if(app != null) {
                         final List<InstanceInfo> instances = app.getInstances();
                         for(InstanceInfo info : instances) {
@@ -70,6 +68,6 @@ public class DIEVCacheKetamaNodeLocatorConfiguration extends EVCacheKetamaNodeLo
 
     @Override
     public String toString() {
-        return "DIEVCacheKetamaNodeLocatorConfiguration [" + super.toString() + ", DiscoveryClient=" + discoveryClient + "]";
+        return "DIEVCacheKetamaNodeLocatorConfiguration [" + super.toString() + ", EurekaClient=" + eurekaClient + "]";
     }
 }

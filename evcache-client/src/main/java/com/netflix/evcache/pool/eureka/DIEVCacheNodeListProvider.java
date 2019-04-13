@@ -2,6 +2,7 @@ package com.netflix.evcache.pool.eureka;
 
 import javax.inject.Provider;
 
+import com.netflix.discovery.EurekaClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,22 +16,22 @@ import com.netflix.evcache.util.EVCacheConfig;
 public class DIEVCacheNodeListProvider implements Provider<EVCacheNodeList> {
 
     private static Logger log = LoggerFactory.getLogger(DIEVCacheNodeListProvider.class);
-    private final DiscoveryClient discoveryClient;
+    private final EurekaClient eurekaClient;
     private final ApplicationInfoManager applicationInfoManager;
 
     @Inject
-    public DIEVCacheNodeListProvider(ApplicationInfoManager applicationInfoManager, DiscoveryClient discoveryClient) {
+    public DIEVCacheNodeListProvider(ApplicationInfoManager applicationInfoManager, EurekaClient eurekaClient) {
         this.applicationInfoManager = applicationInfoManager;
-        this.discoveryClient = discoveryClient;
+        this.eurekaClient = eurekaClient;
     }
 
     @Override
     public EVCacheNodeList get() {
         final EVCacheNodeList provider;
-        if (EVCacheConfig.getInstance().getDynamicBooleanProperty("evcache.use.simple.node.list.provider", false).get()) { 
+        if (EVCacheConfig.getInstance().getDynamicBooleanProperty("evcache.use.simple.node.list.provider", false).get()) {
             provider = new SimpleNodeListProvider();
         } else {
-            provider = new EurekaNodeListProvider(applicationInfoManager, discoveryClient);
+            provider = new EurekaNodeListProvider(applicationInfoManager, eurekaClient);
         }
         if(log.isDebugEnabled()) log.debug("EVCache Node List Provider : " + provider);
         return provider;
