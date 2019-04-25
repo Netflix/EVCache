@@ -1082,13 +1082,6 @@ public interface EVCache {
         private boolean _serverGroupRetry = true;
         private boolean _enableExceptionThrowing = false;
         private List<Customizer> _customizers = new ArrayList<>();
-        private BiFunction<String, String, Object> objectProvider = (fqpn, errorMessage) -> {
-            logger.warn(
-                "Unable to instantiate {}: No object provider set for `EVCache.Builder`. Use `EVCache.Builder.withObjectProvider()` to set the object provider.",
-                fqpn);
-
-            return null;
-        };
 
         @Inject
         private EVCacheClientPoolManager _poolManager;
@@ -1115,12 +1108,6 @@ public interface EVCache {
         public Builder() {
         }
 
-        public Builder withObjectProvider(
-            final BiFunction<String, String, Object> objectProvider) {
-            this.objectProvider = objectProvider;
-
-            return this;
-        }
 
         public Builder withConfigurationProperties(
             final EVCacheClientPoolConfigurationProperties configurationProperties) {
@@ -1128,11 +1115,7 @@ public interface EVCache {
               .setCachePrefix(configurationProperties.getKeyPrefix())
               .setDefaultTTL(configurationProperties.getTimeToLive())
               .setRetry(configurationProperties.getRetryEnabled())
-              .setExceptionThrowing(configurationProperties.getExceptionThrowingEnabled())
-              .setTranscoder((Transcoder<?>) objectProvider.apply(
-                  configurationProperties.getTranscoder(),
-                  "Unable to instantiate Transcoder `" + configurationProperties.getTranscoder()
-                      + "`."));
+              .setExceptionThrowing(configurationProperties.getExceptionThrowingEnabled());
         }
 
         /**
@@ -1373,7 +1356,7 @@ public interface EVCache {
             if (_appName == null) {
                 throw new IllegalArgumentException("param appName cannot be null.");
             }
-            
+
             if(_cachePrefix != null) {
                 for(int i = 0; i < _cachePrefix.length(); i++) {
                     if(Character.isWhitespace(_cachePrefix.charAt(i))){
