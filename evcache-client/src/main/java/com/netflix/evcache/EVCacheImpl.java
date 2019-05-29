@@ -265,7 +265,7 @@ final public class EVCacheImpl implements EVCache {
         if (_useInMemoryCache.get()) {
             T value = null;
             try {
-                value = (T) getInMemoryCache(tc).get(evcKey.getCanonicalKey());
+                value = (T) getInMemoryCache(tc).get(evcKey);
             } catch (ExecutionException e) {
                 final boolean throwExc = doThrowException();
                 if(throwExc) {
@@ -615,7 +615,7 @@ final public class EVCacheImpl implements EVCache {
             final boolean throwExc = doThrowException();
             T value = null;
             try {
-                value = (T) getInMemoryCache(tc).get(evcKey.getCanonicalKey());
+                value = (T) getInMemoryCache(tc).get(evcKey);
             } catch (ExecutionException e) {
                 if(throwExc) {
                     if(e.getCause() instanceof DataNotFoundException) {
