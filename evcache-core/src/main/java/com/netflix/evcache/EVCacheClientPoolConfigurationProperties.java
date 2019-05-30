@@ -23,17 +23,12 @@ public class EVCacheClientPoolConfigurationProperties {
    */
   private Boolean exceptionThrowingEnabled = false;
 
-  /**
-   * FQPN to `Transcoder`.
-   */
-  private String transcoder;
 
   public EVCacheClientPoolConfigurationProperties() {
     this.keyPrefix = "";
     this.timeToLive = Duration.ofSeconds(900);
     this.retryEnabled = true;
     this.exceptionThrowingEnabled = false;
-    this.transcoder = null;
   }
 
   public String getKeyPrefix() {
@@ -66,13 +61,5 @@ public class EVCacheClientPoolConfigurationProperties {
 
   public void setExceptionThrowingEnabled(Boolean exceptionThrowingEnabled) {
     this.exceptionThrowingEnabled = exceptionThrowingEnabled;
-  }
-
-  public String getTranscoder() {
-    return transcoder;
-  }
-
-  public <T> void setTranscoder(String transcoder) {
-    this.transcoder = transcoder;
   }
 }
