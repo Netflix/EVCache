@@ -2,13 +2,12 @@ package com.netflix.evcache.pool.eureka;
 
 import javax.inject.Provider;
 
-import com.netflix.discovery.EurekaClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.inject.Inject;
 import com.netflix.appinfo.ApplicationInfoManager;
-import com.netflix.discovery.DiscoveryClient;
+import com.netflix.discovery.EurekaClient;
 import com.netflix.evcache.pool.EVCacheNodeList;
 import com.netflix.evcache.pool.SimpleNodeListProvider;
 import com.netflix.evcache.util.EVCacheConfig;

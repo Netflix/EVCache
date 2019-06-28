@@ -1254,7 +1254,7 @@ final public class EVCacheImpl implements EVCache {
                     List<EVCacheKey> retryEVCacheKeys = new ArrayList<EVCacheKey>(initRetrySize);
                     for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext();) {
                         final EVCacheKey key = keysItr.next();
-                        if (!retMap.containsKey(key.getCanonicalKey())) {
+                        if (!retMap.containsKey(key)) {
                             retryEVCacheKeys.add(key);
                         }
                     }
@@ -1289,7 +1289,7 @@ final public class EVCacheImpl implements EVCache {
                                 retryEVCacheKeys = new ArrayList<EVCacheKey>(keys.size() - retMap.size());
                                 for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext();) {
                                     final EVCacheKey key = keysItr.next();
-                                    if (!retMap.containsKey(key.getCanonicalKey())) {
+                                    if (!retMap.containsKey(key)) {
                                         retryEVCacheKeys.add(key);
                                     }
                                 }

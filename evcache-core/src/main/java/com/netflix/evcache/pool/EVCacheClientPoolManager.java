@@ -116,6 +116,14 @@ public class EVCacheClientPoolManager {
         this.evcacheEventListenerList.add(listener);
     }
 
+    public void addEVCacheEventListener(EVCacheEventListener listener, int index) {
+        if(index < evcacheEventListenerList.size()) {
+            this.evcacheEventListenerList.add(index, listener);
+        } else {
+            this.evcacheEventListenerList.add(listener);
+        }
+    }
+
     public void removeEVCacheEventListener(EVCacheEventListener listener) {
         this.evcacheEventListenerList.remove(listener);
     }

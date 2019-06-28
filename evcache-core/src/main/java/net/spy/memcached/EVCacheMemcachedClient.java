@@ -190,7 +190,6 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         final EVCacheBulkGetFuture<T> rv = new EVCacheBulkGetFuture<T>(m, ops, latch, executorService, client);
         GetOperation.Callback cb = new GetOperation.Callback() {
             @Override
-            @SuppressWarnings("synthetic-access")
             public void receivedStatus(OperationStatus status) {
                 if (log.isDebugEnabled()) log.debug("GetBulk Keys : " + keys + "; Status : " + status.getStatusCode().name() + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
                 rv.setStatus(status);
@@ -529,10 +528,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         final long start = System.currentTimeMillis();
         final AtomicLong rv = new AtomicLong();
         final CountDownLatch latch = new CountDownLatch(1);
+        final List<OperationStatus> statusList = new ArrayList<OperationStatus>(1);
         final Operation op = opFact.mutate(m, key, by, def, exp, new OperationCallback() {
             @Override
             public void receivedStatus(OperationStatus s) {
-                getTimer(operationStr, EVCacheMetricsFactory.WRITE, null, null, null, getWriteMetricMaxValue()).record((System.currentTimeMillis() - start), TimeUnit.MILLISECONDS);
+                statusList.add(s);
                 rv.set(new Long(s.isSuccess() ? s.getMessage() : "-1"));
             }
 
@@ -550,13 +550,20 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             
             if (!latch.await(mutateOperationTimeout.get(), TimeUnit.MILLISECONDS)) {
+                if (log.isDebugEnabled()) log.debug("Mutation operation timeout. Will return -1");
+                retVal = -1;
+            } else {
                 retVal = rv.get();
             }
+            
         } catch (Exception e) {
             log.error("Exception on mutate operation : " + operationStr + " Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp 
                     + "; val : " + retVal + "; Elapsed Time - " + (System.currentTimeMillis() - start), e);
 
         }
+        final OperationStatus status = statusList.size() > 0 ? statusList.get(0) : null;
+        final String host = ((status != null && status.getStatusCode().equals(StatusCode.TIMEDOUT) && op != null) ? getHostName(op.getHandlingNode().getSocketAddress()) : null);
+        getTimer(operationStr, EVCacheMetricsFactory.WRITE, status, null, host, getWriteMetricMaxValue()).record((System.currentTimeMillis() - start), TimeUnit.MILLISECONDS);
         if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug(operationStr + " Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp 
                 + "; val : " + retVal + "; Elapsed Time - " + (System.currentTimeMillis() - start));
         return retVal;

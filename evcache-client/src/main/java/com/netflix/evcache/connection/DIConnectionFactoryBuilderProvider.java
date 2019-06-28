@@ -3,7 +3,6 @@ package com.netflix.evcache.connection;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.netflix.config.DynamicIntProperty;
-import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.EurekaClient;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.util.EVCacheConfig;
@@ -18,6 +17,7 @@ public class DIConnectionFactoryBuilderProvider extends ConnectionFactoryBuilder
     public DIConnectionFactoryBuilderProvider(EurekaClient eurekaClient) {
         this.eurekaClient = eurekaClient;
     }
+
     @Override
     public ConnectionFactoryBuilder get() {
         return this;

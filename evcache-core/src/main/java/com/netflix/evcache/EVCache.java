@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Future;
-import java.util.function.BiFunction;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
