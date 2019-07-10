@@ -1,7 +1,6 @@
 #!/bin/bash
 # This script will build the project.
 
-export GRADLE_OPTS="-Dorg.gradle.logging.level=debug"
 if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then
   echo -e "Build Pull Request #$TRAVIS_PULL_REQUEST => Branch [$TRAVIS_BRANCH]"
   ./gradlew build
