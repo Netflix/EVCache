@@ -16,6 +16,7 @@ import org.joda.time.format.ISODateTimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.netflix.evcache.EVCache;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.spectator.api.Counter;
@@ -91,7 +92,7 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     }
 
 
-    public boolean isAvailable() {
+    public boolean isAvailable(EVCache.Call call) {
         return isActive();
     }
 

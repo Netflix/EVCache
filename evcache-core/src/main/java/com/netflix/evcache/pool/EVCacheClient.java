@@ -7,6 +7,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,6 +30,8 @@ import org.slf4j.LoggerFactory;
 import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicIntProperty;
+import com.netflix.evcache.EVCache;
+import com.netflix.evcache.EVCache.Call;
 import com.netflix.evcache.EVCacheConnectException;
 import com.netflix.evcache.EVCacheException;
 import com.netflix.evcache.EVCacheLatch;
@@ -151,14 +154,14 @@ public class EVCacheClient {
         this.hashingAlgo = EVCacheConfig.getInstance().getChainedStringProperty(this.serverGroup.getName() + ".hash.algo", appName + ".hash.algo", "MD5", null);
     }
 
-    private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys) throws EVCacheException {
+    private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys, EVCache.Call call) throws EVCacheException {
         if (evcacheMemcachedClient.getNodeLocator() == null) return canonicalKeys;
         final Collection<String> retKeys = new ArrayList<>(canonicalKeys.size());
         for (String key : canonicalKeys) {
             final MemcachedNode node = evcacheMemcachedClient.getNodeLocator().getPrimary(key);
             if (node instanceof EVCacheNodeImpl) {
                 final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
-                if (!evcNode.isAvailable()) {
+                if (!evcNode.isAvailable(call)) {
                     continue;
                 }
 
@@ -219,12 +222,12 @@ public class EVCacheClient {
         return true;
     }
 
-    private boolean validateNode(String key, boolean _throwException) throws EVCacheException, EVCacheConnectException {
+    private boolean validateNode(String key, boolean _throwException, EVCache.Call call) throws EVCacheException, EVCacheConnectException {
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         // First check if the node is active
         if (node instanceof EVCacheNodeImpl) {
             final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
-            if (!evcNode.isAvailable()) {
+            if (!evcNode.isAvailable(call)) {
                 incrementFailure(EVCacheMetricsFactory.INACTIVE_NODE);
                 if (log.isDebugEnabled()) log.debug("Node : " + node + " for app : " + appName + "; zone : " + zone
                         + " is not active. Will Fail Fast so that we can fallback to Other Zone if available.");
@@ -810,7 +813,7 @@ public class EVCacheClient {
     }
 
     public <T> T get(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF) throws Exception {
-        if (!validateNode(key, _throwException)) {
+        if (!validateNode(key, _throwException, Call.GET)) {
             if(ignoreInactiveNodes.get()) {
                 incrementFailure(EVCacheMetricsFactory.IGNORE_INACTIVE_NODES);
                 return pool.getEVCacheClientForReadExclude(serverGroup).get(key, tc, _throwException, hasZF, enableChunking.get());
@@ -850,7 +853,7 @@ public class EVCacheClient {
 
     public <T> Single<T> get(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF, Scheduler scheduler) {
         try {
-            if (!validateNode(key, _throwException)) {
+            if (!validateNode(key, _throwException, Call.GET)) {
                 if(ignoreInactiveNodes.get()) {
                     incrementFailure(EVCacheMetricsFactory.IGNORE_INACTIVE_NODES);
                     return pool.getEVCacheClientForReadExclude(serverGroup).get(key, tc, _throwException, hasZF, enableChunking.get(), scheduler);
@@ -866,7 +869,7 @@ public class EVCacheClient {
 
     public <T> T getAndTouch(String key, Transcoder<T> tc, int timeToLive, boolean _throwException, boolean hasZF) throws Exception {
         EVCacheMemcachedClient _client = evcacheMemcachedClient;
-        if (!validateNode(key, _throwException)) {
+        if (!validateNode(key, _throwException, Call.GET_AND_TOUCH)) {
             if(ignoreInactiveNodes.get()) {
                 incrementFailure(EVCacheMetricsFactory.IGNORE_INACTIVE_NODES);
                 _client = pool.getEVCacheClientForReadExclude(serverGroup).getEVCacheMemcachedClient();
@@ -917,7 +920,7 @@ public class EVCacheClient {
     public <T> Single<T> getAndTouch(String key, Transcoder<T> transcoder, int timeToLive, boolean _throwException, boolean hasZF, Scheduler scheduler) {
         try {
             EVCacheMemcachedClient client = evcacheMemcachedClient;
-            if (!validateNode(key, _throwException)) {
+            if (!validateNode(key, _throwException, Call.GET_AND_TOUCH)) {
                 if(ignoreInactiveNodes.get()) {
                     incrementFailure(EVCacheMetricsFactory.IGNORE_INACTIVE_NODES);
                     client = pool.getEVCacheClientForReadExclude(serverGroup).getEVCacheMemcachedClient();
@@ -981,7 +984,7 @@ public class EVCacheClient {
 
     public <T> Map<String, T> getBulk(Collection<String> _canonicalKeys, Transcoder<T> tc, boolean _throwException,
             boolean hasZF) throws Exception {
-        final Collection<String> canonicalKeys = validateReadQueueSize(_canonicalKeys);
+        final Collection<String> canonicalKeys = validateReadQueueSize(_canonicalKeys, Call.BULK);
         final Map<String, T> returnVal;
         try {
             if (tc == null) tc = (Transcoder<T>) getTranscoder();
@@ -1027,7 +1030,7 @@ public class EVCacheClient {
     public <T> Single<Map<String, T>> getBulk(Collection<String> _canonicalKeys, final Transcoder<T> transcoder, boolean _throwException,
             boolean hasZF, Scheduler scheduler) {
         try {
-            final Collection<String> canonicalKeys = validateReadQueueSize(_canonicalKeys);
+            final Collection<String> canonicalKeys = validateReadQueueSize(_canonicalKeys, Call.BULK);
             final Transcoder<T> tc = (transcoder == null) ? (Transcoder<T>) getTranscoder() : transcoder;
             if (enableChunking.get()) {
                 return assembleChunks(_canonicalKeys, tc, hasZF, scheduler);
@@ -1331,7 +1334,7 @@ public class EVCacheClient {
             throws Exception {
         if (enableChunking.get()) throw new EVCacheException(
                 "This operation is not supported as chunking is enabled on this EVCacheClient.");
-        if (!validateNode(key, _throwException)) return null;
+        if (!validateNode(key, _throwException, Call.ASYNC_GET)) return null;
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
         if(shouldHashKey()) {
             final String hKey = getHashedKey(key);
@@ -1777,7 +1780,7 @@ public class EVCacheClient {
                         for (int i = 0; i < read; i++) {
                             if(array[i] == ' ') {
                                 start = false;
-                                if(b.length() > 4) keyList.add(URLDecoder.decode(b.substring(4)));
+                                if(b.length() > 4) keyList.add(URLDecoder.decode(b.substring(4), StandardCharsets.UTF_8.name()));
                                 b = new StringBuilder();
                             }
                             if(start) b.append((char)array[i]);
