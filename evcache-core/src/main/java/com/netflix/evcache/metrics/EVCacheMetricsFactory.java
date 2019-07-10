@@ -305,6 +305,7 @@ public final class EVCacheMetricsFactory {
     public static final String NUM_CHUNK_SIZE                   = "numOfChunks";
     public static final String CHUNK_DATA_SIZE                  = "dataSize";
     public static final String NOT_AVAILABLE                    = "notAvailable";
+    public static final String NOT_ACTIVE                       = "notActive";
 
     public static final String INITIAL                          = "initial";
     public static final String SECOND                           = "second";
