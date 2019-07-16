@@ -95,19 +95,6 @@ public class EVCacheClientPoolManager {
         initAtStartup();
     }
 
-//    private void refreshScheduler() {
-//        for (Iterator<?> itr = scheduledTaskMap.keySet().iterator(); itr.hasNext();) {
-//            final Object obj = itr.next();
-//            if(obj instanceof EVCacheClientPool) {
-//                final EVCacheClientPool pool = (EVCacheClientPool)obj;
-//                final ScheduledFuture<?> task = scheduledTaskMap.get(pool);
-//                itr.remove();
-//                task.cancel(false);
-//                scheduleRefresh(pool);
-//            }
-//        }
-//    }    
-
     public IConnectionBuilder getConnectionFactoryProvider() {
         return connectionFactoryProvider;
     }

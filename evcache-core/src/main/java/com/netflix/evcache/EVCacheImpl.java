@@ -217,7 +217,7 @@ final public class EVCacheImpl implements EVCache {
                     return true;
                 }
             } catch(Exception e) {
-                incrementFastFail("EVENT_LISTENER_ERROR");
+                incrementFastFail("EVENT_LISTENER_ERROR", event.getCall());
                 if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing throttle event on listener " + evcacheEventListener + " for event " + event, e);	
             }
         }
@@ -230,7 +230,7 @@ final public class EVCacheImpl implements EVCache {
             try {
                 evcacheEventListener.onStart(event);
             } catch(Exception e) {
-                incrementFastFail("EVENT_LISTENER_ERROR");
+                incrementFastFail("EVENT_LISTENER_ERROR", event.getCall());
                 if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing start event on listener " + evcacheEventListener + " for event " + event, e);	
             }
         }
@@ -242,7 +242,7 @@ final public class EVCacheImpl implements EVCache {
             try {
                 evcacheEventListener.onComplete(event);
             } catch(Exception e) {
-                incrementFastFail("EVENT_LISTENER_ERROR");
+                incrementFastFail("EVENT_LISTENER_ERROR", event.getCall());
                 if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing end event on listener " + evcacheEventListener + " for event " + event, e);	
             }
         }
@@ -254,7 +254,7 @@ final public class EVCacheImpl implements EVCache {
             try {
                 evcacheEventListener.onError(event, t);
             } catch(Exception e) {
-                incrementFastFail("EVENT_LISTENER_ERROR");
+                incrementFastFail("EVENT_LISTENER_ERROR", event.getCall());
                 if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing error event on listener " + evcacheEventListener + " for event " + event, e);	
             }
         }
@@ -269,11 +269,28 @@ final public class EVCacheImpl implements EVCache {
         return this.get(key, (Transcoder<T>) _transcoder);
     }
 
-    private void incrementFastFail(String metric) {
+    private void incrementFastFail(String metric, Call call) {
         Counter counter = counterMap.get(metric);
         if(counter == null) {
-            final List<Tag> tagList = new ArrayList<Tag>(tags.size() + 1);
+            final List<Tag> tagList = new ArrayList<Tag>(tags.size() + 3);
             tagList.addAll(tags);
+            if(call != null) {
+                final String operation = call.name();
+                final String operationType;
+                switch(call) {
+                    case GET:
+                    case GET_AND_TOUCH:
+                    case GETL:
+                    case BULK:
+                    case ASYNC_GET:
+                        operationType = EVCacheMetricsFactory.READ;
+                        break;
+                    default :
+                        operationType = EVCacheMetricsFactory.WRITE;
+                }
+                if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
+                if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
+            }
             tagList.add(new BasicTag(EVCacheMetricsFactory.FAILURE_REASON, metric));
             counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.FAST_FAIL, tagList);
             counterMap.put(metric, counter);
@@ -281,11 +298,13 @@ final public class EVCacheImpl implements EVCache {
         counter.increment();
     }
 
-    private void incrementFailure(String metric) {
+    private void incrementFailure(String metric, String operation, String operationType) {
         Counter counter = counterMap.get(metric);
         if(counter == null) {
-            final List<Tag> tagList = new ArrayList<Tag>(tags.size() + 1);
+            final List<Tag> tagList = new ArrayList<Tag>(tags.size() + 3);
             tagList.addAll(tags);
+            if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
+            if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
             tagList.add(new BasicTag(EVCacheMetricsFactory.FAILURE_REASON, metric));
             counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_FAIL, tagList);
             counterMap.put(metric, counter);
@@ -323,7 +342,7 @@ final public class EVCacheImpl implements EVCache {
         final boolean throwExc = doThrowException();
         EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.GET);
             if (throwExc) throw new EVCacheException("Could not find a client to get the data APP " + _appName);
             return null; // Fast failure
         }
@@ -333,13 +352,13 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.GET);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
                     return null;
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
-                incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.GET);
                 return null;
             }
             startEvent(event);
@@ -443,7 +462,7 @@ final public class EVCacheImpl implements EVCache {
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.GET);
             if (throwExc) throw new EVCacheException("Could not find a client to asynchronously get the data");
             return null; // Fast failure
         }
@@ -527,7 +546,7 @@ final public class EVCacheImpl implements EVCache {
         final boolean throwExc = doThrowException();
         final EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.GET);
             return Single.error(new EVCacheException("Could not find a client to get the data APP " + _appName));
         }
 
@@ -537,7 +556,7 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.GET);
                     return Single.error(new EVCacheException("Request Throttled for app " + _appName + " & key " + key));
                 }
             } catch(EVCacheException ex) {
@@ -603,7 +622,7 @@ final public class EVCacheImpl implements EVCache {
                 if(obj != null && obj instanceof EVCacheValue) {
                     final EVCacheValue val = (EVCacheValue)obj;
                     if(!val.getKey().equals(evcKey.getCanonicalKey())) {
-                        incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION);
+                        incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.GET.name(), EVCacheMetricsFactory.READ);
                         return null;
                     }
                     final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
@@ -663,14 +682,14 @@ final public class EVCacheImpl implements EVCache {
     }
     
     private final int MAX_IN_SEC = 2592000;
-    private void checkTTL(int timeToLive) throws IllegalArgumentException {
+    private void checkTTL(int timeToLive, Call call) throws IllegalArgumentException {
         try { 
             if(timeToLive < 0) throw new IllegalArgumentException ("Time to Live ( " + timeToLive + ") must be great than or equal to 0.");
             final long currentTimeInMillis = System.currentTimeMillis();
             if(timeToLive > currentTimeInMillis) throw new IllegalArgumentException ("Time to Live ( " + timeToLive + ") must be in seconds.");
             if(timeToLive > MAX_IN_SEC && timeToLive < currentTimeInMillis/1000) throw new IllegalArgumentException ("If providing Time to Live ( " + timeToLive + ") in seconds as epoc value, it should be greater than current time " + currentTimeInMillis/1000);
         } catch (IllegalArgumentException iae) {
-            incrementFastFail(EVCacheMetricsFactory.INVALID_TTL);
+            incrementFastFail(EVCacheMetricsFactory.INVALID_TTL, call);
             throw iae;
         }
     }
@@ -686,7 +705,7 @@ final public class EVCacheImpl implements EVCache {
 
     public <T> Single<T> getAndTouch(String key, int timeToLive, Transcoder<T> tc, Scheduler scheduler) {
         if (null == key) return Single.error(new IllegalArgumentException("Key cannot be null"));
-        checkTTL(timeToLive);
+        checkTTL(timeToLive, Call.GET_AND_TOUCH);
         if(hashKey.get()) {
             return Single.error(new IllegalArgumentException("Not supported"));
         }
@@ -694,7 +713,7 @@ final public class EVCacheImpl implements EVCache {
         final boolean throwExc = doThrowException();
         final EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.GET_AND_TOUCH);
             return Single.error(new EVCacheException("Could not find a client to get and touch the data for APP " + _appName));
         }
 
@@ -704,7 +723,7 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.GET_AND_TOUCH);
                     return Single.error(new EVCacheException("Request Throttled for app " + _appName + " & key " + key));
                 }
             } catch(EVCacheException ex) {
@@ -773,7 +792,7 @@ final public class EVCacheImpl implements EVCache {
     @Override
     public <T> T getAndTouch(String key, int timeToLive, Transcoder<T> tc) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException("Key cannot be null");
-        checkTTL(timeToLive);
+        checkTTL(timeToLive, Call.GET_AND_TOUCH);
         final EVCacheKey evcKey = getEVCacheKey(key);
         if (_useInMemoryCache.get()) {
             final boolean throwExc = doThrowException();
@@ -812,7 +831,7 @@ final public class EVCacheImpl implements EVCache {
         final boolean throwExc = doThrowException();
         EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.GET_AND_TOUCH);
             if (throwExc) throw new EVCacheException("Could not find a client to get and touch the data for App " + _appName);
             return null; // Fast failure
         }
@@ -822,13 +841,13 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.GET_AND_TOUCH);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
                     return null;
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
-                incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.GET_AND_TOUCH);
                 return null;
             }
             event.setTTL(timeToLive);
@@ -906,7 +925,7 @@ final public class EVCacheImpl implements EVCache {
 
     @Override
     public Future<Boolean>[] touch(String key, int timeToLive) throws EVCacheException {
-        checkTTL(timeToLive);
+        checkTTL(timeToLive, Call.TOUCH);
         final EVCacheLatch latch = this.touch(key, timeToLive, null);
         if (latch == null) return new EVCacheFuture[0];
         final List<Future<Boolean>> futures = latch.getAllFutures();
@@ -928,12 +947,12 @@ final public class EVCacheImpl implements EVCache {
 
     public <T> EVCacheLatch touch(String key, int timeToLive, Policy policy) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException();
-        checkTTL(timeToLive);
+        checkTTL(timeToLive, Call.TOUCH);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.TOUCH);
             if (throwExc) throw new EVCacheException("Could not find a client to set the data");
             return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
         }
@@ -944,13 +963,13 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.TOUCH);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
-                incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.TOUCH);
                 return null;
             }
             startEvent(event);
@@ -994,7 +1013,7 @@ final public class EVCacheImpl implements EVCache {
 
 
     private void touchData(EVCacheKey evcKey, int timeToLive, EVCacheClient[] clients, EVCacheLatch latch ) throws Exception {
-        checkTTL(timeToLive);
+        checkTTL(timeToLive, Call.TOUCH);
         for (EVCacheClient client : clients) {
             if(evcKey.getHashKey() != null) {
                 client.touch(evcKey.getHashKey(), timeToLive, latch);
@@ -1015,7 +1034,7 @@ final public class EVCacheImpl implements EVCache {
         final boolean throwExc = doThrowException();
         final EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.ASYNC_GET);
             if (throwExc) throw new EVCacheException("Could not find a client to asynchronously get the data");
             return null; // Fast failure
         }
@@ -1030,13 +1049,13 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.ASYNC_GET);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return null;
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
-                incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.ASYNC_GET);
                 return null;
             }
             startEvent(event);
@@ -1073,7 +1092,7 @@ final public class EVCacheImpl implements EVCache {
                         if(obj != null && obj instanceof EVCacheValue) {
                             final EVCacheValue val = (EVCacheValue)obj;
                             if(!val.getKey().equals(evcKey.getCanonicalKey())) {
-                                incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION);
+                                incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.ASYNC_GET.name(), EVCacheMetricsFactory.READ);
                                 return null;
                             }
                             final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
@@ -1178,12 +1197,12 @@ final public class EVCacheImpl implements EVCache {
     private <T> Map<String, T> getBulk(final Collection<String> keys, Transcoder<T> tc, boolean touch, int timeToLive) throws EVCacheException {
         if (null == keys) throw new IllegalArgumentException();
         if (keys.isEmpty()) return Collections.<String, T> emptyMap();
-        checkTTL(timeToLive);
+        checkTTL(timeToLive, Call.BULK);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.BULK);
             if (throwExc) throw new EVCacheException("Could not find a client to get the data in bulk");
             return Collections.<String, T> emptyMap();// Fast failure
         }
@@ -1199,13 +1218,13 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(evcKeys);
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.BULK);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & keys " + keys);
                     return Collections.<String, T> emptyMap();
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
-                incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.BULK);
                 return null;
             }
             event.setTTL(timeToLive);
@@ -1461,12 +1480,12 @@ final public class EVCacheImpl implements EVCache {
 
     public <T> EVCacheLatch set(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
-        checkTTL(timeToLive);
+        checkTTL(timeToLive, Call.SET);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.SET);
             if (throwExc) throw new EVCacheException("Could not find a client to set the data");
             return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
         }
@@ -1477,13 +1496,13 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.SET);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheLatchImpl(policy, 0, _appName);
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
-                incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.SET);
                 return null;
             }
             startEvent(event);
@@ -1543,12 +1562,12 @@ final public class EVCacheImpl implements EVCache {
 
     public <T> EVCacheFuture[] append(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
-        checkTTL(timeToLive);
+        checkTTL(timeToLive, Call.APPEND);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.APPEND);
             if (throwExc) throw new EVCacheException("Could not find a client to set the data");
             return new EVCacheFuture[0]; // Fast failure
         }
@@ -1559,13 +1578,13 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.APPEND);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheFuture[0];
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
-                incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.APPEND);
                 return null;
             }
             startEvent(event);
@@ -1652,7 +1671,7 @@ final public class EVCacheImpl implements EVCache {
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.DELETE);
             if (throwExc) throw new EVCacheException("Could not find a client to delete the keyAPP " + _appName
                     + ", Key " + key);
             return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
@@ -1664,13 +1683,13 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.DELETE);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
-                incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.DELETE);
                 return null;
             }
             startEvent(event);
@@ -1716,12 +1735,12 @@ final public class EVCacheImpl implements EVCache {
 
     public long incr(String key, long by, long defaultVal, int timeToLive) throws EVCacheException {
         if ((null == key) || by < 0 || defaultVal < 0 || timeToLive < 0) throw new IllegalArgumentException();
-        checkTTL(timeToLive);
+        checkTTL(timeToLive, Call.INCR);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.INCR);
             if (log.isDebugEnabled() && shouldLog()) log.debug("INCR : " + _metricPrefix + ":NULL_CLIENT");
             if (throwExc) throw new EVCacheException("Could not find a client to incr the data");
             return -1;
@@ -1733,13 +1752,13 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.INCR);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return -1;
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
-                incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.INCR);
                 return -1;
             }
             startEvent(event);
@@ -1796,12 +1815,12 @@ final public class EVCacheImpl implements EVCache {
 
     public long decr(String key, long by, long defaultVal, int timeToLive) throws EVCacheException {
         if ((null == key) || by < 0 || defaultVal < 0 || timeToLive < 0) throw new IllegalArgumentException();
-        checkTTL(timeToLive);
+        checkTTL(timeToLive, Call.DECR);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.DECR);
             if (log.isDebugEnabled() && shouldLog()) log.debug("DECR : " + _metricPrefix + ":NULL_CLIENT");
             if (throwExc) throw new EVCacheException("Could not find a client to decr the data");
             return -1;
@@ -1813,13 +1832,13 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.DECR);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return -1;
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
-                incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.DECR);
                 return -1;
             }
             startEvent(event);
@@ -1894,12 +1913,12 @@ final public class EVCacheImpl implements EVCache {
     public <T> EVCacheLatch replace(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy)
             throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
-        checkTTL(timeToLive);
+        checkTTL(timeToLive, Call.REPLACE);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.REPLACE);
             if (throwExc) throw new EVCacheException("Could not find a client to set the data");
             return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
         }
@@ -1910,13 +1929,13 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.REPLACE);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheLatchImpl(policy, 0, _appName);
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
-                incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.REPLACE);
                 return null;
             }
             startEvent(event);
@@ -1986,12 +2005,12 @@ final public class EVCacheImpl implements EVCache {
 
     public <T> EVCacheLatch appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
-        checkTTL(timeToLive);
+        checkTTL(timeToLive, Call.APPEND_OR_ADD);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.APPEND_OR_ADD);
             if (throwExc) throw new EVCacheException("Could not find a client to appendOrAdd the data");
             return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
         }
@@ -2002,13 +2021,13 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.APPEND_OR_ADD);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
-                incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.APPEND_OR_ADD);
                 return null;
             }
             startEvent(event);
@@ -2078,12 +2097,12 @@ final public class EVCacheImpl implements EVCache {
     @Override
     public <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
-        checkTTL(timeToLive);
+        checkTTL(timeToLive, Call.ADD);
 
         final boolean throwExc = doThrowException();
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
-            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT);
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.ADD);
             if (throwExc) throw new EVCacheException("Could not find a client to Add the data");
             return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
         }
@@ -2094,13 +2113,13 @@ final public class EVCacheImpl implements EVCache {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
-                    incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.ADD);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
                 }
             } catch(EVCacheException ex) {
                 if(throwExc) throw ex;
-                incrementFastFail(EVCacheMetricsFactory.THROTTLED);
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.ADD);
                 return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
             }
             startEvent(event);

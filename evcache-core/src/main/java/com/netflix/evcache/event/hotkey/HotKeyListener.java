@@ -4,13 +4,14 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
 import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicIntProperty;
 import com.netflix.config.DynamicStringSetProperty;
@@ -54,7 +55,7 @@ public class HotKeyListener implements EVCacheEventListener {
     private final EVCacheClientPoolManager poolManager;
     private final Map<String, DynamicStringSetProperty> throttleKeysMap;
 
-    @Inject 
+    @Inject
     public HotKeyListener(EVCacheClientPoolManager poolManager) {
         this.poolManager = poolManager;
         this.throttleKeysMap = new ConcurrentHashMap<String, DynamicStringSetProperty>();

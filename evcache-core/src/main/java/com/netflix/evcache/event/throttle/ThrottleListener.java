@@ -3,11 +3,12 @@ package com.netflix.evcache.event.throttle;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
 import com.netflix.config.DynamicBooleanProperty;
 import com.netflix.config.DynamicStringSetProperty;
 import com.netflix.evcache.EVCache.Call;
