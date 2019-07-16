@@ -975,6 +975,7 @@ final public class EVCacheImpl implements EVCache {
             startEvent(event);
         }
 
+        String status = EVCacheMetricsFactory.SUCCESS;
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         try {
             final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
@@ -991,13 +992,14 @@ final public class EVCacheImpl implements EVCache {
             }
             return latch;
         } catch (Exception ex) {
+            status = EVCacheMetricsFactory.ERROR;
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception touching the data for APP " + _appName + ", key : " + evcKey, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName);
             throw new EVCacheException("Exception setting data for APP " + _appName + ", key : " + evcKey, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.TOUCH.name(), EVCacheMetricsFactory.WRITE, null, null, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
+            getTimer(Call.TOUCH.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("TOUCH : APP " + _appName + " for key : " + evcKey + " with timeToLive : " + timeToLive);
         }
     }
@@ -1060,6 +1062,7 @@ final public class EVCacheImpl implements EVCache {
             }
             startEvent(event);
         }
+        String status = EVCacheMetricsFactory.SUCCESS;
         final Future<T> r;
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         try {
@@ -1115,13 +1118,14 @@ final public class EVCacheImpl implements EVCache {
             }
             if (event != null) endEvent(event);
         } catch (Exception ex) {
+            status = EVCacheMetricsFactory.ERROR;
             if (log.isDebugEnabled() && shouldLog()) log.debug( "Exception while getting data for keys Asynchronously APP " + _appName + ", key : " + key, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return null;
             throw new EVCacheException("Exception getting data for APP " + _appName + ", key : " + key, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            getTimer(Call.ASYNC_GET.name(), EVCacheMetricsFactory.READ, null, null, 1, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
+            getTimer(Call.ASYNC_GET.name(), EVCacheMetricsFactory.READ, null, status, 1, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("Took " + duration + " milliSec to execute AsyncGet the value for APP " + _appName + ", key " + key);
         }
 
@@ -2188,10 +2192,11 @@ final public class EVCacheImpl implements EVCache {
         if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_RESULT, status));
         if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
         switch(tries) {
-            case 0 : 
+            case 0 :
+            case 1 :
                 tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, EVCacheMetricsFactory.INITIAL));
                 break;
-            case 1 : 
+            case 2 : 
                 tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, EVCacheMetricsFactory.SECOND));
                 break;
             default: 
