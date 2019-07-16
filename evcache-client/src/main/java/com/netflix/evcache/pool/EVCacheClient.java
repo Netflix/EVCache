@@ -1,8 +1,12 @@
 package com.netflix.evcache.pool;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -1449,6 +1453,112 @@ public class EVCacheClient {
     public boolean isInWriteOnly(){
         return pool.isInWriteOnly(getServerGroup());
     }
+
+    /**
+     * Return the keys upto the limit. The key will be cannoicalized key( or hashed Key).<br> 
+     * <B> The keys are read into memory so make sure you have enough memory to read the specified number of keys<b>
+     * @param limit - The number of keys that need to fetched from each memcached clients.
+     * @return - the List of keys. 
+     */
+    public List<String> getAllKeys(final int limit) {
+        final List<String> keyList = new ArrayList<String>(limit);
+        byte[] array = new byte[EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".all.keys.reader.buffer.size.bytes", 4*1024*1024).get()];
+        final int waitInSec = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".all.keys.reader.wait.duration.sec", 60).get();
+        for(InetSocketAddress address : memcachedNodesInZone) {
+            //final List<String> keyList = new ArrayList<String>(limit);
+            Socket socket = null;
+            PrintWriter printWriter = null;
+            BufferedInputStream bufferedReader = null;
+            try {
+                socket = new Socket(address.getHostName(), address.getPort());
+                printWriter = new PrintWriter(socket.getOutputStream(), true);
+                printWriter.print("lru_crawler metadump all \r\n");
+                printWriter.print("quit \r\n");
+                printWriter.flush();
+
+                bufferedReader = new BufferedInputStream(socket.getInputStream());
+                while(isDataAvailableForRead(bufferedReader, waitInSec, TimeUnit.SECONDS, socket)) {
+                    int read = bufferedReader.read(array);
+                    if (log.isDebugEnabled()) log.debug("Number of bytes read = " +read);
+                    if(read > 0) {
+                        StringBuilder b = new StringBuilder();
+                        boolean start = true;
+                        for (int i = 0; i < read; i++) {
+                            if(array[i] == ' ') {
+                                start = false;
+                                if(b.length() > 4) keyList.add(URLDecoder.decode(b.substring(4)));
+                                b = new StringBuilder();
+                            }
+                            if(start) b.append((char)array[i]);
+                            if(array[i] == '\n') {
+                                start = true;
+                            }
+                            if(keyList.size() >= limit) {
+                                if (log.isDebugEnabled()) log.debug("Record Limit reached. Will break and return");
+                                return keyList;
+                            }
+                        }
+                    } else if (read < 0 ){
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                if(socket != null) {
+                    try {
+                        socket.close();
+                    } catch (IOException e1) {
+                        log.error("Error closing socket", e1);
+                    }
+                }
+                log.error("Exception", e);
+            }
+            finally {
+                if(bufferedReader != null) {
+                    try {
+                        bufferedReader.close();
+                    } catch (IOException e1) {
+                        log.error("Error closing bufferedReader", e1);
+                    }
+                }
+                if(printWriter != null) {
+                    try {
+                        printWriter.close();
+                    } catch (Exception e1) {
+                        log.error("Error closing socket", e1);
+                    }
+                }
+                if(socket != null) {
+                    try {
+                        socket.close();
+                    } catch (IOException e) {
+                        if (log.isDebugEnabled()) log.debug("Error closing socket", e);
+                    }
+                }
+            }
+        }
+        return keyList;
+    }
+
+    private boolean isDataAvailableForRead(BufferedInputStream bufferedReader, long timeout, TimeUnit unit, Socket socket) throws IOException {
+        long expiry = System.currentTimeMillis() + unit.toMillis(timeout);
+        int tryCount = 0;
+        while(expiry > System.currentTimeMillis()) {
+            if(log.isDebugEnabled()) log.debug("For Socket " + socket + " number of bytes available = " + bufferedReader.available() + " and try number is " + tryCount);
+            if(bufferedReader.available() > 0) {
+                return true;
+            }
+            if(tryCount++ < 5) {
+                try {
+                    if(log.isDebugEnabled()) log.debug("Sleep for 100 msec");
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                }
+            } else {
+                return false;
+            }
+        }
+        return false;
+    }    
 
     public Map<SocketAddress, Map<String, String>> getStats(String cmd) {
         if(config.isRendInstance()) {

@@ -562,11 +562,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                     getCounter(operationSuccessStr).increment();
                 } else {
+                    final MemcachedNode node = getEVCacheNode(key);
+                    if (log.isInfoEnabled()) log.info(val.getStatusCode().name() + " Storing Key : " + key + "; Status : " + val.getStatusCode().name()
+                            + "; Node : " + node + "; Message : " + val.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS), new Exception());
                 	if (val.getStatusCode().equals(StatusCode.TIMEDOUT)) {
-	                	final MemcachedNode node = getEVCacheNode(key);
 	                	if(node instanceof EVCacheNodeImpl) {
-	                		if (log.isInfoEnabled()) log.info(val.getStatusCode().name() + " Storing Key : " + key + "; Status : " + val.getStatusCode().name()
-	                				+ "; Node : " + node + "; Message : " + val.getMessage() + "; Elapsed Time - " + operationDuration.getDuration(TimeUnit.MILLISECONDS), new Exception());
 	                		if(node instanceof EVCacheNodeImpl) {
 	                			getCounter(operationStr + "-" + val.getStatusCode().name(), ((EVCacheNodeImpl)node).getBaseTags()).increment();
 	                		} else {

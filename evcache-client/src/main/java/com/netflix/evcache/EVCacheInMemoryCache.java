@@ -50,7 +50,7 @@ public class EVCacheInMemoryCache<T> {
     private final Property<Integer> _poolSize; // This many threads will be initialized to fetch data from evcache async
     private final String appName;
 
-    private LoadingCache<String, T> cache;
+    private LoadingCache<EVCacheKey, T> cache;
     private ExecutorService pool = null;
 
     private final Transcoder<T> tc;
@@ -121,11 +121,11 @@ public class EVCacheInMemoryCache<T> {
                 builder = builder.refreshAfterWrite(_refreshDuration.get(), TimeUnit.MILLISECONDS);
             }
             initRefreshPool();
-            final LoadingCache<String, T> newCache = builder.build(
-                    new CacheLoader<String, T>() {
-                        public T load(String key) throws EVCacheException { 
+            final LoadingCache<EVCacheKey, T> newCache = builder.build(
+                    new CacheLoader<EVCacheKey, T>() {
+                        public T load(EVCacheKey key) throws EVCacheException { 
                             try {
-                                final T t = impl.doGet(impl.getEVCacheKey(key), tc);
+                                final T t = impl.doGet(key, tc);
                                 if(t == null) throw new  DataNotFoundException("Data for key : " + key + " could not be loaded as it was not found in EVCache");
                                 return t;
                             } catch (DataNotFoundException e) {
@@ -139,7 +139,7 @@ public class EVCacheInMemoryCache<T> {
                             }
                         }
 
-                        public ListenableFuture<T> reload(final String key, T prev) {
+                        public ListenableFuture<T> reload(final EVCacheKey key, T prev) {
                             ListenableFutureTask<T> task = ListenableFutureTask.create(new Callable<T>() {
                                 public T call() {
                                     try {
@@ -163,7 +163,7 @@ public class EVCacheInMemoryCache<T> {
                         }
                     });
             if(cache != null) newCache.putAll(cache.asMap());
-            final Cache<String, T> currentCache = this.cache;
+            final Cache<EVCacheKey, T> currentCache = this.cache;
             this.cache = newCache;
             if(currentCache != null) {
                 currentCache.invalidateAll();
@@ -174,7 +174,7 @@ public class EVCacheInMemoryCache<T> {
         }
     }
 
-    private LoadingCache<String, T> getCache() {
+    private LoadingCache<EVCacheKey, T> getCache() {
         return cache;
     }
 
@@ -472,14 +472,14 @@ public class EVCacheInMemoryCache<T> {
         });
     }
 
-    public T get(String key) throws ExecutionException {
+    public T get(EVCacheKey key) throws ExecutionException {
         if (cache == null) return null;
         final T val = cache.get(key);
         if (log.isDebugEnabled()) log.debug("GET : appName : " + appName + "; Key : " + key + "; val : " + val);
         return val;
     }
 
-    public void put(String key, T value) {
+    public void put(EVCacheKey key, T value) {
         if (cache == null) return;
         cache.put(key, value);
         if (log.isDebugEnabled()) log.debug("PUT : appName : " + appName + "; Key : " + key + "; val : " + value);
@@ -491,8 +491,8 @@ public class EVCacheInMemoryCache<T> {
         if (log.isDebugEnabled()) log.debug("DEL : appName : " + appName + "; Key : " + key);
     }
 
-    public Map<String, T> getAll() {
-        if (cache == null) return Collections.<String, T>emptyMap();
+    public Map<EVCacheKey, T> getAll() {
+        if (cache == null) return Collections.<EVCacheKey, T>emptyMap();
         return cache.asMap();
     }
 

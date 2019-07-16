@@ -36,6 +36,7 @@ dependencies {
 
 		testCompile group:"com.netflix.archaius",     name:"archaius2-guice",                  version:"latest.release"
         testCompile group:"org.testng",               name:"testng",                           version:"latest.release"
+        testCompile group:"com.beust",                name:"jcommander",                       version:"1.72"
         testCompile group:"org.mockito",              name:"mockito-all",                      version:"latest.release"
         testCompile group:'org.assertj',              name:'assertj-core',                     version:'latest.release'
 }
