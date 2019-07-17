@@ -36,6 +36,7 @@ import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.DistributionSummary;
 import com.netflix.spectator.api.Tag;
 import com.netflix.spectator.api.Timer;
+import com.netflix.spectator.ipc.IpcStatus;
 
 import net.spy.memcached.internal.GetFuture;
 import net.spy.memcached.internal.OperationFuture;
@@ -434,7 +435,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             } else {
                 tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_RESULT, EVCacheMetricsFactory.FAIL));
             }
-            tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_STATUS, status.getStatusCode().name()));
+            tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_STATUS, getStatusCode(status.getStatusCode())));
         }
         if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
         if(host != null) tagList.add(new BasicTag(EVCacheMetricsFactory.FAILED_HOST, host));
@@ -442,6 +443,53 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.IPC_CALL, tagList, Duration.ofMillis(maxDuration));
         timerMap.put(name, timer);
         return timer;
+    }
+    
+    private String getStatusCode(StatusCode sc) {
+        switch(sc) { 
+            case CANCELLED : 
+                return IpcStatus.cancelled.name();
+
+            case TIMEDOUT : 
+                return IpcStatus.timeout.name();
+
+            case INTERRUPTED : 
+                return EVCacheMetricsFactory.INTERRUPTED;
+
+            case SUCCESS : 
+                return IpcStatus.success.name();
+
+            case ERR_NOT_FOUND:
+                return "not_found";
+            case ERR_EXISTS:
+                return "exists";
+            case ERR_2BIG:
+                return "too_big";
+            case ERR_INVAL:
+                return "invalid";
+            case ERR_NOT_STORED:
+                return "not_stored";
+            case ERR_DELTA_BADVAL:
+                return "bad_value";
+            case ERR_NOT_MY_VBUCKET:
+                return "not_my_vbucket";
+            case ERR_UNKNOWN_COMMAND:
+                return "unknown_command";
+            case ERR_NO_MEM:
+                return "no_mem";
+            case ERR_NOT_SUPPORTED:
+                return "not_supported";
+            case ERR_INTERNAL:
+                return "error_internal";
+            case ERR_BUSY:
+                return "error_busy";
+            case ERR_TEMP_FAIL:
+                return "temp_failure";
+            case ERR_CLIENT :
+                return "error_client";
+            default : 
+                return sc.name().toLowerCase();
+        }
     }
 
     private DistributionSummary getDataSizeDistributionSummary(String operation, String type, String metric) {
