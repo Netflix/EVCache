@@ -13,7 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.netflix.config.DynamicIntProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.patterns.ThreadPoolMonitor;
@@ -21,8 +21,8 @@ import com.netflix.spectator.api.patterns.ThreadPoolMonitor;
 public class EVCacheExecutor extends ThreadPoolExecutor implements EVCacheExecutorMBean {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheExecutor.class);
-    private final DynamicIntProperty maxAsyncPoolSize;
-    private final DynamicIntProperty coreAsyncPoolSize;
+    private final Property<Integer> maxAsyncPoolSize;
+    private final Property<Integer> coreAsyncPoolSize;
     private final String name;
     public EVCacheExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, RejectedExecutionHandler handler, String name) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit,
@@ -30,21 +30,15 @@ public class EVCacheExecutor extends ThreadPoolExecutor implements EVCacheExecut
                 new ThreadFactoryBuilder().setDaemon(true).setNameFormat( "EVCacheExecutor-" + name + "-%d").build());
         this.name = name;
 
-        maxAsyncPoolSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheExecutor." + name + ".max.size", maximumPoolSize);
+        maxAsyncPoolSize = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheExecutor." + name + ".max.size", Integer.class).orElse(maximumPoolSize);
         setMaximumPoolSize(maxAsyncPoolSize.get());
-        coreAsyncPoolSize = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheExecutor." + name + ".core.size", corePoolSize);
+        coreAsyncPoolSize = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheExecutor." + name + ".core.size", Integer.class).orElse(corePoolSize);
         setCorePoolSize(coreAsyncPoolSize.get());
         setKeepAliveTime(keepAliveTime, unit);
-        maxAsyncPoolSize.addCallback(new Runnable() {
-            public void run() {
-                setMaximumPoolSize(maxAsyncPoolSize.get());
-            }
-        });
-        coreAsyncPoolSize.addCallback(new Runnable() {
-            public void run() {
-                setCorePoolSize(coreAsyncPoolSize.get());
-                prestartAllCoreThreads();
-            }
+        maxAsyncPoolSize.subscribe(this::setMaximumPoolSize);
+        coreAsyncPoolSize.subscribe(i -> {
+            setCorePoolSize(i);
+            prestartAllCoreThreads();
         });
         
         setupMonitoring(name);

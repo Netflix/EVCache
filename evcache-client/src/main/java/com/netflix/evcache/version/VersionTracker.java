@@ -8,12 +8,13 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
 @Singleton
 public class VersionTracker implements Runnable {
@@ -21,7 +22,7 @@ public class VersionTracker implements Runnable {
 	private static Logger log = LoggerFactory.getLogger(VersionTracker.class);
     private AtomicLong versionGauge;
     private EVCacheClientPoolManager poolManager;
-    
+
     @Inject
     public VersionTracker(EVCacheClientPoolManager poolManager) {
     	this.poolManager = poolManager;
@@ -64,5 +65,5 @@ public class VersionTracker implements Runnable {
     @Override
     public boolean equals(Object obj) {
         return (obj != null) && (obj.getClass() == getClass());
-    }    
+    }
 }
