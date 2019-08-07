@@ -8,11 +8,11 @@ import net.spy.memcached.transcoders.SerializingTranscoder;
 public class EVCacheTranscoder extends SerializingTranscoder {
 
     public EVCacheTranscoder() {
-        this(EVCacheConfig.getInstance().getDynamicIntProperty("default.evcache.max.data.size", 20 * 1024 * 1024).get());
+        this(EVCacheConfig.getInstance().getPropertyRepository().get("default.evcache.max.data.size", Integer.class).orElse(20 * 1024 * 1024).get());
     }
 
     public EVCacheTranscoder(int max) {
-        this(max, EVCacheConfig.getInstance().getDynamicIntProperty("default.evcache.compression.threshold", 120).get());
+        this(max, EVCacheConfig.getInstance().getPropertyRepository().get("default.evcache.compression.threshold", Integer.class).orElse(120).get());
     }
 
     public EVCacheTranscoder(int max, int compressionThreshold) {

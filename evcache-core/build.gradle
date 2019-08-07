@@ -25,7 +25,10 @@ dependencies {
         compile group:"com.google.inject",            name:"guice",                            version:"4.1.0"
         compile group:"org.json",                     name:"json",                             version:"latest.release"
         compile group:"com.google.code.findbugs",     name:"annotations",                      version:"latest.release"
-        compile group:"com.netflix.archaius",         name:"archaius-core",                    version:"0.+"
+        compile group:"com.netflix.archaius",         name:"archaius2-core",                   version:"latest.release"
+        compile(group:"com.netflix.eureka",           name:"eureka-client-archaius2",          version:"1.9.8") {
+                exclude module:"archaius-core"
+        }
         compile group:"com.netflix.spectator",        name:"spectator-api",                    version:"latest.release"
         compile group:"com.netflix.spectator",        name:"spectator-ext-ipc",                version:"latest.release"
         compile group:"io.reactivex",                 name:"rxjava",                           version:"latest.release"

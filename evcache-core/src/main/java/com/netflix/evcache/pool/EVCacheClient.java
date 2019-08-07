@@ -27,9 +27,7 @@ import java.util.zip.Checksum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.config.DynamicBooleanProperty;
-import com.netflix.config.DynamicIntProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.EVCache;
 import com.netflix.evcache.EVCache.Call;
 import com.netflix.evcache.EVCacheConnectException;
@@ -82,32 +80,31 @@ public class EVCacheClient {
     private final EVCacheServerGroupConfig config;
     private final int maxWriteQueueSize;
 
-    private final ChainedDynamicProperty.IntProperty readTimeout;
-    private final ChainedDynamicProperty.IntProperty bulkReadTimeout;
-//    private final DynamicIntProperty operationTimeout;
-    private final DynamicIntProperty maxReadQueueSize;
-    private final DynamicBooleanProperty ignoreInactiveNodes;
-    private final ChainedDynamicProperty.BooleanProperty enableChunking;
-    private final DynamicBooleanProperty hashKeyByApp;
-    private final DynamicBooleanProperty hashKeyByServerGroup;
-    private final ChainedDynamicProperty.IntProperty chunkSize, writeBlock;
+    private final Property<Integer> readTimeout;
+    private final Property<Integer> bulkReadTimeout;
+    private final Property<Integer> maxReadQueueSize;
+    private final Property<Boolean> ignoreInactiveNodes;
+    private final Property<Boolean> enableChunking;
+    private final Property<Boolean> hashKeyByApp;
+    private final Property<Boolean> hashKeyByServerGroup;
+    private final Property<Integer> chunkSize, writeBlock;
     private final ChunkTranscoder chunkingTranscoder;
     private final EVCacheTranscoder evcacheValueTranscoder;
     private final SerializingTranscoder decodingTranscoder;
     private static final int SPECIAL_BYTEARRAY = (8 << 8);
     private final EVCacheClientPool pool;
 //    private Counter addCounter = null;
-    private final ChainedDynamicProperty.BooleanProperty ignoreTouch;
+    private final Property<Boolean> ignoreTouch;
     private final List<Tag> tags;
     private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
-    private final ChainedDynamicProperty.StringProperty hashingAlgo;
+    private final Property<String> hashingAlgo;
     protected final Counter operationsCounter;
 
     EVCacheClient(String appName, String zone, int id, EVCacheServerGroupConfig config,
-            List<InetSocketAddress> memcachedNodesInZone, int maxQueueSize, DynamicIntProperty maxReadQueueSize,
-            ChainedDynamicProperty.IntProperty readTimeout, ChainedDynamicProperty.IntProperty bulkReadTimeout,
-            DynamicIntProperty opQueueMaxBlockTime,
-            DynamicIntProperty operationTimeout, EVCacheClientPool pool) throws IOException {
+            List<InetSocketAddress> memcachedNodesInZone, int maxQueueSize, Property<Integer> maxReadQueueSize,
+                  Property<Integer> readTimeout, Property<Integer> bulkReadTimeout,
+                  Property<Integer> opQueueMaxBlockTime,
+                  Property<Integer> operationTimeout, EVCacheClientPool pool) throws IOException {
         this.memcachedNodesInZone = memcachedNodesInZone;
         this.id = id;
         this.appName = appName;
@@ -129,16 +126,16 @@ public class EVCacheClient {
         tagList.add(new BasicTag(EVCacheMetricsFactory.STAT_NAME, EVCacheMetricsFactory.POOL_OPERATIONS));
         operationsCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_STATS, tagList);
 
-        this.enableChunking = EVCacheConfig.getInstance().getChainedBooleanProperty(this.serverGroup.getName()+ ".chunk.data", appName + ".chunk.data", Boolean.FALSE, null);
-        this.chunkSize = EVCacheConfig.getInstance().getChainedIntProperty(this.serverGroup.getName() + ".chunk.size", appName + ".chunk.size", 1180, null);
-        this.writeBlock = EVCacheConfig.getInstance().getChainedIntProperty(appName + "." + this.serverGroup.getName() + ".write.block.duration", appName + ".write.block.duration", 25, null);
+        this.enableChunking = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName()+ ".chunk.data", Boolean.class).orElseGet(appName + ".chunk.data").orElse(false);
+        this.chunkSize = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".chunk.size", Integer.class).orElseGet(appName + ".chunk.size").orElse(1180);
+        this.writeBlock = EVCacheConfig.getInstance().getPropertyRepository().get(appName + "." + this.serverGroup.getName() + ".write.block.duration", Integer.class).orElseGet(appName + ".write.block.duration").orElse(25);
         this.chunkingTranscoder = new ChunkTranscoder();
         this.maxWriteQueueSize = maxQueueSize;
-        this.ignoreTouch = EVCacheConfig.getInstance().getChainedBooleanProperty(appName + "." + this.serverGroup.getName() + ".ignore.touch", appName + ".ignore.touch", false, null);
+        this.ignoreTouch = EVCacheConfig.getInstance().getPropertyRepository().get(appName + "." + this.serverGroup.getName() + ".ignore.touch", Boolean.class).orElseGet(appName + ".ignore.touch").orElse(false);
 
         this.connectionFactory = pool.getEVCacheClientPoolManager().getConnectionFactoryProvider().getConnectionFactory(this);
         this.connectionObserver = new EVCacheConnectionObserver(this);
-        this.ignoreInactiveNodes = EVCacheConfig.getInstance().getDynamicBooleanProperty(appName + ".ignore.inactive.nodes", true);
+        this.ignoreInactiveNodes = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".ignore.inactive.nodes", Boolean.class).orElse(true);
 
         this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, this);
         this.evcacheMemcachedClient.addObserver(connectionObserver);
@@ -149,9 +146,9 @@ public class EVCacheClient {
         this.evcacheValueTranscoder = new EVCacheTranscoder();
         evcacheValueTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
 
-        this.hashKeyByApp = EVCacheConfig.getInstance().getDynamicBooleanProperty(appName + ".hash.key", Boolean.FALSE);
-        this.hashKeyByServerGroup = EVCacheConfig.getInstance().getDynamicBooleanProperty(this.serverGroup.getName() + ".hash.key", Boolean.FALSE);
-        this.hashingAlgo = EVCacheConfig.getInstance().getChainedStringProperty(this.serverGroup.getName() + ".hash.algo", appName + ".hash.algo", "MD5", null);
+        this.hashKeyByApp = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElse(false);
+        this.hashKeyByServerGroup = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.key", Boolean.class).orElse(false);
+        this.hashingAlgo = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.algo", String.class).orElseGet(appName + ".hash.algo").orElse("MD5");
     }
 
     private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys, EVCache.Call call) throws EVCacheException {
@@ -253,7 +250,7 @@ public class EVCacheClient {
     }
 
     private <T> ChunkDetails<T> getChunkDetails(String key) {
- 
+
         final List<String> firstKeys = new ArrayList<String>(2);
         firstKeys.add(key);
         final String firstKey = key + "_00";
@@ -312,7 +309,7 @@ public class EVCacheClient {
 
     private <T> T assembleChunks(String key, boolean touch, int ttl, Transcoder<T> tc, boolean hasZF) {
         try {
-            
+
             final ChunkDetails<T> cd = getChunkDetails(key);
             if (cd == null) return null;
             if (!cd.isChunked()) {
@@ -344,7 +341,7 @@ public class EVCacheClient {
                     final byte[] val = _cd.getData();
 
                     // If we expect a chunk to be present and it is null then return null immediately.
-                    if (val == null) return null; 
+                    if (val == null) return null;
                     final int len = (i == keys.size() - 1) ? ((ci.getLastChunk() == 0 || ci.getLastChunk() > ci
                             .getChunkSize()) ? ci.getChunkSize() : ci.getLastChunk())
                             : val.length;
@@ -702,7 +699,7 @@ public class EVCacheClient {
         // + 4 // 2 spaces and 1 \r
         // + 48 // Header Size
         // + 8; // CAS
-        final int overheadSize = key.length() + 71 + 3; 
+        final int overheadSize = key.length() + 71 + 3;
         // 3 because we will suffix _00, _01 ... _99; 68 is the size of the memcached header
         final int actualChunkSize = cSize - overheadSize;
         int lastChunkSize = len % actualChunkSize;
@@ -743,11 +740,11 @@ public class EVCacheClient {
         return chunkData;
     }
 
-    /** 
-     * Retrieves all the chunks as is. This is mainly used for debugging. 
-     * 
+    /**
+     * Retrieves all the chunks as is. This is mainly used for debugging.
+     *
      * @param key
-     * @return Returns all the chunks retrieved. 
+     * @return Returns all the chunks retrieved.
      * @throws EVCacheReadQueueException
      * @throws EVCacheException
      * @throws Exception
@@ -767,7 +764,7 @@ public class EVCacheClient {
                 if(log.isDebugEnabled()) log.debug("Keys - " + keys);
                 final Map<String, CachedData> dataMap = evcacheMemcachedClient.asyncGetBulk(keys, chunkingTranscoder, null)
                         .getSome(readTimeout.get().intValue(), TimeUnit.MILLISECONDS, false, false);
-                
+
                 if(log.isDebugEnabled()) log.debug("Datamap " + dataMap);
                 return dataMap;
             }
@@ -929,7 +926,7 @@ public class EVCacheClient {
                 }
             }
 
-            final EVCacheMemcachedClient _client = client; 
+            final EVCacheMemcachedClient _client = client;
             final Transcoder<T> tc = (transcoder == null) ? (Transcoder<T>) getTranscoder(): transcoder;
             if (enableChunking.get()) {
                 return assembleChunks(key, false, 0, tc, hasZF, scheduler);
@@ -950,7 +947,7 @@ public class EVCacheClient {
                         } else {
                             return Single.just(tc.decode(cd));
                         }
-                    });                    
+                    });
                 } else {
                     final Single<CASValue<Object>> value = _client.asyncGetAndTouch(hKey, timeToLive, evcacheValueTranscoder).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF, scheduler);
                     if(value != null ) {
@@ -1130,7 +1127,7 @@ public class EVCacheClient {
                         final String prefix = (i < 10) ? "0" : "";
                         futures[i] = evcacheMemcachedClient.set(key + "_" + prefix + i, timeToLive, cd[i], null, null);
                     }
-                    // ensure we are deleting the unchunked key if it exists. 
+                    // ensure we are deleting the unchunked key if it exists.
                     // Ignore return value since it may not exist.
                     evcacheMemcachedClient.delete(key);
                     return new EVCacheFutures(futures, key, appName, serverGroup, evcacheLatch);
@@ -1161,7 +1158,7 @@ public class EVCacheClient {
     protected boolean shouldHashKey() {
         return (!hashKeyByApp.get() && hashKeyByServerGroup.get());
     }
-    
+
     protected String getHashedKey(String key) {
         return KeyHasher.getHashedKey(key, hashingAlgo.get());
     }
@@ -1434,7 +1431,7 @@ public class EVCacheClient {
     public boolean isShutdown() {
         return this.shutdown;
     }
-    
+
     public boolean isInWriteOnly(){
         return pool.isInWriteOnly(getServerGroup());
     }
@@ -1445,13 +1442,13 @@ public class EVCacheClient {
             for(InetSocketAddress address : memcachedNodesInZone) {
                 udsproxyInetSocketAddress.add(new InetSocketAddress(address.getHostName(), config.getUdsproxyMemcachedPort()));
             }
-            
+
             MemcachedClient mc = null;
             try {
                 mc = new MemcachedClient(connectionFactory, udsproxyInetSocketAddress);
                 return mc.getStats(cmd);
             } catch(Exception ex) {
-                
+
             } finally {
                 if(mc != null) mc.shutdown();
             }
@@ -1480,7 +1477,7 @@ public class EVCacheClient {
     public NodeLocator getNodeLocator() {
         return this.evcacheMemcachedClient.getNodeLocator();
     }
-    
+
     static class SuccessFuture implements ListenableFuture<Boolean, OperationCompletionListener> {
 
 		@Override
@@ -1517,7 +1514,7 @@ public class EVCacheClient {
         @Override
         public Future<Boolean> removeListener(OperationCompletionListener listener) {
             return this;
-        }		
+        }
     }
 
     static class DefaultFuture implements ListenableFuture<Boolean, OperationCompletionListener> {
@@ -1579,23 +1576,23 @@ public class EVCacheClient {
         return maxWriteQueueSize;
     }
 
-    public ChainedDynamicProperty.IntProperty getReadTimeout() {
+    public Property<Integer> getReadTimeout() {
         return readTimeout;
     }
 
-    public ChainedDynamicProperty.IntProperty getBulkReadTimeout() {
+    public Property<Integer> getBulkReadTimeout() {
         return bulkReadTimeout;
     }
 
-    public DynamicIntProperty getMaxReadQueueSize() {
+    public Property<Integer> getMaxReadQueueSize() {
         return maxReadQueueSize;
     }
 
-    public ChainedDynamicProperty.BooleanProperty getEnableChunking() {
+    public Property<Boolean> getEnableChunking() {
         return enableChunking;
     }
 
-    public ChainedDynamicProperty.IntProperty getChunkSize() {
+    public Property<Integer> getChunkSize() {
         return chunkSize;
     }
 
@@ -1722,7 +1719,7 @@ public class EVCacheClient {
         int size = 0;
         for(MemcachedNode node : allNodes) {
             if(node instanceof EVCacheNodeImpl) {
-                size += ((EVCacheNodeImpl)node).getWriteQueueSize(); 
+                size += ((EVCacheNodeImpl)node).getWriteQueueSize();
             }
         }
         return size;
@@ -1733,7 +1730,7 @@ public class EVCacheClient {
         int size = 0;
         for(MemcachedNode node : allNodes) {
             if(node instanceof EVCacheNodeImpl) {
-                size += ((EVCacheNodeImpl)node).getReadQueueSize(); 
+                size += ((EVCacheNodeImpl)node).getReadQueueSize();
             }
         }
         return size;
@@ -1749,15 +1746,15 @@ public class EVCacheClient {
 
 
     /**
-     * Return the keys upto the limit. The key will be cannoicalized key( or hashed Key).<br> 
+     * Return the keys upto the limit. The key will be cannoicalized key( or hashed Key).<br>
      * <B> The keys are read into memory so make sure you have enough memory to read the specified number of keys<b>
      * @param limit - The number of keys that need to fetched from each memcached clients.
-     * @return - the List of keys. 
+     * @return - the List of keys.
      */
     public List<String> getAllKeys(final int limit) {
         final List<String> keyList = new ArrayList<String>(limit);
-        byte[] array = new byte[EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".all.keys.reader.buffer.size.bytes", 4*1024*1024).get()];
-        final int waitInSec = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".all.keys.reader.wait.duration.sec", 60).get();
+        byte[] array = new byte[EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".all.keys.reader.buffer.size.bytes", Integer.class).orElse(4*1024*1024).get()];
+        final int waitInSec = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".all.keys.reader.wait.duration.sec", Integer.class).orElse(60).get();
         for(InetSocketAddress address : memcachedNodesInZone) {
             //final List<String> keyList = new ArrayList<String>(limit);
             Socket socket = null;
@@ -1852,5 +1849,5 @@ public class EVCacheClient {
             }
         }
         return false;
-    }    
+    }
 }

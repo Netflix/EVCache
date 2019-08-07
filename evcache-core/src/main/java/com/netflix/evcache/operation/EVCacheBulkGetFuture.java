@@ -84,12 +84,12 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                 for (GarbageCollectorMXBean gcMXBean : gcMXBeans) {
                     if (gcMXBean instanceof com.sun.management.GarbageCollectorMXBean) {
                         final GcInfo lastGcInfo = ((com.sun.management.GarbageCollectorMXBean) gcMXBean).getLastGcInfo();
-    
+
                         // If no GCs, there was no pause.
                         if (lastGcInfo == null) {
                             continue;
                         }
-    
+
                         final long gcStartTime = lastGcInfo.getStartTime() + vmStartTime;
                         if (gcStartTime > start) {
                             gcPause = true;
@@ -114,12 +114,12 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                 pauseDuration = System.currentTimeMillis() - start;
                 if (log.isDebugEnabled()) log.debug("Total duration due to gc event = " + (System.currentTimeMillis() - start) + " msec.");
             }
-    
+
             for (Operation op : ops) {
                 if (op.getState() != OperationState.COMPLETE) {
                     if (!status) {
                         MemcachedConnection.opTimedOut(op);
-                        if(timedoutOps == null) timedoutOps = new HashSet<Operation>(); 
+                        if(timedoutOps == null) timedoutOps = new HashSet<Operation>();
                         timedoutOps.add(op);
                     } else {
                         MemcachedConnection.opSucceeded(op);
@@ -128,9 +128,9 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                     MemcachedConnection.opSucceeded(op);
                 }
             }
-    
+
             if (!status && !hasZF && (timedoutOps != null && timedoutOps.size() > 0)) statusString = EVCacheMetricsFactory.TIMEOUT;
-    
+
             for (Operation op : ops) {
                 if(op.isCancelled()) {
                     if (hasZF) statusString = EVCacheMetricsFactory.CANCELLED;
@@ -142,12 +142,13 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
             for (Map.Entry<String, Future<T>> me : rvMap.entrySet()) {
                 m.put(me.getKey(), me.getValue().get());
             }
-            
+
             return m;
         } finally {
             if(pauseDuration > 0) {
                 tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_STATUS, statusString));
-                EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList, Duration.ofMillis(EVCacheConfig.getInstance().getChainedIntProperty(getApp() + ".max.read.duration.metric", "evcache.max.read.duration.metric", 20, null).get().intValue())).record(pauseDuration, TimeUnit.MILLISECONDS);
+                EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList, Duration.ofMillis(EVCacheConfig.getInstance().getPropertyRepository().get(getApp() + ".max.read.duration.metric", Integer.class)
+                        .orElseGet("evcache.max.read.duration.metric").orElse(20).get().intValue())).record(pauseDuration, TimeUnit.MILLISECONDS);
             }
         }
     }
@@ -193,7 +194,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
             }
         }), scheduler);
     }
-    
+
     public String getZone() {
         return client.getServerGroupName();
     }

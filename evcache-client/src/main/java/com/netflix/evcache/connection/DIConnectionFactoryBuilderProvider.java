@@ -1,21 +1,24 @@
 package com.netflix.evcache.connection;
 
-import com.google.inject.Inject;
-import com.google.inject.Provider;
-import com.netflix.config.DynamicIntProperty;
+import com.netflix.archaius.api.Property;
+import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.discovery.EurekaClient;
 import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.ConnectionFactory;
+
+import javax.inject.Inject;
+import javax.inject.Provider;
 
 public class DIConnectionFactoryBuilderProvider extends ConnectionFactoryBuilder implements Provider<IConnectionBuilder> {
 
     private final EurekaClient eurekaClient;
+    private PropertyRepository props;
 
     @Inject
-    public DIConnectionFactoryBuilderProvider(EurekaClient eurekaClient) {
+    public DIConnectionFactoryBuilderProvider(EurekaClient eurekaClient, PropertyRepository props) {
         this.eurekaClient = eurekaClient;
+        this.props = props;
     }
 
     @Override
@@ -26,9 +29,9 @@ public class DIConnectionFactoryBuilderProvider extends ConnectionFactoryBuilder
     @Override
     public ConnectionFactory getConnectionFactory(EVCacheClient client) {
         final String appName = client.getAppName();
-        final int maxQueueSize = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".max.queue.length", 16384).get();
-        final DynamicIntProperty operationTimeout = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".operation.timeout", 2500);
-        final int opQueueMaxBlockTime = EVCacheConfig.getInstance().getDynamicIntProperty(appName + ".operation.QueueMaxBlockTime", 10).get();
+        final int maxQueueSize = props.get(appName + ".max.queue.length", Integer.class).orElse(16384).get();
+        final Property<Integer> operationTimeout = props.get(appName + ".operation.timeout", Integer.class).orElse(2500);
+        final int opQueueMaxBlockTime = props.get(appName + ".operation.QueueMaxBlockTime", Integer.class).orElse(10).get();
 
         return new DIConnectionFactory(client, eurekaClient, maxQueueSize, operationTimeout, opQueueMaxBlockTime);
     }

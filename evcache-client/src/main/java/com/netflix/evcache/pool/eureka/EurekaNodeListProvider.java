@@ -6,9 +6,8 @@ import com.netflix.appinfo.ApplicationInfoManager;
 import com.netflix.appinfo.DataCenterInfo;
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.appinfo.InstanceInfo.InstanceStatus;
-import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.config.DynamicBooleanProperty;
-import com.netflix.config.DynamicStringSetProperty;
+import com.netflix.archaius.api.Property;
+import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.discovery.EurekaClient;
 import com.netflix.discovery.shared.Application;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
@@ -38,13 +37,16 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
 
     private static Logger log = LoggerFactory.getLogger(EurekaNodeListProvider.class);
     private final EurekaClient _eurekaClient;
+    private PropertyRepository props;
     private final ApplicationInfoManager applicationInfoManager;
-    private final Map<String, ChainedDynamicProperty.BooleanProperty> useRendBatchPortMap = new HashMap<String, ChainedDynamicProperty.BooleanProperty>();
-    private DynamicStringSetProperty ignoreHosts = null;
+    private final Map<String, Property<Boolean>> useRendBatchPortMap = new HashMap<String, Property<Boolean>>();
+    @SuppressWarnings("rawtypes") // Archaius2 PropertyRepository does not support ParameterizedTypes
+	private Property<Set> ignoreHosts = null;
 
-    public EurekaNodeListProvider(ApplicationInfoManager applicationInfoManager, EurekaClient eurekaClient) {
+    public EurekaNodeListProvider(ApplicationInfoManager applicationInfoManager, EurekaClient eurekaClient, PropertyRepository props) {
         this.applicationInfoManager = applicationInfoManager;
         this._eurekaClient = eurekaClient;
+        this.props = props;
     }
 
     /*
@@ -81,7 +83,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
                 continue;
             }
 
-            final AmazonInfo amznInfo = (AmazonInfo) dcInfo; 
+            final AmazonInfo amznInfo = (AmazonInfo) dcInfo;
             // We checked above if this instance is Amazon so no need to do a instanceof check
             final String zone = amznInfo.get(AmazonInfo.MetaDataKey.availabilityZone);
             if(zone == null) {
@@ -100,7 +102,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
                 continue;
             }
 
-            final DynamicBooleanProperty asgEnabled = EVCacheConfig.getInstance().getDynamicBooleanProperty(asgName + ".enabled", true);
+            final Property<Boolean> asgEnabled = props.get(asgName + ".enabled", Boolean.class).orElse(true);
             if (!asgEnabled.get()) {
                 if(log.isDebugEnabled()) log.debug("ASG " + asgName + " is disabled so ignoring it");
                 continue;
@@ -113,13 +115,13 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
             final int udsproxyMemcachedPort = (metaInfo != null && metaInfo.containsKey("udsproxy.memcached.port")) ? Integer.parseInt(metaInfo.get("udsproxy.memcached.port")) : 0;
             final int udsproxyMementoPort = (metaInfo != null && metaInfo.containsKey("udsproxy.memento.port")) ? Integer.parseInt(metaInfo.get("udsproxy.memento.port")) : 0;
 
-            ChainedDynamicProperty.BooleanProperty useBatchPort = useRendBatchPortMap.get(asgName);
+            Property<Boolean> useBatchPort = useRendBatchPortMap.get(asgName);
             if (useBatchPort == null) {
-                useBatchPort = EVCacheConfig.getInstance().getChainedBooleanProperty(_appName + ".use.batch.port", "evcache.use.batch.port", Boolean.FALSE, null);
+                useBatchPort = props.get(_appName + ".use.batch.port", Boolean.class).orElseGet("evcache.use.batch.port").orElse(false);
                 useRendBatchPortMap.put(asgName, useBatchPort);
             }
             int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);
-            final ChainedDynamicProperty.BooleanProperty isSecure = EVCacheConfig.getInstance().getChainedBooleanProperty(asgName + ".use.secure", _appName + ".use.secure", false, null);
+            final Property<Boolean> isSecure = props.get(asgName + ".use.secure", Boolean.class).orElseGet(_appName + ".use.secure").orElse(false);
             if(isSecure.get()) {
                 port = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.secure.port")) ? metaInfo.get("evcache.secure.port") : DEFAULT_SECURE_PORT);
             }
@@ -147,7 +149,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
 
             final InstanceInfo myInfo = applicationInfoManager.getInfo();
             final DataCenterInfo myDC = myInfo.getDataCenterInfo();
-            final AmazonInfo myAmznDC = (myDC instanceof AmazonInfo) ? (AmazonInfo) myDC : null;   
+            final AmazonInfo myAmznDC = (myDC instanceof AmazonInfo) ? (AmazonInfo) myDC : null;
             final String myInstanceId = myInfo.getInstanceId();
             final String myIp = myInfo.getIPAddr();
             final String myPublicHostName = (myAmznDC != null) ? myAmznDC.get(AmazonInfo.MetaDataKey.publicHostname) : null;
@@ -174,7 +176,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
             final String localIp = amznInfo.get(AmazonInfo.MetaDataKey.localIpv4);
             if (log.isDebugEnabled()) log.debug("myZone - " + myZone + "; zone : " + zone + "; myRegion : " + myRegion + "; region : " + region + "; host : " + host + "; vpcId : " + vpcId);
 
-            if(ignoreHosts == null) ignoreHosts = EVCacheConfig.getInstance().getDynamicStringSetProperty(_appName + ".ignore.hosts", "");
+            if(ignoreHosts == null) ignoreHosts = props.get(_appName + ".ignore.hosts", Set.class).orElse(Collections.emptySet());
             if(localIp != null && ignoreHosts.get().contains(localIp)) continue;
             if(host != null && ignoreHosts.get().contains(host)) continue;
 
@@ -183,7 +185,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
                 final InetAddress inetAddress = InetAddress.getByAddress(localIp, add.getAddress());
                 address = new InetSocketAddress(inetAddress, port);
 
-                if (log.isDebugEnabled()) log.debug("VPC : localIp - " + localIp + " ; add : " + add + "; inetAddress : " + inetAddress + "; address - " + address  
+                if (log.isDebugEnabled()) log.debug("VPC : localIp - " + localIp + " ; add : " + add + "; inetAddress : " + inetAddress + "; address - " + address
                         + "; App Name : " + _appName + "; Zone : " + zone + "; myZone - " + myZone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
             } else {
                 if(host != null && host.startsWith("ec2")) {
@@ -197,7 +199,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
                     final InetAddress add = InetAddresses.forString(ipToUse);
                     final InetAddress inetAddress = InetAddress.getByAddress(ipToUse, add.getAddress());
                     address = new InetSocketAddress(inetAddress, port);
-                    if (log.isDebugEnabled()) log.debug("CLASSIC : IPToUse - " + ipToUse + " ; add : " + add + "; inetAddress : " + inetAddress + "; address - " + address 
+                    if (log.isDebugEnabled()) log.debug("CLASSIC : IPToUse - " + ipToUse + " ; add : " + add + "; inetAddress : " + inetAddress + "; address - " + address
                             + "; App Name : " + _appName + "; Zone : " + zone + "; myZone - " + myZone + "; Host : " + iInfo.getHostName() + "; Instance Id - " + iInfo.getId());
                 }
             }
