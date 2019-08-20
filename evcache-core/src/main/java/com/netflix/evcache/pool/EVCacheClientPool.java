@@ -145,7 +145,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
         this._operationTimeout = config.getDynamicIntProperty(appName + ".operation.timeout", 2500);
         this._operationTimeout.addCallback(callback);
-        this._maxReadQueueSize = config.getDynamicIntProperty(appName + ".max.read.queue.length", 5);
+        this._maxReadQueueSize = config.getDynamicIntProperty(appName + ".max.read.queue.length", 50);
         this._retryAcrossAllReplicas = config.getDynamicBooleanProperty(_appName + ".retry.all.copies", Boolean.FALSE);
         this._disableAsyncRefresh = config.getDynamicBooleanProperty(_appName + ".disable.async.refresh", Boolean.FALSE);
         this._maxRetries = config.getDynamicIntProperty(_appName + ".max.retry.count", 1);
