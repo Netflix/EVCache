@@ -286,6 +286,7 @@ public final class EVCacheMetricsFactory {
     public static final String NO                               = "no";
     public static final String PARTIAL                          = "partial";
     public static final String UNKNOWN                          = "unknown";
+    public static final String INTERRUPTED                      = "interrupted";
     public static final String SCHEDULE                         = "Scheduling";
     public static final String GC                               = "gc";
     public static final String NULL_CLIENT                      = "nullClient";

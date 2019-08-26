@@ -65,7 +65,7 @@ public class EVCacheInMemoryCache<T> {
         this.tc = tc;
         this.impl = impl;
 
-        this._cacheDuration = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".inmemory.cache.duration.ms", Integer.class).orElseGet(appName + ".inmemory.expire.after.write.duration.ms").orElse(0);
+        this._cacheDuration = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".inmemory.expire.after.write.duration.ms", Integer.class).orElseGet(appName + ".inmemory.cache.duration.ms").orElse(0);
         this._cacheDuration.subscribe((i) -> setupCache());
         this._exireAfterAccessDuration = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".inmemory.expire.after.access.duration.ms", Integer.class).orElse(0);
         this._exireAfterAccessDuration.subscribe((i) -> setupCache());;

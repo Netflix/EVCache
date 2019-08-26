@@ -132,13 +132,12 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this._opQueueMaxBlockTime.subscribe(callback);
         this._operationTimeout = config.getPropertyRepository().get(appName + ".operation.timeout", Integer.class).orElse(2500);
         this._operationTimeout.subscribe(callback);
-        this._maxReadQueueSize = config.getPropertyRepository().get(appName + ".max.read.queue.length", Integer.class).orElse(5);
+        this._maxReadQueueSize = config.getPropertyRepository().get(appName + ".max.read.queue.length", Integer.class).orElse(50);
         this._retryAcrossAllReplicas = config.getPropertyRepository().get(_appName + ".retry.all.copies", Boolean.class).orElse(false);
         this._disableAsyncRefresh = config.getPropertyRepository().get(_appName + ".disable.async.refresh", Boolean.class).orElse(false);
         this._maxRetries = config.getPropertyRepository().get(_appName + ".max.retry.count", Integer.class).orElse(1);
 
         Function<String, Set<String>> splitSet = t -> Arrays.stream(t.split(",")).collect(Collectors.toSet());
-
         this.logOperations = config.getPropertyRepository().get(appName + ".log.operation", Integer.class).orElse(0);
         this.logOperationCalls = config.getPropertyRepository().get(appName + ".log.operation.calls", String.class).orElse("SET,DELETE,GMISS,TMISS,BMISS_ALL,TOUCH,REPLACE").map(splitSet);
         this.reconcileInterval = config.getPropertyRepository().get(appName + ".reconcile.interval", Integer.class).orElse(600000);
