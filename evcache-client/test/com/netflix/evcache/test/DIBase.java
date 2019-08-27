@@ -53,12 +53,18 @@ public abstract class DIBase  {
             props.setProperty("eureka.validateInstanceId","true");
         }
 
-        props.setProperty("eureka.environment", "test");
+        System.setProperty("@region", "us-east-1");
+        System.setProperty("@environment", "test");
         System.setProperty("eureka.region", "us-east-1");
+        System.setProperty("eureka.environment", "test");
+        props.setProperty("eureka.environment", "test");
         props.setProperty("eureka.region", "us-east-1");
         props.setProperty("eureka.appid", "clatency");
         props.setProperty("eureka.serviceUrl.default","http://${@region}.discovery${@environment}.netflix.net:7001/discovery/v2/");
         props.setProperty("log4j.rootLogger", "DEBUG");
+        System.setProperty("log4j.rootLogger", "DEBUG");
+        props.setProperty("log4j.logger.com.netflix.evcache.test.DIBase", "DEBUG");
+        props.setProperty("log4j.logger.com.netflix.evcache.test.EVCacheTestDI", "DEBUG");
         props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheNodeLocator", "ERROR");
         props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheClientUtil", "DEBUG");
         
@@ -194,6 +200,7 @@ public abstract class DIBase  {
         return true;
     }
 
+    @SuppressWarnings("deprecation")
     protected boolean insertUsingLatch(int i, String app) throws Exception {
         String val = "val_" + i;
         String key = "key_" + i;

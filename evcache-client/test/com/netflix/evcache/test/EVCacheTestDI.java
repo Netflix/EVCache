@@ -224,7 +224,7 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
 
     @Test(dependsOnMethods = { "testGetAndTouchObservable" })
     public void waitForCallbacks() throws Exception {
-        Thread.sleep(500);
+        Thread.sleep(1000);
     }
 
     @Test(dependsOnMethods = { "waitForCallbacks" })
