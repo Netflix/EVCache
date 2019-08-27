@@ -1,0 +1,10 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+<suite name="evcache-client-tests">
+  <!-- Uncomment this if EVCacheServer based Tests need to be run. Needs Eureka and EVCache clusters   -->
+  
+  <test name="EurekaTests">
+    <classes>
+      <class name="com.netflix.evcache.test.EVCacheTestDI" />
+    </classes>
+  </test>
+</suite>
