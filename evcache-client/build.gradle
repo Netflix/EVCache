@@ -27,6 +27,8 @@ dependencies {
         compile group:"org.slf4j",                    name:"slf4j-api",                        version:"1.7.+"
         compile group:"org.json",                     name:"json",                             version:"20180813"
         
+
+        testCompile group:"org.testng",               name:"testng",                           version:"7.+"
         testCompile group:"com.netflix.archaius",     name:"archaius2-guice",                  version:"latest.release"
         testCompile group:"org.testng",               name:"testng",                           version:"latest.release"
         testCompile group:"com.beust",                name:"jcommander",                       version:"1.72"
@@ -36,4 +38,14 @@ dependencies {
 
 javadoc {
     failOnError = false
+}
+
+
+test {
+    useTestNG() 
+    options.suites('test/test-suite.xml')
+    minHeapSize = '1024m'
+    maxHeapSize = '1536m'
+    testLogging.displayGranularity = -1
+    testLogging.showStandardStreams = true
 }
