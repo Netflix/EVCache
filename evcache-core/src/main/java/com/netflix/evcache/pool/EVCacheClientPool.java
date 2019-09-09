@@ -141,7 +141,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this.logOperations = config.getPropertyRepository().get(appName + ".log.operation", Integer.class).orElse(0);
         this.logOperationCalls = config.getPropertyRepository().get(appName + ".log.operation.calls", String.class).orElse("SET,DELETE,GMISS,TMISS,BMISS_ALL,TOUCH,REPLACE").map(splitSet);
         this.reconcileInterval = config.getPropertyRepository().get(appName + ".reconcile.interval", Integer.class).orElse(600000);
-        this.cloneWrite = config.getPropertyRepository().get(appName + ".clone.writes.to", String.class).orElse("").map(splitSet);
+        this.cloneWrite = config.getPropertyRepository().get(appName + ".clone.writes.to", String.class).map(splitSet).orElse(Collections.emptySet());
         this.cloneWrite.subscribe(i -> {
             setupClones();
         });
