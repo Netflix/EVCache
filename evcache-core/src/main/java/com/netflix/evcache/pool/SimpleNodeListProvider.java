@@ -24,8 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.net.InetAddresses;
-import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.config.DynamicBooleanProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.util.EVCacheConfig;
 
 public class SimpleNodeListProvider implements EVCacheNodeList {
@@ -78,7 +77,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
     @Override
     public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances(String appName) throws IOException {
         final String propertyName = appName + "-NODES";
-        final String nodeListString = EVCacheConfig.getInstance().getDynamicStringProperty(propertyName, "").get();
+        final String nodeListString = EVCacheConfig.getInstance().getPropertyRepository().get(propertyName, String.class).orElse("").get();
         if (log.isDebugEnabled()) log.debug("List of Nodes = " + nodeListString);
         if(nodeListString != null && nodeListString.length() > 0) return bootstrapFromSystemProperty(nodeListString);
         
@@ -119,13 +118,13 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
             final JSONObject application = jsonObj.getJSONObject("application");
             final JSONArray instances = application.getJSONArray("instance");
             final Map<ServerGroup, EVCacheServerGroupConfig> serverGroupMap = new HashMap<ServerGroup, EVCacheServerGroupConfig>();
-            final ChainedDynamicProperty.BooleanProperty useBatchPort = EVCacheConfig.getInstance().getChainedBooleanProperty(appName + ".use.batch.port", "evcache.use.batch.port", Boolean.FALSE, null);
+            final Property<Boolean> useBatchPort = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".use.batch.port", Boolean.class).orElseGet("evcache.use.batch.port").orElse(false);
             for(int i = 0; i < instances.length(); i++) {
                 final JSONObject instanceObj = instances.getJSONObject(i);
                 final JSONObject metadataObj = instanceObj.getJSONObject("dataCenterInfo").getJSONObject("metadata");
 
                 final String asgName = instanceObj.getString("asgName");
-                final DynamicBooleanProperty asgEnabled = EVCacheConfig.getInstance().getDynamicBooleanProperty(asgName + ".enabled", true);
+                final Property<Boolean> asgEnabled = EVCacheConfig.getInstance().getPropertyRepository().get(asgName + ".enabled", Boolean.class).orElse(true);
                 if (!asgEnabled.get()) {
                     if(log.isDebugEnabled()) log.debug("ASG " + asgName + " is disabled so ignoring it");
                     continue;

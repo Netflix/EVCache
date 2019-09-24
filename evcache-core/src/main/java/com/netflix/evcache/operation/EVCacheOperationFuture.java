@@ -116,7 +116,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
      *
      * As with the Future interface, this call will block until the results of
      * the future operation has been received.
-     * 
+     *
      * Note: If we detect there was GC pause and our operation was caught in
      * between we wait again to see if we will be successful. This is effective
      * as the timeout we specify is very low.
@@ -179,12 +179,12 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                 op.timeOut();
                 ExecutionException t = null;
                 if(throwException && !hasZF) {
-                    if (op.isTimedOut()) { t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op)); statusString = EVCacheMetricsFactory.CHECKED_OP_TIMEOUT; } 
+                    if (op.isTimedOut()) { t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op)); statusString = EVCacheMetricsFactory.CHECKED_OP_TIMEOUT; }
                     else if (op.isCancelled()  && throwException) { t = new ExecutionException(new CancellationException("Cancelled"));statusString = EVCacheMetricsFactory.CANCELLED; }
                     else if (op.hasErrored() ) { t = new ExecutionException(op.getException());statusString = EVCacheMetricsFactory.ERROR; }
-                }   
+                }
 
-                if(t != null) throw t; //finally throw the exception if needed 
+                if(t != null) throw t; //finally throw the exception if needed
             }
 
             final List<Tag> tagList = new ArrayList<Tag>(client.getTagList().size() + 4);
@@ -193,7 +193,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
             tagList.add(new BasicTag(EVCacheMetricsFactory.PAUSE_REASON, gcPause ? EVCacheMetricsFactory.GC:EVCacheMetricsFactory.SCHEDULE));
             tagList.add(new BasicTag(EVCacheMetricsFactory.FETCH_AFTER_PAUSE, status ? EVCacheMetricsFactory.YES:EVCacheMetricsFactory.NO));
             tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_STATUS, statusString));
-            EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList, Duration.ofMillis(EVCacheConfig.getInstance().getChainedIntProperty(getApp() + ".max.write.duration.metric", "evcache.max.write.duration.metric", 50, null).get().intValue())).record(pauseDuration, TimeUnit.MILLISECONDS);
+            EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList, Duration.ofMillis(EVCacheConfig.getInstance().getPropertyRepository().get(getApp() + ".max.write.duration.metric", Integer.class).orElseGet("evcache.max.write.duration.metric").orElse(50).get().intValue())).record(pauseDuration, TimeUnit.MILLISECONDS);
         }
 
         if (status)  MemcachedConnection.opSucceeded(op);// continuous timeout counter will be reset
@@ -230,7 +230,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         }), scheduler).doAfterTerminate(new Action0() {
             @Override
             public void call() {
-                
+
             }
         }
         );
@@ -239,7 +239,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     public void signalComplete() {
         super.signalComplete();
     }
-    
+
     /**
      * Cancel this operation, if possible.
      *

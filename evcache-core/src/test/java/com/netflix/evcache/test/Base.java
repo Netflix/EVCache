@@ -19,7 +19,6 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 
-import com.netflix.config.ConfigurationManager;
 import com.netflix.evcache.EVCache;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheLatch.Policy;
@@ -47,16 +46,16 @@ public abstract class Base  {
     protected EVCacheClientPoolManager manager = null;
     protected Properties props = null;
 
-    
+
     protected Properties getProps() {
         if(props != null) return props;
         props = new Properties();
         initProps();
         return props;
     }
-    
+
     protected void initProps() {
-    
+
         String hostname = System.getenv("EC2_HOSTNAME");
         if(hostname == null) {
             props.setProperty("eureka.datacenter", "datacenter");//change to ndc while running on desktop
@@ -83,7 +82,6 @@ public abstract class Base  {
             for(Entry<Object, Object> prop : props.entrySet()) {
                 System.setProperty(prop.getKey().toString(), prop.getValue().toString());
             }
-            ConfigurationManager.loadProperties(props);
         } catch (Throwable e) {
             e.printStackTrace();
             log.error(e.getMessage(), e);
@@ -111,7 +109,7 @@ public abstract class Base  {
         }
         return true;
     }
-    
+
     protected boolean appendOrAdd(int i, EVCache gCache) throws Exception {
         return appendOrAdd(i, gCache, 60 * 60);
     }
@@ -134,7 +132,7 @@ public abstract class Base  {
         if(log.isDebugEnabled()) log.debug("ADD : key : " + key + "; success = " + status);
         return status;
     }
-    
+
     public boolean insert(int i, EVCache gCache) throws Exception {
         //String val = "This is a very long value that should work well since we are going to use compression on it. blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah val_"+i;
         String val = "val_"+i;
@@ -146,7 +144,7 @@ public abstract class Base  {
         }
         return true;
     }
-    
+
     protected boolean replace(int i, EVCache gCache) throws Exception {
         return replace(i, gCache, 60 * 60);
     }
@@ -160,7 +158,7 @@ public abstract class Base  {
         return status.getSuccessCount() > 0;
     }
 
-    
+
 
     public boolean delete(int i, EVCache gCache) throws Exception {
         String key = "key_" + i;

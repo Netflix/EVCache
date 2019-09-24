@@ -5,33 +5,24 @@ import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
+import com.netflix.archaius.api.Property;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.config.ChainedDynamicProperty.BooleanProperty;
-import com.netflix.config.DynamicBooleanProperty;
-import com.netflix.config.DynamicIntProperty;
-import com.netflix.config.DynamicStringSetProperty;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.CircularIterator;
@@ -54,47 +45,47 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private final String _zone;
     private final EVCacheClientPoolManager manager;
     private ServerGroupCircularIterator localServerGroupIterator = null;
-    private final DynamicIntProperty _poolSize; // Number of MemcachedClients to each cluster
-    private final ChainedDynamicProperty.IntProperty _readTimeout; // Timeout for readOperation
-    private final ChainedDynamicProperty.IntProperty _bulkReadTimeout; // Timeout for readOperation
+    private final Property<Integer> _poolSize; // Number of MemcachedClients to each cluster
+    private final Property<Integer> _readTimeout; // Timeout for readOperation
+    private final Property<Integer> _bulkReadTimeout; // Timeout for readOperation
     public static final String DEFAULT_PORT = "11211";
 
-    private final DynamicBooleanProperty _retryAcrossAllReplicas;
+    private final Property<Boolean> _retryAcrossAllReplicas;
     private long lastReconcileTime = 0;
 
-    private final DynamicIntProperty logOperations;
-    private final DynamicStringSetProperty logOperationCalls;
-    private final DynamicStringSetProperty cloneWrite;
+    private final Property<Integer> logOperations;
+    private final Property<Set<String>> logOperationCalls;
+    private final Property<Set<String>> cloneWrite;
 
-    private final DynamicIntProperty _opQueueMaxBlockTime; // Timeout for adding an operation
-    private final DynamicIntProperty _operationTimeout;// Timeout for write operation
-    private final DynamicIntProperty _maxReadQueueSize;
-    private final DynamicIntProperty reconcileInterval;
-    private final DynamicIntProperty _maxRetries;
+    private final Property<Integer> _opQueueMaxBlockTime; // Timeout for adding an operation
+    private final Property<Integer> _operationTimeout;// Timeout for write operation
+    private final Property<Integer> _maxReadQueueSize;
+    private final Property<Integer> reconcileInterval;
+    private final Property<Integer> _maxRetries;
 
-    private final BooleanProperty _pingServers;
-    
-    private final ChainedDynamicProperty.BooleanProperty refreshConnectionOnReadQueueFull;
-    private final ChainedDynamicProperty.IntProperty refreshConnectionOnReadQueueFullSize;
+    private final Property<Boolean> _pingServers;
+
+    private final Property<Boolean> refreshConnectionOnReadQueueFull;
+    private final Property<Integer> refreshConnectionOnReadQueueFullSize;
 
     private final ThreadPoolExecutor asyncRefreshExecutor;
-    private final DynamicBooleanProperty _disableAsyncRefresh;
+    private final Property<Boolean> _disableAsyncRefresh;
     private final List<Tag> tagList;
 //    private final Id poolSizeId;
     //private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
     private final Map<String, Gauge> gaugeMap = new ConcurrentHashMap<String, Gauge>();
 
     @SuppressWarnings("serial")
-    private final Map<ServerGroup, BooleanProperty> writeOnlyFastPropertyMap = new ConcurrentHashMap<ServerGroup, BooleanProperty>() {
+    private final Map<ServerGroup, Property<Boolean>> writeOnlyFastPropertyMap = new ConcurrentHashMap<ServerGroup, Property<Boolean>>() {
         @Override
-        public BooleanProperty get(Object _serverGroup) {
+        public Property<Boolean> get(Object _serverGroup) {
             final ServerGroup serverGroup = ServerGroup.class.cast(_serverGroup);
-            BooleanProperty isServerGroupInWriteOnlyMode = super.get(serverGroup);
+            Property<Boolean> isServerGroupInWriteOnlyMode = super.get(serverGroup);
             if (isServerGroupInWriteOnlyMode != null) return isServerGroupInWriteOnlyMode;
 
             isServerGroupInWriteOnlyMode = EVCacheConfig.getInstance().
-                    getChainedBooleanProperty(_appName + "." + serverGroup.getName() + ".EVCacheClientPool.writeOnly",
-                                              _appName + "." + serverGroup.getZone() + ".EVCacheClientPool.writeOnly", Boolean.FALSE, null);
+                    getPropertyRepository().get(_appName + "." + serverGroup.getName() + ".EVCacheClientPool.writeOnly", Boolean.class)
+                    .orElseGet(_appName + "." + serverGroup.getZone() + ".EVCacheClientPool.writeOnly").orElse(false);
             put(serverGroup, isServerGroupInWriteOnlyMode);
             return isServerGroupInWriteOnlyMode;
         };
@@ -123,47 +114,42 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this._zone = (ec2Zone == null) ? "GLOBAL" : ec2Zone;
         final EVCacheConfig config = EVCacheConfig.getInstance();
 
-        final Runnable callback =new Runnable() {
-            public void run() {
-                clearState();
-                refreshPool(true, true);
-            }
-        }; 
-        this._poolSize = config.getDynamicIntProperty(appName + ".EVCacheClientPool.poolSize", 1);
-        this._poolSize.addCallback(callback);
-        this._readTimeout = new ChainedDynamicProperty.IntProperty(appName + ".EVCacheClientPool.readTimeout", EVCacheClientPoolManager.getDefaultReadTimeout());
-        this._readTimeout.addCallback(callback);
+        final Consumer<Integer> callback = t -> {
+            clearState();
+            refreshPool(true, true);
+        };
+        this._poolSize = config.getPropertyRepository().get(appName + ".EVCacheClientPool.poolSize", Integer.class).orElse(1);
+        this._poolSize.subscribe(callback);
+        this._readTimeout = config.getPropertyRepository().get(appName + ".EVCacheClientPool.readTimeout", Integer.class).orElse(EVCacheClientPoolManager.getDefaultReadTimeout().get());
+        this._readTimeout.subscribe(callback);
+        this._bulkReadTimeout = config.getPropertyRepository().get(appName + ".EVCacheClientPool.bulkReadTimeout", Integer.class).orElse(_readTimeout.get());
+        this._bulkReadTimeout.subscribe(callback);
 
-        this._bulkReadTimeout = new ChainedDynamicProperty.IntProperty(appName + ".EVCacheClientPool.bulkReadTimeout", _readTimeout);
-        this._bulkReadTimeout.addCallback(callback);
+        this.refreshConnectionOnReadQueueFull = config.getPropertyRepository().get(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull", Boolean.class).orElseGet("EVCacheClientPool.refresh.connection.on.readQueueFull").orElse(false);
+        this.refreshConnectionOnReadQueueFullSize = config.getPropertyRepository().get(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull.size", Integer.class).orElseGet("EVCacheClientPool.refresh.connection.on.readQueueFull.size").orElse(100);
 
-        this.refreshConnectionOnReadQueueFull = config.getChainedBooleanProperty(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull", "EVCacheClientPool.refresh.connection.on.readQueueFull", Boolean.FALSE, null);
-        this.refreshConnectionOnReadQueueFullSize = config.getChainedIntProperty(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull.size", "EVCacheClientPool.refresh.connection.on.readQueueFull.size", 100, null);
-        
-        this._opQueueMaxBlockTime = config.getDynamicIntProperty(appName + ".operation.QueueMaxBlockTime", 10);
-        this._opQueueMaxBlockTime.addCallback(callback);
+        this._opQueueMaxBlockTime = config.getPropertyRepository().get(appName + ".operation.QueueMaxBlockTime", Integer.class).orElse(10);
+        this._opQueueMaxBlockTime.subscribe(callback);
+        this._operationTimeout = config.getPropertyRepository().get(appName + ".operation.timeout", Integer.class).orElse(2500);
+        this._operationTimeout.subscribe(callback);
+        this._maxReadQueueSize = config.getPropertyRepository().get(appName + ".max.read.queue.length", Integer.class).orElse(50);
+        this._retryAcrossAllReplicas = config.getPropertyRepository().get(_appName + ".retry.all.copies", Boolean.class).orElse(false);
+        this._disableAsyncRefresh = config.getPropertyRepository().get(_appName + ".disable.async.refresh", Boolean.class).orElse(false);
+        this._maxRetries = config.getPropertyRepository().get(_appName + ".max.retry.count", Integer.class).orElse(1);
 
-        this._operationTimeout = config.getDynamicIntProperty(appName + ".operation.timeout", 2500);
-        this._operationTimeout.addCallback(callback);
-        this._maxReadQueueSize = config.getDynamicIntProperty(appName + ".max.read.queue.length", 50);
-        this._retryAcrossAllReplicas = config.getDynamicBooleanProperty(_appName + ".retry.all.copies", Boolean.FALSE);
-        this._disableAsyncRefresh = config.getDynamicBooleanProperty(_appName + ".disable.async.refresh", Boolean.FALSE);
-        this._maxRetries = config.getDynamicIntProperty(_appName + ".max.retry.count", 1);
-
-        this.logOperations = config.getDynamicIntProperty(appName + ".log.operation", 0);
-        this.logOperationCalls = new DynamicStringSetProperty(appName + ".log.operation.calls", "SET,DELETE,GMISS,TMISS,BMISS_ALL,TOUCH,REPLACE");
-        this.reconcileInterval = config.getDynamicIntProperty(appName + ".reconcile.interval", 600000);
-        this.cloneWrite = new DynamicStringSetProperty(appName + ".clone.writes.to", "");
-        this.cloneWrite.addCallback(new Runnable() {
-            public void run() {
-            	setupClones();
-            }
+        Function<String, Set<String>> splitSet = t -> Arrays.stream(t.split(",")).collect(Collectors.toSet());
+        this.logOperations = config.getPropertyRepository().get(appName + ".log.operation", Integer.class).orElse(0);
+        this.logOperationCalls = config.getPropertyRepository().get(appName + ".log.operation.calls", String.class).orElse("SET,DELETE,GMISS,TMISS,BMISS_ALL,TOUCH,REPLACE").map(splitSet);
+        this.reconcileInterval = config.getPropertyRepository().get(appName + ".reconcile.interval", Integer.class).orElse(600000);
+        this.cloneWrite = config.getPropertyRepository().get(appName + ".clone.writes.to", String.class).map(splitSet).orElse(Collections.emptySet());
+        this.cloneWrite.subscribe(i -> {
+            setupClones();
         });
 
         tagList = new ArrayList<Tag>(1);
         tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
- 
-        this._pingServers = config.getChainedBooleanProperty(appName + ".ping.servers", "evcache.ping.servers", Boolean.FALSE, null); 
+
+        this._pingServers = config.getPropertyRepository().get(appName + ".ping.servers", Boolean.class).orElseGet("evcache.ping.servers").orElse(false);
         setupMonitoring();
         refreshPool(false, true);
         if (log.isInfoEnabled()) log.info(toString());
@@ -479,8 +465,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             final int inActiveServerCount = connectionObserver.getInActiveServerCount();
             final int sizeInDiscovery = discoveredHostsInServerGroup.size();
             final int sizeInHashing = client.getNodeLocator().getAll().size();
-            if (i == 0) getConfigGauge("sizeInDiscovery", serverGroup).set(Long.valueOf(sizeInDiscovery)); 
-            if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup + "\n\tActive Count : " + activeServerCount 
+            if (i == 0) getConfigGauge("sizeInDiscovery", serverGroup).set(Long.valueOf(sizeInDiscovery));
+            if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup + "\n\tActive Count : " + activeServerCount
                     + "\n\tInactive Count : " + inActiveServerCount + "\n\tDiscovery Count : " + sizeInDiscovery + "\n\tsizeInHashing : " + sizeInHashing);
             if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                     + "\n\tActive Count : " + activeServerCount + "\n\tInactive Count : "
@@ -639,7 +625,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         final List<EVCacheClient> currentClients = memcachedInstancesByServerGroup.put(serverGroup, newClients);
 
         // if the zone is in write only mode then remove it from the Map
-        final BooleanProperty isZoneInWriteOnlyMode = writeOnlyFastPropertyMap.get(serverGroup);
+        final Property<Boolean> isZoneInWriteOnlyMode = writeOnlyFastPropertyMap.get(serverGroup);
         if (isZoneInWriteOnlyMode.get().booleanValue()) {
             memcachedReadInstancesByServerGroup.remove(serverGroup);
         } else {
@@ -682,7 +668,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     // back to the read map.
     private void updateMemcachedReadInstancesByZone() {
         for (ServerGroup serverGroup : memcachedInstancesByServerGroup.keySet()) {
-            final BooleanProperty isZoneInWriteOnlyMode = writeOnlyFastPropertyMap.get(serverGroup);
+            final Property<Boolean> isZoneInWriteOnlyMode = writeOnlyFastPropertyMap.get(serverGroup);
             if (isZoneInWriteOnlyMode.get().booleanValue()) {
                 if (memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
                     memcachedReadInstancesByServerGroup.remove(serverGroup);
@@ -837,10 +823,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     final int poolSize = _poolSize.get();
                     final List<EVCacheClient> newClients = new ArrayList<EVCacheClient>(poolSize);
                     for (int i = 0; i < poolSize; i++) {
-                        final int maxQueueSize = EVCacheConfig.getInstance().getDynamicIntProperty(_appName + ".max.queue.length", 16384).get();
+                        final int maxQueueSize = EVCacheConfig.getInstance().getPropertyRepository().get(_appName + ".max.queue.length", Integer.class).orElse(16384).get();
                         EVCacheClient client;
                         try {
-                            client = new EVCacheClient(_appName, zone, i, config, memcachedSAInServerGroup, maxQueueSize, 
+                            client = new EVCacheClient(_appName, zone, i, config, memcachedSAInServerGroup, maxQueueSize,
                             		_maxReadQueueSize, _readTimeout, _bulkReadTimeout, _opQueueMaxBlockTime, _operationTimeout, this);
                             newClients.add(client);
                             final int id = client.getId();
@@ -857,7 +843,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     }
                 }
             }
-            
+
             if(updateAllEVCacheWriteClients) {
                 setupAllEVCacheWriteClientsArray();
             }
@@ -1040,7 +1026,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
         EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.INTERNAL_POOL_INIT_ERROR, tags);
     }
-    
+
     private void reportPoolConifg() {
         final int size = getPoolSize();
         for(ServerGroup key : memcachedInstancesByServerGroup.keySet()) {
@@ -1227,7 +1213,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     @Override
     public String toString() {
         return "\nEVCacheClientPool [\n\t_appName=" + _appName + ",\n\t_zone=" + _zone
-            + ",\n\tlocalServerGroupIterator=" + localServerGroupIterator + ",\n\t_poolSize=" + _poolSize + ",\n\t_readTimeout=" + _readTimeout 
+            + ",\n\tlocalServerGroupIterator=" + localServerGroupIterator + ",\n\t_poolSize=" + _poolSize + ",\n\t_readTimeout=" + _readTimeout
             + ",\n\t_bulkReadTimeout=" + _bulkReadTimeout + ",\n\tlogOperations=" + logOperations + ",\n\t_opQueueMaxBlockTime=" + _opQueueMaxBlockTime
             + ",\n\t_operationTimeout=" + _operationTimeout + ",\n\t_maxReadQueueSize=" + _maxReadQueueSize  + ",\n\t_pingServers=" + _pingServers
             + ",\n\twriteOnlyFastPropertyMap=" + writeOnlyFastPropertyMap + ",\n\tnumberOfModOps=" + numberOfModOps.get() + ",\n\t_shutdown=" + _shutdown
@@ -1242,23 +1228,23 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return _poolSize.get();
     }
 
-    public DynamicIntProperty getLogOperations() {
+    public Property<Integer> getLogOperations() {
         return logOperations;
     }
 
-    public DynamicIntProperty getOpQueueMaxBlockTime() {
+    public Property<Integer> getOpQueueMaxBlockTime() {
         return _opQueueMaxBlockTime;
     }
 
-    public DynamicIntProperty getOperationTimeout() {
+    public Property<Integer> getOperationTimeout() {
         return _operationTimeout;
     }
 
-    public DynamicIntProperty getMaxReadQueueSize() {
+    public Property<Integer> getMaxReadQueueSize() {
         return _maxReadQueueSize;
     }
 
-    public BooleanProperty getPingServers() {
+    public Property<Boolean> getPingServers() {
         return _pingServers;
     }
 
@@ -1282,15 +1268,15 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return this.manager;
     }
 
-    public Map<ServerGroup, BooleanProperty> getWriteOnlyFastPropertyMap() {
+    public Map<ServerGroup, Property<Boolean>> getWriteOnlyFastPropertyMap() {
         return Collections.unmodifiableMap(writeOnlyFastPropertyMap);
     }
 
-    public ChainedDynamicProperty.IntProperty getReadTimeout() {
+    public Property<Integer> getReadTimeout() {
         return _readTimeout;
     }
 
-    public ChainedDynamicProperty.IntProperty getBulkReadTimeout() {
+    public Property<Integer> getBulkReadTimeout() {
         return _bulkReadTimeout;
     }
 
@@ -1324,7 +1310,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return lastReconcileTime;
     }
 
-    public DynamicStringSetProperty getOperationToLog() {
+    public Property<Set<String>> getOperationToLog() {
         return logOperationCalls;
     }
 }

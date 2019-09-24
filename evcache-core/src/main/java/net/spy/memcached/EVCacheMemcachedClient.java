@@ -18,12 +18,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.netflix.archaius.api.Property;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.config.ChainedDynamicProperty;
-import com.netflix.config.DynamicLongProperty;
-import com.netflix.config.ChainedDynamicProperty.IntProperty;
 import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
@@ -62,24 +60,25 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheMemcachedClient.class);
     private final String appName;
-    private final ChainedDynamicProperty.IntProperty readTimeout;
+    private final Property<Integer> readTimeout;
+
     private final EVCacheClient client;
     private final Map<String, Timer> timerMap = new ConcurrentHashMap<String, Timer>();
     private final Map<String, DistributionSummary> distributionSummaryMap = new ConcurrentHashMap<String, DistributionSummary>();
 
-    private DynamicLongProperty mutateOperationTimeout;
+    private Property<Long> mutateOperationTimeout;
     private final ConnectionFactory connectionFactory;
-    private final IntProperty maxReadDuration, maxWriteDuration;
+    private final Property<Integer> maxReadDuration, maxWriteDuration;
 
     public EVCacheMemcachedClient(ConnectionFactory cf, List<InetSocketAddress> addrs,
-            ChainedDynamicProperty.IntProperty readTimeout, EVCacheClient client) throws IOException {
+                                  Property<Integer> readTimeout, EVCacheClient client) throws IOException {
         super(cf, addrs);
         this.connectionFactory = cf;
         this.readTimeout = readTimeout;
         this.client = client;
         this.appName = client.getAppName();
-        this.maxWriteDuration = EVCacheConfig.getInstance().getChainedIntProperty(appName + ".max.write.duration.metric", "evcache.max.write.duration.metric", 50, null);
-        this.maxReadDuration = EVCacheConfig.getInstance().getChainedIntProperty(appName + ".max.read.duration.metric", "evcache.max.read.duration.metric", 20, null);
+        this.maxWriteDuration = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".max.write.duration.metric", Integer.class).orElseGet("evcache.max.write.duration.metric").orElse(50);
+        this.maxReadDuration = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".max.read.duration.metric", Integer.class).orElseGet("evcache.max.read.duration.metric").orElse(20);
     }
 
     public NodeLocator getNodeLocator() {
@@ -349,7 +348,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (val.getStatusCode().equals(StatusCode.SUCCESS)) {
                     rv.set(Boolean.TRUE, val);
                     appendSuccess = true;
-                    
+
                 }
             }
 
@@ -421,9 +420,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private Timer getTimer(String operation, String operationType, OperationStatus status, String hit, String host, long maxDuration) {
         String name = ((status != null) ? operation + status.getMessage() : operation );
         if(hit != null) name = name + hit;
-    
+
         Timer timer = timerMap.get(name);
-        if(timer != null) return timer; 
+        if(timer != null) return timer;
 
         final List<Tag> tagList = new ArrayList<Tag>(client.getTagList().size() + 4 + (host == null ? 0 : 1));
         tagList.addAll(client.getTagList());
@@ -593,26 +592,26 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         long retVal = def;
         try {
             if(mutateOperationTimeout == null) {
-                mutateOperationTimeout = EVCacheConfig.getInstance().getDynamicLongProperty(appName + ".mutate.timeout", connectionFactory.getOperationTimeout());
+                mutateOperationTimeout = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".mutate.timeout", Long.class).orElse(connectionFactory.getOperationTimeout());
             }
 
-            
+
             if (!latch.await(mutateOperationTimeout.get(), TimeUnit.MILLISECONDS)) {
                 if (log.isDebugEnabled()) log.debug("Mutation operation timeout. Will return -1");
                 retVal = -1;
             } else {
                 retVal = rv.get();
             }
-            
+
         } catch (Exception e) {
-            log.error("Exception on mutate operation : " + operationStr + " Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp 
+            log.error("Exception on mutate operation : " + operationStr + " Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp
                     + "; val : " + retVal + "; Elapsed Time - " + (System.currentTimeMillis() - start), e);
 
         }
         final OperationStatus status = statusList.size() > 0 ? statusList.get(0) : null;
         final String host = ((status != null && status.getStatusCode().equals(StatusCode.TIMEDOUT) && op != null) ? getHostName(op.getHandlingNode().getSocketAddress()) : null);
         getTimer(operationStr, EVCacheMetricsFactory.WRITE, status, null, host, getWriteMetricMaxValue()).record((System.currentTimeMillis() - start), TimeUnit.MILLISECONDS);
-        if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug(operationStr + " Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp 
+        if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug(operationStr + " Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp
                 + "; val : " + retVal + "; Elapsed Time - " + (System.currentTimeMillis() - start));
         return retVal;
     }
@@ -638,7 +637,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     public int getReadMetricMaxValue() {
         return maxReadDuration.get().intValue();
     }
-    
+
     private String getHostName(SocketAddress sa) {
         if (sa == null) return null;
         if(sa instanceof InetSocketAddress) {

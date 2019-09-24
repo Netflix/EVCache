@@ -5,7 +5,7 @@ import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.netflix.config.ChainedDynamicProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.MemcachedNode;
@@ -14,12 +14,13 @@ import net.spy.memcached.util.DefaultKetamaNodeLocatorConfiguration;
 public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLocatorConfiguration {
 
     protected final EVCacheClient client;
-    protected final ChainedDynamicProperty.IntProperty bucketSize;
+    protected final Property<Integer> bucketSize;
     protected final Map<MemcachedNode, String> socketAddresses = new HashMap<MemcachedNode, String>();
 
     public EVCacheKetamaNodeLocatorConfiguration(EVCacheClient client) {
         this.client = client;
-        this.bucketSize = EVCacheConfig.getInstance().getChainedIntProperty(client.getAppName() + "." + client.getServerGroupName() + ".bucket.size", client.getAppName()+ ".bucket.size", super.getNodeRepetitions(), null);
+        this.bucketSize = EVCacheConfig.getInstance().getPropertyRepository().get(client.getAppName() + "." + client.getServerGroupName() + ".bucket.size", Integer.class)
+                .orElseGet(client.getAppName()+ ".bucket.size").orElse(super.getNodeRepetitions());
     }
 
     /**
@@ -39,7 +40,7 @@ public class EVCacheKetamaNodeLocatorConfiguration extends DefaultKetamaNodeLoca
      * @return The socket address of the given node format is of the following
      *  For ec2 classic instances - "publicHostname/privateIp:port" (ex - ec2-174-129-159-31.compute-1.amazonaws.com/10.125.47.114:11211)
      *  For ec2 vpc instances - "privateIp/privateIp:port" (ex - 10.125.47.114/10.125.47.114:11211)
-     *  privateIp is also known as local ip 
+     *  privateIp is also known as local ip
      */
     @Override
     public String getKeyForNode(MemcachedNode node, int repetition) {

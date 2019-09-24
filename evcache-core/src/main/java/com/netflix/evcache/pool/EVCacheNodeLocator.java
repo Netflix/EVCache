@@ -8,10 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import com.netflix.archaius.api.Property;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.config.ChainedDynamicProperty;
 import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.DefaultHashAlgorithm;
@@ -27,8 +27,8 @@ public class EVCacheNodeLocator implements NodeLocator {
     private TreeMap<Long, MemcachedNode> ketamaNodes;
     protected final EVCacheClient client;
 
-    private ChainedDynamicProperty.BooleanProperty partialStringHash;
-    private ChainedDynamicProperty.StringProperty hashDelimiter;
+    private Property<Boolean> partialStringHash;
+    private Property<String> hashDelimiter;
 
     private final Collection<MemcachedNode> allNodes;
 
@@ -54,10 +54,11 @@ public class EVCacheNodeLocator implements NodeLocator {
         this.config = conf;
         this.client = client;
 
-        this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty(client.getAppName() + "." + client.getServerGroupName() + ".hash.on.partial.key",
-                client.getAppName()+ ".hash.on.partial.key", Boolean.FALSE, null);
-        this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty(client.getAppName() + "." + client.getServerGroupName() + ".hash.delimiter", 
-                client.getAppName() + ".hash.delimiter", ":", null);
+        this.partialStringHash = EVCacheConfig.getInstance().getPropertyRepository().get(client.getAppName() + "." + client.getServerGroupName() + ".hash.on.partial.key", Boolean.class)
+                .orElseGet(client.getAppName()+ ".hash.on.partial.key").orElse(false);
+        this.hashDelimiter = EVCacheConfig.getInstance().getPropertyRepository().get(client.getAppName() + "." + client.getServerGroupName() + ".hash.delimiter", String.class)
+                .orElseGet(client.getAppName() + ".hash.delimiter").orElse(":");
+
 
         setKetamaNodes(nodes);
     }
@@ -70,10 +71,10 @@ public class EVCacheNodeLocator implements NodeLocator {
         this.config = conf;
         this.client = client;
 
-        this.partialStringHash = EVCacheConfig.getInstance().getChainedBooleanProperty(client.getAppName() + "." + client.getServerGroupName() + ".hash.on.partial.key",
-                client.getAppName()+ ".hash.on.partial.key", Boolean.FALSE, null);
-        this.hashDelimiter = EVCacheConfig.getInstance().getChainedStringProperty(client.getAppName() + "." + client.getServerGroupName() + ".hash.delimiter", 
-                client.getAppName() + ".hash.delimiter", ":", null);
+        this.partialStringHash = EVCacheConfig.getInstance().getPropertyRepository().get(client.getAppName() + "." + client.getServerGroupName() + ".hash.on.partial.key", Boolean.class)
+                .orElseGet(client.getAppName()+ ".hash.on.partial.key").orElse(false);
+        this.hashDelimiter = EVCacheConfig.getInstance().getPropertyRepository().get(client.getAppName() + "." + client.getServerGroupName() + ".hash.delimiter", String.class)
+                .orElseGet(client.getAppName() + ".hash.delimiter").orElse(":");
     }
 
     /*

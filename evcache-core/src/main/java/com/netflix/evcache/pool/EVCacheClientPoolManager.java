@@ -20,9 +20,7 @@ import javax.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.netflix.config.ConfigurationManager;
-import com.netflix.config.DynamicIntProperty;
-import com.netflix.config.DynamicStringProperty;
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.EVCacheImpl;
 import com.netflix.evcache.EVCacheInMemoryCache;
 import com.netflix.evcache.connection.ConnectionFactoryBuilder;
@@ -38,16 +36,16 @@ import net.spy.memcached.transcoders.Transcoder;
  * will be initialized and added to the pool. If a service knows all the EVCache
  * app it uses, then it can define this property and pass a list of EVCache apps
  * that needs to be initialized.
- * 
+ *
  * An EVCache app can also be initialized by Injecting
- * <code>EVCacheClientPoolManager</code> and calling <code>    
+ * <code>EVCacheClientPoolManager</code> and calling <code>
  *      initEVCache(<app name>)
  *      </code>
- * 
+ *
  * This typically should be done in the client libraries that need to initialize
  * an EVCache app. For Example VHSViewingHistoryLibrary in its initLibrary
  * initializes EVCACHE_VH by calling
- * 
+ *
  * <pre>
  *      {@literal @}Inject
  *      public VHSViewingHistoryLibrary(EVCacheClientPoolManager instance,...) {
@@ -56,7 +54,7 @@ import net.spy.memcached.transcoders.Transcoder;
  *          ...
  *      }
  * </pre>
- * 
+ *
  * @author smadappa
  *
  */
@@ -64,9 +62,9 @@ import net.spy.memcached.transcoders.Transcoder;
 @Singleton
 public class EVCacheClientPoolManager {
     private static final Logger log = LoggerFactory.getLogger(EVCacheClientPoolManager.class);
-    private static final DynamicIntProperty defaultReadTimeout = EVCacheConfig.getInstance().getDynamicIntProperty("default.read.timeout", 20);
-    private static final DynamicStringProperty logEnabledApps = EVCacheConfig.getInstance().getDynamicStringProperty("EVCacheClientPoolManager.log.apps", "*");
-    private final DynamicIntProperty defaultRefreshInterval = EVCacheConfig.getInstance().getDynamicIntProperty("EVCacheClientPoolManager.refresh.interval", 60);
+    private static final Property<Integer> defaultReadTimeout = EVCacheConfig.getInstance().getPropertyRepository().get("default.read.timeout", Integer.class).orElse(20);
+    private static final Property<String> logEnabledApps = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager.log.apps", String.class).orElse("*");
+    private static final Property<Integer> defaultRefreshInterval = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager.refresh.interval", Integer.class).orElse(60);
 
     private volatile static EVCacheClientPoolManager instance;
 
@@ -128,14 +126,8 @@ public class EVCacheClientPoolManager {
     @Deprecated
     public static EVCacheClientPoolManager getInstance() {
         if (instance == null) {
-            try {
-                ConfigurationManager.loadCascadedPropertiesFromResources("evcache");
-            } catch (IOException e) {
-                log.info("Default evcache configuration not loaded", e);
-            }
-
             new EVCacheClientPoolManager(new ConnectionFactoryBuilder(), new SimpleNodeListProvider());
-            if (!EVCacheConfig.getInstance().getDynamicBooleanProperty("evcache.use.simple.node.list.provider", false).get()) {
+            if (!EVCacheConfig.getInstance().getPropertyRepository().get("evcache.use.simple.node.list.provider", Boolean.class).orElse(false).get()) {
                 if(log.isDebugEnabled()) log.debug("Please make sure EVCacheClientPoolManager is injected first. This is not the appropriate way to init EVCacheClientPoolManager."
                         + " If you are using simple node list provider please set evcache.use.simple.node.list.provider property to true.", new Exception());
             }
@@ -144,7 +136,7 @@ public class EVCacheClientPoolManager {
     }
 
     public void initAtStartup() {
-        final String appsToInit = EVCacheConfig.getInstance().getDynamicStringProperty("evcache.appsToInit", "").get();
+        final String appsToInit = EVCacheConfig.getInstance().getPropertyRepository().get("evcache.appsToInit", String.class).orElse("").get();
         if (appsToInit != null && appsToInit.length() > 0) {
             final StringTokenizer apps = new StringTokenizer(appsToInit, ",");
             while (apps.hasMoreTokens()) {
@@ -158,7 +150,7 @@ public class EVCacheClientPoolManager {
     /**
      * Will init the given EVCache app call. If one is already initialized for
      * the given app method returns without doing anything.
-     * 
+     *
      * @param app
      *            - name of the evcache app
      */
@@ -180,7 +172,7 @@ public class EVCacheClientPoolManager {
      * Given the appName get the EVCacheClientPool. If the app is already
      * created then will return the existing instance. If not one will be
      * created and returned.
-     * 
+     *
      * @param _app
      *            - name of the evcache app
      * @return the Pool for the give app.
@@ -213,11 +205,11 @@ public class EVCacheClientPoolManager {
         return false;
     }
 
-    public static DynamicIntProperty getDefaultReadTimeout() {
+    public static Property<Integer> getDefaultReadTimeout() {
         return defaultReadTimeout;
     }
 
-    public DynamicIntProperty getDefaultRefreshInterval() {
+    public Property<Integer> getDefaultRefreshInterval() {
         return defaultRefreshInterval;
     }
 
@@ -231,7 +223,7 @@ public class EVCacheClientPoolManager {
 
     private String getAppName(String _app) {
         _app = _app.toUpperCase();
-        final String app = EVCacheConfig.getInstance().getDynamicStringProperty("EVCacheClientPoolManager." + _app + ".alias", _app).get();
+        final String app = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager." + _app + ".alias", String.class).orElse(_app).get().toUpperCase();
         if (log.isDebugEnabled()) log.debug("Original App Name : " + _app + "; Alias App Name : " + app);
         if(app != null && app.length() > 0) return app.toUpperCase();
         return _app;

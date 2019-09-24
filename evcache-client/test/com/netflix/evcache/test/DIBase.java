@@ -1,6 +1,24 @@
 package com.netflix.evcache.test;
 
 
+import com.google.inject.Injector;
+import com.netflix.appinfo.ApplicationInfoManager;
+import com.netflix.archaius.config.MapConfig;
+import com.netflix.archaius.guice.ArchaiusModule;
+import com.netflix.discovery.guice.EurekaClientModule;
+import com.netflix.evcache.EVCache;
+import com.netflix.evcache.EVCacheLatch;
+import com.netflix.evcache.EVCacheModule;
+import com.netflix.evcache.EVCacheLatch.Policy;
+import com.netflix.evcache.connection.DIConnectionModule;
+import com.netflix.evcache.operation.EVCacheLatchImpl;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.governator.guice.LifecycleInjector;
+import com.netflix.governator.guice.LifecycleInjectorBuilder;
+import com.netflix.governator.lifecycle.LifecycleManager;
+import com.netflix.spectator.nflx.SpectatorModule;
+
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Properties;
@@ -11,24 +29,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
-
-import com.google.inject.Injector;
-import com.netflix.appinfo.ApplicationInfoManager;
-import com.netflix.config.ConfigurationManager;
-import com.netflix.discovery.guice.EurekaModule;
-import com.netflix.evcache.EVCache;
-import com.netflix.evcache.EVCacheLatch;
-import com.netflix.evcache.EVCacheLatch.Policy;
-import com.netflix.evcache.EVCacheModule;
-import com.netflix.evcache.connection.DIConnectionModule;
-import com.netflix.evcache.operation.EVCacheLatchImpl;
-import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.evcache.pool.EVCacheClientPoolManager;
-import com.netflix.governator.guice.LifecycleInjector;
-import com.netflix.governator.guice.LifecycleInjectorBuilder;
-import com.netflix.governator.lifecycle.LifecycleManager;
-import com.netflix.spectator.nflx.SpectatorModule;
-
 import rx.Scheduler;
 
 @SuppressWarnings("unused")
@@ -60,14 +60,14 @@ public abstract class DIBase  {
         props.setProperty("eureka.environment", "test");
         props.setProperty("eureka.region", "us-east-1");
         props.setProperty("eureka.appid", "clatency");
-        props.setProperty("eureka.serviceUrl.default","http://${@region}.discovery${@environment}.netflix.net:7001/discovery/v2/");
+        props.setProperty("eureka.serviceUrl.default","http://${eureka.region}.discovery${eureka.environment}.netflix.net:7001/discovery/v2/");
         props.setProperty("log4j.rootLogger", "DEBUG");
         System.setProperty("log4j.rootLogger", "DEBUG");
         props.setProperty("log4j.logger.com.netflix.evcache.test.DIBase", "DEBUG");
         props.setProperty("log4j.logger.com.netflix.evcache.test.EVCacheTestDI", "DEBUG");
         props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheNodeLocator", "ERROR");
         props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheClientUtil", "DEBUG");
-        
+
 
         return props;
     }
@@ -80,14 +80,18 @@ public abstract class DIBase  {
         Properties props = getProps();
 
         try {
-            ConfigurationManager.loadProperties(props);
 
             LifecycleInjectorBuilder builder = LifecycleInjector.builder();
             builder.withModules(
-                    new EurekaModule(),
-                    new EVCacheModule(), 
+                    new EurekaClientModule(),
+                    new EVCacheModule(),
                     new DIConnectionModule(),
-                    new SpectatorModule()
+                    new SpectatorModule(),
+                    new ArchaiusModule() {
+                    	protected void configureArchaius() {
+                    		bindApplicationConfigurationOverride().toInstance(MapConfig.from(props));
+                    	};
+                    }
                     );
 
             injector = builder.build().createInjector();
@@ -125,7 +129,7 @@ public abstract class DIBase  {
         }
         return true;
     }
-    
+
     protected boolean appendOrAdd(int i, EVCache gCache) throws Exception {
         return appendOrAdd(i, gCache, 60 * 60);
     }
@@ -142,13 +146,13 @@ public abstract class DIBase  {
 
     public boolean add(int i, EVCache gCache) throws Exception {
         //String val = "This is a very long value that should work well since we are going to use compression on it. blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah val_"+i;
-        String val = "val_add_"+System.currentTimeMillis();
+        String val = "val_add_"+i;
         String key = "key_" + i;
         boolean status = gCache.add(key, val, null, 60 * 60);
         if(log.isDebugEnabled()) log.debug("ADD : key : " + key + "; success = " + status);
         return status;
     }
-    
+
     public boolean insert(int i, EVCache gCache) throws Exception {
         //String val = "This is a very long value that should work well since we are going to use compression on it. blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah val_"+i;
         String val = "val_"+i;
@@ -160,7 +164,7 @@ public abstract class DIBase  {
         }
         return true;
     }
-    
+
     protected boolean replace(int i, EVCache gCache) throws Exception {
         return replace(i, gCache, 60 * 60);
     }
@@ -174,7 +178,7 @@ public abstract class DIBase  {
         return status.getSuccessCount() > 0;
     }
 
-    
+
 
     public boolean delete(int i, EVCache gCache) throws Exception {
         String key = "key_" + i;

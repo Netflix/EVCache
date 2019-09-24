@@ -59,7 +59,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.netflix.evcache.operation.EVCacheLatchI#await(long,java.util.concurrent.TimeUnit)
      */
     @Override
@@ -73,7 +73,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see
      * com.netflix.evcache.operation.EVCacheLatchI#addFuture(net.spy.memcached.internal.ListenableFuture)
      */
@@ -85,7 +85,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.netflix.evcache.operation.EVCacheLatchI#isDone()
      */
     @Override
@@ -96,7 +96,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.netflix.evcache.operation.EVCacheLatchI#countDown()
      */
     public void countDown() {
@@ -106,7 +106,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.netflix.evcache.operation.EVCacheLatchI#getPendingCount()
      */
     @Override
@@ -117,7 +117,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.netflix.evcache.operation.EVCacheLatchI#getCompletedCount()
      */
     @Override
@@ -128,7 +128,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.netflix.evcache.operation.EVCacheLatchI#getPendingFutures()
      */
     @Override
@@ -144,7 +144,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.netflix.evcache.operation.EVCacheLatchI#getAllFutures()
      */
     @Override
@@ -154,7 +154,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.netflix.evcache.operation.EVCacheLatchI#getCompletedFutures()
      */
     @Override
@@ -193,20 +193,20 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             return count;
         }
     }
-    
+
     public void setEVCacheEvent(EVCacheEvent e) {
         this.evcacheEvent = e;
     }
 
     /*
      * (non-Javadoc)
-     * 
-     * @see 
+     *
+     * @see
      * com.netflix.evcache.operation.EVCacheLatchI#onComplete(net.spy.memcached.internal.OperationFuture)
      */
     @Override
     public void onComplete(OperationFuture<?> future) throws Exception {
-        if (log.isDebugEnabled()) log.debug("BEGIN : onComplete - Calling Countdown. Completed Future = " + future + "; App : " + appName); 
+        if (log.isDebugEnabled()) log.debug("BEGIN : onComplete - Calling Countdown. Completed Future = " + future + "; App : " + appName);
         countDown();
         completeCount++;
         if(evcacheEvent != null) {
@@ -232,12 +232,12 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                 }
             }
             if(scheduledFuture != null) {
-                final boolean futureCancelled = scheduledFuture.isCancelled(); 
+                final boolean futureCancelled = scheduledFuture.isCancelled();
                 if (log.isDebugEnabled()) log.debug("App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getEVCacheKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount + "; futureCancelled : " + futureCancelled);
                 if(onCompleteDone && !futureCancelled) {
                     if(completeCount == totalFutureCount && failureCount == 0) { // all futures are completed
                         final boolean status = scheduledFuture.cancel(true);
-                        run();//TODO: should we reschedule this method to run as part of EVCacheScheduledExecutor instead of running on the callback thread 
+                        run();//TODO: should we reschedule this method to run as part of EVCacheScheduledExecutor instead of running on the callback thread
                         if (log.isDebugEnabled()) log.debug("Cancelled the scheduled task : " + status);
                     }
                 }
@@ -251,14 +251,15 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             tags.add(new BasicTag(EVCacheMetricsFactory.FAIL_COUNT, String.valueOf(failureCount)));
             tags.add(new BasicTag(EVCacheMetricsFactory.COMPLETE_COUNT, String.valueOf(completeCount)));
             //tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.CALLBACK));
-            EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_LATCH, tags, Duration.ofMillis(EVCacheConfig.getInstance().getChainedIntProperty(getAppName() + ".max.write.duration.metric", "evcache.max.write.duration.metric", 50, null).get().intValue())).record(System.currentTimeMillis()- start, TimeUnit.MILLISECONDS);
+            EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_LATCH, tags, Duration.ofMillis(EVCacheConfig.getInstance().getPropertyRepository().get(getAppName() + ".max.write.duration.metric", Integer.class)
+                    .orElseGet("evcache.max.write.duration.metric").orElse(50).get().intValue())).record(System.currentTimeMillis()- start, TimeUnit.MILLISECONDS);
         }
-        if (log.isDebugEnabled()) log.debug("END : onComplete - Calling Countdown. Completed Future = " + future + "; App : " + appName); 
+        if (log.isDebugEnabled()) log.debug("END : onComplete - Calling Countdown. Completed Future = " + future + "; App : " + appName);
     }
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.netflix.evcache.operation.EVCacheLatchI#getFailureCount()
      */
     @Override
@@ -279,7 +280,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see
      * com.netflix.evcache.operation.EVCacheLatchI#getExpectedCompleteCount()
      */
@@ -290,7 +291,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see
      * com.netflix.evcache.operation.EVCacheLatchI#getExpectedSuccessCount()
      */
@@ -301,7 +302,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.netflix.evcache.operation.EVCacheLatchI#getSuccessCount()
      */
     @Override
@@ -375,9 +376,9 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
         }
         return count;
     }
-    
+
     public boolean isFastFailure() {
-        return (totalFutureCount == 0); 
+        return (totalFutureCount == 0);
     }
 
     @SuppressWarnings("unchecked")
@@ -406,7 +407,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                 if (fail) {
                     if(future instanceof EVCacheOperationFuture) {
                         final EVCacheOperationFuture<Boolean> evcFuture = (EVCacheOperationFuture<Boolean>)future;
-                        final StatusCode code = evcFuture.getStatus().getStatusCode(); 
+                        final StatusCode code = evcFuture.getStatus().getStatusCode();
                         if(code != StatusCode.SUCCESS && code != StatusCode.ERR_NOT_FOUND && code != StatusCode.ERR_EXISTS) {
                             List<ServerGroup> listOfFailedServerGroups = (List<ServerGroup>) evcacheEvent.getAttribute("FailedServerGroups");
                             if(listOfFailedServerGroups == null) {
