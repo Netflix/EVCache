@@ -2,7 +2,7 @@ apply plugin: 'java'
 apply plugin: 'eclipse'
 
 sourceSets.main.java.srcDir 'src'
-sourceSets.main.resources.srcDir 'conf'
+//sourceSets.main.resources.srcDir 'conf'
 sourceSets.test.java.srcDir 'test'
 
 repositories {
