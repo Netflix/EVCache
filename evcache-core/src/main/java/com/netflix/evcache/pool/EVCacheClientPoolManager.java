@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.netflix.archaius.api.Property;
+import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.evcache.EVCacheImpl;
 import com.netflix.evcache.EVCacheInMemoryCache;
 import com.netflix.evcache.connection.ConnectionFactoryBuilder;
@@ -75,14 +76,16 @@ public class EVCacheClientPoolManager {
     private final List<EVCacheEventListener> evcacheEventListenerList;
     private final IConnectionBuilder connectionFactoryProvider;
     private final EVCacheNodeList evcacheNodeList;
+    private final EVCacheConfig evcConfig;
 
 
     @Inject
-    public EVCacheClientPoolManager(IConnectionBuilder connectionFactoryprovider, EVCacheNodeList evcacheNodeList) {
+    public EVCacheClientPoolManager(IConnectionBuilder connectionFactoryprovider, EVCacheNodeList evcacheNodeList, EVCacheConfig evcConfig) {
         instance = this;
 
         this.connectionFactoryProvider = connectionFactoryprovider;
         this.evcacheNodeList = evcacheNodeList;
+        this.evcConfig = evcConfig;
         this.evcacheEventListenerList = new CopyOnWriteArrayList<EVCacheEventListener>();
 
         this.asyncExecutor = new EVCacheScheduledExecutor(Runtime.getRuntime().availableProcessors(),Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "scheduled");
@@ -116,6 +119,10 @@ public class EVCacheClientPoolManager {
     public List<EVCacheEventListener> getEVCacheEventListeners() {
         return this.evcacheEventListenerList;
     }
+    
+    public EVCacheConfig getEVCacheConfig() {
+        return this.evcConfig;
+    }
 
     /**
      * @deprecated. Please use DependencyInjection (@Inject) to obtain
@@ -126,7 +133,7 @@ public class EVCacheClientPoolManager {
     @Deprecated
     public static EVCacheClientPoolManager getInstance() {
         if (instance == null) {
-            new EVCacheClientPoolManager(new ConnectionFactoryBuilder(), new SimpleNodeListProvider());
+            new EVCacheClientPoolManager(new ConnectionFactoryBuilder(), new SimpleNodeListProvider(), EVCacheConfig.getInstance());
             if (!EVCacheConfig.getInstance().getPropertyRepository().get("evcache.use.simple.node.list.provider", Boolean.class).orElse(false).get()) {
                 if(log.isDebugEnabled()) log.debug("Please make sure EVCacheClientPoolManager is injected first. This is not the appropriate way to init EVCacheClientPoolManager."
                         + " If you are using simple node list provider please set evcache.use.simple.node.list.provider property to true.", new Exception());

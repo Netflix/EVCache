@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Future;
-import java.util.function.BiFunction;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -19,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.transcoders.Transcoder;
 import rx.Scheduler;
@@ -961,8 +961,6 @@ public interface EVCache {
 
 
     /**
-     * Remove a current key value relation from the Cache.
-     *
      * Touch the given key and reset its expiration time.
      *
      * @param key
@@ -1086,9 +1084,6 @@ public interface EVCache {
 
         @Inject
         private EVCacheClientPoolManager _poolManager;
-
-        @Inject
-        private PropertyRepository propertyRepository;
 
         /**
          * Customizers allow post-processing of the Builder. This affords a way for libraries to
@@ -1371,7 +1366,7 @@ public interface EVCache {
             customize();
 
             return new EVCacheImpl(
-                _appName, _cachePrefix, _ttl, _transcoder, _serverGroupRetry, _enableExceptionThrowing, _poolManager, propertyRepository);
+                _appName, _cachePrefix, _ttl, _transcoder, _serverGroupRetry, _enableExceptionThrowing, _poolManager);
         }
     }
 }

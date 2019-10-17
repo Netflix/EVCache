@@ -18,11 +18,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import com.netflix.archaius.api.Property;
-import com.netflix.archaius.api.PropertyRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.netflix.archaius.api.Property;
+import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.event.EVCacheEvent;
@@ -37,7 +37,6 @@ import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheClientUtil;
 import com.netflix.evcache.pool.EVCacheValue;
 import com.netflix.evcache.pool.ServerGroup;
-import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.KeyHasher;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
@@ -95,7 +94,7 @@ final public class EVCacheImpl implements EVCache {
     private DistributionSummary bulkKeysSize = null;
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
-            boolean throwException, EVCacheClientPoolManager poolManager, PropertyRepository propertyRepository) {
+            boolean throwException, EVCacheClientPoolManager poolManager) {
         this._appName = appName;
         this._cacheName = cacheName;
 
@@ -120,7 +119,7 @@ final public class EVCacheImpl implements EVCache {
         _metricPrefix = _appName + "-";
         this._poolManager = poolManager;
         this._pool = poolManager.getEVCacheClientPool(_appName);
-        final EVCacheConfig config = EVCacheConfig.getInstance();
+        final PropertyRepository propertyRepository = poolManager.getEVCacheConfig().getPropertyRepository();
         _throwExceptionFP = propertyRepository.get(_metricName + ".throw.exception", Boolean.class).orElseGet(_appName + ".throw.exception").orElse(false);
         _zoneFallbackFP = propertyRepository.get(_metricName + ".fallback.zone", Boolean.class).orElseGet(_appName + ".fallback.zone").orElse(true);
         _bulkZoneFallbackFP = propertyRepository.get(_appName + ".bulk.fallback.zone", Boolean.class).orElse(true);
