@@ -9,11 +9,15 @@ import com.netflix.archaius.config.DefaultSettableConfig;
 public class EVCacheConfig {
 
     private static EVCacheConfig INSTANCE;
-	private final PropertyRepository propertyRepository;
+
+    /**
+     * This is an hack, should find a better way to do this 
+     **/
+    private static PropertyRepository propertyRepository;
 
 	@Inject
-    public EVCacheConfig(PropertyRepository propertyRepository) {
-        this.propertyRepository = propertyRepository;
+    public EVCacheConfig(PropertyRepository repository) {
+        propertyRepository = repository;
         INSTANCE = this;
     }
 
@@ -29,6 +33,10 @@ public class EVCacheConfig {
 
     public PropertyRepository getPropertyRepository() {
     	return propertyRepository;
+    }
+
+    public static void setPropertyRepository(PropertyRepository repository) {
+        propertyRepository = repository;
     }
 
 }

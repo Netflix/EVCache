@@ -120,7 +120,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         };
         this._poolSize = config.getPropertyRepository().get(appName + ".EVCacheClientPool.poolSize", Integer.class).orElse(1);
         this._poolSize.subscribe(callback);
-        this._readTimeout = config.getPropertyRepository().get(appName + ".EVCacheClientPool.readTimeout", Integer.class).orElse(EVCacheClientPoolManager.getDefaultReadTimeout().get());
+        this._readTimeout = config.getPropertyRepository().get(appName + ".EVCacheClientPool.readTimeout", Integer.class).orElse(manager.getDefaultReadTimeout().get());
         this._readTimeout.subscribe(callback);
         this._bulkReadTimeout = config.getPropertyRepository().get(appName + ".EVCacheClientPool.bulkReadTimeout", Integer.class).orElse(_readTimeout.get());
         this._bulkReadTimeout.subscribe(callback);

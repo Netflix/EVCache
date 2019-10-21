@@ -21,7 +21,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.netflix.archaius.api.Property;
-import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.evcache.EVCacheImpl;
 import com.netflix.evcache.EVCacheInMemoryCache;
 import com.netflix.evcache.connection.ConnectionFactoryBuilder;
@@ -62,13 +61,15 @@ import net.spy.memcached.transcoders.Transcoder;
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "DM_CONVERT_CASE", "ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD" })
 @Singleton
 public class EVCacheClientPoolManager {
+    /**
+     * <b>NOTE : Should be the only static referenced variables</b> 
+     * **/ 
     private static final Logger log = LoggerFactory.getLogger(EVCacheClientPoolManager.class);
-    private static final Property<Integer> defaultReadTimeout = EVCacheConfig.getInstance().getPropertyRepository().get("default.read.timeout", Integer.class).orElse(20);
-    private static final Property<String> logEnabledApps = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager.log.apps", String.class).orElse("*");
-    private static final Property<Integer> defaultRefreshInterval = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager.refresh.interval", Integer.class).orElse(60);
-
     private volatile static EVCacheClientPoolManager instance;
 
+    private final Property<Integer> defaultReadTimeout;
+    private final Property<String> logEnabledApps;
+    private final Property<Integer> defaultRefreshInterval;
     private final Map<String, EVCacheClientPool> poolMap = new ConcurrentHashMap<String, EVCacheClientPool>();
     private final Map<EVCacheClientPool, ScheduledFuture<?>> scheduledTaskMap = new HashMap<EVCacheClientPool, ScheduledFuture<?>>();
     private final EVCacheScheduledExecutor asyncExecutor;
@@ -78,7 +79,6 @@ public class EVCacheClientPoolManager {
     private final EVCacheNodeList evcacheNodeList;
     private final EVCacheConfig evcConfig;
 
-
     @Inject
     public EVCacheClientPoolManager(IConnectionBuilder connectionFactoryprovider, EVCacheNodeList evcacheNodeList, EVCacheConfig evcConfig) {
         instance = this;
@@ -87,6 +87,10 @@ public class EVCacheClientPoolManager {
         this.evcacheNodeList = evcacheNodeList;
         this.evcConfig = evcConfig;
         this.evcacheEventListenerList = new CopyOnWriteArrayList<EVCacheEventListener>();
+        
+        this.defaultReadTimeout = EVCacheConfig.getInstance().getPropertyRepository().get("default.read.timeout", Integer.class).orElse(20);
+        this.logEnabledApps = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager.log.apps", String.class).orElse("*");
+        this.defaultRefreshInterval = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager.refresh.interval", Integer.class).orElse(60);
 
         this.asyncExecutor = new EVCacheScheduledExecutor(Runtime.getRuntime().availableProcessors(),Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS, new ThreadPoolExecutor.CallerRunsPolicy(), "scheduled");
         asyncExecutor.prestartAllCoreThreads();
@@ -212,7 +216,7 @@ public class EVCacheClientPoolManager {
         return false;
     }
 
-    public static Property<Integer> getDefaultReadTimeout() {
+    public Property<Integer> getDefaultReadTimeout() {
         return defaultReadTimeout;
     }
 
