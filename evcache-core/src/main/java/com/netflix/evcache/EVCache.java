@@ -1141,9 +1141,9 @@ public interface EVCache {
          * @return this {@code Builder} object
          */
         public Builder setCachePrefix(String cachePrefix) {
-            this._cachePrefix = cachePrefix;
             if (_cachePrefix != null && _cachePrefix.indexOf(':') != -1) throw new IllegalArgumentException(
                     "param cacheName cannot contain ':' character.");
+            this._cachePrefix = cachePrefix;
             return this;
         }
 

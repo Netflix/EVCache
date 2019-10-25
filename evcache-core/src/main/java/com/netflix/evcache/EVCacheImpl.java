@@ -262,7 +262,7 @@ final public class EVCacheImpl implements EVCache {
     }
 
     private <T> EVCacheInMemoryCache<T> getInMemoryCache(Transcoder<T> tc) {
-        if (cache == null) cache = _poolManager.createInMemoryCache(_appName, tc, this);
+        if (cache == null) cache = _poolManager.createInMemoryCache(tc, this);
         return (EVCacheInMemoryCache<T>) cache;
     }
 
@@ -2184,6 +2184,7 @@ final public class EVCacheImpl implements EVCache {
         if(status != null) name += status;
         if(tries >= 0) name += tries;
         if(serverGroup != null) name += serverGroup.getName();
+        //if(_cacheName != null) name += _cacheName;
 
         Timer timer = timerMap.get(name);
         if(timer != null) return timer;

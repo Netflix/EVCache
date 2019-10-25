@@ -243,13 +243,14 @@ public class EVCacheClientPoolManager {
     private WriteLock writeLock = new ReentrantReadWriteLock().writeLock();
     private final Map<String, EVCacheInMemoryCache<?>> inMemoryMap = new ConcurrentHashMap<String, EVCacheInMemoryCache<?>>();
     @SuppressWarnings("unchecked")
-    public <T> EVCacheInMemoryCache<T> createInMemoryCache(String appName, Transcoder<T> tc, EVCacheImpl impl) {
-        EVCacheInMemoryCache<T> cache = (EVCacheInMemoryCache<T>) inMemoryMap.get(appName);
+    public <T> EVCacheInMemoryCache<T> createInMemoryCache(Transcoder<T> tc, EVCacheImpl impl) {
+        final String name = impl.getCachePrefix() == null ? impl.getAppName() : impl.getAppName() + impl.getCachePrefix();
+        EVCacheInMemoryCache<T> cache = (EVCacheInMemoryCache<T>) inMemoryMap.get(name);
         if(cache == null) {
             writeLock.lock();
-            if((cache = getInMemoryCache(appName)) == null) {
-                cache = new EVCacheInMemoryCache<T>(appName, tc, impl);
-                inMemoryMap.put(appName, cache);
+            if((cache = getInMemoryCache(name)) == null) {
+                cache = new EVCacheInMemoryCache<T>(name, tc, impl);
+                inMemoryMap.put(name, cache);
             }
             writeLock.unlock();
         }
