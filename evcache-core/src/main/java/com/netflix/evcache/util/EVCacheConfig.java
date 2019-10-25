@@ -5,7 +5,10 @@ import javax.inject.Inject;
 
 import com.netflix.archaius.DefaultPropertyFactory;
 import com.netflix.archaius.api.PropertyRepository;
-import com.netflix.archaius.config.DefaultSettableConfig;
+import com.netflix.archaius.api.config.CompositeConfig;
+import com.netflix.archaius.config.DefaultCompositeConfig;
+import com.netflix.archaius.config.EnvironmentConfig;
+import com.netflix.archaius.config.SystemConfig;
 public class EVCacheConfig {
 
     private static EVCacheConfig INSTANCE;
@@ -17,14 +20,26 @@ public class EVCacheConfig {
 
 	@Inject
     public EVCacheConfig(PropertyRepository repository) {
-        propertyRepository = repository;
+	    if(repository == null) {
+	        try {
+    	        final CompositeConfig applicationConfig = new DefaultCompositeConfig();
+    	        applicationConfig.addConfig("SYSTEM", SystemConfig.INSTANCE);
+    	        applicationConfig.addConfig("ENVIRONMENT",  EnvironmentConfig.INSTANCE);
+    	        propertyRepository = new DefaultPropertyFactory(applicationConfig);
+	        } catch (Exception e) {
+	            e.printStackTrace();
+	            propertyRepository = new DefaultPropertyFactory(new DefaultCompositeConfig());
+            }
+	    } else {
+	        propertyRepository = repository;
+	    }
         INSTANCE = this;
     }
 
     private EVCacheConfig() {
-        this(new DefaultPropertyFactory(new DefaultSettableConfig()));
-        System.err.println("\n\nNon Standard way of initializing EVCache. Creating an instance PropertyRepository in a non standard way. Please Inject EVCache.Builder\n\n");
+        this(null);
     }
+
 
     public static EVCacheConfig getInstance() {
         if(INSTANCE == null) new EVCacheConfig();
