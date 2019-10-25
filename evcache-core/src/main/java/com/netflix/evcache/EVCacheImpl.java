@@ -124,7 +124,11 @@ final public class EVCacheImpl implements EVCache {
         _zoneFallbackFP = propertyRepository.get(_metricName + ".fallback.zone", Boolean.class).orElseGet(_appName + ".fallback.zone").orElse(true);
         _bulkZoneFallbackFP = propertyRepository.get(_appName + ".bulk.fallback.zone", Boolean.class).orElse(true);
         _bulkPartialZoneFallbackFP = propertyRepository.get(_appName+ ".bulk.partial.fallback.zone", Boolean.class).orElse(true);
-        _useInMemoryCache = propertyRepository.get(_appName + ".use.inmemory.cache", Boolean.class).orElseGet("evcache.use.inmemory.cache").orElse(false);
+        if(_cacheName == null) {
+            _useInMemoryCache = propertyRepository.get(_appName + ".use.inmemory.cache", Boolean.class).orElseGet("evcache.use.inmemory.cache").orElse(false);
+        } else {
+            _useInMemoryCache = propertyRepository.get(_appName + "." + _cacheName + ".use.inmemory.cache", Boolean.class).orElseGet(_appName + ".use.inmemory.cache").orElseGet("evcache.use.inmemory.cache").orElse(false);
+        }
         _eventsUsingLatchFP = propertyRepository.get(_appName + ".events.using.latch", Boolean.class).orElseGet("evcache.events.using.latch").orElse(false);
          maxReadDuration = propertyRepository.get(_appName + ".max.read.duration.metric", Integer.class).orElseGet("evcache.max.write.duration.metric").orElse(20);
          maxWriteDuration = propertyRepository.get(_appName + ".max.write.duration.metric", Integer.class).orElseGet("evcache.max.write.duration.metric").orElse(50);
@@ -315,7 +319,8 @@ final public class EVCacheImpl implements EVCache {
         if (_useInMemoryCache.get()) {
             T value = null;
             try {
-                value = (T) getInMemoryCache(tc).get(evcKey);
+                final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) _pool.getEVCacheClientForRead().getTranscoder() : (Transcoder<T>) _transcoder) : tc;
+                value = (T) getInMemoryCache(transcoder).get(evcKey);
             } catch (ExecutionException e) {
                 final boolean throwExc = doThrowException();
                 if(throwExc) {
@@ -795,7 +800,8 @@ final public class EVCacheImpl implements EVCache {
             final boolean throwExc = doThrowException();
             T value = null;
             try {
-                value = (T) getInMemoryCache(tc).get(evcKey);
+                final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) _pool.getEVCacheClientForRead().getTranscoder() : (Transcoder<T>) _transcoder) : tc;
+                value = (T) getInMemoryCache(transcoder).get(evcKey);
             } catch (ExecutionException e) {
                 if(throwExc) {
                     if(e.getCause() instanceof DataNotFoundException) {
