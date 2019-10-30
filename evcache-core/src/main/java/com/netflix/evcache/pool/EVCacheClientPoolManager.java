@@ -249,7 +249,7 @@ public class EVCacheClientPoolManager {
         if(cache == null) {
             writeLock.lock();
             if((cache = getInMemoryCache(name)) == null) {
-                cache = new EVCacheInMemoryCache<T>(name, tc, impl);
+                cache = new EVCacheInMemoryCache<T>(impl.getAppName(), tc, impl);
                 inMemoryMap.put(name, cache);
             }
             writeLock.unlock();
