@@ -1205,7 +1205,6 @@ final public class EVCacheImpl implements EVCache {
         if (null == keys) throw new IllegalArgumentException();
         if (keys.isEmpty()) return Collections.<String, T> emptyMap();
         checkTTL(timeToLive, Call.BULK);
-
         final boolean throwExc = doThrowException();
         final EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
@@ -1214,12 +1213,30 @@ final public class EVCacheImpl implements EVCache {
             return Collections.<String, T> emptyMap();// Fast failure
         }
 
+        final Map<String, T> decanonicalR = new HashMap<String, T>((keys.size() * 4) / 3 + 1);
         final Collection<EVCacheKey> evcKeys = new ArrayList<EVCacheKey>();
         /* Canonicalize keys and perform fast failure checking */
         for (String k : keys) {
             final EVCacheKey evcKey = getEVCacheKey(k);
-            evcKeys.add(evcKey);
+            T value = null;
+            if (_useInMemoryCache.get()) {
+                try {
+                    final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) _pool.getEVCacheClientForRead().getTranscoder() : (Transcoder<T>) _transcoder) : tc;
+                    value = (T) getInMemoryCache(transcoder).get(evcKey);
+                } catch (ExecutionException e) {
+                    if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
+                    throw new EVCacheException("ExecutionException", e);
+                }
+                if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + evcKey + (log.isTraceEnabled() ? "; value : " + value : ""));
+            }
+            if(value == null) {
+                evcKeys.add(evcKey);
+            } else {
+                decanonicalR.put(evcKey.getKey(), value);
+            }
         }
+
+
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Call.BULK);
         if (event != null) {
             event.setEVCacheKeys(evcKeys);
@@ -1346,7 +1363,6 @@ final public class EVCacheImpl implements EVCache {
             /* Decanonicalize the keys */
             boolean partialHit = false;
             final List<String> decanonicalHitKeys = new ArrayList<String>(retMap.size());
-            final Map<String, T> decanonicalR = new HashMap<String, T>((evcKeys.size() * 4) / 3 + 1);
             for (Iterator<EVCacheKey> itr = evcKeys.iterator(); itr.hasNext();) {
                 final EVCacheKey key = itr.next();
                 final String deCanKey = key.getKey();
@@ -1361,38 +1377,6 @@ final public class EVCacheImpl implements EVCache {
                     decanonicalR.put(deCanKey, null);
                 }
             }
-//            if(hashKey.get()) {
-//                for (Iterator<EVCacheKey> itr = evcKeys.iterator(); itr.hasNext();) {
-//                    final EVCacheKey key = itr.next();
-//                    final String deCanKey = key.getKey();
-//                    T value = retMap.get(key.getCanonicalKey());
-//                    if(value == null) value = retMap.get(deCanKey);
-//                    if (value != null) {
-//                        decanonicalR.put(deCanKey, value);
-//                        if (touch) touchData(key, timeToLive);
-//                        decanonicalHitKeys.add(deCanKey);
-//                    } else {
-//                        partialHit = true;
-//                        // this ensures the fallback was tried
-//                        decanonicalR.put(deCanKey, null);
-//                    }
-//                }
-//            } else {
-//                for (Iterator<EVCacheKey> itr = evcKeys.iterator(); itr.hasNext();) {
-//                    final EVCacheKey key = itr.next();
-//                    final T value = retMap.get(key.getCanonicalKey());
-//                    final String deCanKey = key.getKey();
-//                    if (value != null) {
-//                        decanonicalR.put(deCanKey, value);
-//                        if (touch) touchData(key, timeToLive);
-//                        decanonicalHitKeys.add(deCanKey);
-//                    } else {
-//                        partialHit = true;
-//                        // this ensures the fallback was tried
-//                        decanonicalR.put(deCanKey, null);
-//                    }
-//                }
-//            }
             if (!decanonicalR.isEmpty()) {
                 if (!partialHit) {
                     if (event != null) event.setAttribute("status", "BHIT");
