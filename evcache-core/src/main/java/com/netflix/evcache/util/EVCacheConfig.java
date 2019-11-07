@@ -33,6 +33,20 @@ public class EVCacheConfig {
 	    } else {
 	        propertyRepository = repository;
 	    }
+	    
+        String userLocation = null;
+        if(userLocation == null) userLocation= System.getenv("EC2_INSTANCE_ID");
+        if(userLocation == null) userLocation= System.getenv("NETFLIX_INSTANCE_ID");
+        if(userLocation == null) userLocation= System.getProperty("EC2_INSTANCE_ID");
+        if(userLocation == null) userLocation= System.getProperty("NETFLIX_INSTANCE_ID");
+        if(userLocation == null && propertyRepository != null) userLocation = propertyRepository.get("EC2_INSTANCE_ID", String.class).orElse(null).get();
+        if(userLocation == null && propertyRepository != null) userLocation = propertyRepository.get("NETFLIX_INSTANCE_ID", String.class).orElse(null).get();
+
+        if(userLocation == null) { //Assuming this is not in cloud so bump up the timeouts
+            System.setProperty("default.read.timeout", "750");
+            System.setProperty("default.bulk.timeout", "750");
+        }
+	    
         INSTANCE = this;
     }
 

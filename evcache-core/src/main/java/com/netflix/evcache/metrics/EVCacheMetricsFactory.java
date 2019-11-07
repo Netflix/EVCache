@@ -6,11 +6,13 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
 import com.netflix.spectator.api.DistributionSummary;
@@ -89,10 +91,24 @@ public final class EVCacheMetricsFactory {
         return gauge;
     }
     
+    private void addCommonTags(List<Tag> tagList) {
+        tagList.add(new BasicTag("owner", "evcache"));
+        final String additionalTags = EVCacheConfig.getInstance().getPropertyRepository().get("evcache.additional.tags", String.class).orElse(null).get();
+        if(additionalTags != null && additionalTags.length() > 0) {
+            final StringTokenizer st = new StringTokenizer(additionalTags, ","); 
+            while(st.hasMoreTokens()) {
+                final String token = st.nextToken();
+                String val = System.getProperty(token);
+                if(val == null) val = System.getenv(token);
+                if(val != null) tagList.add(new BasicTag(token, val));
+            }
+        }        
+    }
+
     public Id getId(String name, Collection<Tag> tags) {
         List<Tag> tagList = new ArrayList<Tag>(tags.size() + 1);
         tagList.addAll(tags);
-        tagList.add(new BasicTag("owner", "evcache"));
+        addCommonTags(tagList);
         return getRegistry().createId(name, tagList);
     }
 
@@ -107,7 +123,6 @@ public final class EVCacheMetricsFactory {
                 } else {
                     List<Tag> tagList = new ArrayList<Tag>(tags.size() + 1);
                     tagList.addAll(tags);
-                    tagList.add(new BasicTag("owner", "evcache"));
                     counter = getRegistry().counter(cName, tagList);
                     counterMap.put(name, counter);
                 }
