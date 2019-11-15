@@ -18,6 +18,7 @@ import com.netflix.archaius.api.Property;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Optional;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -53,7 +54,7 @@ public class EVCacheInMemoryCache<T> {
     private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
     private final Map<String, Gauge> gaugeMap = new ConcurrentHashMap<String, Gauge>();
 
-    private LoadingCache<EVCacheKey, T> cache;
+    private LoadingCache<EVCacheKey, Optional<T>> cache;
     private ExecutorService pool = null;
 
     private final Transcoder<T> tc;
@@ -80,7 +81,7 @@ public class EVCacheInMemoryCache<T> {
         this._poolSize.subscribe((i) -> initRefreshPool());
 
         final List<Tag> tags = new ArrayList<Tag>(3);
-        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+        tags.addAll(impl.getTags());
         tags.add(new BasicTag(EVCacheMetricsFactory.METRIC, "size"));
 
         this.sizeId = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.IN_MEMORY, tags);
@@ -119,15 +120,11 @@ public class EVCacheInMemoryCache<T> {
                 builder = builder.refreshAfterWrite(_refreshDuration.get(), TimeUnit.MILLISECONDS);
             }
             initRefreshPool();
-            final LoadingCache<EVCacheKey, T> newCache = builder.build(
-                    new CacheLoader<EVCacheKey, T>() {
-                        public T load(EVCacheKey key) throws  EVCacheException {
+            final LoadingCache<EVCacheKey, Optional<T>> newCache = builder.build(
+                    new CacheLoader<EVCacheKey, Optional<T>>() {
+                        public Optional<T> load(EVCacheKey key) throws  EVCacheException, DataNotFoundException {
                             try {
-                                final T t = impl.doGet(key, tc);
-                                if(t == null) throw new  DataNotFoundException("Data for key : " + key + " could not be loaded as it was not found in EVCache");
-                                return t;
-                            } catch (DataNotFoundException e) {
-                                throw e;
+                                return  Optional.fromNullable(impl.doGet(key, tc));
                             } catch (EVCacheException e) {
                                 log.error("EVCacheException while loading key -> "+ key, e);
                                 throw e;
@@ -137,14 +134,15 @@ public class EVCacheInMemoryCache<T> {
                             }
                         }
 
-                        public ListenableFuture<T> reload(final EVCacheKey key, T prev) {
-                            ListenableFutureTask<T> task = ListenableFutureTask.create(new Callable<T>() {
-                                public T call() {
+                        @Override
+                        public ListenableFuture<Optional<T>> reload(EVCacheKey key, Optional<T> oldValue) {
+                            ListenableFutureTask<Optional<T>> task = ListenableFutureTask.create(new Callable<Optional<T>>() {
+                                public Optional<T> call() {
                                     try {
-                                        final T t = load(key);
+                                        final Optional<T> t = load(key);
                                         if(t == null) {
                                             EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-NotFound");
-                                            return prev;
+                                            return oldValue;
                                         } else {
                                             EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-Success");
                                         }
@@ -152,7 +150,7 @@ public class EVCacheInMemoryCache<T> {
                                     } catch (EVCacheException e) {
                                         log.error("EVCacheException while reloading key -> "+ key, e);
                                         EVCacheMetricsFactory.getInstance().increment("EVCacheInMemoryCache" + "-" + appName + "-Reload-Fail");
-                                        return prev;
+                                        return oldValue;
                                     }
                                 }
                             });
@@ -161,7 +159,7 @@ public class EVCacheInMemoryCache<T> {
                         }
                     });
             if(cache != null) newCache.putAll(cache.asMap());
-            final Cache<EVCacheKey, T> currentCache = this.cache;
+            final Cache<EVCacheKey, Optional<T>> currentCache = this.cache;
             this.cache = newCache;
             if(currentCache != null) {
                 currentCache.invalidateAll();
@@ -202,7 +200,7 @@ public class EVCacheInMemoryCache<T> {
         if(counter != null) return counter;
 
         final List<Tag> tags = new ArrayList<Tag>(3);
-        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+        tags.addAll(impl.getTags());
         tags.add(new BasicTag(EVCacheMetricsFactory.METRIC, name));
         counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.IN_MEMORY, tags);
         counterMap.put(name, counter);
@@ -214,7 +212,7 @@ public class EVCacheInMemoryCache<T> {
         if(gauge != null) return gauge;
 
         final List<Tag> tags = new ArrayList<Tag>(3);
-        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+        tags.addAll(impl.getTags());
         tags.add(new BasicTag(EVCacheMetricsFactory.METRIC, name));
 
         final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.IN_MEMORY, tags);
@@ -225,14 +223,15 @@ public class EVCacheInMemoryCache<T> {
 
     public T get(EVCacheKey key) throws ExecutionException {
         if (cache == null) return null;
-        final T val = cache.get(key);
+        final Optional<T> val = cache.get(key);
+        if(!val.isPresent()) return null;
         if (log.isDebugEnabled()) log.debug("GET : appName : " + appName + "; Key : " + key + "; val : " + val);
-        return val;
+        return val.get();
     }
 
     public void put(EVCacheKey key, T value) {
         if (cache == null) return;
-        cache.put(key, value);
+        cache.put(key, Optional.fromNullable(value));
         if (log.isDebugEnabled()) log.debug("PUT : appName : " + appName + "; Key : " + key + "; val : " + value);
     }
 
@@ -242,8 +241,8 @@ public class EVCacheInMemoryCache<T> {
         if (log.isDebugEnabled()) log.debug("DEL : appName : " + appName + "; Key : " + key);
     }
 
-    public Map<EVCacheKey, T> getAll() {
-        if (cache == null) return Collections.<EVCacheKey, T>emptyMap();
+    public Map<EVCacheKey, Optional<T>> getAll() {
+        if (cache == null) return Collections.<EVCacheKey, Optional<T>>emptyMap();
         return cache.asMap();
     }
 

@@ -335,7 +335,12 @@ final public class EVCacheImpl implements EVCache {
                 }
             }
             if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + evcKey + (log.isTraceEnabled() ? "; value : " + value : ""));
-            if (value != null) return value;
+            if (value != null) {
+                if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + evcKey + (log.isTraceEnabled() ? "; value : " + value : ""));
+                return value;
+            } else {
+                if (log.isInfoEnabled() && shouldLog()) log.info("Value not_found in inmemory cache for APP " + _appName + ", key : " + evcKey + "; value : " + value );
+            }
         }
         return doGet(evcKey, tc);
     }
@@ -1227,13 +1232,19 @@ final public class EVCacheImpl implements EVCache {
                     if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
                     throw new EVCacheException("ExecutionException", e);
                 }
-                if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + evcKey + (log.isTraceEnabled() ? "; value : " + value : ""));
             }
             if(value == null) {
                 evcKeys.add(evcKey);
+                if (log.isInfoEnabled() && shouldLog()) log.info("Value not_found in inmemory cache for APP " + _appName + ", key : " + evcKey + "; value : " + value );
             } else {
                 decanonicalR.put(evcKey.getKey(), value);
+                if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + evcKey + (log.isTraceEnabled() ? "; value : " + value : ""));
             }
+        }
+        
+        if(evcKeys.size() == 0 && decanonicalR.size() == keys.size()) {
+            if (log.isDebugEnabled() && shouldLog()) log.debug("All Values retrieved from inmemory cache for APP " + _appName + ", keys : " + keys + (log.isTraceEnabled() ? "; value : " + decanonicalR : ""));
+            return decanonicalR;
         }
 
 
@@ -1343,21 +1354,23 @@ final public class EVCacheImpl implements EVCache {
                 }
             }
 
-            if (retMap == null || retMap.isEmpty()) {
-                if (log.isInfoEnabled() && shouldLog()) log.info("BULK : APP " + _appName + " ; Full cache miss for keys : " + keys);
-                if (event != null) event.setAttribute("status", "BMISS_ALL");
-
-                final Map<String, T> returnMap = new HashMap<String, T>();
-                if (retMap != null && retMap.isEmpty()) {
-                    for (String k : keys) {
-                        returnMap.put(k, null);
+            if(decanonicalR.isEmpty()) {
+                if (retMap == null || retMap.isEmpty()) {
+                    if (log.isInfoEnabled() && shouldLog()) log.info("BULK : APP " + _appName + " ; Full cache miss for keys : " + keys);
+                    if (event != null) event.setAttribute("status", "BMISS_ALL");
+    
+                    final Map<String, T> returnMap = new HashMap<String, T>();
+                    if (retMap != null && retMap.isEmpty()) {
+                        for (String k : keys) {
+                            returnMap.put(k, null);
+                        }
                     }
+                    //increment("BulkMissFull");
+                    cacheOperation = EVCacheMetricsFactory.NO;
+                    /* If both Retry and first request fail Exit Immediately. */
+                    if (event != null) endEvent(event);
+                    return returnMap;
                 }
-                //increment("BulkMissFull");
-                cacheOperation = EVCacheMetricsFactory.NO;
-                /* If both Retry and first request fail Exit Immediately. */
-                if (event != null) endEvent(event);
-                return returnMap;
             }
 
             /* Decanonicalize the keys */
@@ -2201,6 +2214,10 @@ final public class EVCacheImpl implements EVCache {
         timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.OVERALL_CALL, tagList, Duration.ofMillis(duration));
         timerMap.put(name, timer);
         return timer;
+    }
+
+    protected List<Tag> getTags() {
+        return tags;
     }
 
 }

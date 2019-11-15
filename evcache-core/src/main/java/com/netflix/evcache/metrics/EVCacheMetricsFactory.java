@@ -97,7 +97,7 @@ public final class EVCacheMetricsFactory {
         if(additionalTags != null && additionalTags.length() > 0) {
             final StringTokenizer st = new StringTokenizer(additionalTags, ","); 
             while(st.hasMoreTokens()) {
-                final String token = st.nextToken();
+                final String token = st.nextToken().trim();
                 String val = System.getProperty(token);
                 if(val == null) val = System.getenv(token);
                 if(val != null) tagList.add(new BasicTag(token, val));
