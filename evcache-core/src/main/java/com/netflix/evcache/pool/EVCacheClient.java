@@ -49,13 +49,13 @@ import net.spy.memcached.CASValue;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.ConnectionFactory;
 import net.spy.memcached.EVCacheMemcachedClient;
+import net.spy.memcached.EVCacheNode;
 import net.spy.memcached.MemcachedClient;
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.NodeLocator;
 import net.spy.memcached.internal.ListenableFuture;
 import net.spy.memcached.internal.OperationCompletionListener;
 import net.spy.memcached.internal.OperationFuture;
-import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
 import net.spy.memcached.transcoders.SerializingTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
 import rx.Scheduler;
@@ -156,8 +156,8 @@ public class EVCacheClient {
         final Collection<String> retKeys = new ArrayList<>(canonicalKeys.size());
         for (String key : canonicalKeys) {
             final MemcachedNode node = evcacheMemcachedClient.getNodeLocator().getPrimary(key);
-            if (node instanceof EVCacheNodeImpl) {
-                final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
+            if (node instanceof EVCacheNode) {
+                final EVCacheNode evcNode = (EVCacheNode) node;
                 if (!evcNode.isAvailable(call)) {
                     continue;
                 }
@@ -221,8 +221,8 @@ public class EVCacheClient {
 
 
     private boolean ensureWriteQueueSize(MemcachedNode node, String key, EVCache.Call call) throws EVCacheException {
-        if (node instanceof EVCacheNodeImpl) {
-            final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
+        if (node instanceof EVCacheNode) {
+            final EVCacheNode evcNode = (EVCacheNode) node;
             int i = 0;
             while (true) {
                 final int size = evcNode.getWriteQueueSize();
@@ -256,8 +256,8 @@ public class EVCacheClient {
     private boolean validateNode(String key, boolean _throwException, EVCache.Call call) throws EVCacheException, EVCacheConnectException {
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         // First check if the node is active
-        if (node instanceof EVCacheNodeImpl) {
-            final EVCacheNodeImpl evcNode = (EVCacheNodeImpl) node;
+        if (node instanceof EVCacheNode) {
+            final EVCacheNode evcNode = (EVCacheNode) node;
             final String hostName;
             if(evcNode.getSocketAddress() instanceof InetSocketAddress) {
                 hostName = ((InetSocketAddress)evcNode.getSocketAddress()).getHostName();
@@ -1758,8 +1758,8 @@ public class EVCacheClient {
         final Collection<MemcachedNode> allNodes = evcacheMemcachedClient.getNodeLocator().getAll();
         int size = 0;
         for(MemcachedNode node : allNodes) {
-            if(node instanceof EVCacheNodeImpl) {
-                size += ((EVCacheNodeImpl)node).getWriteQueueSize();
+            if(node instanceof EVCacheNode) {
+                size += ((EVCacheNode)node).getWriteQueueSize();
             }
         }
         return size;
@@ -1769,8 +1769,8 @@ public class EVCacheClient {
         final Collection<MemcachedNode> allNodes = evcacheMemcachedClient.getNodeLocator().getAll();
         int size = 0;
         for(MemcachedNode node : allNodes) {
-            if(node instanceof EVCacheNodeImpl) {
-                size += ((EVCacheNodeImpl)node).getReadQueueSize();
+            if(node instanceof EVCacheNode) {
+                size += ((EVCacheNode)node).getReadQueueSize();
             }
         }
         return size;

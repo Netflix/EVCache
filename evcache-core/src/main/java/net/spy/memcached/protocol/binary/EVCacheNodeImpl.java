@@ -23,6 +23,8 @@ import com.netflix.spectator.api.Counter;
 import com.netflix.spectator.api.Tag;
 
 import net.spy.memcached.ConnectionFactory;
+import net.spy.memcached.EVCacheNode;
+import net.spy.memcached.EVCacheNodeMBean;
 import net.spy.memcached.ops.Operation;
 import sun.misc.Cleaner;
 import sun.nio.ch.DirectBuffer;
@@ -30,7 +32,7 @@ import sun.nio.ch.DirectBuffer;
 @SuppressWarnings("restriction")
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "FCBL_FIELD_COULD_BE_LOCAL", "EXS_EXCEPTION_SOFTENING_NO_CHECKED",
         "REC_CATCH_EXCEPTION", "SCII_SPOILED_CHILD_INTERFACE_IMPLEMENTATOR" })
-public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheNodeImplMBean {
+public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheNodeMBean, EVCacheNode {
     private static final Logger log = LoggerFactory.getLogger(EVCacheNodeImpl.class);
 
     protected long stTime;
@@ -83,6 +85,10 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         }
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#registerMonitors()
+     */
+    @Override
     public void registerMonitors() {
 //        try {
 //            EVCacheMetricsFactory.getInstance().getRegistry().register(this);
@@ -92,43 +98,83 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     }
 
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#isAvailable(com.netflix.evcache.EVCache.Call)
+     */
+    @Override
     public boolean isAvailable(EVCache.Call call) {
         return isActive();
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getWriteQueueSize()
+     */
+    @Override
     public int getWriteQueueSize() {
         return writeQ.size();
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getReadQueueSize()
+     */
+    @Override
     public int getReadQueueSize() {
         return readQ.size();
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getInputQueueSize()
+     */
+    @Override
     public int getInputQueueSize() {
         return inputQueue.size();
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#incrOps()
+     */
+    @Override
     public long incrOps() {
         operationsCounter.increment();
         return numOps.incrementAndGet();
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getNumOfOps()
+     */
+    @Override
     public long getNumOfOps() {
         return numOps.get();
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#flushInputQueue()
+     */
+    @Override
     public void flushInputQueue() {
         inputQueue.clear();
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getStartTime()
+     */
+    @Override
     public long getStartTime() {
         return stTime;
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getTimeoutStartTime()
+     */
+    @Override
     public long getTimeoutStartTime() {
         return timeoutStartTime;
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#removeMonitoring()
+     */
+    @Override
     public void removeMonitoring() {
         try {
             final ObjectName mBeanName = ObjectName.getInstance(getMonitorName(client.getAppName()));
@@ -142,6 +188,10 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         }
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#shutdown()
+     */
+    @Override
     public void shutdown() {
         removeMonitoring();
         writeQ.clear();
@@ -161,10 +211,18 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         }
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getCreateTime()
+     */
+    @Override
     public long getCreateTime() {
         return stTime;
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#setConnectTime(long)
+     */
+    @Override
     public void setConnectTime(long cTime) {
         this.stTime = cTime;
 //        if(reconnectCounter == null) {
@@ -180,32 +238,59 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
 //        reconnectCounter.increment();
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getAppName()
+     */
+    @Override
     public String getAppName() {
         return client.getAppName();
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getHostName()
+     */
+    @Override
     public String getHostName() {
         return hostName;
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getServerGroup()
+     */
+    @Override
     public ServerGroup getServerGroup() {
         return client.getServerGroup();
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getId()
+     */
+    @Override
     public int getId() {
         return client.getId();
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getTags()
+     */
+    @Override
     public List<Tag> getTags() {
         return client.getTagList();
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getTotalReconnectCount()
+     */
+    @Override
     public int getTotalReconnectCount() {
 //        if(reconnectCounter == null) return 0;
 //        return (int)reconnectCounter.count();
         return getReconnectCount();
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getSocketChannelLocalAddress()
+     */
     @Override
     public String getSocketChannelLocalAddress() {
         try {
@@ -218,6 +303,9 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         return "NULL";
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getSocketChannelRemoteAddress()
+     */
     @Override
     public String getSocketChannelRemoteAddress() {
         try {
@@ -230,6 +318,9 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         return "NULL";
     }
 
+    /* (non-Javadoc)
+     * @see net.spy.memcached.protocol.binary.EVCacheNode1#getConnectTime()
+     */
     @Override
     public String getConnectTime() {
         return ISODateTimeFormat.dateTime().print(stTime);

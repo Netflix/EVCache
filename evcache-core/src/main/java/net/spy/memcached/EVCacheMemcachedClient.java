@@ -18,10 +18,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.netflix.archaius.api.Property;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
@@ -50,7 +50,6 @@ import net.spy.memcached.ops.StatusCode;
 import net.spy.memcached.ops.StoreOperation;
 import net.spy.memcached.ops.StoreType;
 import net.spy.memcached.protocol.binary.BinaryOperationFactory;
-import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.util.StringUtils;
 
@@ -616,7 +615,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return retVal;
     }
 
-    public void reconnectNode(EVCacheNodeImpl evcNode ) {
+    public void reconnectNode(EVCacheNode evcNode ) {
         final long upTime = System.currentTimeMillis() - evcNode.getCreateTime();
         if (log.isDebugEnabled()) log.debug("Reconnecting node : " + evcNode + "; UpTime : " + upTime);
         if(upTime > 30000) { //not more than once every 30 seconds : TODO make this configurable

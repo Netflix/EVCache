@@ -14,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.spy.memcached.ops.Operation;
-import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
 
 public class EVCacheConnection extends MemcachedConnection {
     private static Logger log = LoggerFactory.getLogger(EVCacheConnection.class);
@@ -31,8 +30,8 @@ public class EVCacheConnection extends MemcachedConnection {
         try {
             super.shutdown();
             for (MemcachedNode qa : getLocator().getAll()) {
-                if (qa instanceof EVCacheNodeImpl) {
-                    ((EVCacheNodeImpl) qa).shutdown();
+                if (qa instanceof EVCacheNode) {
+                    ((EVCacheNode) qa).shutdown();
                 }
             }
         } finally {
@@ -72,14 +71,14 @@ public class EVCacheConnection extends MemcachedConnection {
 
     protected void addOperation(final MemcachedNode node, final Operation o) {
         super.addOperation(node, o);
-        ((EVCacheNodeImpl) node).incrOps();
+        ((EVCacheNode) node).incrOps();
     }
 
     @Override
     public void addOperations(Map<MemcachedNode, Operation> ops) {
         super.addOperations(ops);
         for (MemcachedNode node : ops.keySet()) {
-            ((EVCacheNodeImpl) node).incrOps();
+            ((EVCacheNode) node).incrOps();
         }
     }
 
@@ -93,7 +92,7 @@ public class EVCacheConnection extends MemcachedConnection {
     @Override
     public CountDownLatch broadcastOperation(BroadcastOpFactory of, Collection<MemcachedNode> nodes) {
         for (MemcachedNode node : nodes) {
-            ((EVCacheNodeImpl) node).incrOps();
+            ((EVCacheNode) node).incrOps();
         }
         return super.broadcastOperation(of, nodes);
     }
