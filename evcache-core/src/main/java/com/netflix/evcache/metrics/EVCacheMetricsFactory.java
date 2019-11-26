@@ -78,9 +78,11 @@ public final class EVCacheMetricsFactory {
                     gauge = (AtomicLong)monitorMap.get(name);
                 } else {
                     if(tags != null) {
-                        gauge = getRegistry().gauge(cName, tags, new AtomicLong());
+                        final Id id = getId(cName, tags);
+                        gauge = getRegistry().gauge(id, new AtomicLong());
                     } else {
-                        gauge = getRegistry().gauge(cName, new AtomicLong());
+                        final Id id = getId(cName, null);
+                        gauge = getRegistry().gauge(id, new AtomicLong());
                     }
                     monitorMap.put(name, gauge);
                 }
@@ -106,8 +108,8 @@ public final class EVCacheMetricsFactory {
     }
 
     public Id getId(String name, Collection<Tag> tags) {
-        List<Tag> tagList = new ArrayList<Tag>(tags.size() + 1);
-        tagList.addAll(tags);
+        final List<Tag> tagList = new ArrayList<Tag>();
+        if(tags != null) tagList.addAll(tags);
         addCommonTags(tagList);
         return getRegistry().createId(name, tagList);
     }
@@ -123,7 +125,8 @@ public final class EVCacheMetricsFactory {
                 } else {
                     List<Tag> tagList = new ArrayList<Tag>(tags.size() + 1);
                     tagList.addAll(tags);
-                    counter = getRegistry().counter(cName, tagList);
+                    final Id id = getId(cName, tagList);
+                    counter = getRegistry().counter(id);
                     counterMap.put(name, counter);
                 }
             } finally {
