@@ -44,7 +44,6 @@ import com.netflix.spectator.api.Tag;
 
 import net.spy.memcached.EVCacheNode;
 import net.spy.memcached.MemcachedNode;
-import net.spy.memcached.protocol.binary.EVCacheNodeImpl;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "REC_CATCH_EXCEPTION", "MDM_THREAD_YIELD" })
 public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
@@ -536,8 +535,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 // then we will refresh the client.
                 final Collection<MemcachedNode> allNodes = client.getNodeLocator().getAll();
                 for (MemcachedNode node : allNodes) {
-                    if (node instanceof EVCacheNodeImpl) {
-                        final EVCacheNodeImpl evcNode = ((EVCacheNodeImpl) node);
+                    if (node instanceof EVCacheNode) {
+                        final EVCacheNode evcNode = ((EVCacheNode) node);
                         // If the connection to a node is not active then we
                         // will reconnect the client.
                         if (!evcNode.isActive() && !discoveredHostsInServerGroup.contains(evcNode.getSocketAddress())) {
@@ -912,8 +911,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 if(refreshConnectionOnReadQueueFull.get()) {
                     final Collection<MemcachedNode> allNodes = client.getNodeLocator().getAll();
                     for (MemcachedNode node : allNodes) {
-                        if (node instanceof EVCacheNodeImpl) {
-                            final EVCacheNodeImpl evcNode = ((EVCacheNodeImpl) node);
+                        if (node instanceof EVCacheNode) {
+                            final EVCacheNode evcNode = ((EVCacheNode) node);
                             if(evcNode.getReadQueueSize() >= refreshConnectionOnReadQueueFullSize.get().intValue()) {
                                 EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.POOL_REFRESH_QUEUE_FULL, evcNode.getTags()).increment();
                                 client.getEVCacheMemcachedClient().reconnectNode(evcNode);
@@ -962,7 +961,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     public void refreshAsync(MemcachedNode node) {
         if (log.isInfoEnabled()) log.info("Pool is being refresh as the EVCacheNode is not available. " + node.toString());
         if(!_disableAsyncRefresh.get()) {
-            if (node instanceof EVCacheNodeImpl) {
+            if (node instanceof EVCacheNode) {
                 final EVCacheNode evcNode = ((EVCacheNode) node);
                 EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.POOL_REFRESH_ASYNC, evcNode.getTags()).increment();
             }

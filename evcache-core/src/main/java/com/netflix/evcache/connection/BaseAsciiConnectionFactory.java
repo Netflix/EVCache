@@ -28,7 +28,9 @@ import net.spy.memcached.HashAlgorithm;
 import net.spy.memcached.MemcachedConnection;
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.NodeLocator;
+import net.spy.memcached.OperationFactory;
 import net.spy.memcached.ops.Operation;
+import net.spy.memcached.protocol.ascii.AsciiOperationFactory;
 import net.spy.memcached.protocol.ascii.EVCacheAsciiNodeImpl;
 import net.spy.memcached.transcoders.Transcoder;
 
@@ -84,6 +86,10 @@ public class BaseAsciiConnectionFactory extends DefaultConnectionFactory {
     public MemcachedConnection createConnection(List<InetSocketAddress> addrs) throws IOException {
         return new EVCacheConnection(name, getReadBufSize(), this, addrs, getInitialObservers(), getFailureMode(),
                 getOperationFactory());
+    }
+
+    public OperationFactory getOperationFactory() {
+      return new AsciiOperationFactory();
     }
 
     public MemcachedNode createMemcachedNode(SocketAddress sa, SocketChannel c, int bufSize) {
