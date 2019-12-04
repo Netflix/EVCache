@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutorService;
 
 import com.netflix.archaius.api.Property;
 import com.netflix.evcache.EVCacheTranscoder;
+import com.netflix.evcache.operation.EVCacheAsciiOperationFactory;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
@@ -88,8 +89,8 @@ public class BaseAsciiConnectionFactory extends DefaultConnectionFactory {
                 getOperationFactory());
     }
 
-    public OperationFactory getOperationFactory() {
-      return new AsciiOperationFactory();
+    public EVCacheAsciiOperationFactory getOperationFactory() {
+      return new EVCacheAsciiOperationFactory();
     }
 
     public MemcachedNode createMemcachedNode(SocketAddress sa, SocketChannel c, int bufSize) {

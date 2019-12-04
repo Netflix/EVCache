@@ -55,9 +55,10 @@ public class EVCacheClientUtil {
     private EVCacheLatch fixup(EVCacheClient sourceClient, EVCacheClient[] destClients, String canonicalKey, int timeToLive, Policy policy) {
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, destClients.length, _appName);
         try {
-            final CachedData readData = sourceClient.getAndTouch(canonicalKey, ct, timeToLive, false, false);
+            final CachedData readData = sourceClient.get(canonicalKey, ct, false, false);
 
             if(readData != null) {
+                sourceClient.touch(canonicalKey, timeToLive);
                 for(EVCacheClient destClient : destClients) {
                     destClient.set(canonicalKey, readData, timeToLive, latch);
                 }
