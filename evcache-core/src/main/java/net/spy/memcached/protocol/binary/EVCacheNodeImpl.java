@@ -24,8 +24,8 @@ import com.netflix.spectator.api.Tag;
 
 import net.spy.memcached.ConnectionFactory;
 import net.spy.memcached.ops.Operation;
-import sun.misc.Cleaner;
-import sun.nio.ch.DirectBuffer;
+//import sun.misc.Cleaner;
+//import sun.nio.ch.DirectBuffer;
 
 @SuppressWarnings("restriction")
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "FCBL_FIELD_COULD_BE_LOCAL", "EXS_EXCEPTION_SOFTENING_NO_CHECKED",
@@ -150,12 +150,12 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
         try {
             // Cleanup the ByteBuffers only if they are sun.nio.ch.DirectBuffer
             // If we don't cleanup then we will leak 16K of memory
-            if (getRbuf() instanceof DirectBuffer) {
-                Cleaner cleaner = ((DirectBuffer) getRbuf()).cleaner();
-                if (cleaner != null) cleaner.clean();
-                cleaner = ((DirectBuffer) getWbuf()).cleaner();
-                if (cleaner != null) cleaner.clean();
-            }
+//            if (getRbuf() instanceof DirectBuffer) {
+//                Cleaner cleaner = ((DirectBuffer) getRbuf()).cleaner();
+//                if (cleaner != null) cleaner.clean();
+//                cleaner = ((DirectBuffer) getWbuf()).cleaner();
+//                if (cleaner != null) cleaner.clean();
+//            }
         } catch (Throwable t) {
             getLogger().error("Exception cleaning ByteBuffer.", t);
         }

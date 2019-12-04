@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.netflix.evcache.EVCache.Call;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.EVCacheKey;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPool;
@@ -22,7 +23,10 @@ public class EVCacheEvent {
     private final String appName;
     private final String cacheName;
     private final EVCacheClientPool pool;
-    private final long startTime; 
+    private final long startTime;
+
+    private long endTime = 0;
+    private String status = EVCacheMetricsFactory.SUCCESS;
 
     private Collection<EVCacheClient> clients = null;
     private Collection<EVCacheKey> evcKeys = null;
@@ -96,6 +100,30 @@ public class EVCacheEvent {
     public Object getAttribute(Object key) {
         if (data == null) return null;
         return data.get(key);
+    }
+
+    public void setEndTime(long endTime) {
+        this.endTime = endTime;
+    }
+
+    public long getEndTime() {
+        return endTime;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    /*
+     * Will return the duration of the call if available else -1
+     */
+    public long getDurationInMillis() {
+        if(endTime == 0) return -1;
+        return endTime - startTime;
     }
 
     @Override
@@ -172,7 +200,7 @@ public class EVCacheEvent {
             return false;
         return true;
     }
-    
+
     public long getStartTime() {
         return this.startTime;
     }
