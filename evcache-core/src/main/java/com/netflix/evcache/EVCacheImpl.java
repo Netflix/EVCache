@@ -238,6 +238,7 @@ final public class EVCacheImpl implements EVCache {
     }
 
     private void endEvent(EVCacheEvent event) {
+        event.setEndTime(System.currentTimeMillis());
         final List<EVCacheEventListener> evcacheEventListenerList = getEVCacheEventListeners();
         for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
             try {
@@ -250,6 +251,7 @@ final public class EVCacheImpl implements EVCache {
     }
 
     private void eventError(EVCacheEvent event, Throwable t) {
+        event.setEndTime(System.currentTimeMillis());
         final List<EVCacheEventListener> evcacheEventListenerList = getEVCacheEventListeners();
         for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
             try {
@@ -420,6 +422,7 @@ final public class EVCacheImpl implements EVCache {
             return data;
         } catch (net.spy.memcached.internal.CheckedOperationTimeoutException ex) {
             status = EVCacheMetricsFactory.TIMEOUT;
+            event.setStatus(status);
             if (event != null) eventError(event, ex);
             if (!throwExc) return null;
             throw new EVCacheException("CheckedOperationTimeoutException getting data for APP " + _appName + ", key = " + evcKey
@@ -427,6 +430,7 @@ final public class EVCacheImpl implements EVCache {
                     + ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex);
         } catch (Exception ex) {
             status = EVCacheMetricsFactory.ERROR;
+            event.setStatus(status);
             if (event != null) eventError(event, ex);
             if (!throwExc) return null;
             throw new EVCacheException("Exception getting data for APP " + _appName + ", key = " + evcKey, ex);
@@ -602,6 +606,7 @@ final public class EVCacheImpl implements EVCache {
             return data;
         }).onErrorReturn(ex -> {
             if (ex instanceof net.spy.memcached.internal.CheckedOperationTimeoutException) {
+                event.setStatus(EVCacheMetricsFactory.TIMEOUT);
                 if (event != null) eventError(event, ex);
                 if (!throwExc) return null;
                 throw sneakyThrow(new EVCacheException("CheckedOperationTimeoutException getting data for APP " + _appName + ", key = "
@@ -609,6 +614,7 @@ final public class EVCacheImpl implements EVCache {
                         + ".\nYou can set the following property to increase the timeout " + _appName
                         + ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex));
             } else {
+                event.setStatus(EVCacheMetricsFactory.ERROR);
                 if (event != null) eventError(event, ex);
                 if (!throwExc) return null;
                 throw sneakyThrow(new EVCacheException("Exception getting data for APP " + _appName + ", key = " + evcKey, ex));
@@ -780,11 +786,13 @@ final public class EVCacheImpl implements EVCache {
             return data;
         }).onErrorReturn(ex -> {
             if (ex instanceof net.spy.memcached.internal.CheckedOperationTimeoutException) {
+                event.setStatus(EVCacheMetricsFactory.TIMEOUT);
                 if (event != null) eventError(event, ex);
                 if (!throwExc) return null;
                 throw sneakyThrow(new EVCacheException("CheckedOperationTimeoutException executing getAndTouch APP " + _appName + ", key = " + evcKey
                         + ".\nYou can set the following property to increase the timeout " + _appName + ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex));
             } else {
+                event.setStatus(EVCacheMetricsFactory.ERROR);
                 if (event != null) eventError(event, ex);
                 if (!throwExc) return null;
                 throw sneakyThrow(new EVCacheException("Exception executing getAndTouch APP " + _appName + ", key = " + evcKey, ex));
@@ -913,6 +921,7 @@ final public class EVCacheImpl implements EVCache {
             return data;
         } catch (net.spy.memcached.internal.CheckedOperationTimeoutException ex) {
             status = EVCacheMetricsFactory.TIMEOUT;
+            event.setStatus(status);
             if (log.isDebugEnabled() && shouldLog()) log.debug("CheckedOperationTimeoutException executing getAndTouch APP " + _appName + ", key : " + evcKey, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return null;
@@ -920,6 +929,7 @@ final public class EVCacheImpl implements EVCache {
                     + ".\nYou can set the following property to increase the timeout " + _appName+ ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex);
         } catch (Exception ex) {
             status = EVCacheMetricsFactory.ERROR;
+            event.setStatus(status);
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing getAndTouch APP " + _appName + ", key = " + evcKey, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return null;
@@ -1001,6 +1011,7 @@ final public class EVCacheImpl implements EVCache {
             return latch;
         } catch (Exception ex) {
             status = EVCacheMetricsFactory.ERROR;
+            event.setStatus(status);
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception touching the data for APP " + _appName + ", key : " + evcKey, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName);
@@ -1127,6 +1138,7 @@ final public class EVCacheImpl implements EVCache {
             if (event != null) endEvent(event);
         } catch (Exception ex) {
             status = EVCacheMetricsFactory.ERROR;
+            event.setStatus(status);
             if (log.isDebugEnabled() && shouldLog()) log.debug( "Exception while getting data for keys Asynchronously APP " + _appName + ", key : " + key, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return null;
@@ -1409,6 +1421,7 @@ final public class EVCacheImpl implements EVCache {
             return decanonicalR;
         } catch (net.spy.memcached.internal.CheckedOperationTimeoutException ex) {
             status = EVCacheMetricsFactory.TIMEOUT;
+            event.setStatus(status);
             if (log.isDebugEnabled() && shouldLog()) log.debug("CheckedOperationTimeoutException getting bulk data for APP " + _appName + ", keys : " + evcKeys, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return null;
@@ -1416,6 +1429,7 @@ final public class EVCacheImpl implements EVCache {
                     + ".\nYou can set the following property to increase the timeout " + _appName + ".EVCacheClientPool.bulkReadTimeout=<timeout in milli-seconds>", ex);
         } catch (Exception ex) {
             status = EVCacheMetricsFactory.ERROR;
+            event.setStatus(status);
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception getting bulk data for APP " + _appName + ", keys = " + evcKeys, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return null;
@@ -1622,9 +1636,10 @@ final public class EVCacheImpl implements EVCache {
             touchData(evcKey, timeToLive, clients);
             return futures;
         } catch (Exception ex) {
+            status = EVCacheMetricsFactory.ERROR;
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception setting the data for APP " + _appName + ", key : " + evcKey, ex);
             if (event != null) eventError(event, ex);
-            status = EVCacheMetricsFactory.ERROR;
+            event.setStatus(status);
             if (!throwExc) return new EVCacheFuture[0];
             throw new EVCacheException("Exception setting data for APP " + _appName + ", key : " + evcKey, ex);
         } finally {
@@ -1720,6 +1735,7 @@ final public class EVCacheImpl implements EVCache {
         } catch (Exception ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception while deleting the data for APP " + _appName + ", key : " + key, ex);
             status = EVCacheMetricsFactory.ERROR;
+            event.setStatus(status);
             if (event != null) eventError(event, ex);
             if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName);
             throw new EVCacheException("Exception while deleting the data for APP " + _appName + ", key : " + key, ex);
@@ -1805,6 +1821,7 @@ final public class EVCacheImpl implements EVCache {
             return currentValue;
         } catch (Exception ex) {
             status = EVCacheMetricsFactory.ERROR;
+            event.setStatus(status);
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception incrementing the value for APP " + _appName + ", key : " + key, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return -1;
@@ -1888,6 +1905,7 @@ final public class EVCacheImpl implements EVCache {
             return currentValue;
         } catch (Exception ex) {
             status = EVCacheMetricsFactory.ERROR;
+            event.setStatus(status);
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception decrementing the value for APP " + _appName + ", key : " + key, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return -1;
@@ -1983,6 +2001,7 @@ final public class EVCacheImpl implements EVCache {
             return latch;
         } catch (Exception ex) {
             status = EVCacheMetricsFactory.ERROR;
+            event.setStatus(status);
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception setting the data for APP " + _appName + ", key : " + evcKey, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName);
@@ -2067,6 +2086,7 @@ final public class EVCacheImpl implements EVCache {
             return latch;
         } catch (Exception ex) {
             status = EVCacheMetricsFactory.ERROR;
+            event.setStatus(status);
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception while appendOrAdd the data for APP " + _appName + ", key : " + evcKey, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName);
@@ -2165,6 +2185,7 @@ final public class EVCacheImpl implements EVCache {
             return latch;
         } catch (Exception ex) {
             status = EVCacheMetricsFactory.ERROR;
+            event.setStatus(status);
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception adding the data for APP " + _appName + ", key : " + evcKey, ex);
             if (event != null) eventError(event, ex);
             if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName);
