@@ -1890,4 +1890,16 @@ public class EVCacheClient {
         }
         return false;
     }
+
+
+    public EVCacheItemMetaData metaDebug(String key) throws Exception {
+        if(shouldHashKey()) {
+            key = getHashedKey(key);
+        }
+        final EVCacheItemMetaData obj = evcacheMemcachedClient.metaDebug(key);
+        if(log.isDebugEnabled()) log.debug("EVCacheItemMetaData : " + obj);
+        return obj;
+    }
+
+
 }

@@ -1,14 +1,14 @@
-package com.netflix.evcache.operation;
+package net.spy.memcached.protocol.ascii;
 
-import net.spy.memcached.ops.KeyedOperation;
+import net.spy.memcached.ops.Operation;
 import net.spy.memcached.ops.OperationCallback;
 
-public interface MetaDebugOperation extends KeyedOperation {
+public interface MetaDebugOperation extends Operation {
 
     /**
      * Operation callback for the get request.
      */
-    interface Callback extends OperationCallback {
+    public interface Callback extends OperationCallback {
       /**
        * Callback for each result from a get.
        *
@@ -16,6 +16,6 @@ public interface MetaDebugOperation extends KeyedOperation {
        * @param flags the flags for this value
        * @param data the data stored under this key
        */
-      void gotData(String key, int flags, byte[] data);
+      void debugInfo(String key, String val);
     }
   }

@@ -25,10 +25,12 @@ import com.netflix.archaius.api.Property;
 import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.operation.EVCacheAsciiOperationFactory;
 import com.netflix.evcache.operation.EVCacheBulkGetFuture;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheItemMetaData;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.DistributionSummary;
@@ -52,6 +54,7 @@ import net.spy.memcached.ops.StoreType;
 import net.spy.memcached.protocol.binary.BinaryOperationFactory;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.util.StringUtils;
+import net.spy.memcached.protocol.ascii.MetaDebugOperation;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS",
 "SIC_INNER_SHOULD_BE_STATIC_ANON" })
@@ -645,4 +648,43 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             return sa.toString();
         }
     }
+
+    public EVCacheItemMetaData metaDebug(String key) {
+        final CountDownLatch latch = new CountDownLatch(1);
+        final EVCacheItemMetaData rv = new EVCacheItemMetaData();
+        if(opFact instanceof EVCacheAsciiOperationFactory) {
+        final Operation op = ((EVCacheAsciiOperationFactory)opFact).metaDebug(key, new MetaDebugOperation.Callback() {
+            public void receivedStatus(OperationStatus status) {
+                if (!status.isSuccess()) {
+                    if (log.isDebugEnabled()) log.debug("Unsuccessful stat fetch: %s", status);
+                  }
+                if (log.isDebugEnabled()) log.debug("Getting Meta Debug: " + key + "; Status : " + status.getStatusCode().name() + (log.isTraceEnabled() ?  " Node : " + getEVCacheNode(key) : "") + "; Message : " + status.getMessage());
+            }
+
+            public void debugInfo(String k, String val) {
+                if (log.isDebugEnabled()) log.debug("key " + k + "; val : " + val);
+                if(k.equals("exp")) rv.setSecondsLeftToExipre(Long.parseLong(val) * -1);
+                else if(k.equals("la")) rv.setSecondsSinceLastAccess(Long.parseLong(val));
+                else if(k.equals("cas")) rv.setCas(Long.parseLong(val));
+                else if(k.equals("fetch")) rv.setHasBeenFetchedAfterWrite(Boolean.parseBoolean(val));
+                else if(k.equals("cls")) rv.setSlabClass(Integer.parseInt(val));
+                else if(k.equals("size")) rv.setSizeInBytes(Integer.parseInt(val));
+            }
+
+            public void complete() {
+                latch.countDown();
+            }});
+            mconn.enqueueOperation(key, op);
+            try {
+                if (!latch.await(operationTimeout, TimeUnit.MILLISECONDS)) {
+                    if (log.isDebugEnabled()) log.debug("meta debug operation timeout. Will return empty opbject.");
+                }
+            } catch (Exception e) {
+                log.error("Exception on meta debug operation : Key : " + key, e);
+            }
+            if (log.isDebugEnabled()) log.debug("Meta Debug Data : " + rv);
+        }
+        return rv;
+    }
+
 }
