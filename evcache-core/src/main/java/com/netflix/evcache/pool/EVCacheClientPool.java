@@ -146,8 +146,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             setupClones();
         });
 
-        tagList = new ArrayList<Tag>(1);
-        tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+        tagList = new ArrayList<Tag>(2);
+        EVCacheMetricsFactory.getInstance().addAppNameTags(tagList, _appName);
 
         this._pingServers = config.getPropertyRepository().get(appName + ".ping.servers", Boolean.class).orElseGet("evcache.ping.servers").orElse(false);
         setupMonitoring();
@@ -987,8 +987,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         Gauge gauge = gaugeMap.get(name );
         if(gauge != null) return gauge;
 
-        final List<Tag> tags = new ArrayList<Tag>(4);
-        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+        final List<Tag> tags = new ArrayList<Tag>(5);
+        EVCacheMetricsFactory.getInstance().addAppNameTags(tags, _appName);
         tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, metric));
         if(serverGroup != null) {
             tags.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
@@ -1005,8 +1005,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         Gauge gauge = gaugeMap.get(name );
         if(gauge != null) return gauge;
 
-        final List<Tag> tags = new ArrayList<Tag>(3);
-        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+        final List<Tag> tags = new ArrayList<Tag>(4);
+        EVCacheMetricsFactory.getInstance().addAppNameTags(tags, _appName);
         tags.add(new BasicTag(EVCacheMetricsFactory.STAT_NAME, metric));
         tags.add(new BasicTag(EVCacheMetricsFactory.CONNECTION_ID, String.valueOf(client.getId())));
         tags.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, client.getServerGroupName()));
@@ -1019,8 +1019,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     private void incrementFailure(String metric, ServerGroup serverGroup) {
 
-        final List<Tag> tags = new ArrayList<Tag>(3);
-        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+        final List<Tag> tags = new ArrayList<Tag>(4);
+        EVCacheMetricsFactory.getInstance().addAppNameTags(tags, _appName);
         tags.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, metric));
         tags.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
 

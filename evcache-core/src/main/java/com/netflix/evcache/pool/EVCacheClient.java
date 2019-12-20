@@ -117,8 +117,8 @@ public class EVCacheClient {
 //        this.operationTimeout = operationTimeout;
         this.pool = pool;
 
-        final List<Tag> tagList = new ArrayList<Tag>(3);
-        tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+        final List<Tag> tagList = new ArrayList<Tag>(4);
+        EVCacheMetricsFactory.getInstance().addAppNameTags(tagList, appName);
         tagList.add(new BasicTag(EVCacheMetricsFactory.CONNECTION_ID, String.valueOf(id)));
         tagList.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
         this.tags = Collections.<Tag>unmodifiableList(new ArrayList(tagList));

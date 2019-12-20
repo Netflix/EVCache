@@ -245,8 +245,8 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             if (log.isDebugEnabled()) log.debug("App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getEVCacheKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
         }
         if(totalFutureCount == completeCount) {
-            final List<Tag> tags = new ArrayList<Tag>(4);
-            tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+            final List<Tag> tags = new ArrayList<Tag>(5);
+            EVCacheMetricsFactory.getInstance().addAppNameTags(tags, appName);
             if(evcacheEvent != null) tags.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, evcacheEvent.getCall().name()));
             tags.add(new BasicTag(EVCacheMetricsFactory.FAIL_COUNT, String.valueOf(failureCount)));
             tags.add(new BasicTag(EVCacheMetricsFactory.COMPLETE_COUNT, String.valueOf(completeCount)));
@@ -438,8 +438,8 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
                     }
                 }
             }
-            final List<Tag> tags = new ArrayList<Tag>(4);
-            tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+            final List<Tag> tags = new ArrayList<Tag>(5);
+            EVCacheMetricsFactory.getInstance().addAppNameTags(tags, appName);
             if(evcacheEvent != null) tags.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, evcacheEvent.getCall().name()));
             //tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.VERIFY));
             tags.add(new BasicTag(EVCacheMetricsFactory.FAIL_COUNT, String.valueOf(failCount)));
