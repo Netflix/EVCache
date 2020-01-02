@@ -1,0 +1,23 @@
+apply plugin: 'java'
+
+sourceSets.main.java.srcDir 'src/main/java'
+sourceSets.test.java.srcDir 'src/test/java'
+
+dependencies {
+    compile project(':evcache-core')
+    compile group:"io.zipkin.brave", name:"brave", version:"latest.release"
+    testCompile group:"org.testng", name:"testng", version:"7.+"
+    testCompile group:"org.mockito", name:"mockito-all", version:"latest.release"
+}
+
+javadoc {
+    failOnError = false
+}
+
+test {
+    useTestNG()
+    minHeapSize = '1024m'
+    maxHeapSize = '1536m'
+    testLogging.displayGranularity = -1
+    testLogging.showStandardStreams = true
+}
