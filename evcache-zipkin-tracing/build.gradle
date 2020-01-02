@@ -3,6 +3,11 @@ apply plugin: 'java'
 sourceSets.main.java.srcDir 'src/main/java'
 sourceSets.test.java.srcDir 'src/test/java'
 
+repositories {
+    mavenLocal()
+    mavenCentral() // maven { url 'http://jcenter.bintray.com' }
+}
+
 dependencies {
     compile project(':evcache-core')
     compile group:"io.zipkin.brave", name:"brave", version:"latest.release"
