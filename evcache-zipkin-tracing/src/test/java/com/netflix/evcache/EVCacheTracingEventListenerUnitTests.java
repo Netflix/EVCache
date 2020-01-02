@@ -90,21 +90,21 @@ public class EVCacheTracingEventListenerUnitTests {
         span.name(), EVCacheTracingEventListener.EVCACHE_SPAN_NAME, "Cache name are not equal");
 
     Map<String, String> tags = span.tags();
-    tags.containsKey(EVCacheTracingTags.APP_NAME);
-    tags.containsKey(EVCacheTracingTags.CACHE_NAME_PREFIX);
-    tags.containsKey(EVCacheTracingTags.CALL);
-    tags.containsKey(EVCacheTracingTags.SERVER_GROUPS);
-    tags.containsKey(EVCacheTracingTags.CANONICAL_KEY);
-    tags.containsKey(EVCacheTracingTags.STATUS);
-    tags.containsKey(EVCacheTracingTags.LATENCY);
-    tags.containsKey(EVCacheTracingTags.DATA_TTL);
-    tags.containsKey(EVCacheTracingTags.DATA_SIZE);
+    Assert.assertTrue(tags.containsKey(EVCacheTracingTags.APP_NAME), "APP_NAME tag is missing");
+    Assert.assertTrue(tags.containsKey(EVCacheTracingTags.CACHE_NAME_PREFIX), "CACHE_NAME_PREFIX tag is missing");
+    Assert.assertTrue(tags.containsKey(EVCacheTracingTags.CALL), "CALL tag is missing");
+    Assert.assertTrue(tags.containsKey(EVCacheTracingTags.SERVER_GROUPS), "SERVER_GROUPS tag is missing");
+    Assert.assertTrue(tags.containsKey(EVCacheTracingTags.CANONICAL_KEY), "CANONICAL_KEY tag is missing");
+    Assert.assertTrue(tags.containsKey(EVCacheTracingTags.STATUS), "STATUS tag is missing");
+    Assert.assertTrue(tags.containsKey(EVCacheTracingTags.LATENCY), "LATENCY tag is missing");
+    Assert.assertTrue(tags.containsKey(EVCacheTracingTags.DATA_TTL), "DATA_TTL tag is missing");
+    Assert.assertTrue(tags.containsKey(EVCacheTracingTags.DATA_SIZE), "DATA_SIZE tag is missing");
   }
 
   public void verifyErrorTags(List<zipkin2.Span> spans) {
     zipkin2.Span span = spans.get(0);
     Map<String, String> tags = span.tags();
-    tags.containsKey(EVCacheTracingTags.ERROR);
+    Assert.assertTrue(tags.containsKey(EVCacheTracingTags.ERROR), "ERROR tag is missing");
   }
 
   @Test
