@@ -265,6 +265,7 @@ public final class EVCacheMetricsFactory {
     public static final String CALL_TYPE_TAG                    = "evc.call.type";
     public static final String CACHE_HIT                        = "evc.cache.hit";
     public static final String CONNECTION_ID                    = "evc.connection.id";
+    public static final String TTL                              = "evc.ttl";
 
     public static final String PAUSE_REASON                     = "evc.pause.reason";
     public static final String LATCH                            = "evc.latch";
