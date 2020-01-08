@@ -94,7 +94,7 @@ public final class EVCacheMetricsFactory {
     }
     
     private void addCommonTags(List<Tag> tagList) {
-        tagList.add(new BasicTag("owner", "evcache"));
+        tagList.add(new BasicTag(OWNER, "evcache"));
         final String additionalTags = EVCacheConfig.getInstance().getPropertyRepository().get("evcache.additional.tags", String.class).orElse(null).get();
         if(additionalTags != null && additionalTags.length() > 0) {
             final StringTokenizer st = new StringTokenizer(additionalTags, ","); 
@@ -105,6 +105,11 @@ public final class EVCacheMetricsFactory {
                 if(val != null) tagList.add(new BasicTag(token, val));
             }
         }        
+    }
+
+    public void addAppNameTags(List<Tag> tagList, String appName) {
+        tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.ID, appName));
     }
 
     public Id getId(String name, Collection<Tag> tags) {
@@ -204,6 +209,7 @@ public final class EVCacheMetricsFactory {
     public static final String IPC_SIZE_OUTBOUND                    = "ipc.client.call.size.outbound";
 
     public static final String OWNER                                = "owner";
+    public static final String ID                                   = "id";
 
     /**
      * Internal Metric Names

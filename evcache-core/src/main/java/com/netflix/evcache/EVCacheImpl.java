@@ -112,8 +112,8 @@ final public class EVCacheImpl implements EVCache {
         this._zoneFallback = enableZoneFallback;
         this._throwException = throwException;
 
-        tags = new ArrayList<Tag>(2);
-        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+        tags = new ArrayList<Tag>(3);
+        EVCacheMetricsFactory.getInstance().addAppNameTags(tags, _appName);
         if(_cacheName != null && _cacheName.length() > 0) tags.add(new BasicTag(EVCacheMetricsFactory.PREFIX, _cacheName));
 
         final String _metricName = (_cacheName == null) ? _appName : _appName + "." + _cacheName;
