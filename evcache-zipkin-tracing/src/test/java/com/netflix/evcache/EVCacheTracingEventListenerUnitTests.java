@@ -94,7 +94,7 @@ public class EVCacheTracingEventListenerUnitTests {
     Assert.assertTrue(tags.containsKey(EVCacheTracingTags.CACHE_NAME_PREFIX), "CACHE_NAME_PREFIX tag is missing");
     Assert.assertTrue(tags.containsKey(EVCacheTracingTags.CALL), "CALL tag is missing");
     Assert.assertTrue(tags.containsKey(EVCacheTracingTags.SERVER_GROUPS), "SERVER_GROUPS tag is missing");
-    Assert.assertTrue(tags.containsKey(EVCacheTracingTags.CANONICAL_KEY), "CANONICAL_KEY tag is missing");
+    Assert.assertTrue(tags.containsKey(EVCacheTracingTags.CANONICAL_KEYS), "CANONICAL_KEYS tag is missing");
     Assert.assertTrue(tags.containsKey(EVCacheTracingTags.STATUS), "STATUS tag is missing");
     Assert.assertTrue(tags.containsKey(EVCacheTracingTags.LATENCY), "LATENCY tag is missing");
     Assert.assertTrue(tags.containsKey(EVCacheTracingTags.DATA_TTL), "DATA_TTL tag is missing");

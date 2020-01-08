@@ -11,7 +11,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.StringJoiner;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /** Adds tracing tags for EvCache calls. */
 public class EVCacheTracingEventListener implements EVCacheEventListener {
@@ -35,6 +37,11 @@ public class EVCacheTracingEventListener implements EVCacheEventListener {
       Span clientSpan =
           this.tracer.nextSpan().kind(Span.Kind.CLIENT).name(EVCACHE_SPAN_NAME).start(e.getStartTime());
 
+      // Return if tracing has been disabled
+      if(clientSpan.isNoop()){
+        return;
+      }
+
       String appName = e.getAppName();
       this.safeTag(clientSpan, EVCacheTracingTags.APP_NAME, appName);
 
@@ -52,17 +59,17 @@ public class EVCacheTracingEventListener implements EVCacheEventListener {
        * attempt to write to its cache instance.
        */
       String serverGroup;
-      StringJoiner serverGroups = new StringJoiner(",", "[", "]");
+      List<String> serverGroups = new ArrayList<>();
       for (EVCacheClient client : e.getClients()) {
         serverGroup = client.getServerGroupName();
         if (StringUtils.isNotBlank(serverGroup)) {
           serverGroups.add("\"" + serverGroup + "\"");
         }
       }
-      clientSpan.tag(EVCacheTracingTags.SERVER_GROUPS, serverGroups.toString());
+      clientSpan.tag(EVCacheTracingTags.SERVER_GROUPS, serverGroups.stream().collect(Collectors.joining(",", "[", "]")));
 
       /**
-       * Note - EvCache client creates a hash key if the given canonical key size exceeds 255
+       * Note - EVCache client creates a hash key if the given canonical key size exceeds 255
        * characters.
        *
        * <p>There have been cases where canonical key size exceeded few megabytes. As caching client
@@ -70,13 +77,25 @@ public class EVCacheTracingEventListener implements EVCacheEventListener {
        * safe to annotate hash key instead of canonical key in such cases.
        */
       String hashKey;
+      List<String> hashKeys = new ArrayList<>();
+      List<String> canonicalKeys = new ArrayList<>();
       for (EVCacheKey keyObj : e.getEVCacheKeys()) {
         hashKey = keyObj.getHashKey();
         if (StringUtils.isNotBlank(hashKey)) {
-          clientSpan.tag(EVCacheTracingTags.HASH_KEY, hashKey);
+          hashKeys.add("\"" + hashKey + "\"");
         } else {
-          this.safeTag(clientSpan, EVCacheTracingTags.CANONICAL_KEY, keyObj.getCanonicalKey());
+          canonicalKeys.add("\"" + keyObj.getCanonicalKey() + "\"");
         }
+      }
+
+      if(hashKeys.size() > 0) {
+        this.safeTag(clientSpan, EVCacheTracingTags.HASH_KEYS,
+                hashKeys.stream().collect(Collectors.joining(",", "[", "]")));
+      }
+
+      if(canonicalKeys.size() > 0) {
+        this.safeTag(clientSpan, EVCacheTracingTags.CANONICAL_KEYS,
+                canonicalKeys.stream().collect(Collectors.joining(",", "[", "]")));
       }
 
       /**

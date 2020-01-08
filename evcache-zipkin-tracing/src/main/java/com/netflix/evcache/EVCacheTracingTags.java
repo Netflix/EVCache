@@ -7,8 +7,8 @@ public class EVCacheTracingTags {
     public static String LATENCY = "evcache.latency";
     public static String CALL = "evcache.call";
     public static String SERVER_GROUPS = "evcache.server_groups";
-    public static String HASH_KEY = "evcache.hash_key";
-    public static String CANONICAL_KEY = "evcache.canonical_key";
+    public static String HASH_KEYS = "evcache.hash_keys";
+    public static String CANONICAL_KEYS = "evcache.canonical_keys";
     public static String DATA_TTL = "evcache.data_ttl";
     public static String DATA_SIZE = "evcache.data_size";
     public static String ERROR = "evcache.error";
