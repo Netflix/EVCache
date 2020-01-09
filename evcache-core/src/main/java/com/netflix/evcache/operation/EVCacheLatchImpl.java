@@ -21,6 +21,7 @@ import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
+import com.netflix.spectator.ipc.IpcStatus;
 
 import net.spy.memcached.internal.ListenableFuture;
 import net.spy.memcached.internal.OperationCompletionListener;
@@ -43,6 +44,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     private boolean onCompleteDone = false;
     private int completeCount = 0;
     private int failureCount = 0;
+    private String failReason = null;
     private ScheduledFuture<?> scheduledFuture;
 
     public EVCacheLatchImpl(Policy policy, int _count, String appName) {
@@ -214,9 +216,11 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             try {
                 if(future.isDone() && future.get().equals(Boolean.FALSE)) {
                     failureCount++;
+                    if(failReason == null) failReason = EVCacheMetricsFactory.getInstance().getStatusCode(future.getStatus().getStatusCode());
                 }
             } catch (Exception e) {
                 failureCount++;
+                if(failReason == null) failReason = IpcStatus.unexpected_error.name();
                 if(log.isDebugEnabled()) log.debug(e.getMessage(), e);
             }
             if(!onCompleteDone && getCompletedCount() >= getExpectedSuccessCount()) {
@@ -250,6 +254,7 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
             if(evcacheEvent != null) tags.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, evcacheEvent.getCall().name()));
             tags.add(new BasicTag(EVCacheMetricsFactory.FAIL_COUNT, String.valueOf(failureCount)));
             tags.add(new BasicTag(EVCacheMetricsFactory.COMPLETE_COUNT, String.valueOf(completeCount)));
+            if(failReason != null) tags.add(new BasicTag(EVCacheMetricsFactory.IPC_STATUS, failReason));
             //tags.add(new BasicTag(EVCacheMetricsFactory.OPERATION, EVCacheMetricsFactory.CALLBACK));
             EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_LATCH, tags, Duration.ofMillis(EVCacheConfig.getInstance().getPropertyRepository().get(getAppName() + ".max.write.duration.metric", Integer.class)
                     .orElseGet("evcache.max.write.duration.metric").orElse(50).get().intValue())).record(System.currentTimeMillis()- start, TimeUnit.MILLISECONDS);
