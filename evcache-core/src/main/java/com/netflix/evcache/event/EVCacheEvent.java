@@ -14,6 +14,7 @@ import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPool;
 
 import net.spy.memcached.CachedData;
+import net.spy.memcached.MemcachedNode;
 
 public class EVCacheEvent {
 
@@ -164,6 +165,15 @@ public class EVCacheEvent {
             keyList.add(key.getCanonicalKey());
         }
         return keyList;
+    }
+
+    public Collection<MemcachedNode> getMemcachedNode(EVCacheKey evckey) {
+        final Collection<MemcachedNode> nodeList = new ArrayList<MemcachedNode>(clients.size());
+        for(EVCacheClient client : clients) {
+            String key = evckey.getHashKey() == null ? evckey.getCanonicalKey() : evckey.getHashKey();
+            nodeList.add(client.getNodeLocator().getPrimary(key));
+        }
+        return nodeList;
     }
 
     /**

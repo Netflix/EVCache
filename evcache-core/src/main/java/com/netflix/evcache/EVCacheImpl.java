@@ -89,6 +89,7 @@ final public class EVCacheImpl implements EVCache {
 
     private final EVCacheClientPoolManager _poolManager;
     private final Map<String, Timer> timerMap = new ConcurrentHashMap<String, Timer>();
+    private final Map<String, DistributionSummary> distributionSummaryMap = new ConcurrentHashMap<String, DistributionSummary>();
     private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
     private final Property<Boolean> _eventsUsingLatchFP, autoHashKeys;
     private DistributionSummary bulkKeysSize = null;
@@ -111,8 +112,8 @@ final public class EVCacheImpl implements EVCache {
         this._zoneFallback = enableZoneFallback;
         this._throwException = throwException;
 
-        tags = new ArrayList<Tag>(2);
-        tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+        tags = new ArrayList<Tag>(3);
+        EVCacheMetricsFactory.getInstance().addAppNameTags(tags, _appName);
         if(_cacheName != null && _cacheName.length() > 0) tags.add(new BasicTag(EVCacheMetricsFactory.PREFIX, _cacheName));
 
         final String _metricName = (_cacheName == null) ? _appName : _appName + "." + _cacheName;
@@ -1018,6 +1019,7 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception setting data for APP " + _appName + ", key : " + evcKey, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
+            getTTLDistributionSummary(Call.TOUCH.name(), EVCacheMetricsFactory.WRITE, EVCacheMetricsFactory.TTL).record(timeToLive);
             getTimer(Call.TOUCH.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("TOUCH : APP " + _appName + " for key : " + evcKey + " with timeToLive : " + timeToLive);
         }
@@ -1568,7 +1570,7 @@ final public class EVCacheImpl implements EVCache {
             throw new EVCacheException("Exception setting data for APP " + _appName + ", key : " + evcKey, ex);
         } finally {
             final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
-            //timer.record(duration, TimeUnit.MILLISECONDS);
+            getTTLDistributionSummary(Call.SET.name(), EVCacheMetricsFactory.WRITE, EVCacheMetricsFactory.TTL).record(timeToLive);
             getTimer(Call.SET.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("SET : APP " + _appName + ", Took " + duration + " milliSec for key : " + evcKey);
         }
@@ -2195,6 +2197,19 @@ final public class EVCacheImpl implements EVCache {
             getTimer(Call.ADD.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("ADD : APP " + _appName + ", Took " + duration + " milliSec for key : " + evcKey);
         }
+    }
+
+    private DistributionSummary getTTLDistributionSummary(String operation, String type, String metric) {
+        DistributionSummary distributionSummary = distributionSummaryMap.get(operation);
+        if(distributionSummary != null) return distributionSummary;
+
+        final List<Tag> tagList = new ArrayList<Tag>(6);
+        tagList.addAll(tags);
+        tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, type));
+        distributionSummary = EVCacheMetricsFactory.getInstance().getDistributionSummary(metric, tagList);
+        distributionSummaryMap.put(operation, distributionSummary);
+        return distributionSummary;
     }
 
     private Timer getTimer(String operation, String operationType, String hit, String status, int tries, long duration, ServerGroup serverGroup) {
