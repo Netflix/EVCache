@@ -35,7 +35,7 @@ public class EVCacheTracingEventListener implements EVCacheEventListener {
   public void onStart(EVCacheEvent e) {
     try {
       Span clientSpan =
-          this.tracer.nextSpan().kind(Span.Kind.CLIENT).name(EVCACHE_SPAN_NAME).start(e.getStartTime());
+          this.tracer.nextSpan().kind(Span.Kind.CLIENT).name(EVCACHE_SPAN_NAME).start();
 
       // Return if tracing has been disabled
       if(clientSpan.isNoop()){
@@ -156,7 +156,7 @@ public class EVCacheTracingEventListener implements EVCacheEventListener {
       String status = e.getStatus();
       this.safeTag(clientSpan, EVCacheTracingTags.STATUS, status);
 
-      long latency = e.getDurationInMillis();
+      long latency = this.getDurationInMicroseconds(e.getDurationInMillis());
       clientSpan.tag(EVCacheTracingTags.LATENCY, String.valueOf(latency));
 
       int ttl = e.getTTL();
@@ -175,6 +175,19 @@ public class EVCacheTracingEventListener implements EVCacheEventListener {
   private void safeTag(Span span, String key, String value) {
     if (StringUtils.isNotBlank(value)) {
       span.tag(key, value);
+    }
+  }
+
+  private long getDurationInMicroseconds(long durationInMillis) {
+
+    // EVCacheEvent returns durationInMillis as -1 if endTime is not available.
+    if(durationInMillis == -1){
+      return durationInMillis;
+    } else {
+      // Since the underlying EVCacheEvent returns duration in milliseconds we already
+      // lost the required precision for conversion to microseconds. Multiplication
+      // by 1000 should suffice here.
+      return durationInMillis * 1000;
     }
   }
 }
