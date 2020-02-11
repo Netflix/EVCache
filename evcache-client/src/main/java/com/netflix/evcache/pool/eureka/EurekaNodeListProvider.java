@@ -87,16 +87,16 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
             // We checked above if this instance is Amazon so no need to do a instanceof check
             final String zone = amznInfo.get(AmazonInfo.MetaDataKey.availabilityZone);
             if(zone == null) {
-                final List<Tag> tagList = new ArrayList<Tag>(2);
-                tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+                final List<Tag> tagList = new ArrayList<Tag>(3);
+                EVCacheMetricsFactory.getInstance().addAppNameTags(tagList, _appName);
                 tagList.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.NULL_ZONE));
                 EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.CONFIG, tagList);
                 continue;
             }
             final String asgName = iInfo.getASGName();
             if(asgName == null) {
-                final List<Tag> tagList = new ArrayList<Tag>(2);
-                tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, _appName));
+                final List<Tag> tagList = new ArrayList<Tag>(3);
+                EVCacheMetricsFactory.getInstance().addAppNameTags(tagList, _appName);
                 tagList.add(new BasicTag(EVCacheMetricsFactory.CONFIG_NAME, EVCacheMetricsFactory.NULL_SERVERGROUP));
                 EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.CONFIG, tagList);
                 continue;

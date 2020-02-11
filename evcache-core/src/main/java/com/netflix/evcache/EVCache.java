@@ -880,6 +880,8 @@ public interface EVCache {
     <T> Future<Boolean>[] append(String key, T value, int timeToLive) throws EVCacheException;
 
     /**
+     * @deprecated Please use {@link #<T> EVCacheLatch add(String, T, Transcoder<T> , int, Policy) throws EVCacheException;}
+     * 
      * Add the given value to EVCache. You cannot add if the key already exist in EVCache.
      *
      * @param key

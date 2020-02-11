@@ -22,6 +22,9 @@ import com.netflix.spectator.api.Spectator;
 import com.netflix.spectator.api.Tag;
 import com.netflix.spectator.api.Timer;
 import com.netflix.spectator.api.histogram.PercentileTimer;
+import com.netflix.spectator.ipc.IpcStatus;
+
+import net.spy.memcached.ops.StatusCode;
 
 @SuppressWarnings("deprecation")
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = { "NF_LOCAL_FAST_PROPERTY",
@@ -94,7 +97,7 @@ public final class EVCacheMetricsFactory {
     }
     
     private void addCommonTags(List<Tag> tagList) {
-        tagList.add(new BasicTag("owner", "evcache"));
+        tagList.add(new BasicTag(OWNER, "evcache"));
         final String additionalTags = EVCacheConfig.getInstance().getPropertyRepository().get("evcache.additional.tags", String.class).orElse(null).get();
         if(additionalTags != null && additionalTags.length() > 0) {
             final StringTokenizer st = new StringTokenizer(additionalTags, ","); 
@@ -105,6 +108,11 @@ public final class EVCacheMetricsFactory {
                 if(val != null) tagList.add(new BasicTag(token, val));
             }
         }        
+    }
+
+    public void addAppNameTags(List<Tag> tagList, String appName) {
+        tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.ID, appName));
     }
 
     public Id getId(String name, Collection<Tag> tags) {
@@ -190,6 +198,54 @@ public final class EVCacheMetricsFactory {
         return null;
     }
 
+    public String getStatusCode(StatusCode sc) {
+        switch(sc) { 
+            case CANCELLED : 
+                return IpcStatus.cancelled.name();
+
+            case TIMEDOUT : 
+                return IpcStatus.timeout.name();
+
+            case INTERRUPTED : 
+                return EVCacheMetricsFactory.INTERRUPTED;
+
+            case SUCCESS : 
+                return IpcStatus.success.name();
+
+            case ERR_NOT_FOUND:
+                return "not_found";
+            case ERR_EXISTS:
+                return "exists";
+            case ERR_2BIG:
+                return "too_big";
+            case ERR_INVAL:
+                return "invalid";
+            case ERR_NOT_STORED:
+                return "not_stored";
+            case ERR_DELTA_BADVAL:
+                return "bad_value";
+            case ERR_NOT_MY_VBUCKET:
+                return "not_my_vbucket";
+            case ERR_UNKNOWN_COMMAND:
+                return "unknown_command";
+            case ERR_NO_MEM:
+                return "no_mem";
+            case ERR_NOT_SUPPORTED:
+                return "not_supported";
+            case ERR_INTERNAL:
+                return "error_internal";
+            case ERR_BUSY:
+                return "error_busy";
+            case ERR_TEMP_FAIL:
+                return "temp_failure";
+            case ERR_CLIENT :
+                return "error_client";
+            default : 
+                return sc.name().toLowerCase();
+        }
+    }
+
+    
     /**
      * External Metric Names
      */
@@ -204,6 +260,7 @@ public final class EVCacheMetricsFactory {
     public static final String IPC_SIZE_OUTBOUND                    = "ipc.client.call.size.outbound";
 
     public static final String OWNER                                = "owner";
+    public static final String ID                                   = "id";
 
     /**
      * Internal Metric Names
@@ -265,6 +322,7 @@ public final class EVCacheMetricsFactory {
     public static final String CALL_TYPE_TAG                    = "evc.call.type";
     public static final String CACHE_HIT                        = "evc.cache.hit";
     public static final String CONNECTION_ID                    = "evc.connection.id";
+    public static final String TTL                              = "evc.ttl";
 
     public static final String PAUSE_REASON                     = "evc.pause.reason";
     public static final String LATCH                            = "evc.latch";
