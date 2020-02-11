@@ -2111,8 +2111,17 @@ final public class EVCacheImpl implements EVCache {
         final EVCacheLatch latch = add(key, value, tc, timeToLive, Policy.NONE);
         try {
             latch.await(_pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
-            return (latch.getSuccessCount() >= latch.getExpectedCompleteCount());
+            final List<Future<Boolean>> allFutures = latch.getAllFutures();
+            for(Future<Boolean> future : allFutures) {
+                if(!future.get()) return false;
+            }
+            return true;
         } catch (InterruptedException e) {
+            if (log.isDebugEnabled() && shouldLog()) log.debug("Exception adding the data for APP " + _appName + ", key : " + key, e);
+            final boolean throwExc = doThrowException();
+            if(throwExc) throw new EVCacheException("Exception add data for APP " + _appName + ", key : " + key, e);
+            return false;
+        } catch (ExecutionException e) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception adding the data for APP " + _appName + ", key : " + key, e);
             final boolean throwExc = doThrowException();
             if(throwExc) throw new EVCacheException("Exception add data for APP " + _appName + ", key : " + key, e);
