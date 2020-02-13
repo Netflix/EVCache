@@ -87,8 +87,20 @@ public class EVCacheClientPoolManager {
         this.evcacheNodeList = evcacheNodeList;
         this.evcConfig = evcConfig;
         this.evcacheEventListenerList = new CopyOnWriteArrayList<EVCacheEventListener>();
-        
-        this.defaultReadTimeout = EVCacheConfig.getInstance().getPropertyRepository().get("default.read.timeout", Integer.class).orElse(20);
+
+        String userLocation = null;
+        if(userLocation == null) userLocation= System.getenv("EC2_INSTANCE_ID");
+        if(userLocation == null) userLocation= System.getenv("NETFLIX_INSTANCE_ID");
+        if(userLocation == null) userLocation= System.getProperty("EC2_INSTANCE_ID");
+        if(userLocation == null) userLocation= System.getProperty("NETFLIX_INSTANCE_ID");
+        if(userLocation == null && EVCacheConfig.getInstance().getPropertyRepository() != null) userLocation = EVCacheConfig.getInstance().getPropertyRepository().get("EC2_INSTANCE_ID", String.class).orElse(null).get();
+        if(userLocation == null && EVCacheConfig.getInstance().getPropertyRepository() != null) userLocation = EVCacheConfig.getInstance().getPropertyRepository().get("NETFLIX_INSTANCE_ID", String.class).orElse(null).get();
+
+        if(userLocation == null) { //Assuming this is not in cloud so bump up the timeouts
+            this.defaultReadTimeout = EVCacheConfig.getInstance().getPropertyRepository().get("default.read.timeout", Integer.class).orElse(750);
+        } else {
+            this.defaultReadTimeout = EVCacheConfig.getInstance().getPropertyRepository().get("default.read.timeout", Integer.class).orElse(20);
+        }
         this.logEnabledApps = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager.log.apps", String.class).orElse("*");
         this.defaultRefreshInterval = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager.refresh.interval", Integer.class).orElse(60);
 
