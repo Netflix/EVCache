@@ -97,6 +97,7 @@ public class EVCacheClientPoolManager {
         if(userLocation == null && EVCacheConfig.getInstance().getPropertyRepository() != null) userLocation = EVCacheConfig.getInstance().getPropertyRepository().get("NETFLIX_INSTANCE_ID", String.class).orElse(null).get();
 
         if(userLocation == null) { //Assuming this is not in cloud so bump up the timeouts
+            if(log.isInfoEnabled()) log.info("\n\nCould not get the instanceId. Proably a non-cloud instance. Will increase the default timeout to 750 milli-seconds.\n\n");
             this.defaultReadTimeout = EVCacheConfig.getInstance().getPropertyRepository().get("default.read.timeout", Integer.class).orElse(750);
         } else {
             this.defaultReadTimeout = EVCacheConfig.getInstance().getPropertyRepository().get("default.read.timeout", Integer.class).orElse(20);
