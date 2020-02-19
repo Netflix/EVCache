@@ -88,19 +88,19 @@ public class EVCacheClientPoolManager {
         this.evcConfig = evcConfig;
         this.evcacheEventListenerList = new CopyOnWriteArrayList<EVCacheEventListener>();
 
-        String userLocation = null;
-        if(userLocation == null) userLocation= System.getenv("EC2_INSTANCE_ID");
-        if(userLocation == null) userLocation= System.getenv("NETFLIX_INSTANCE_ID");
-        if(userLocation == null) userLocation= System.getProperty("EC2_INSTANCE_ID");
-        if(userLocation == null) userLocation= System.getProperty("NETFLIX_INSTANCE_ID");
-        if(userLocation == null && EVCacheConfig.getInstance().getPropertyRepository() != null) userLocation = EVCacheConfig.getInstance().getPropertyRepository().get("EC2_INSTANCE_ID", String.class).orElse(null).get();
-        if(userLocation == null && EVCacheConfig.getInstance().getPropertyRepository() != null) userLocation = EVCacheConfig.getInstance().getPropertyRepository().get("NETFLIX_INSTANCE_ID", String.class).orElse(null).get();
+        String clientCurrentInstanceId = null;
+        if(clientCurrentInstanceId == null) clientCurrentInstanceId= System.getenv("EC2_INSTANCE_ID");
+        if(clientCurrentInstanceId == null) clientCurrentInstanceId= System.getenv("NETFLIX_INSTANCE_ID");
+        if(log.isInfoEnabled()) log.info("\nClient Current InstanceId from env = " + clientCurrentInstanceId);
+        if(clientCurrentInstanceId == null && EVCacheConfig.getInstance().getPropertyRepository() != null) clientCurrentInstanceId = EVCacheConfig.getInstance().getPropertyRepository().get("EC2_INSTANCE_ID", String.class).orElse(null).get();
+        if(clientCurrentInstanceId == null && EVCacheConfig.getInstance().getPropertyRepository() != null) clientCurrentInstanceId = EVCacheConfig.getInstance().getPropertyRepository().get("NETFLIX_INSTANCE_ID", String.class).orElse(null).get();
 
-        if(userLocation == null) { //Assuming this is not in cloud so bump up the timeouts
-            if(log.isInfoEnabled()) log.info("\n\nCould not get the instanceId. Proably a non-cloud instance. Will increase the default timeout to 750 milli-seconds.\n\n");
-            this.defaultReadTimeout = EVCacheConfig.getInstance().getPropertyRepository().get("default.read.timeout", Integer.class).orElse(750);
-        } else {
+        if(clientCurrentInstanceId != null && !clientCurrentInstanceId.equalsIgnoreCase("localhost")) {
             this.defaultReadTimeout = EVCacheConfig.getInstance().getPropertyRepository().get("default.read.timeout", Integer.class).orElse(20);
+            if(log.isInfoEnabled()) log.info("\nClient Current InstanceId = " + clientCurrentInstanceId + " which is probably a cloud location. The default.read.timeout = " + defaultReadTimeout);
+        } else { //Assuming this is not in cloud so bump up the timeouts
+            this.defaultReadTimeout = EVCacheConfig.getInstance().getPropertyRepository().get("default.read.timeout", Integer.class).orElse(750);
+            if(log.isInfoEnabled()) log.info("\n\nClient Current InstanceId = " + clientCurrentInstanceId + ". Probably a non-cloud instance. The default.read.timeout = " + defaultReadTimeout + "\n\n");
         }
         this.logEnabledApps = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager.log.apps", String.class).orElse("*");
         this.defaultRefreshInterval = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager.refresh.interval", Integer.class).orElse(60);
