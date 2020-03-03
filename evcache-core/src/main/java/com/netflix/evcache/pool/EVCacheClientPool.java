@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -74,6 +75,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 //    private final Id poolSizeId;
     //private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
     private final Map<String, Gauge> gaugeMap = new ConcurrentHashMap<String, Gauge>();
+    private final ReentrantLock refreshLock = new ReentrantLock();
 
     @SuppressWarnings("serial")
     private final Map<ServerGroup, Property<Boolean>> writeOnlyFastPropertyMap = new ConcurrentHashMap<ServerGroup, Property<Boolean>>() {
@@ -395,12 +397,23 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     EVCacheClient[] getAllWriteClients() {
         try {
             if(allEVCacheWriteClients != null) {
-                final EVCacheClient[] clientArray = allEVCacheWriteClients.next();
-                if(clientArray != null && clientArray.length > 0 ) {
-                    if (log.isDebugEnabled()) log.debug("allEVCacheWriteClients : " + allEVCacheWriteClients);
-                    if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
-                    return clientArray;
-                }
+                EVCacheClient[] clientArray = allEVCacheWriteClients.next();
+                if(clientArray == null || clientArray.length == 0 ) {
+                    if (log.isInfoEnabled()) log.info("Refreshing the write client array.");
+                    try {
+                        refreshLock.lock();
+                        clientArray = allEVCacheWriteClients.next();
+                        if(clientArray == null || clientArray.length == 0 ) {
+                            refreshPool(false, true);
+                            clientArray = allEVCacheWriteClients.next();
+                        }
+                    }
+                    finally {
+                        refreshLock.unlock();
+                    }
+                } 
+                if (log.isDebugEnabled()) log.debug("clientArray : " + clientArray);
+                return clientArray;
             }
             final EVCacheClient[] clientArr = new EVCacheClient[memcachedWriteInstancesByServerGroup.size()];
             int i = 0;
