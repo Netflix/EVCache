@@ -13,7 +13,7 @@ import com.netflix.evcache.operation.EVCacheLatchImpl;
 import net.spy.memcached.CachedData;
 
 public class EVCacheClientUtil {
-    private static Logger log = LoggerFactory.getLogger(EVCacheClientUtil.class);
+    private static final Logger log = LoggerFactory.getLogger(EVCacheClientUtil.class);
     private final ChunkTranscoder ct = new ChunkTranscoder();
     private final String _appName;
     private final EVCacheClientPool _pool;

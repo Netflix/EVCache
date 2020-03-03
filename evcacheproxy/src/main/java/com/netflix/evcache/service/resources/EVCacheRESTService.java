@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 @Path("/evcrest/v1.0")
 public class EVCacheRESTService {
 
-    private Logger logger = LoggerFactory.getLogger(EVCacheRESTService.class);
+    private static final Logger logger = LoggerFactory.getLogger(EVCacheRESTService.class);
 
     private final EVCache.Builder builder;
     private final Map<String, EVCache> evCacheMap;

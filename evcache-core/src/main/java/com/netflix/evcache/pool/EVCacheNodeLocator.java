@@ -23,7 +23,7 @@ import net.spy.memcached.util.KetamaNodeLocatorConfiguration;
 
 public class EVCacheNodeLocator implements NodeLocator {
 
-    private static Logger log = LoggerFactory.getLogger(EVCacheNodeLocator.class);
+    private static final Logger log = LoggerFactory.getLogger(EVCacheNodeLocator.class);
     private TreeMap<Long, MemcachedNode> ketamaNodes;
     protected final EVCacheClient client;
 
