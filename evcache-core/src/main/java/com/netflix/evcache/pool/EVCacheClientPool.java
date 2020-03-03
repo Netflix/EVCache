@@ -76,6 +76,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     //private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
     private final Map<String, Gauge> gaugeMap = new ConcurrentHashMap<String, Gauge>();
     private final ReentrantLock refreshLock = new ReentrantLock();
+    private boolean refreshing = false;
 
     @SuppressWarnings("serial")
     private final Map<ServerGroup, Property<Boolean>> writeOnlyFastPropertyMap = new ConcurrentHashMap<ServerGroup, Property<Boolean>>() {
@@ -175,7 +176,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     public EVCacheClient getEVCacheClientForRead() {
         if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
-            if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
+            //refreshPool(true, true);
             return null;
         }
 
@@ -203,7 +204,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     public List<EVCacheClient> getAllEVCacheClientForRead() {
         if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
-            if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
+            //if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
             return Collections.<EVCacheClient> emptyList();
         }
 
@@ -231,7 +232,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private EVCacheClient selectClient(List<EVCacheClient> clients) {
         if (clients == null || clients.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("clients is null returning null and forcing pool refresh!!!");
-            if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
+            //if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
             return null;
         }
         if (clients.size() == 1) {
@@ -248,7 +249,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     public EVCacheClient getEVCacheClientForReadExclude(ServerGroup rsetUsed) {
         if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
-            if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
+            //if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
             return null;
         }
         try {
@@ -267,7 +268,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     public EVCacheClient getEVCacheClient(ServerGroup serverGroup) {
         if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
-            if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
+            //if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
             return null;
         }
 
@@ -291,7 +292,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     public List<EVCacheClient> getEVCacheClientsForReadExcluding(ServerGroup serverGroupToExclude) {
         if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
-            if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
+            //if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
             return Collections.<EVCacheClient> emptyList();
         }
         try {
@@ -771,6 +772,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         final long start = System.currentTimeMillis();
         if (log.isDebugEnabled()) log.debug("refresh APP : " + _appName + "; force : " + force);
         try {
+            refreshing = true;
             final Map<ServerGroup, EVCacheServerGroupConfig> instances = provider.discoverInstances(_appName);
             if (log.isDebugEnabled()) log.debug("instances : " + instances);
             // if no instances are found check to see if a clean up is needed
@@ -874,6 +876,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         } catch (Throwable t) {
             log.error("Exception while refreshing the Server list", t);
         } finally {
+            refreshing = false;
             EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_POOL_REFRESH, tagList, Duration.ofMillis(100)).record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS);
         }
 
@@ -1184,7 +1187,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     }
                 });
             } else {
-                refresh(force);
+                if(!refreshing) refresh(force);
             }
         } catch (Throwable t) {
             if (log.isDebugEnabled()) log.debug("Error Refreshing EVCache Instance list from MBean : " + _appName, t);
