@@ -149,8 +149,22 @@ public class EVCacheClient {
         this.hashKeyByApp = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElse(false);
         this.hashKeyByServerGroup = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.key", Boolean.class).orElse(false);
         this.hashingAlgo = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.algo", String.class).orElseGet(appName + ".hash.algo").orElse("MD5");
+        ping();
     }
 
+    public void ping() {
+        try {
+            final Map<SocketAddress, String> versions = getVersions();
+            for (Entry<SocketAddress, String> vEntry : versions.entrySet()) {
+                if (log.isDebugEnabled()) log.debug("Host : " + vEntry.getKey() + " : " + vEntry.getValue());
+            }
+        } catch (Throwable t) {
+            log.error("Error while pinging the servers", t);
+        }
+    }
+
+    
+    
     private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys, EVCache.Call call) throws EVCacheException {
         if (evcacheMemcachedClient.getNodeLocator() == null) return canonicalKeys;
         final Collection<String> retKeys = new ArrayList<>(canonicalKeys.size());
