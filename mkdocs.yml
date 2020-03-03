@@ -1,0 +1,12 @@
+site_name: evcache-docs
+pages:
+    - Home: index.md
+    - Introduction: introduction.md
+    - Features: features.md
+#    - Using EVCache Client: using.md
+    - Configuration : config.md
+
+theme: readthedocs
+
+extra_css:
+    - css/extra.css

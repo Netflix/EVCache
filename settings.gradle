@@ -1,3 +1,5 @@
 rootProject.name='EVCache'
+include 'evcache-core'
 include 'evcache-client'
 include 'evcache-client-sample'
+include 'evcache-zipkin-tracing'

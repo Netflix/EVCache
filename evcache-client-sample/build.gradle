@@ -2,6 +2,8 @@ apply plugin: 'java'
 
 repositories {
         jcenter()
+        mavenLocal()
+        mavenCentral()
 }
 
 configurations.all {
@@ -11,14 +13,23 @@ configurations.all {
 }
 
 dependencies {
+    compile project(':evcache-core')
     compile project(':evcache-client')
+    compile project(':evcache-zipkin-tracing')
 }
 
 task (runSample , dependsOn: 'classes' , type:JavaExec) {
-   main = "com.netflix.evcache.sample.EVCacheClientSample"
-   classpath = sourceSets.main.runtimeClasspath
-   systemProperty 'EVCACHE_APP1.use.simple.node.list.provider' , 'true'
-   systemProperty 'EVCACHE_APP1-NODES' , 'SERVERGROUP1=localhost:11211;SERVERGROUP2=localhost:11212'
+    main = "com.netflix.evcache.sample.EVCacheClientSample"
+    classpath = sourceSets.main.runtimeClasspath
+    systemProperty 'EVCACHE_APP1.use.simple.node.list.provider' , 'true'
+    systemProperty 'EVCACHE_APP1-NODES' , 'SERVERGROUP1=localhost:11211;SERVERGROUP2=localhost:11212'
+}
+
+task (runZipkinTracingSample , dependsOn: 'classes' , type:JavaExec) {
+    main = "com.netflix.evcache.sample.EVCacheClientZipkinTracingSample"
+    classpath = sourceSets.main.runtimeClasspath
+    systemProperty 'EVCACHE_APP1.use.simple.node.list.provider' , 'true'
+    systemProperty 'EVCACHE_APP1-NODES' , 'SERVERGROUP1=localhost:11211'
 }
 
 defaultTasks 'runSample'
