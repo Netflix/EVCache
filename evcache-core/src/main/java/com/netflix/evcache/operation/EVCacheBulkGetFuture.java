@@ -28,7 +28,6 @@ import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
-import com.sun.management.GcInfo;
 
 import net.spy.memcached.MemcachedConnection;
 import net.spy.memcached.internal.BulkGetFuture;
@@ -47,7 +46,7 @@ import rx.Single;
 @SuppressWarnings("restriction")
 public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
 
-    private Logger log = LoggerFactory.getLogger(EVCacheBulkGetFuture.class);
+	private static final Logger log = LoggerFactory.getLogger(EVCacheBulkGetFuture.class);
     private final Map<String, Future<T>> rvMap;
     private final Collection<Operation> ops;
     private final CountDownLatch latch;
@@ -83,7 +82,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                 final List<GarbageCollectorMXBean> gcMXBeans = ManagementFactory.getGarbageCollectorMXBeans();
                 for (GarbageCollectorMXBean gcMXBean : gcMXBeans) {
                     if (gcMXBean instanceof com.sun.management.GarbageCollectorMXBean) {
-                        final GcInfo lastGcInfo = ((com.sun.management.GarbageCollectorMXBean) gcMXBean).getLastGcInfo();
+                        final com.sun.management.GcInfo lastGcInfo = ((com.sun.management.GarbageCollectorMXBean) gcMXBean).getLastGcInfo();
 
                         // If no GCs, there was no pause.
                         if (lastGcInfo == null) {

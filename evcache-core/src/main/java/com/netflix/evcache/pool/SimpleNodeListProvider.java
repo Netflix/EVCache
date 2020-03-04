@@ -29,7 +29,7 @@ import com.netflix.evcache.util.EVCacheConfig;
 
 public class SimpleNodeListProvider implements EVCacheNodeList {
 
-    private static Logger log = LoggerFactory.getLogger(EVCacheClientPool.class);
+	private static final Logger log = LoggerFactory.getLogger(EVCacheClientPool.class);
     private static final String EUREKA_TIMEOUT = "evcache.eureka.timeout";
 
     private String currentNodeList = "";

@@ -14,7 +14,7 @@ import com.netflix.evcache.pool.SimpleNodeListProvider;
 
 public class DIEVCacheNodeListProvider implements Provider<EVCacheNodeList> {
 
-    private static Logger log = LoggerFactory.getLogger(DIEVCacheNodeListProvider.class);
+	private static final Logger log = LoggerFactory.getLogger(DIEVCacheNodeListProvider.class);
     private final EurekaClient eurekaClient;
     private PropertyRepository props;
     private final ApplicationInfoManager applicationInfoManager;

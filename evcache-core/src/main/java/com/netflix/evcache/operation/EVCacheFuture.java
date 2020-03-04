@@ -13,7 +13,7 @@ import com.netflix.evcache.pool.ServerGroup;
 
 public class EVCacheFuture implements Future<Boolean> {
 
-    private Logger log = LoggerFactory.getLogger(EVCacheFuture.class);
+	private static final Logger log = LoggerFactory.getLogger(EVCacheFuture.class);
     private final Future<Boolean> future;
     private final String app;
     private final ServerGroup serverGroup;

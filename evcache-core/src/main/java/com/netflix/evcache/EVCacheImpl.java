@@ -63,7 +63,7 @@ import rx.Single;
     "DB_DUPLICATE_BRANCHES", "REC_CATCH_EXCEPTION","RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE" })
 final public class EVCacheImpl implements EVCache {
 
-    private static Logger log = LoggerFactory.getLogger(EVCacheImpl.class);
+	private static final Logger log = LoggerFactory.getLogger(EVCacheImpl.class);
 
     private final String _appName;
     private final String _cacheName;

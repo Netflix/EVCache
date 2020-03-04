@@ -54,7 +54,7 @@ import rx.functions.Action0;
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings("EXS_EXCEPTION_SOFTENING_HAS_CHECKED")
 public class EVCacheOperationFuture<T> extends OperationFuture<T> {
 
-    private Logger log = LoggerFactory.getLogger(EVCacheOperationFuture.class);
+	private static final Logger log = LoggerFactory.getLogger(EVCacheOperationFuture.class);
 
     private final CountDownLatch latch;
     private final AtomicReference<T> objRef;
