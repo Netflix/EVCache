@@ -414,6 +414,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     }
                 } 
                 if (log.isDebugEnabled()) log.debug("clientArray : " + clientArray);
+                if(clientArray == null || clientArray.length == 0 ) return new EVCacheClient[0]; 
                 return clientArray;
             }
             final EVCacheClient[] clientArr = new EVCacheClient[memcachedWriteInstancesByServerGroup.size()];
@@ -1235,7 +1236,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             + ",\n\twriteOnlyFastPropertyMap=" + writeOnlyFastPropertyMap + ",\n\tnumberOfModOps=" + numberOfModOps.get() + ",\n\t_shutdown=" + _shutdown
             + ",\n\tmemcachedInstancesByServerGroup=" + memcachedInstancesByServerGroup + ",\n\tmemcachedReadInstancesByServerGroup=" + memcachedReadInstancesByServerGroup
             + ",\n\tmemcachedWriteInstancesByServerGroup=" + memcachedWriteInstancesByServerGroup + ",\n\treadServerGroupByZone=" + readServerGroupByZone
-            + ",\n\tmemcachedFallbackReadInstances=" + memcachedFallbackReadInstances + "\n]"
+            + ",\n\tmemcachedFallbackReadInstances=" + memcachedFallbackReadInstances + "\n]" 
+            + ",\n\tcloneWrite=" + cloneWrite + "\n]" 
             + ", \n\tallEVCacheWriteClients=" + allEVCacheWriteClients
             + "\n]";
     }
