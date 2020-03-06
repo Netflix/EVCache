@@ -29,6 +29,7 @@ dependencies {
         compile(group:"com.netflix.eureka",           name:"eureka-client-archaius2",          version:"1.9.8") {
                 exclude module:"archaius-core"
         }
+        compile group:"com.netflix.archaius",         name:"archaius2-persisted2",             version:"latest.release"
         compile group:"com.netflix.spectator",        name:"spectator-api",                    version:"latest.release"
         compile group:"com.netflix.spectator",        name:"spectator-ext-ipc",                version:"latest.release"
         compile group:"io.reactivex",                 name:"rxjava",                           version:"latest.release"
