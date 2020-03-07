@@ -1,25 +1,28 @@
 package com.netflix.evcache.version;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.inject.AbstractModule;
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
-import com.netflix.servo.monitor.LongGauge;
-import com.netflix.servo.tag.BasicTagList;
+import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Tag;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
 @Singleton
 public class VersionTracker implements Runnable {
 
 	private static Logger log = LoggerFactory.getLogger(VersionTracker.class);
-    private LongGauge versionGauge;
+    private AtomicLong versionGauge;
     private EVCacheClientPoolManager poolManager;
-    
+
     @Inject
     public VersionTracker(EVCacheClientPoolManager poolManager) {
     	this.poolManager = poolManager;
@@ -44,8 +47,11 @@ public class VersionTracker implements Runnable {
                 jarName = "unknown";
             }
 
-            if(log.isErrorEnabled()) log.error("fullVersion : " + fullVersion + "; jarName : " + jarName);
-	        versionGauge = EVCacheMetricsFactory.getLongGauge("evcache-client", BasicTagList.of("version", fullVersion, "jarName", jarName));
+            if(log.isInfoEnabled()) log.info("fullVersion : " + fullVersion + "; jarName : " + jarName);
+            final List<Tag> tagList = new ArrayList<Tag>(3);
+            tagList.add(new BasicTag("version", fullVersion));
+            tagList.add(new BasicTag("jarName", jarName));
+	        versionGauge = EVCacheMetricsFactory.getInstance().getLongGauge("evcache-client", tagList);
     	}
 	    versionGauge.set(Long.valueOf(1));
     	poolManager.getEVCacheScheduledExecutor().schedule(this, 30, TimeUnit.SECONDS);
@@ -59,5 +65,5 @@ public class VersionTracker implements Runnable {
     @Override
     public boolean equals(Object obj) {
         return (obj != null) && (obj.getClass() == getClass());
-    }    
+    }
 }

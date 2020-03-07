@@ -1,37 +1,35 @@
 apply plugin: 'java'
 apply plugin: 'eclipse'
 
-sourceSets.main.java.srcDir 'src/main/java'
-sourceSets.main.resources.srcDir 'src/main/resources'
-sourceSets.test.java.srcDir 'src/test/java'
+sourceSets.main.java.srcDir 'src'
+//sourceSets.main.resources.srcDir 'conf'
+sourceSets.test.java.srcDir 'test'
 
 repositories {
         mavenLocal()
         mavenCentral() // maven { url 'http://jcenter.bintray.com' }
 }
 
-test {
-        useTestNG() 
-        options.suites('src/test/java/test-suite.xml')
-        minHeapSize = '1024m'
-        testLogging.displayGranularity = 2
-        testLogging.showStandardStreams = true
-}
 
 dependencies {
+        compile project(':evcache-core')
         compile group:"net.spy",                      name:"spymemcached",                     version:"2.11.4"
         compile group:"com.google.code.findbugs",     name:"annotations",                      version:"latest.release"
+        compile group:"com.netflix.archaius",         name:"archaius2-api",                   version:"latest.release"
         compile group:"com.netflix.archaius",         name:"archaius2-core",                   version:"latest.release"
         compile group:"com.netflix.governator",       name:"governator",                       version:"latest.release"
-        compile group:"com.netflix.eureka",           name:"eureka-client",                    version:"1.5.6"
-        compile group:"com.netflix.servo",            name:"servo-core",                       version:"latest.release"
+        compile group:"com.netflix.eureka",           name:"eureka-client",                    version:"latest.release"
+        compile group:"com.netflix.eureka",           name:"eureka-client-archaius2",          version:"latest.release"
         compile group:"com.netflix.spectator",        name:"spectator-api",                    version:"latest.release"
         compile group:"com.netflix.spectator",        name:"spectator-nflx-plugin",            version:"latest.release"
         compile group:"io.reactivex",                 name:"rxjava",                           version:"latest.release"
         compile group:"org.slf4j",                    name:"slf4j-log4j12",                    version:"1.7.+"
         compile group:"org.slf4j",                    name:"slf4j-api",                        version:"1.7.+"
         compile group:"org.json",                     name:"json",                             version:"20180813"
+        
 
+        testCompile group:"org.testng",               name:"testng",                           version:"7.+"
+        testCompile group:"com.netflix.archaius",     name:"archaius2-guice",                  version:"latest.release"
         testCompile group:"org.testng",               name:"testng",                           version:"latest.release"
         testCompile group:"com.beust",                name:"jcommander",                       version:"1.72"
         testCompile group:"org.mockito",              name:"mockito-all",                      version:"latest.release"
@@ -40,4 +38,14 @@ dependencies {
 
 javadoc {
     failOnError = false
+}
+
+
+test {
+    useTestNG() 
+    options.suites('test/test-suite.xml')
+    minHeapSize = '1024m'
+    maxHeapSize = '1536m'
+    testLogging.displayGranularity = -1
+    testLogging.showStandardStreams = true
 }
