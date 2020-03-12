@@ -35,9 +35,9 @@ public class DIConnectionFactoryBuilderProvider extends ConnectionFactoryBuilder
         final int opQueueMaxBlockTime = props.get(appName + ".operation.QueueMaxBlockTime", Integer.class).orElse(10).get();
         final boolean useBinary = EVCacheConfig.getInstance().getPropertyRepository().get("evcache.use.binary.protocol", Boolean.class).orElse(true).get();
 
-        //if(useBinary) 
+        if(useBinary) 
             return new DIConnectionFactory(client, eurekaClient, maxQueueSize, operationTimeout, opQueueMaxBlockTime);
-        //else return new DIAsciiConnectionFactory(client, eurekaClient, maxQueueSize, operationTimeout, opQueueMaxBlockTime);
+        	else return new DIAsciiConnectionFactory(client, eurekaClient, maxQueueSize, operationTimeout, opQueueMaxBlockTime);
 
         
     }
