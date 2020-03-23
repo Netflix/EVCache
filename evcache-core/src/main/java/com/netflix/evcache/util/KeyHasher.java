@@ -14,7 +14,7 @@ import com.google.common.hash.Hashing;
 
 public class KeyHasher {
 
-    private static Logger log = LoggerFactory.getLogger(KeyHasher.class);
+    private static final Logger log = LoggerFactory.getLogger(KeyHasher.class);
     private static final Encoder encoder= Base64.getEncoder().withoutPadding();
 
 //    public static String getHashedKey1(String key, String hashingAlgorithm) {

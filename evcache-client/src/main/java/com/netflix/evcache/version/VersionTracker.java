@@ -19,7 +19,7 @@ import javax.inject.Singleton;
 @Singleton
 public class VersionTracker implements Runnable {
 
-	private static Logger log = LoggerFactory.getLogger(VersionTracker.class);
+	private static final Logger log = LoggerFactory.getLogger(VersionTracker.class);
     private AtomicLong versionGauge;
     private EVCacheClientPoolManager poolManager;
 
