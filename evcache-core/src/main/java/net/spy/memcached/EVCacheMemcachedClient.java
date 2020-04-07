@@ -27,10 +27,11 @@ import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.operation.EVCacheAsciiOperationFactory;
 import com.netflix.evcache.operation.EVCacheBulkGetFuture;
+import com.netflix.evcache.operation.EVCacheItem;
+import com.netflix.evcache.operation.EVCacheItemMetaData;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.evcache.pool.EVCacheItemMetaData;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.DistributionSummary;
@@ -55,6 +56,7 @@ import net.spy.memcached.protocol.binary.BinaryOperationFactory;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.util.StringUtils;
 import net.spy.memcached.protocol.ascii.MetaDebugOperation;
+import net.spy.memcached.protocol.ascii.MetaGetOperation;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS",
 "SIC_INNER_SHOULD_BE_STATIC_ANON" })
@@ -644,4 +646,112 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return rv;
     }
 
+    public <T> EVCacheOperationFuture<EVCacheItem<T>> asyncMetaGet(String key, final Transcoder<T> tc, EVCacheGetOperationListener<T> listener) {
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        final EVCacheOperationFuture<EVCacheItem<T>> rv = new EVCacheOperationFuture<EVCacheItem<T>>(key, latch, new AtomicReference<EVCacheItem<T>>(null), readTimeout.get().intValue(), executorService, client);
+        if(opFact instanceof EVCacheAsciiOperationFactory) {
+        final Operation op = ((EVCacheAsciiOperationFactory)opFact).metaGet(key, new MetaGetOperation.Callback() {
+
+            private EVCacheItem<T> evItem = new EVCacheItem<T>();
+
+            public void receivedStatus(OperationStatus status) {
+                if (log.isDebugEnabled()) log.debug("Getting Key : " + key + "; Status : " + status.getStatusCode().name() + (log.isTraceEnabled() ?  " Node : " + getEVCacheNode(key) : "")
+                        + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
+                try {
+                    if (evItem.getData() != null) {
+                        if (log.isTraceEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.trace("Key : " + key + "; val : " + evItem);
+                        rv.set(evItem, status);
+                    } else {
+                        if (log.isTraceEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.trace("Key : " + key + "; val is null");
+                        rv.set(null, status);
+                    }
+                } catch (Exception e) {
+                    log.error(e.getMessage(), e);
+                    rv.set(null, status);
+                }
+            }
+
+            @Override
+            public void gotMetaData(String k, char flag, String fVal) {
+                if (log.isDebugEnabled()) log.debug("key " + k + "; val : " + fVal);
+                switch (flag) {
+                case 's':
+                    evItem.getItemMetaData().setSizeInBytes(Integer.parseInt(fVal));
+                    break;
+
+                case 'c':
+                    evItem.getItemMetaData().setCas(Long.parseLong(fVal));
+                    break;
+
+                case 'f':
+                    evItem.setFlag(Integer.parseInt(fVal));
+                    break;
+
+                case 'h':
+                    evItem.getItemMetaData().setHasBeenFetchedAfterWrite(fVal.equals("1"));
+                    break;
+
+                case 'l':
+                    evItem.getItemMetaData().setSecondsSinceLastAccess(Long.parseLong(fVal));
+                    break;
+
+                case 'O':
+                    //opaque = val;
+                    break;
+
+                case 't':
+                    final int ttlLeft = Integer.parseInt(fVal);
+                    evItem.getItemMetaData().setSecondsLeftToExipre(ttlLeft);
+                    getDataSizeDistributionSummary(EVCacheMetricsFactory.META_GET_OPERATION, EVCacheMetricsFactory.READ, EVCacheMetricsFactory.INTERNAL_TTL).record(ttlLeft);
+                    break;
+
+                default:
+                    break;
+                }
+            }
+
+            @Override
+            public void gotData(String key, int flag, byte[] data) {
+                if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Read data : key " + key + "; flags : " + flag + "; data : " + data);
+                if (data != null)  {
+                    if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Key : " + key + "; val size : " + data.length);
+                    getDataSizeDistributionSummary(EVCacheMetricsFactory.META_GET_OPERATION, EVCacheMetricsFactory.READ, EVCacheMetricsFactory.IPC_SIZE_INBOUND).record(data.length);
+                    if (tc == null) {
+                        if (tcService == null) {
+                            log.error("tcService is null, will not be able to decode");
+                            throw new RuntimeException("TranscoderSevice is null. Not able to decode");
+                        } else {
+                            final Transcoder<T> t = (Transcoder<T>) getTranscoder();
+                            final T item = t.decode(new CachedData(flag, data, t.getMaxSize()));
+                            evItem.setData(item);
+                        }
+                    } else {
+                        if (tcService == null) {
+                            log.error("tcService is null, will not be able to decode");
+                            throw new RuntimeException("TranscoderSevice is null. Not able to decode");
+                        } else {
+                            final T item = tc.decode(new CachedData(flag, data, tc.getMaxSize()));
+                            evItem.setData(item);
+                        }
+                    }
+                } else {
+                    if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Key : " + key + "; val is null" );
+                }
+            }
+
+            public void complete() {
+                latch.countDown();
+                final String host = ((rv.getStatus().getStatusCode().equals(StatusCode.TIMEDOUT) && rv.getOperation() != null) ? getHostName(rv.getOperation().getHandlingNode().getSocketAddress()) : null);
+                getTimer(EVCacheMetricsFactory.META_GET_OPERATION, EVCacheMetricsFactory.READ, rv.getStatus(), (evItem.getData() != null ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO), host, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
+                rv.signalComplete();
+            }
+
+            });
+            rv.setOperation(op);
+            mconn.enqueueOperation(key, op);
+            if (log.isDebugEnabled()) log.debug("Meta_Get Data : " + rv);
+        }
+        return rv;
+    }
 }

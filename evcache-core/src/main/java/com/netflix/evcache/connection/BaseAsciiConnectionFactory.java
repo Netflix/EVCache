@@ -59,8 +59,7 @@ public class BaseAsciiConnectionFactory extends DefaultConnectionFactory {
     }
 
     public NodeLocator createLocator(List<MemcachedNode> list) {
-        this.locator = new EVCacheNodeLocator(client, list,
-                DefaultHashAlgorithm.KETAMA_HASH, new EVCacheKetamaNodeLocatorConfiguration(client));
+        this.locator = new EVCacheNodeLocator(client, list, DefaultHashAlgorithm.KETAMA_HASH, new EVCacheKetamaNodeLocatorConfiguration(client));
         return locator;
     }
 

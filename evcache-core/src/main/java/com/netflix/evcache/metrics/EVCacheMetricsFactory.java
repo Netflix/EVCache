@@ -288,6 +288,8 @@ public final class EVCacheMetricsFactory {
     public static final String INTERNAL_POOL_REFRESH                = "internal.evc.client.pool.refresh";
 
     public static final String INTERNAL_STATS                       = "internal.evc.client.stats";
+    
+    public static final String INTERNAL_TTL                         = "internal.evc.item.ttl";
 
     /*
      * Internal pool config values
@@ -403,5 +405,8 @@ public final class EVCacheMetricsFactory {
     public static final String ADD_OPERATION                    = "ADD";
     public static final String REPLACE_OPERATION                = "REPLACE";
 
+    public static final String META_GET_OPERATION               = "M_GET";
+    public static final String META_SET_OPERATION               = "M_SET";
+    public static final String META_DEBUG_OPERATION             = "M_DEBUG";
 
 }

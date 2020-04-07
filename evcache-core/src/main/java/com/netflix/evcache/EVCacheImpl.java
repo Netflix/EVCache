@@ -29,6 +29,7 @@ import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.event.EVCacheEventListener;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.operation.EVCacheFuture;
+import com.netflix.evcache.operation.EVCacheItem;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.pool.EVCacheClient;
@@ -446,6 +447,108 @@ final public class EVCacheImpl implements EVCache {
         }
     }
 
+    public <T> EVCacheItem<T> metaGet(String key, Transcoder<T> tc) throws EVCacheException {
+        if (null == key) throw new IllegalArgumentException("Key cannot be null");
+        final EVCacheKey evcKey = getEVCacheKey(key);
+        final boolean throwExc = doThrowException();
+        EVCacheClient client = _pool.getEVCacheClientForRead();
+        if (client == null) {
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.META_GET);
+            if (throwExc) throw new EVCacheException("Could not find a client to get the data APP " + _appName);
+            return null; // Fast failure
+        }
+
+        final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Call.META_GET);
+        if (event != null) {
+            event.setEVCacheKeys(Arrays.asList(evcKey));
+            try {
+                if (shouldThrottle(event)) {
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.META_GET);
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
+                    return null;
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.META_GET);
+                return null;
+            }
+            startEvent(event);
+        }
+
+        final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
+        String status = EVCacheMetricsFactory.SUCCESS;
+        String cacheOperation = EVCacheMetricsFactory.YES;
+        int tries = 1;
+        try {
+            final boolean hasZF = hasZoneFallback();
+            boolean throwEx = hasZF ? false : throwExc;
+            EVCacheItem<T> data = getEVCacheItem(client, evcKey, tc, throwEx, hasZF);
+            if (data == null && hasZF) {
+                final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
+                if (fbClients != null && !fbClients.isEmpty()) {
+                    for (int i = 0; i < fbClients.size(); i++) {
+                        final EVCacheClient fbClient = fbClients.get(i);
+                        if(i >= fbClients.size() - 1) throwEx = throwExc;
+                        if (event != null) {
+                            try {
+                                if (shouldThrottle(event)) {
+                                    status = EVCacheMetricsFactory.THROTTLED;
+                                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
+                                    return null;
+                                }
+                            } catch(EVCacheException ex) {
+                                if(throwExc) throw ex;
+                                status = EVCacheMetricsFactory.THROTTLED;
+                                return null;
+                            }
+                        }
+                        tries++;
+                        data = getEVCacheItem(fbClient, evcKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
+                        if (log.isDebugEnabled() && shouldLog()) log.debug("Retry for APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + fbClient.getServerGroup());
+                        if (data != null) {
+                            client = fbClient;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (data != null) {
+                if (event != null) event.setAttribute("status", "MGHIT");
+            } else {
+                cacheOperation = EVCacheMetricsFactory.NO;
+                if (event != null) event.setAttribute("status", "MGMISS");
+                if (log.isInfoEnabled() && shouldLog()) log.info("META_GET : APP " + _appName + " ; cache miss for key : " + evcKey);
+            }
+            if (log.isDebugEnabled() && shouldLog()) log.debug("META_GET : APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + client.getServerGroup());
+            if (event != null) endEvent(event);
+            return data;
+        } catch (net.spy.memcached.internal.CheckedOperationTimeoutException ex) {
+            status = EVCacheMetricsFactory.TIMEOUT;
+            if (event != null) {
+                event.setStatus(status);
+                eventError(event, ex);
+            }
+            if (!throwExc) return null;
+            throw new EVCacheException("CheckedOperationTimeoutException getting with meta data for APP " + _appName + ", key = " + evcKey
+                    + ".\nYou can set the following property to increase the timeout " + _appName
+                    + ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex);
+        } catch (Exception ex) {
+            status = EVCacheMetricsFactory.ERROR;
+            if (event != null) {
+                event.setStatus(status);
+                eventError(event, ex);
+            }
+            if (!throwExc) return null;
+            throw new EVCacheException("Exception getting with meta data for APP " + _appName + ", key = " + evcKey, ex);
+        } finally {
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
+            getTimer(Call.META_GET.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
+            if (log.isDebugEnabled() && shouldLog()) log.debug("META_GET : APP " + _appName + ", Took " + duration + " milliSec.");
+        }
+    }
+
+
+    
     private int policyToCount(Policy policy, int count) {
         if (policy == null) return 0;
         switch (policy) {
@@ -669,6 +772,34 @@ final public class EVCacheImpl implements EVCache {
             throw ex;
         } catch (Exception ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception while getting data for APP " + _appName + ", key : " + evcKey, ex);
+            if (!throwException || hasZF) return null;
+            throw ex;
+        }
+    }
+
+    private <T> EVCacheItem<T> getEVCacheItem(EVCacheClient client, EVCacheKey evcKey, Transcoder<T> tc, boolean throwException, boolean hasZF) throws Exception {
+        if (client == null) return null;
+        final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
+        try {
+            if(evcKey.getHashKey() != null) {
+                return client.metaGet(evcKey.getHashKey(), transcoder, throwException, hasZF);
+            } else {
+                return client.metaGet(evcKey.getCanonicalKey(), transcoder, throwException, hasZF);
+            }
+        } catch (EVCacheConnectException ex) {
+            if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheConnectException while getting with meta data for APP " + _appName + ", key : " + evcKey + "; hasZF : " + hasZF, ex);
+            if (!throwException || hasZF) return null;
+            throw ex;
+        } catch (EVCacheReadQueueException ex) {
+            if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheReadQueueException while getting with meta data for APP " + _appName + ", key : " + evcKey + "; hasZF : " + hasZF, ex);
+            if (!throwException || hasZF) return null;
+            throw ex;
+        } catch (EVCacheException ex) {
+            if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheException while getting with meta data for APP " + _appName + ", key : " + evcKey + "; hasZF : " + hasZF, ex);
+            if (!throwException || hasZF) return null;
+            throw ex;
+        } catch (Exception ex) {
+            if (log.isDebugEnabled() && shouldLog()) log.debug("Exception while getting with meta data for APP " + _appName + ", key : " + evcKey, ex);
             if (!throwException || hasZF) return null;
             throw ex;
         }

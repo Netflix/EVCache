@@ -1,7 +1,7 @@
-package com.netflix.evcache.pool;
+package com.netflix.evcache.operation;
 
 /**
- * <B><u>Meta Debug</u></B>
+ * <B><u>Meta </u></B>
  * <br>
  * The meta debug command is a human readable dump of all available internal
  * metadata of an item, minus the value.<br>

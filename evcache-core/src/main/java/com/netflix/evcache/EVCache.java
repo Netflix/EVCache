@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.evcache.EVCacheLatch.Policy;
+import com.netflix.evcache.operation.EVCacheItem;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.util.EVCacheConfig;
 
@@ -67,7 +68,7 @@ import rx.Single;
 public interface EVCache {
 
     public static enum Call {
-        GET, GETL, GET_AND_TOUCH, ASYNC_GET, BULK, SET, DELETE, INCR, DECR, TOUCH, APPEND, PREPEND, REPLACE, ADD, APPEND_OR_ADD, GET_ALL
+        GET, GETL, GET_AND_TOUCH, ASYNC_GET, BULK, SET, DELETE, INCR, DECR, TOUCH, APPEND, PREPEND, REPLACE, ADD, APPEND_OR_ADD, GET_ALL, META_GET, META_SET, META_DEBUG
     };
 
     /**
@@ -513,6 +514,30 @@ public interface EVCache {
      *             users.
      */
     <T> T get(String key, Transcoder<T> tc) throws EVCacheException;
+
+    /**
+     * Retrieve the value for the given a key using the specified Transcoder for
+     * deserialization.
+     *
+     * @param key
+     *            key to get. Ensure the key is properly encoded and does not
+     *            contain whitespace or control characters. The max length of the key (including prefix)
+     *            is 250 characters.
+     * @param tc
+     *            the Transcoder to deserialize the data
+     * @return the Value for the given key from the cache (null if there is
+     *         none).
+     * @throws EVCacheException
+     *             in the rare circumstance where queue is too full to accept
+     *             any more requests or issues during deserialization or any IO
+     *             Related issues
+     *
+     *             Note: If the data is replicated by zone, then we can the
+     *             value from the zone local to the client. If we cannot find
+     *             this value then null is returned. This is transparent to the
+     *             users.
+     */
+    <T> EVCacheItem<T> metaGet(String key, Transcoder<T> tc) throws EVCacheException;
 
 
     /**

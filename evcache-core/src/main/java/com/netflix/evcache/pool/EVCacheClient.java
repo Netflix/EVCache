@@ -37,6 +37,8 @@ import com.netflix.evcache.EVCacheReadQueueException;
 import com.netflix.evcache.EVCacheTranscoder;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.operation.EVCacheFutures;
+import com.netflix.evcache.operation.EVCacheItem;
+import com.netflix.evcache.operation.EVCacheItemMetaData;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
@@ -148,7 +150,7 @@ public class EVCacheClient {
 
         this.hashKeyByApp = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElse(false);
         this.hashKeyByServerGroup = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.key", Boolean.class).orElse(false);
-        this.hashingAlgo = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.algo", String.class).orElseGet(appName + ".hash.algo").orElse("MD5");
+        this.hashingAlgo = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.algo", String.class).orElseGet(appName + ".hash.algo").orElse("siphash24");
         ping();
     }
 
@@ -1913,6 +1915,35 @@ public class EVCacheClient {
         final EVCacheItemMetaData obj = evcacheMemcachedClient.metaDebug(key);
         if(log.isDebugEnabled()) log.debug("EVCacheItemMetaData : " + obj);
         return obj;
+    }
+
+    public <T> EVCacheItem<T> metaGet(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF) throws Exception {
+        if(shouldHashKey()) {
+            final String hKey = getHashedKey(key);
+            final EVCacheItem<Object> obj = evcacheMemcachedClient.asyncMetaGet(hKey, evcacheValueTranscoder, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+            if(obj.getData() instanceof EVCacheValue) {
+                final EVCacheValue val = (EVCacheValue)obj.getData();
+                if(val == null || !(val.getKey().equals(key))) {
+                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.GET);
+                    return null;
+                }
+                final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
+                T t = null;
+                if(tc == null) {
+                    t = (T)evcacheMemcachedClient.getTranscoder().decode(cd);
+                } else {
+                    t = tc.decode(cd);
+                }
+                obj.setData(t);
+                obj.setFlag(val.getFlags());
+                return (EVCacheItem<T>) obj;
+            } else 
+                return null;
+        } else {
+            final EVCacheItem<T> obj = evcacheMemcachedClient.asyncMetaGet(key, tc, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);;
+            if(log.isDebugEnabled()) log.debug("EVCacheItem : " + obj);
+            return obj;
+        }
     }
 
 
