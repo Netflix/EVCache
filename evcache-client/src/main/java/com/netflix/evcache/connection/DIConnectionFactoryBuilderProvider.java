@@ -12,9 +12,8 @@ import javax.inject.Inject;
 import javax.inject.Provider;
 
 public class DIConnectionFactoryBuilderProvider extends ConnectionFactoryBuilder implements Provider<IConnectionBuilder> {
-
     private final EurekaClient eurekaClient;
-    private PropertyRepository props;
+    private final PropertyRepository props;
 
     @Inject
     public DIConnectionFactoryBuilderProvider(EurekaClient eurekaClient, PropertyRepository props) {
@@ -27,19 +26,37 @@ public class DIConnectionFactoryBuilderProvider extends ConnectionFactoryBuilder
         return this;
     }
 
+    public int getMaxQueueLength(String appName) {
+        return props.get(appName + ".max.queue.length", Integer.class).orElse(16384).get();
+    }
+    
+    public int getOPQueueMaxBlockTime(String appName) {
+        return props.get(appName + ".operation.QueueMaxBlockTime", Integer.class).orElse(10).get();
+    }
+    
+    public Property<Integer> getOperationTimeout(String appName) {
+        return props.get(appName + ".operation.timeout", Integer.class).orElse(2500);
+    }
+
+    public boolean useBinaryProtocol() {
+        return EVCacheConfig.getInstance().getPropertyRepository().get("evcache.use.binary.protocol", Boolean.class).orElse(true).get();
+    }
+
+    public EurekaClient getEurekaClient() {
+        return eurekaClient;
+    }
+
+    public PropertyRepository getProps() {
+        return props;
+    }
+
     @Override
     public ConnectionFactory getConnectionFactory(EVCacheClient client) {
         final String appName = client.getAppName();
-        final int maxQueueSize = props.get(appName + ".max.queue.length", Integer.class).orElse(16384).get();
-        final Property<Integer> operationTimeout = props.get(appName + ".operation.timeout", Integer.class).orElse(2500);
-        final int opQueueMaxBlockTime = props.get(appName + ".operation.QueueMaxBlockTime", Integer.class).orElse(10).get();
-        final boolean useBinary = EVCacheConfig.getInstance().getPropertyRepository().get("evcache.use.binary.protocol", Boolean.class).orElse(true).get();
 
-        if(useBinary) 
-            return new DIConnectionFactory(client, eurekaClient, maxQueueSize, operationTimeout, opQueueMaxBlockTime);
-        	else return new DIAsciiConnectionFactory(client, eurekaClient, maxQueueSize, operationTimeout, opQueueMaxBlockTime);
-
-        
+        if(useBinaryProtocol()) 
+            return new DIConnectionFactory(client, eurekaClient, getMaxQueueLength(appName), getOperationTimeout(appName), getOPQueueMaxBlockTime(appName));
+        	else return new DIAsciiConnectionFactory(client, eurekaClient, getMaxQueueLength(appName), getOperationTimeout(appName), getOPQueueMaxBlockTime(appName));
     }
 
 }
