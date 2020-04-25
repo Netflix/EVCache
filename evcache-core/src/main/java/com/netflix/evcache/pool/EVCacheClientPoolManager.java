@@ -178,13 +178,17 @@ public class EVCacheClientPoolManager {
      * @param app
      *            - name of the evcache app
      */
-    public final synchronized void initEVCache(String app) {
+    public final synchronized EVCacheClientPool initEVCache(String app) {
+        return initEVCache(app, false);
+    }
+    public final synchronized EVCacheClientPool initEVCache(String app, boolean isDuet) {
         if (app == null || (app = app.trim()).length() == 0) throw new IllegalArgumentException("param app name null or space");
         final String APP = getAppName(app);
-        if (poolMap.containsKey(APP)) return;
-        final EVCacheClientPool pool = new EVCacheClientPool(APP, evcacheNodeList, asyncExecutor, this);
+        if (poolMap.containsKey(APP)) return poolMap.get(APP);
+        final EVCacheClientPool pool = new EVCacheClientPool(APP, evcacheNodeList, asyncExecutor, this, isDuet);
         scheduleRefresh(pool);
         poolMap.put(APP, pool);
+        return pool;
     }
 
     private void scheduleRefresh(EVCacheClientPool pool) {

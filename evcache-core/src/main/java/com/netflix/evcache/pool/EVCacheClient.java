@@ -101,12 +101,13 @@ public class EVCacheClient {
     private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
     private final Property<String> hashingAlgo;
     protected final Counter operationsCounter;
+    private final boolean isDuetClient;
 
     EVCacheClient(String appName, String zone, int id, EVCacheServerGroupConfig config,
             List<InetSocketAddress> memcachedNodesInZone, int maxQueueSize, Property<Integer> maxReadQueueSize,
                   Property<Integer> readTimeout, Property<Integer> bulkReadTimeout,
                   Property<Integer> opQueueMaxBlockTime,
-                  Property<Integer> operationTimeout, EVCacheClientPool pool) throws IOException {
+                  Property<Integer> operationTimeout, EVCacheClientPool pool, boolean isDuetClient) throws IOException {
         this.memcachedNodesInZone = memcachedNodesInZone;
         this.id = id;
         this.appName = appName;
@@ -118,6 +119,7 @@ public class EVCacheClient {
         this.maxReadQueueSize = maxReadQueueSize;
 //        this.operationTimeout = operationTimeout;
         this.pool = pool;
+        this.isDuetClient = isDuetClient;
 
         final List<Tag> tagList = new ArrayList<Tag>(4);
         EVCacheMetricsFactory.getInstance().addAppNameTags(tagList, appName);
@@ -148,7 +150,7 @@ public class EVCacheClient {
         this.evcacheValueTranscoder = new EVCacheTranscoder();
         evcacheValueTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
 
-        this.hashKeyByApp = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElse(false);
+        this.hashKeyByApp = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElseGet(appName + ".auto.hash.keys").orElseGet("evcache.auto.hash.keys").orElse(false);
         this.hashKeyByServerGroup = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.key", Boolean.class).orElse(false);
         this.hashingAlgo = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.algo", String.class).orElseGet(appName + ".hash.algo").orElse("siphash24");
         ping();
@@ -164,9 +166,11 @@ public class EVCacheClient {
             log.error("Error while pinging the servers", t);
         }
     }
+    
+    public boolean isDuetClient() {
+        return isDuetClient;
+    }
 
-    
-    
     private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys, EVCache.Call call) throws EVCacheException {
         if (evcacheMemcachedClient.getNodeLocator() == null) return canonicalKeys;
         final Collection<String> retKeys = new ArrayList<>(canonicalKeys.size());
