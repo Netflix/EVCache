@@ -58,6 +58,16 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private final Property<Set<String>> logOperationCalls;
     private final Property<Set<String>> cloneWrite;
 
+    // name of the duet EVCache application, if applicable.
+    private final Property<String> duet;
+    // evCacheClientPool of the duet EVCache application, if applicable. Supports daisy chaining.
+    private EVCacheClientPool duetClientPool;
+
+    // indicates if this evCacheClientPool is a duet. This property is used to mark EVCacheClients of this pool
+    // as duet if applicable. The duet property on the EVCacheClient is then used to know what kind of key of
+    // EVCacheKey (i.e. normal key vs duet key) should be passed to the client
+    private boolean isDuet;
+
     private final Property<Integer> _opQueueMaxBlockTime; // Timeout for adding an operation
     private final Property<Integer> _operationTimeout;// Timeout for write operation
     private final Property<Integer> _maxReadQueueSize;
@@ -106,11 +116,12 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private CircularIterator<EVCacheClient[]> allEVCacheWriteClients = new CircularIterator<EVCacheClient[]>(Collections.<EVCacheClient[]> emptyList());
     private final EVCacheNodeList provider;
 
-    EVCacheClientPool(final String appName, final EVCacheNodeList provider, final ThreadPoolExecutor asyncRefreshExecutor, final EVCacheClientPoolManager manager) {
+    EVCacheClientPool(final String appName, final EVCacheNodeList provider, final ThreadPoolExecutor asyncRefreshExecutor, final EVCacheClientPoolManager manager, boolean isDuet) {
         this._appName = appName;
         this.provider = provider;
         this.asyncRefreshExecutor = asyncRefreshExecutor;
         this.manager = manager;
+        this.isDuet = isDuet;
 
         String ec2Zone = System.getenv("EC2_AVAILABILITY_ZONE");
         if (ec2Zone == null) ec2Zone = System.getProperty("EC2_AVAILABILITY_ZONE");
@@ -149,6 +160,11 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             setupClones();
         });
 
+        this.duet = config.getPropertyRepository().get(appName + ".duet", String.class).orElse("");
+        this.duet.subscribe(i -> {
+            setupDuet();
+        });
+
         tagList = new ArrayList<Tag>(2);
         EVCacheMetricsFactory.getInstance().addAppNameTags(tagList, _appName);
 
@@ -164,6 +180,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     	}
     }
 
+    private void setupDuet() {
+        this.duetClientPool = manager.initEVCache(duet.get(), true);
+    }
+
     private void clearState() {
         cleanupMemcachedInstances(true);
         memcachedInstancesByServerGroup.clear();
@@ -173,7 +193,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         memcachedFallbackReadInstances = new ServerGroupCircularIterator(Collections.<ServerGroup> emptySet());
     }
 
-    public EVCacheClient getEVCacheClientForRead() {
+    private EVCacheClient getEVCacheClientForReadInternal() {
         if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
             //refreshPool(true, true);
@@ -201,7 +221,21 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
-    public List<EVCacheClient> getAllEVCacheClientForRead() {
+    /**
+     * Returns EVCacheClient of this pool if available. Otherwise, will return EVCacheClient of the duet.
+     * @return
+     */
+    public EVCacheClient getEVCacheClientForRead() {
+        EVCacheClient evCacheClient = getEVCacheClientForReadInternal();
+
+        if (evCacheClient != null) {
+            return evCacheClient;
+        }
+
+        return duetClientPool != null ? duetClientPool.getEVCacheClientForRead() : null;
+    }
+
+    private List<EVCacheClient> getAllEVCacheClientForReadInternal() {
         if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
             //if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
@@ -229,6 +263,21 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
+    public List<EVCacheClient> getAllEVCacheClientForRead() {
+        List<EVCacheClient> evCacheClients = getAllEVCacheClientForReadInternal();
+        if (duetClientPool != null) {
+            List<EVCacheClient> duetEVCacheClients = duetClientPool.getAllEVCacheClientForRead();
+            if (null == evCacheClients)
+                return duetEVCacheClients;
+
+            if (null == duetEVCacheClients)
+                return evCacheClients;
+
+            evCacheClients.addAll(duetClientPool.getAllEVCacheClientForRead());
+        }
+        return evCacheClients;
+    }
+
     private EVCacheClient selectClient(List<EVCacheClient> clients) {
         if (clients == null || clients.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("clients is null returning null and forcing pool refresh!!!");
@@ -246,7 +295,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return clients.get(index);
     }
 
-    public EVCacheClient getEVCacheClientForReadExclude(ServerGroup rsetUsed) {
+    private EVCacheClient getEVCacheClientForReadExcludeInternal(ServerGroup rsetUsed) {
         if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
             //if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
@@ -265,7 +314,17 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
-    public EVCacheClient getEVCacheClient(ServerGroup serverGroup) {
+    public EVCacheClient getEVCacheClientForReadExclude(ServerGroup rsetUsed) {
+        EVCacheClient evCacheClient = getEVCacheClientForReadExcludeInternal(rsetUsed);
+
+        if (evCacheClient != null) {
+            return evCacheClient;
+        }
+
+        return duetClientPool != null ? duetClientPool.getEVCacheClientForReadExclude(rsetUsed) : null;
+    }
+
+    private EVCacheClient getEVCacheClientInternal(ServerGroup serverGroup) {
         if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
             //if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
@@ -289,7 +348,17 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
-    public List<EVCacheClient> getEVCacheClientsForReadExcluding(ServerGroup serverGroupToExclude) {
+    public EVCacheClient getEVCacheClient(ServerGroup serverGroup) {
+        EVCacheClient evCacheClient = getEVCacheClientInternal(serverGroup);
+
+        if (evCacheClient != null) {
+            return evCacheClient;
+        }
+
+        return duetClientPool != null ? duetClientPool.getEVCacheClient(serverGroup) : null;
+    }
+
+    private List<EVCacheClient> getEVCacheClientsForReadExcludingInternal(ServerGroup serverGroupToExclude) {
         if (memcachedReadInstancesByServerGroup == null || memcachedReadInstancesByServerGroup.isEmpty()) {
             if (log.isDebugEnabled()) log.debug("memcachedReadInstancesByServerGroup : " + memcachedReadInstancesByServerGroup);
             //if(asyncRefreshExecutor.getQueue().isEmpty()) refreshPool(true, true);
@@ -337,6 +406,21 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return Collections.<EVCacheClient> emptyList();
     }
 
+    public List<EVCacheClient> getEVCacheClientsForReadExcluding(ServerGroup serverGroupToExclude) {
+        List<EVCacheClient> evCacheClients = getEVCacheClientsForReadExcludingInternal(serverGroupToExclude);
+        if (duetClientPool != null) {
+            List<EVCacheClient> duetEVCacheClients = duetClientPool.getEVCacheClientsForReadExcluding(serverGroupToExclude);
+            if (null == evCacheClients)
+                return duetEVCacheClients;
+
+            if (null == duetEVCacheClients)
+                return evCacheClients;
+
+            evCacheClients.addAll(duetClientPool.getEVCacheClientsForReadExcluding(serverGroupToExclude));
+        }
+        return evCacheClients;
+    }
+
     public boolean isInWriteOnly(ServerGroup serverGroup) {
           if (memcachedReadInstancesByServerGroup.containsKey(serverGroup)) {
               return false;
@@ -347,7 +431,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
           return false;
     }
 
-    public EVCacheClient[] getWriteOnlyEVCacheClients() {
+    private EVCacheClient[] getWriteOnlyEVCacheClientsInternal() {
         try {
             if((cloneWrite.get().size() == 0)) {
                 int size = memcachedWriteInstancesByServerGroup.size() - memcachedReadInstancesByServerGroup.size();
@@ -395,6 +479,25 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
+    public EVCacheClient[] getWriteOnlyEVCacheClients() {
+        EVCacheClient[] evCacheClients = getWriteOnlyEVCacheClientsInternal();
+        if (duetClientPool != null) {
+            EVCacheClient[] duetEVCacheClients = duetClientPool.getWriteOnlyEVCacheClients();
+
+            // common scenario for duet usage
+            if (null == evCacheClients || evCacheClients.length == 0) {
+                return duetEVCacheClients;
+            }
+
+            if (null != duetEVCacheClients && duetEVCacheClients.length > 0) {
+                EVCacheClient[] allEVCacheClients = Arrays.copyOf(evCacheClients, evCacheClients.length + duetEVCacheClients.length);
+                System.arraycopy(duetEVCacheClients, 0, allEVCacheClients, evCacheClients.length, duetEVCacheClients.length);
+                return allEVCacheClients;
+            }
+        }
+        return evCacheClients;
+    }
+
     EVCacheClient[] getAllWriteClients() {
         try {
             if(allEVCacheWriteClients != null) {
@@ -436,7 +539,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
 
-    public EVCacheClient[] getEVCacheClientForWrite() {
+    private EVCacheClient[] getEVCacheClientForWriteInternal() {
         try {
             if((cloneWrite.get().size() == 0)) {
                 return getAllWriteClients();
@@ -458,6 +561,25 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             log.error("Exception trying to get an array of writable EVCache Instances", t);
             return new EVCacheClient[0];
         }
+    }
+
+    public EVCacheClient[] getEVCacheClientForWrite() {
+        EVCacheClient[] evCacheClients = getEVCacheClientForWriteInternal();
+        if (duetClientPool != null) {
+            EVCacheClient[] duetEVCacheClients = duetClientPool.getEVCacheClientForWrite();
+
+            // common scenario for duet usage
+            if (null == evCacheClients || evCacheClients.length == 0) {
+                return duetEVCacheClients;
+            }
+
+            if (null != duetEVCacheClients && duetEVCacheClients.length > 0) {
+                EVCacheClient[] allEVCacheClients = Arrays.copyOf(evCacheClients, evCacheClients.length + duetEVCacheClients.length);
+                System.arraycopy(duetEVCacheClients, 0, allEVCacheClients, evCacheClients.length, duetEVCacheClients.length);
+                return allEVCacheClients;
+            }
+        }
+        return evCacheClients;
     }
 
     private void refresh() throws IOException {
@@ -842,7 +964,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                         EVCacheClient client;
                         try {
                             client = new EVCacheClient(_appName, zone, i, config, memcachedSAInServerGroup, maxQueueSize,
-                            		_maxReadQueueSize, _readTimeout, _bulkReadTimeout, _opQueueMaxBlockTime, _operationTimeout, this);
+                            		_maxReadQueueSize, _readTimeout, _bulkReadTimeout, _opQueueMaxBlockTime, _operationTimeout, this, isDuet);
                             newClients.add(client);
                             final int id = client.getId();
                             if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup + "; intit : client.getId() : " + id);
@@ -943,6 +1065,9 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     }
                 }
             }
+
+            if (duetClientPool != null)
+                duetClientPool.pingServers();
         } catch (Throwable t) {
             log.error("Error while pinging the servers", t);
         }
@@ -963,6 +1088,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 client.getConnectionObserver().shutdown();
             }
         }
+        if (duetClientPool != null)
+            duetClientPool.serverGroupDisabled(serverGroup);
     }
 
     public void refreshAsync(MemcachedNode node) {
@@ -976,6 +1103,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             if(!force) force = !node.isActive();
             refreshPool(true, force);
         }
+        if (duetClientPool != null)
+            duetClientPool.refreshAsync(node);
     }
 
     public void run() {
@@ -1099,6 +1228,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         for (ServerGroup serverGroup : memcachedInstancesByServerGroup.keySet()) {
             instances += memcachedInstancesByServerGroup.get(serverGroup).get(0).getConnectionObserver().getActiveServerCount();
         }
+
+        if (duetClientPool != null)
+            instances += duetClientPool.getInstanceCount();
+
         return instances;
     }
 
@@ -1108,6 +1241,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             final List<EVCacheClient> instanceList = memcachedInstancesByServerGroup.get(zone);
             instanceMap.put(zone.toString(), instanceList.toString());
         }
+
+        if (duetClientPool != null)
+            instanceMap.putAll(duetClientPool.getInstancesByZone());
+
         return instanceMap;
     }
 
@@ -1116,6 +1253,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         for (ServerGroup zone : memcachedInstancesByServerGroup.keySet()) {
             instancesByZone.put(zone.getName(), Integer.valueOf(memcachedInstancesByServerGroup.get(zone).get(0).getConnectionObserver().getActiveServerCount()));
         }
+
+        if (duetClientPool != null)
+            instancesByZone.putAll(duetClientPool.getInstanceCountByZone());
+
         return instancesByZone;
     }
 
@@ -1124,6 +1265,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         for (ServerGroup key : memcachedReadInstancesByServerGroup.keySet()) {
             instanceMap.put(key.getName(), memcachedReadInstancesByServerGroup.get(key).toString());
         }
+
+        if (duetClientPool != null)
+            instanceMap.putAll(duetClientPool.getReadZones());
+
         return instanceMap;
     }
 
@@ -1133,6 +1278,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             instanceMap.put(key.getName(), Integer.valueOf(memcachedReadInstancesByServerGroup.get(key).get(0)
                     .getConnectionObserver().getActiveServerCount()));
         }
+
+        if (duetClientPool != null)
+            instanceMap.putAll(duetClientPool.getReadInstanceCountByZone());
+
         return instanceMap;
     }
 
@@ -1141,18 +1290,44 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         for (ServerGroup key : memcachedWriteInstancesByServerGroup.keySet()) {
             instanceMap.put(key.toString(), memcachedWriteInstancesByServerGroup.get(key).toString());
         }
+
+        if (duetClientPool != null)
+            instanceMap.putAll(duetClientPool.getWriteZones());
+
         return instanceMap;
     }
 
-    public Map<ServerGroup, List<EVCacheClient>> getAllInstancesByZone() {
+    private Map<ServerGroup, List<EVCacheClient>> getAllInstancesByZoneInternal() {
         return Collections.unmodifiableMap(memcachedInstancesByServerGroup);
     }
 
-    Map<ServerGroup, List<EVCacheClient>> getAllInstancesByServerGroup() {
+    public Map<ServerGroup, List<EVCacheClient>> getAllInstancesByZone() {
+        if (duetClientPool != null) {
+            Map<ServerGroup, List<EVCacheClient>> allInstanceMap = new ConcurrentHashMap<>();
+            allInstanceMap.putAll(getAllInstancesByZoneInternal());
+            allInstanceMap.putAll(duetClientPool.getAllInstancesByZone());
+            return Collections.unmodifiableMap(allInstanceMap);
+        }
+
+        return getAllInstancesByZoneInternal();
+    }
+
+    Map<ServerGroup, List<EVCacheClient>> getAllInstancesByServerGroupInternal() {
         return memcachedInstancesByServerGroup;
     }
 
-    public Map<String, Integer> getWriteInstanceCountByZone() {
+    public Map<ServerGroup, List<EVCacheClient>> getAllInstancesByServerGroup() {
+        if (duetClientPool == null) {
+            return getAllInstancesByServerGroupInternal();
+        }
+
+        Map<ServerGroup, List<EVCacheClient>> allInstancesByServerGroup = new ConcurrentHashMap<>();
+        allInstancesByServerGroup.putAll(getAllInstancesByServerGroupInternal());
+        allInstancesByServerGroup.putAll(duetClientPool.getAllInstancesByServerGroup());
+        return allInstancesByServerGroup;
+    }
+
+    private Map<String, Integer> getWriteInstanceCountByZoneInternal() {
         final Map<String, Integer> instanceMap = new HashMap<String, Integer>();
         for (ServerGroup key : memcachedWriteInstancesByServerGroup.keySet()) {
             instanceMap.put(key.toString(), Integer.valueOf(memcachedWriteInstancesByServerGroup.get(key).get(0).getConnectionObserver().getActiveServerCount()));
@@ -1160,7 +1335,15 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return instanceMap;
     }
 
-    public Map<String, String> getReadServerGroupByZone() {
+    public Map<String, Integer> getWriteInstanceCountByZone() {
+        Map<String, Integer> instanceMap = getWriteInstanceCountByZoneInternal();
+        if (duetClientPool != null)
+            instanceMap.putAll(duetClientPool.getWriteInstanceCountByZone());
+
+        return instanceMap;
+    }
+
+    private Map<String, String> getReadServerGroupByZoneInternal() {
         final Map<String, String> instanceMap = new HashMap<String, String>();
         for (String key : readServerGroupByZone.keySet()) {
             instanceMap.put(key, readServerGroupByZone.get(key).toString());
@@ -1168,8 +1351,19 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         return instanceMap;
     }
 
+    public Map<String, String> getReadServerGroupByZone() {
+        Map<String, String> instanceMap = getReadServerGroupByZoneInternal();
+        if (duetClientPool != null)
+            instanceMap.putAll(duetClientPool.getReadServerGroupByZone());
+
+        return instanceMap;
+    }
+
     public void refreshPool() {
         refreshPool(false, true);
+
+        if (duetClientPool != null)
+            duetClientPool.refreshPool(false, true);
     }
 
     public void refreshPool(boolean async, boolean force) {
@@ -1192,14 +1386,20 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         } catch (Throwable t) {
             if (log.isDebugEnabled()) log.debug("Error Refreshing EVCache Instance list from MBean : " + _appName, t);
         }
+
+        if (duetClientPool != null)
+            duetClientPool.refreshPool(async, force);
     }
 
     public String getFallbackServerGroup() {
-        return memcachedFallbackReadInstances.toString();
+        if (memcachedFallbackReadInstances.getSize() != 0 || duetClientPool == null)
+            return memcachedFallbackReadInstances.toString();
+
+        return duetClientPool.getFallbackServerGroup();
     }
 
     public boolean supportsFallback() {
-        return memcachedFallbackReadInstances.getSize() > 1;
+        return memcachedFallbackReadInstances.getSize() > 1 || (duetClientPool != null && duetClientPool.supportsFallback());
     }
 
     public boolean isLogEventEnabled() {
@@ -1214,12 +1414,12 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     @Override
     public String getLocalServerGroupCircularIterator() {
-        return (localServerGroupIterator == null) ? "NONE" : localServerGroupIterator.toString();
+        return (localServerGroupIterator == null) ? (duetClientPool == null ? "NONE" : duetClientPool.getLocalServerGroupCircularIterator()) : localServerGroupIterator.toString();
     }
 
     @Override
     public String getEVCacheWriteClientsCircularIterator() {
-        return (allEVCacheWriteClients == null) ? "NONE" : allEVCacheWriteClients.toString();
+        return (allEVCacheWriteClients == null) ? (duetClientPool == null ? "NONE" : duetClientPool.getEVCacheWriteClientsCircularIterator()) : allEVCacheWriteClients.toString();
     }
 
     public String getPoolDetails() {
@@ -1237,11 +1437,11 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             + ",\n\tmemcachedWriteInstancesByServerGroup=" + memcachedWriteInstancesByServerGroup + ",\n\treadServerGroupByZone=" + readServerGroupByZone
             + ",\n\tmemcachedFallbackReadInstances=" + memcachedFallbackReadInstances + "\n]"
             + ", \n\tallEVCacheWriteClients=" + allEVCacheWriteClients
-            + "\n]";
+            + "\n]" + (duetClientPool == null ? "" : duetClientPool.toString());
     }
 
     public int getPoolSize() {
-        return _poolSize.get();
+        return _poolSize.get() + (duetClientPool == null ? 0 : duetClientPool.getPoolSize());
     }
 
     public Property<Integer> getLogOperations() {
@@ -1285,6 +1485,12 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public Map<ServerGroup, Property<Boolean>> getWriteOnlyFastPropertyMap() {
+        if (duetClientPool != null) {
+            Map<ServerGroup, Property<Boolean>> allMap = new ConcurrentHashMap<>();
+            allMap.putAll(writeOnlyFastPropertyMap);
+            allMap.putAll(duetClientPool.getWriteOnlyFastPropertyMap());
+            return Collections.unmodifiableMap(allMap);
+        }
         return Collections.unmodifiableMap(writeOnlyFastPropertyMap);
     }
 
@@ -1297,6 +1503,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     /*
+     * This method is helpful in cases where there is typically a large backlog of work queued up, and is
+     * expensive to loose all that work when a client is shut down.
      * Block the thread until all the queues are processed or at most 30 seconds.
      * Will return the count of items left in the queues. 0 means none left.
      */
@@ -1304,7 +1512,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         int size = 0;
         int counter = 0;
         do {
-            for(List<EVCacheClient> clientList : memcachedInstancesByServerGroup.values()) {
+            for(List<EVCacheClient> clientList : getAllInstancesByServerGroup().values()) {
                 for(EVCacheClient client : clientList) {
                     size +=client.getWriteQueueLength();
                     size +=client.getReadQueueLength();

@@ -170,7 +170,7 @@ public class EVCacheEvent {
     public Collection<MemcachedNode> getMemcachedNode(EVCacheKey evckey) {
         final Collection<MemcachedNode> nodeList = new ArrayList<MemcachedNode>(clients.size());
         for(EVCacheClient client : clients) {
-            String key = evckey.getHashKey() == null ? evckey.getCanonicalKey() : evckey.getHashKey();
+            String key = evckey.getDerivedKey(client.isDuetClient());
             nodeList.add(client.getNodeLocator().getPrimary(key));
         }
         return nodeList;
