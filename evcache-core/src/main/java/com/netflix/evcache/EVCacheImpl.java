@@ -804,11 +804,7 @@ final public class EVCacheImpl implements EVCache {
         if (client == null) return null;
         final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
         try {
-            if(evcKey.getHashKey() != null) {
-                return client.metaGet(evcKey.getHashKey(), transcoder, throwException, hasZF);
-            } else {
-                return client.metaGet(evcKey.getCanonicalKey(), transcoder, throwException, hasZF);
-            }
+            return client.metaGet(evcKey.getDerivedKey(client.isDuetClient()), transcoder, throwException, hasZF);
         } catch (EVCacheConnectException ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheConnectException while getting with meta data for APP " + _appName + ", key : " + evcKey + "; hasZF : " + hasZF, ex);
             if (!throwException || hasZF) return null;
