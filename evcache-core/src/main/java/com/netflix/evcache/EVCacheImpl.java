@@ -166,35 +166,20 @@ final public class EVCacheImpl implements EVCache {
             canonicalKey  = new StringBuilder(keyLength).append(_cacheName).append(':').append(key).toString();
         }
 
-        final String canonicalKeyForDuet;
-        final int duetKeyLength = _appName.length() + 1 + canonicalKey.length();
-        canonicalKeyForDuet = new StringBuilder(duetKeyLength).append(_appName).append(':').append(canonicalKey).toString();
-
         final String hashedKey;
-        final String hashedKeyForDuet;
         if(hashKey.get()) {
             hashedKey = KeyHasher.getHashedKey(canonicalKey, hashingAlgo.get());
-            hashedKeyForDuet = KeyHasher.getHashedKey(canonicalKeyForDuet, hashingAlgo.get());
+        } else if(autoHashKeys.get() && canonicalKey.length() > this.maxKeyLength.get()) {
+            hashedKey = KeyHasher.getHashedKey(canonicalKey, hashingAlgo.get());
         } else {
-            if (autoHashKeys.get() && canonicalKey.length() > maxKeyLength.get()) {
-                hashedKey = KeyHasher.getHashedKey(canonicalKey, hashingAlgo.get());
-            } else {
-                hashedKey = null;
-            }
-
-            if (autoHashKeys.get() && canonicalKeyForDuet.length() > maxKeyLength.get()) {
-                hashedKeyForDuet = KeyHasher.getHashedKey(canonicalKeyForDuet, hashingAlgo.get());
-            } else {
-                hashedKeyForDuet = null;
-            }
+            hashedKey = null;
         }
 
-        if ((hashedKey == null && (canonicalKey.length() > maxKeyLength.get())) ||
-                (hashedKeyForDuet == null && (canonicalKeyForDuet.length() > maxKeyLength.get()))) {
-            throw new IllegalArgumentException("Key is too long (maxlen = " + maxKeyLength.get() + ')');
+        if (hashedKey == null && canonicalKey.length() > this.maxKeyLength.get()) {
+            throw new IllegalArgumentException("Key is too long (maxlen = " + this.maxKeyLength.get() + ')');
         }
 
-        final EVCacheKey evcKey = new EVCacheKey(key, canonicalKey, canonicalKeyForDuet, hashedKey, hashedKeyForDuet);
+        final EVCacheKey evcKey = new EVCacheKey(_appName, key, canonicalKey, hashedKey, hashingAlgo);
         if (log.isDebugEnabled() && shouldLog()) log.debug("Key : " + key + "; EVCacheKey : " + evcKey);
         return evcKey;
     }
