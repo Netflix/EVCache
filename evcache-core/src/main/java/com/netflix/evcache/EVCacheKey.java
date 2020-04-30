@@ -1,19 +1,24 @@
 package com.netflix.evcache;
 
+import com.netflix.archaius.api.Property;
+import com.netflix.evcache.util.KeyHasher;
+
 public class EVCacheKey {
+    private final String appName;
+    private final Property<String> hashingAlgo;
     private final String key;
     private final String canonicalKey;
-    private final String canonicalKeyForDuet;
+    private String canonicalKeyForDuet;
     private final String hashKey;
-    private final String hashKeyForDuet;
+    private String hashKeyForDuet;
 
-    public EVCacheKey(String key, String canonicalKey, String canonicalKeyForDuet, String hashKey, String hashKeyForDuet) {
+    public EVCacheKey(String appName, String key, String canonicalKey, String hashKey, Property<String> hashingAlgo) {
         super();
+        this.appName = appName;
         this.key = key;
         this.canonicalKey = canonicalKey;
-        this.canonicalKeyForDuet = canonicalKeyForDuet;
         this.hashKey = hashKey;
-        this.hashKeyForDuet = hashKeyForDuet;
+        this.hashingAlgo = hashingAlgo;
     }
 
     public String getKey() {
@@ -26,7 +31,16 @@ public class EVCacheKey {
     }
 
     public String getCanonicalKey(boolean isDuet) {
-        return isDuet ? canonicalKeyForDuet : canonicalKey;
+        return isDuet ? getCanonicalKeyForDuet() : canonicalKey;
+    }
+
+    private String getCanonicalKeyForDuet() {
+        if (null == canonicalKeyForDuet) {
+            final int duetKeyLength = appName.length() + 1 + canonicalKey.length();
+            canonicalKeyForDuet = new StringBuilder(duetKeyLength).append(appName).append(':').append(canonicalKey).toString();
+        }
+
+        return canonicalKeyForDuet;
     }
 
     @Deprecated
@@ -35,13 +49,21 @@ public class EVCacheKey {
     }
 
     public String getHashKey(boolean isDuet) {
-        return isDuet ? hashKeyForDuet : hashKey;
+        return isDuet ? getHashKeyForDuet() : hashKey;
+    }
+
+    private String getHashKeyForDuet() {
+        if (null == hashKeyForDuet && null != hashKey) {
+            hashKeyForDuet = KeyHasher.getHashedKey(getCanonicalKeyForDuet(), hashingAlgo.get());
+        }
+
+        return hashKeyForDuet;
     }
     
     public String getDerivedKey(boolean isDuet)
     {
         if (isDuet)
-            return null == hashKeyForDuet ? canonicalKeyForDuet : hashKeyForDuet;
+            return null == getHashKeyForDuet() ? getCanonicalKeyForDuet() : getHashKeyForDuet();
 
         return null == hashKey ? canonicalKey : hashKey;
     }

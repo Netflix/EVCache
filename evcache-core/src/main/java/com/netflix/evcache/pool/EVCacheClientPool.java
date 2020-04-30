@@ -169,7 +169,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             setupClones();
         });
 
-        this.duet = config.getPropertyRepository().get(appName + ".duet", String.class).orElse("");
+        this.duet = config.getPropertyRepository().get(appName + ".duet", String.class).orElseGet("evcache.duet").orElse("");
         this.duet.subscribe(i -> {
             setupDuet();
         });
@@ -190,7 +190,16 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     private void setupDuet() {
-        this.duetClientPool = manager.initEVCache(duet.get(), true);
+        // check if duet is already setup, if yes, remove the current duet.
+        if (duetClientPool != null && !duetClientPool.getAppName().equalsIgnoreCase(duet.get())) {
+            duetClientPool = null;
+            log.info("Removed duet");
+        }
+
+        if (null == duetClientPool && !duet.get().isEmpty()) {
+            duetClientPool = manager.initEVCache(duet.get(), true);
+            log.info("Completed setup of a duet with name: " + duet.get());
+        }
     }
 
     private void clearState() {
