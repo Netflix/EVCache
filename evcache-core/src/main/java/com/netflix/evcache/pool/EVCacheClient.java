@@ -1518,6 +1518,10 @@ public class EVCacheClient {
         }
     }
 
+    public Map<SocketAddress, String> execCmd(String cmd) {
+        return evcacheMemcachedClient.execCmd(cmd);
+    }
+
     public Map<SocketAddress, String> getVersions() {
         return evcacheMemcachedClient.getVersions();
     }

@@ -49,12 +49,14 @@ import net.spy.memcached.ops.Mutator;
 import net.spy.memcached.ops.Operation;
 import net.spy.memcached.ops.OperationCallback;
 import net.spy.memcached.ops.OperationStatus;
+import net.spy.memcached.ops.StatsOperation;
 import net.spy.memcached.ops.StatusCode;
 import net.spy.memcached.ops.StoreOperation;
 import net.spy.memcached.ops.StoreType;
 import net.spy.memcached.protocol.binary.BinaryOperationFactory;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.util.StringUtils;
+import net.spy.memcached.protocol.ascii.ExecCmdOperation;
 import net.spy.memcached.protocol.ascii.MetaDebugOperation;
 import net.spy.memcached.protocol.ascii.MetaGetOperation;
 
@@ -642,6 +644,35 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 log.error("Exception on meta debug operation : Key : " + key, e);
             }
             if (log.isDebugEnabled()) log.debug("Meta Debug Data : " + rv);
+        }
+        return rv;
+    }
+
+    public Map<SocketAddress, String> execCmd(final String cmd) {
+        final Map<SocketAddress, String> rv = new HashMap<SocketAddress, String>();
+        CountDownLatch blatch = broadcastOp(new BroadcastOpFactory() {
+            @Override
+            public Operation newOp(final MemcachedNode n, final CountDownLatch latch) {
+                final SocketAddress sa = n.getSocketAddress();
+                return ((EVCacheAsciiOperationFactory)opFact).execCmd(cmd, new ExecCmdOperation.Callback() {
+
+                    @Override
+                    public void receivedStatus(OperationStatus status) {
+                        if (log.isDebugEnabled()) log.debug("cmd : " + cmd + "; MemcachedNode : " + n + "; Status : " + status);
+                        rv.put(sa, status.getMessage());
+                    }
+
+                    @Override
+                    public void complete() {
+                        latch.countDown();
+                    }
+                });
+            }
+        });
+        try {
+            blatch.await(operationTimeout, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            throw new RuntimeException("Interrupted waiting for stats", e);
         }
         return rv;
     }

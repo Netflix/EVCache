@@ -14,6 +14,19 @@ import com.google.common.hash.Hashing;
 
 public class KeyHasher {
 
+    /**
+     * meta data size 
+     * 40 + key + 'item_hdr' size
+i.e.
+40 + keysize + 12
+And if client flags are present:
+40 + keysize + 4 bytes(for flags) + 12
+And if CAS and client flags are present:
+40 + keysize + 4 bytes(for flags) + 8(for CAS) + 12
+     */
+    
+    
+    
     private static Logger log = LoggerFactory.getLogger(KeyHasher.class);
     private static final Encoder encoder= Base64.getEncoder().withoutPadding();
 
