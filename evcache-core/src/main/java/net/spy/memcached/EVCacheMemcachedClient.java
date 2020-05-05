@@ -6,6 +6,7 @@ import java.net.SocketAddress;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -648,31 +649,46 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return rv;
     }
 
-    public Map<SocketAddress, String> execCmd(final String cmd) {
+    public Map<SocketAddress, String> execCmd(final String cmd, String[] ips) {
         final Map<SocketAddress, String> rv = new HashMap<SocketAddress, String>();
-        CountDownLatch blatch = broadcastOp(new BroadcastOpFactory() {
-            @Override
-            public Operation newOp(final MemcachedNode n, final CountDownLatch latch) {
-                final SocketAddress sa = n.getSocketAddress();
-                return ((EVCacheAsciiOperationFactory)opFact).execCmd(cmd, new ExecCmdOperation.Callback() {
-
-                    @Override
-                    public void receivedStatus(OperationStatus status) {
-                        if (log.isDebugEnabled()) log.debug("cmd : " + cmd + "; MemcachedNode : " + n + "; Status : " + status);
-                        rv.put(sa, status.getMessage());
+        Collection<MemcachedNode> nodes = null;
+        if(ips == null || ips.length == 0) {
+            nodes = mconn.getLocator().getAll();
+        } else {
+            nodes = new ArrayList<MemcachedNode>(ips.length);
+            for(String ip : ips) {
+                for(MemcachedNode node : mconn.getLocator().getAll()) {
+                    if(((InetSocketAddress)node.getSocketAddress()).getAddress().getHostAddress().equals(ip)) {
+                        nodes.add(node);
                     }
-
-                    @Override
-                    public void complete() {
-                        latch.countDown();
-                    }
-                });
+                }
             }
-        });
-        try {
-            blatch.await(operationTimeout, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            throw new RuntimeException("Interrupted waiting for stats", e);
+        }
+        if(nodes != null && !nodes.isEmpty()) {
+            CountDownLatch blatch = broadcastOp(new BroadcastOpFactory() {
+                @Override
+                public Operation newOp(final MemcachedNode n, final CountDownLatch latch) {
+                    final SocketAddress sa = n.getSocketAddress();
+                    return ((EVCacheAsciiOperationFactory)opFact).execCmd(cmd, new ExecCmdOperation.Callback() {
+    
+                        @Override
+                        public void receivedStatus(OperationStatus status) {
+                            if (log.isDebugEnabled()) log.debug("cmd : " + cmd + "; MemcachedNode : " + n + "; Status : " + status);
+                            rv.put(sa, status.getMessage());
+                        }
+    
+                        @Override
+                        public void complete() {
+                            latch.countDown();
+                        }
+                    });
+                }
+            }, nodes);
+            try {
+                blatch.await(operationTimeout, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                throw new RuntimeException("Interrupted waiting for stats", e);
+            }
         }
         return rv;
     }

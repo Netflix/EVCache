@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -1518,8 +1519,8 @@ public class EVCacheClient {
         }
     }
 
-    public Map<SocketAddress, String> execCmd(String cmd) {
-        return evcacheMemcachedClient.execCmd(cmd);
+    public Map<SocketAddress, String> execCmd(String cmd, String[] ips) {
+        return evcacheMemcachedClient.execCmd(cmd, ips);
     }
 
     public Map<SocketAddress, String> getVersions() {
