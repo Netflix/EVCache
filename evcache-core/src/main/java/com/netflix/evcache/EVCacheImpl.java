@@ -225,7 +225,7 @@ final public class EVCacheImpl implements EVCache {
                     return true;
                 }
             } catch(Exception e) {
-                incrementFastFail("EVENT_LISTENER_ERROR", event.getCall());
+                incrementEventFailure("throttle", event.getCall(), evcacheEventListener.getClass().getName());
                 if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing throttle event on listener " + evcacheEventListener + " for event " + event, e);
             }
         }
@@ -238,7 +238,7 @@ final public class EVCacheImpl implements EVCache {
             try {
                 evcacheEventListener.onStart(event);
             } catch(Exception e) {
-                incrementFastFail("EVENT_LISTENER_ERROR", event.getCall());
+                incrementEventFailure("start", event.getCall(), evcacheEventListener.getClass().getName());
                 if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing start event on listener " + evcacheEventListener + " for event " + event, e);
             }
         }
@@ -251,7 +251,7 @@ final public class EVCacheImpl implements EVCache {
             try {
                 evcacheEventListener.onComplete(event);
             } catch(Exception e) {
-                incrementFastFail("EVENT_LISTENER_ERROR", event.getCall());
+                incrementEventFailure("end", event.getCall(), evcacheEventListener.getClass().getName());
                 if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing end event on listener " + evcacheEventListener + " for event " + event, e);
             }
         }
@@ -264,7 +264,7 @@ final public class EVCacheImpl implements EVCache {
             try {
                 evcacheEventListener.onError(event, t);
             } catch(Exception e) {
-                incrementFastFail("EVENT_LISTENER_ERROR", event.getCall());
+                incrementEventFailure("error", event.getCall(), evcacheEventListener.getClass().getName());
                 if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing error event on listener " + evcacheEventListener + " for event " + event, e);
             }
         }
@@ -280,7 +280,8 @@ final public class EVCacheImpl implements EVCache {
     }
 
     private void incrementFastFail(String metric, Call call) {
-        Counter counter = counterMap.get(metric);
+        final String name = metric + call.name();
+        Counter counter = counterMap.get(name);
         if(counter == null) {
             final List<Tag> tagList = new ArrayList<Tag>(tags.size() + 3);
             tagList.addAll(tags);
@@ -303,13 +304,45 @@ final public class EVCacheImpl implements EVCache {
             }
             tagList.add(new BasicTag(EVCacheMetricsFactory.FAILURE_REASON, metric));
             counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.FAST_FAIL, tagList);
-            counterMap.put(metric, counter);
+            counterMap.put(name, counter);
+        }
+        counter.increment();
+    }
+
+    private void incrementEventFailure(String metric, Call call, String event) {
+        final String name = metric + call.name() + event;
+        Counter counter = counterMap.get(name);
+        if(counter == null) {
+            final List<Tag> tagList = new ArrayList<Tag>(tags.size() + 3);
+            tagList.addAll(tags);
+            if(call != null) {
+                final String operation = call.name();
+                final String operationType;
+                switch(call) {
+                case GET:
+                case GET_AND_TOUCH:
+                case GETL:
+                case BULK:
+                case ASYNC_GET:
+                    operationType = EVCacheMetricsFactory.READ;
+                    break;
+                default :
+                    operationType = EVCacheMetricsFactory.WRITE;
+                }
+                if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
+                if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
+            }
+            tagList.add(new BasicTag(EVCacheMetricsFactory.EVENT_STAGE, metric));
+            tagList.add(new BasicTag(EVCacheMetricsFactory.EVENT, event));
+            counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_EVENT_FAIL, tagList);
+            counterMap.put(name, counter);
         }
         counter.increment();
     }
 
     private void incrementFailure(String metric, String operation, String operationType) {
-        Counter counter = counterMap.get(metric);
+        final String name = metric + operation;
+        Counter counter = counterMap.get(name);
         if(counter == null) {
             final List<Tag> tagList = new ArrayList<Tag>(tags.size() + 3);
             tagList.addAll(tags);
@@ -317,7 +350,7 @@ final public class EVCacheImpl implements EVCache {
             if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
             tagList.add(new BasicTag(EVCacheMetricsFactory.FAILURE_REASON, metric));
             counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_FAIL, tagList);
-            counterMap.put(metric, counter);
+            counterMap.put(name, counter);
         }
         counter.increment();
     }

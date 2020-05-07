@@ -274,6 +274,7 @@ public final class EVCacheMetricsFactory {
     public static final String INTERNAL_LATCH                       = "internal.evc.client.latch";
     public static final String INTERNAL_LATCH_VERIFY                = "internal.evc.client.latch.verify";
     public static final String INTERNAL_FAIL                        = "internal.evc.client.fail";
+    public static final String INTERNAL_EVENT_FAIL                  = "internal.evc.client.event.fail";
     public static final String INTERNAL_RECONNECT                   = "internal.evc.client.reconnect";
     public static final String INTERNAL_EXECUTOR                    = "internal.evc.client.executor";
     public static final String INTERNAL_EXECUTOR_SCHEDULED          = "internal.evc.client.scheduledExecutor";
@@ -343,6 +344,8 @@ public final class EVCacheMetricsFactory {
     public static final String METRIC                           = "evc.metric";
     public static final String FAILURE_REASON                   = "evc.fail.reason";
     public static final String PREFIX                           = "evc.prefix";
+    public static final String EVENT                            = "evc.event";
+    public static final String EVENT_STAGE                      = "evc.event.stage";
 
     /**
      * Metric Tags Values  
