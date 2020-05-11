@@ -37,6 +37,7 @@ dependencies {
         compile group:"org.slf4j",                    name:"slf4j-api",                        version:"1.7.+"
         compile group:"org.apache.httpcomponents",    name:"httpclient",                       version:"latest.release"
         compile group:"joda-time",                    name:"joda-time",                        version:"latest.release"
+        compile group:"javax.annotation",             name:"javax.annotation-api",             version:"latest.release"
 
         testCompile group:"org.testng",               name:"testng",                           version:"latest.release"
         testCompile group:"com.beust",                name:"jcommander",                       version:"1.72"
