@@ -73,7 +73,7 @@ final public class EVCacheImpl implements EVCache {
     private final boolean _throwException;
 
     private final int _timeToLive; // defaults to 15 minutes
-    private final EVCacheClientPool _pool;
+    private EVCacheClientPool _pool;
 
     private final Property<Boolean> _throwExceptionFP, _zoneFallbackFP, _useInMemoryCache;
     private final Property<Boolean> _bulkZoneFallbackFP;
@@ -95,6 +95,7 @@ final public class EVCacheImpl implements EVCache {
     private DistributionSummary bulkKeysSize = null;
 
     private final Property<Integer> maxKeyLength;
+    private final Property<String> alias;
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
             boolean throwException, EVCacheClientPoolManager poolManager) {
@@ -147,6 +148,12 @@ final public class EVCacheImpl implements EVCache {
         // default max key length is 200, instead of using what is defined in MemcachedClientIF.MAX_KEY_LENGTH (250). This is to accommodate
         // auto key prepend with appname for duet feature.
         this.maxKeyLength = propertyRepository.get(_appName + ".max.key.length", Integer.class).orElseGet("evcache.max.key.length").orElse(200);
+
+        // if alias changes, refresh my pool to point to the correct alias app
+        this.alias = propertyRepository.get("EVCacheClientPoolManager." + appName + ".alias", String.class);
+        this.alias.subscribe(i -> {
+            this._pool = poolManager.getEVCacheClientPool(_appName);
+        });
 
         _pool.pingServers();
     }
