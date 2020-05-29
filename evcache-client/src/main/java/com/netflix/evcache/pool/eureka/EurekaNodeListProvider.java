@@ -35,7 +35,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
     public static final String DEFAULT_PORT = "11211";
     public static final String DEFAULT_SECURE_PORT = "11443";
 
-    private static Logger log = LoggerFactory.getLogger(EurekaNodeListProvider.class);
+    private static final Logger log = LoggerFactory.getLogger(EurekaNodeListProvider.class);
     private final EurekaClient _eurekaClient;
     private PropertyRepository props;
     private final ApplicationInfoManager applicationInfoManager;

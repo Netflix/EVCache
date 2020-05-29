@@ -69,7 +69,7 @@ import rx.Single;
         "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE" })
 public class EVCacheClient {
 
-    private static Logger log = LoggerFactory.getLogger(EVCacheClient.class);
+    private static final Logger log = LoggerFactory.getLogger(EVCacheClient.class);
     private final ConnectionFactory connectionFactory;
     private final EVCacheMemcachedClient evcacheMemcachedClient;
     private final List<InetSocketAddress> memcachedNodesInZone;

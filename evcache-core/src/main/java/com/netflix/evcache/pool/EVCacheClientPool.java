@@ -50,7 +50,7 @@ import net.spy.memcached.MemcachedNode;
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "REC_CATCH_EXCEPTION", "MDM_THREAD_YIELD" })
 public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
-    private static Logger log = LoggerFactory.getLogger(EVCacheClientPool.class);
+    private static final Logger log = LoggerFactory.getLogger(EVCacheClientPool.class);
 
     private final String _appName;
     private final String _zone;

@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 import net.spy.memcached.ops.Operation;
 
 public class EVCacheConnection extends MemcachedConnection {
-    private static Logger log = LoggerFactory.getLogger(EVCacheConnection.class);
+    private static final Logger log = LoggerFactory.getLogger(EVCacheConnection.class);
 
     public EVCacheConnection(String name, int bufSize, ConnectionFactory f,
             List<InetSocketAddress> a, Collection<ConnectionObserver> obs,

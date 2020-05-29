@@ -20,7 +20,7 @@ import net.spy.memcached.internal.OperationFuture;
 public class EVCacheFutures implements ListenableFuture<Boolean, OperationCompletionListener>,
         OperationCompletionListener {
 
-    private Logger log = LoggerFactory.getLogger(EVCacheFutures.class);
+    private static final Logger log = LoggerFactory.getLogger(EVCacheFutures.class);
     private final OperationFuture<Boolean>[] futures;
     private final String app;
     private final ServerGroup serverGroup;

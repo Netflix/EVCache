@@ -13,7 +13,7 @@ import java.util.List;
 
 public class DIEVCacheKetamaNodeLocatorConfiguration extends EVCacheKetamaNodeLocatorConfiguration {
 
-    private static Logger log = LoggerFactory.getLogger(DIEVCacheKetamaNodeLocatorConfiguration.class);
+    private static final Logger log = LoggerFactory.getLogger(DIEVCacheKetamaNodeLocatorConfiguration.class);
     private final EurekaClient eurekaClient;
 
     public DIEVCacheKetamaNodeLocatorConfiguration(EVCacheClient client, EurekaClient eurekaClient) {

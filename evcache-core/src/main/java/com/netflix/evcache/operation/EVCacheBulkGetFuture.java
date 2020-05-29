@@ -47,7 +47,7 @@ import rx.Single;
 @SuppressWarnings("restriction")
 public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
 
-    private Logger log = LoggerFactory.getLogger(EVCacheBulkGetFuture.class);
+    private static final Logger log = LoggerFactory.getLogger(EVCacheBulkGetFuture.class);
     private final Map<String, Future<T>> rvMap;
     private final Collection<Operation> ops;
     private final CountDownLatch latch;
