@@ -434,7 +434,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             if (null == duetEVCacheClients)
                 return evCacheClients;
 
-            evCacheClients.addAll(duetClientPool.getEVCacheClientsForReadExcluding(serverGroupToExclude));
+            evCacheClients.addAll(duetEVCacheClients);
         }
         return evCacheClients;
     }
