@@ -111,7 +111,7 @@ public class MetaGetOperationImpl extends EVCacheOperationImpl implements MetaGe
     @Override
     public void initialize() {
         ByteBuffer b = ByteBuffer.allocate(KeyUtil.getKeyBytes(key).length + OVERHEAD);
-        setArguments(b, "mg", key, "sfthlcv");
+        setArguments(b, "mg", key, "s f t h l c v");
         b.flip();
         setBuffer(b);
     }
