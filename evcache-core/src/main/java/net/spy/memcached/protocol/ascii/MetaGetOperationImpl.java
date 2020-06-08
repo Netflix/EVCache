@@ -13,7 +13,7 @@ import net.spy.memcached.ops.OperationStatus;
 import net.spy.memcached.ops.StatusCode;
 
 public class MetaGetOperationImpl extends EVCacheOperationImpl implements MetaGetOperation {
-    private static final Logger log = LoggerFactory.getLogger(MetaDebugOperationImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(MetaGetOperationImpl.class);
 
     private static final OperationStatus END = new OperationStatus(true, "EN", StatusCode.SUCCESS);
     private static final int OVERHEAD = 32;
@@ -34,7 +34,7 @@ public class MetaGetOperationImpl extends EVCacheOperationImpl implements MetaGe
     @Override
     public void handleLine(String line) {
         if(log.isDebugEnabled()) log.debug("meta get of {} returned {}", key, line);
-        if (line.equals("EN")) {
+        if (line.length() == 0 || line.equals("EN")) {
             getCallback().receivedStatus(END);
             transitionState(OperationState.COMPLETE);
         } else if (line.startsWith("VA")) {
@@ -42,15 +42,16 @@ public class MetaGetOperationImpl extends EVCacheOperationImpl implements MetaGe
             if(log.isDebugEnabled()) log.debug("Num of parts "+ parts.length);
             if(parts.length <= 2) return;
 
-            final char[] flags = parts[1].toCharArray();
+            int size = Integer.parseInt(parts[1]);
+            if(log.isDebugEnabled()) log.debug("Size of value in bytes : "+ size);
+            data = new byte[size];
 
             for(int i = 2; i < parts.length; i++) {
-                final char flag = flags[i-2];
-                final String val = parts[i];
+                final char flag = parts[i].charAt(0);
+                final String val = parts[i].substring(1);
                 if(log.isDebugEnabled()) log.debug("flag="+ flag + "; Val=" + val);
                 cb.gotMetaData(key, flag, val);
-                if(flag == 's') data = new byte[Integer.parseInt(val)];
-                else if(flag == 'f') currentFlag = Integer.parseInt(val);
+                if(flag == 'f') currentFlag = Integer.parseInt(val);
             }
             setReadType(OperationReadType.DATA);
         }
@@ -88,6 +89,7 @@ public class MetaGetOperationImpl extends EVCacheOperationImpl implements MetaGe
                 switch (lookingFor) {
                 case '\r':
                     lookingFor = '\n';
+                    
                     break;
                 case '\n':
                     lookingFor = '\0';
@@ -101,6 +103,8 @@ public class MetaGetOperationImpl extends EVCacheOperationImpl implements MetaGe
                 data = null;
                 readOffset = 0;
                 currentFlag = -1;
+                getCallback().receivedStatus(END);
+                transitionState(OperationState.COMPLETE);
                 getLogger().debug("Setting read type back to line.");
                 setReadType(OperationReadType.LINE);
             }
@@ -110,8 +114,9 @@ public class MetaGetOperationImpl extends EVCacheOperationImpl implements MetaGe
 
     @Override
     public void initialize() {
-        ByteBuffer b = ByteBuffer.allocate(KeyUtil.getKeyBytes(key).length + OVERHEAD);
-        setArguments(b, "mg", key, "s f t h l c v");
+    	final String flags = "s f t h l c v";
+    	final ByteBuffer b = ByteBuffer.allocate(KeyUtil.getKeyBytes(key).length + flags.length() + OVERHEAD);
+        setArguments(b, "mg", key, flags);
         b.flip();
         setBuffer(b);
     }

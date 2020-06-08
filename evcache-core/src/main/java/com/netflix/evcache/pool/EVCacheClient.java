@@ -1949,7 +1949,7 @@ public class EVCacheClient {
             } else 
                 return null;
         } else {
-            final EVCacheItem<T> obj = evcacheMemcachedClient.asyncMetaGet(key, tc, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);;
+            final EVCacheItem<T> obj = evcacheMemcachedClient.asyncMetaGet(key, tc, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
             if(log.isDebugEnabled()) log.debug("EVCacheItem : " + obj);
             return obj;
         }

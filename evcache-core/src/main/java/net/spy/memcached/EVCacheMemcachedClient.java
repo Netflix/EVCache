@@ -693,7 +693,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return rv;
     }
 
-    public <T> EVCacheOperationFuture<EVCacheItem<T>> asyncMetaGet(String key, final Transcoder<T> tc, EVCacheGetOperationListener<T> listener) {
+    public <T> EVCacheOperationFuture<EVCacheItem<T>> asyncMetaGet(final String key, final Transcoder<T> tc, EVCacheGetOperationListener<T> listener) {
         final CountDownLatch latch = new CountDownLatch(1);
 
         final EVCacheOperationFuture<EVCacheItem<T>> rv = new EVCacheOperationFuture<EVCacheItem<T>>(key, latch, new AtomicReference<EVCacheItem<T>>(null), readTimeout.get().intValue(), executorService, client);
@@ -721,7 +721,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             @Override
             public void gotMetaData(String k, char flag, String fVal) {
-                if (log.isDebugEnabled()) log.debug("key " + k + "; val : " + fVal);
+                if (log.isDebugEnabled()) log.debug("key " + k + "; val : " + fVal + "; flag : " + flag);
+                if (!key.equals(k)) {
+                    log.error("Wrong key returned. Expected Key - " + key + "; Returned Key " + k);
+                    return;
+                }
                 switch (flag) {
                 case 's':
                     evItem.getItemMetaData().setSizeInBytes(Integer.parseInt(fVal));
@@ -759,10 +763,14 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             }
 
             @Override
-            public void gotData(String key, int flag, byte[] data) {
-                if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Read data : key " + key + "; flags : " + flag + "; data : " + data);
+            public void gotData(String k, int flag, byte[] data) {
+                if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Read data : key " + k + "; flags : " + flag + "; data : " + data);
+                if (!key.equals(k)) {
+                    log.error("Wrong key returned. Expected Key - " + key + "; Returned Key " + k);
+                    return;
+                }
                 if (data != null)  {
-                    if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Key : " + key + "; val size : " + data.length);
+                    if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Key : " + k + "; val size : " + data.length);
                     getDataSizeDistributionSummary(EVCacheMetricsFactory.META_GET_OPERATION, EVCacheMetricsFactory.READ, EVCacheMetricsFactory.IPC_SIZE_INBOUND).record(data.length);
                     if (tc == null) {
                         if (tcService == null) {
@@ -783,7 +791,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                         }
                     }
                 } else {
-                    if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Key : " + key + "; val is null" );
+                    if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Key : " + k + "; val is null" );
                 }
             }
 
