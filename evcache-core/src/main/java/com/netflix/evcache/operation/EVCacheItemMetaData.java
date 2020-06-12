@@ -36,7 +36,7 @@ package com.netflix.evcache.operation;
  */
 
 public class EVCacheItemMetaData {
-    public long secondsLeftToExipre;
+    public long secondsLeftToExpire;
     public long secondsSinceLastAccess;
     public long cas;
     public boolean hasBeenFetchedAfterWrite;
@@ -47,8 +47,8 @@ public class EVCacheItemMetaData {
         super();
     }
 
-    public void setSecondsLeftToExipre(long secondsLeftToExipre) {
-        this.secondsLeftToExipre = secondsLeftToExipre;
+    public void setSecondsLeftToExpire(long secondsLeftToExpire) {
+        this.secondsLeftToExpire = secondsLeftToExpire;
     }
 
     public void setSecondsSinceLastAccess(long secondsSinceLastAccess) {
@@ -71,8 +71,8 @@ public class EVCacheItemMetaData {
         this.sizeInBytes = sizeInBytes;
     }
 
-    public long getSecondsLeftToExipre() {
-        return secondsLeftToExipre;
+    public long getSecondsLeftToExpire() {
+        return secondsLeftToExpire;
     }
 
     public long getSecondsSinceLastAccess() {
@@ -101,7 +101,7 @@ public class EVCacheItemMetaData {
         int result = 1;
         result = prime * result + (int) (cas ^ (cas >>> 32));
         result = prime * result + (hasBeenFetchedAfterWrite ? 1231 : 1237);
-        result = prime * result + (int) (secondsLeftToExipre ^ (secondsLeftToExipre >>> 32));
+        result = prime * result + (int) (secondsLeftToExpire ^ (secondsLeftToExpire >>> 32));
         result = prime * result + (int) (secondsSinceLastAccess ^ (secondsSinceLastAccess >>> 32));
         result = prime * result + sizeInBytes;
         result = prime * result + slabClass;
@@ -121,7 +121,7 @@ public class EVCacheItemMetaData {
             return false;
         if (hasBeenFetchedAfterWrite != other.hasBeenFetchedAfterWrite)
             return false;
-        if (secondsLeftToExipre != other.secondsLeftToExipre)
+        if (secondsLeftToExpire != other.secondsLeftToExpire)
             return false;
         if (secondsSinceLastAccess != other.secondsSinceLastAccess)
             return false;
@@ -134,7 +134,7 @@ public class EVCacheItemMetaData {
 
     @Override
     public String toString() {
-        return "EVCacheItemMetaData [secondsLeftToExipre=" + secondsLeftToExipre + ", secondsSinceLastAccess="
+        return "EVCacheItemMetaData [secondsLeftToExpire=" + secondsLeftToExpire + ", secondsSinceLastAccess="
                 + secondsSinceLastAccess + ", cas=" + cas + ", hasBeenFetchedAfterWrite=" + hasBeenFetchedAfterWrite
                 + ", slabClass=" + slabClass + ", sizeInBytes=" + sizeInBytes + "]";
     }

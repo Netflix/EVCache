@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.operation.EVCacheItem;
+import com.netflix.evcache.operation.EVCacheItemMetaData;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.util.EVCacheConfig;
 
@@ -516,7 +517,29 @@ public interface EVCache {
     <T> T get(String key, Transcoder<T> tc) throws EVCacheException;
 
     /**
-     * Retrieve the value for the given a key using the specified Transcoder for
+     * Retrieve the meta data for the given a key 
+     *
+     * @param key
+     *            key to get. Ensure the key is properly encoded and does not
+     *            contain whitespace or control characters. The max length of the key (including prefix)
+     *            is 250 characters.
+     * @return the metadata for the given key from the cache (null if there is
+     *         none).
+     * @throws EVCacheException
+     *             in the rare circumstance where queue is too full to accept
+     *             any more requests or issues during deserialization or any IO
+     *             Related issues
+     *
+     *             Note: If the data is replicated by zone, then we can the
+     *             value from the zone local to the client. If we cannot find
+     *             this value then null is returned. This is transparent to the
+     *             users.
+     */
+    EVCacheItemMetaData metaDebug(String key) throws EVCacheException;
+
+
+    /**
+     * Retrieve the value & its metadata for the given a key using the specified Transcoder for
      * deserialization.
      *
      * @param key
@@ -526,7 +549,7 @@ public interface EVCache {
      * @param tc
      *            the Transcoder to deserialize the data
      * @return the Value for the given key from the cache (null if there is
-     *         none).
+     *         none) and its metadata all encpsulated in EVCacheItem.
      * @throws EVCacheException
      *             in the rare circumstance where queue is too full to accept
      *             any more requests or issues during deserialization or any IO

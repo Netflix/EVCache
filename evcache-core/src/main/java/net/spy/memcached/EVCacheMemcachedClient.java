@@ -625,7 +625,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             public void debugInfo(String k, String val) {
                 if (log.isDebugEnabled()) log.debug("key " + k + "; val : " + val);
-                if(k.equals("exp")) rv.setSecondsLeftToExipre(Long.parseLong(val) * -1);
+                if(k.equals("exp")) rv.setSecondsLeftToExpire(Long.parseLong(val) * -1);
                 else if(k.equals("la")) rv.setSecondsSinceLastAccess(Long.parseLong(val));
                 else if(k.equals("cas")) rv.setCas(Long.parseLong(val));
                 else if(k.equals("fetch")) rv.setHasBeenFetchedAfterWrite(Boolean.parseBoolean(val));
@@ -753,7 +753,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
                 case 't':
                     final int ttlLeft = Integer.parseInt(fVal);
-                    evItem.getItemMetaData().setSecondsLeftToExipre(ttlLeft);
+                    evItem.getItemMetaData().setSecondsLeftToExpire(ttlLeft);
                     getDataSizeDistributionSummary(EVCacheMetricsFactory.META_GET_OPERATION, EVCacheMetricsFactory.READ, EVCacheMetricsFactory.INTERNAL_TTL).record(ttlLeft);
                     break;
 
