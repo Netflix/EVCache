@@ -527,15 +527,16 @@ public interface EVCache {
      *         none).
      * @throws EVCacheException
      *             in the rare circumstance where queue is too full to accept
-     *             any more requests or issues during deserialization or any IO
+     *             any more requests or issues due IO
      *             Related issues
      *
-     *             Note: If the data is replicated by zone, then we can the
-     *             value from the zone local to the client. If we cannot find
-     *             this value then null is returned. This is transparent to the
-     *             users.
+     *             Note: If the data is replicated by zone, then we get the metadata
+     *             from the zone local to the client. If we cannot find
+     *             the value then we try other zones, If all are unsuccessful then null is returned. 
      */
-    EVCacheItemMetaData metaDebug(String key) throws EVCacheException;
+    default EVCacheItemMetaData metaDebug(String key) throws EVCacheException {
+    	throw new EVCacheException("Default implementation. If you are implementing EVCache interface you need to implement this method.");
+    }
 
 
     /**
@@ -549,7 +550,7 @@ public interface EVCache {
      * @param tc
      *            the Transcoder to deserialize the data
      * @return the Value for the given key from the cache (null if there is
-     *         none) and its metadata all encpsulated in EVCacheItem.
+     *         none) and its metadata all encapsulated in EVCacheItem.
      * @throws EVCacheException
      *             in the rare circumstance where queue is too full to accept
      *             any more requests or issues during deserialization or any IO
@@ -557,10 +558,11 @@ public interface EVCache {
      *
      *             Note: If the data is replicated by zone, then we can the
      *             value from the zone local to the client. If we cannot find
-     *             this value then null is returned. This is transparent to the
-     *             users.
+     *             this value we retry other zones, if still not found, then null is returned. 
      */
-    <T> EVCacheItem<T> metaGet(String key, Transcoder<T> tc) throws EVCacheException;
+    default <T> EVCacheItem<T> metaGet(String key, Transcoder<T> tc) throws EVCacheException {
+    	throw new EVCacheException("Default implementation. If you are implementing EVCache interface you need to implement this method.");
+    }
 
 
     /**
