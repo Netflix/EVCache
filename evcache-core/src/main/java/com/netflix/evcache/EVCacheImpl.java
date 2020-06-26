@@ -2,6 +2,7 @@ package com.netflix.evcache;
 
 import static com.netflix.evcache.util.Sneaky.sneakyThrow;
 
+import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,6 +18,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,7 +66,7 @@ import rx.Single;
 @SuppressWarnings("unchecked")
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "WMI_WRONG_MAP_ITERATOR",
     "DB_DUPLICATE_BRANCHES", "REC_CATCH_EXCEPTION","RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE" })
-final public class EVCacheImpl implements EVCache {
+final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheImpl.class);
 
@@ -157,7 +161,26 @@ final public class EVCacheImpl implements EVCache {
         });
 
         _pool.pingServers();
+        
+        setupMonitoring();
     }
+    
+    private void setupMonitoring() {
+        try {
+            final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + _appName
+                    + ",SubGroup=Impl");
+            final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+            if (mbeanServer.isRegistered(mBeanName)) {
+                if (log.isDebugEnabled()) log.debug("MBEAN with name " + mBeanName + " has been registered. Will unregister the previous instance and register a new one.");
+                mbeanServer.unregisterMBean(mBeanName);
+            }
+            mbeanServer.registerMBean(this, mBeanName);
+        } catch (Exception e) {
+            if (log.isDebugEnabled()) log.debug("Exception", e);
+        }
+    }
+
+    
 
     EVCacheKey getEVCacheKey(final String key) {
         if(key == null || key.length() == 0) throw new NullPointerException("Key cannot be null or empty");

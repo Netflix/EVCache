@@ -179,7 +179,12 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
         this._pingServers = config.getPropertyRepository().get(appName + ".ping.servers", Boolean.class).orElseGet("evcache.ping.servers").orElse(false);
         setupMonitoring();
+        
+        //init all callbacks
         refreshPool(false, true);
+        setupDuet();
+        setupClones();
+
         if (log.isInfoEnabled()) log.info(toString());
     }
 
@@ -498,22 +503,27 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public EVCacheClient[] getWriteOnlyEVCacheClients() {
-        EVCacheClient[] evCacheClients = getWriteOnlyEVCacheClientsInternal();
-        if (duetClientPool != null) {
-            EVCacheClient[] duetEVCacheClients = duetClientPool.getWriteOnlyEVCacheClients();
-
-            // common scenario for duet usage
-            if (null == evCacheClients || evCacheClients.length == 0) {
-                return duetEVCacheClients;
-            }
-
-            if (null != duetEVCacheClients && duetEVCacheClients.length > 0) {
-                EVCacheClient[] allEVCacheClients = Arrays.copyOf(evCacheClients, evCacheClients.length + duetEVCacheClients.length);
-                System.arraycopy(duetEVCacheClients, 0, allEVCacheClients, evCacheClients.length, duetEVCacheClients.length);
-                return allEVCacheClients;
-            }
-        }
-        return evCacheClients;
+    	EVCacheClient[] evCacheClients = null;
+    	try {
+	    	evCacheClients = getWriteOnlyEVCacheClientsInternal();
+	        if (duetClientPool != null) {
+	            EVCacheClient[] duetEVCacheClients = duetClientPool.getWriteOnlyEVCacheClients();
+	
+	            // common scenario for duet usage
+	            if (null == evCacheClients || evCacheClients.length == 0) {
+	                return duetEVCacheClients;
+	            }
+	
+	            if (null != duetEVCacheClients && duetEVCacheClients.length > 0) {
+	                EVCacheClient[] allEVCacheClients = Arrays.copyOf(evCacheClients, evCacheClients.length + duetEVCacheClients.length);
+	                System.arraycopy(duetEVCacheClients, 0, allEVCacheClients, evCacheClients.length, duetEVCacheClients.length);
+	                return allEVCacheClients;
+	            }
+	        }
+	        return evCacheClients;
+    	} finally {
+    		if(evCacheClients == null) return new EVCacheClient[0];
+    	}
     }
 
     EVCacheClient[] getAllWriteClients() {
@@ -535,6 +545,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     }
                 } 
                 if (log.isDebugEnabled()) log.debug("clientArray : " + clientArray);
+                if(clientArray == null ) return new EVCacheClient[0]; 
                 return clientArray;
             }
             final EVCacheClient[] clientArr = new EVCacheClient[memcachedWriteInstancesByServerGroup.size()];
@@ -549,6 +560,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     clientArr[i++] = (index < 0) ? clients.get(0) : clients.get(index);
                 }
             }
+            if(clientArr == null ) return new EVCacheClient[0]; 
             return clientArr;
         } catch (Throwable t) {
             log.error("Exception trying to get an array of writable EVCache Instances", t);
@@ -582,22 +594,27 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public EVCacheClient[] getEVCacheClientForWrite() {
-        EVCacheClient[] evCacheClients = getEVCacheClientForWriteInternal();
-        if (duetClientPool != null) {
-            EVCacheClient[] duetEVCacheClients = duetClientPool.getEVCacheClientForWrite();
-
-            // common scenario for duet usage
-            if (null == evCacheClients || evCacheClients.length == 0) {
-            	return new EVCacheClient[0];
-            }
-
-            if (null != duetEVCacheClients && duetEVCacheClients.length > 0) {
-                EVCacheClient[] allEVCacheClients = Arrays.copyOf(evCacheClients, evCacheClients.length + duetEVCacheClients.length);
-                System.arraycopy(duetEVCacheClients, 0, allEVCacheClients, evCacheClients.length, duetEVCacheClients.length);
-                return allEVCacheClients;
-            }
-        }
-        return evCacheClients;
+    	EVCacheClient[] evCacheClients = null; 
+    	try {
+	        evCacheClients = getEVCacheClientForWriteInternal();
+	        if (duetClientPool != null) {
+	            EVCacheClient[] duetEVCacheClients = duetClientPool.getEVCacheClientForWrite();
+	
+	            // common scenario for duet usage
+	            if (null == evCacheClients || evCacheClients.length == 0) {
+	                return duetEVCacheClients;
+	            }
+	
+	            if (null != duetEVCacheClients && duetEVCacheClients.length > 0) {
+	                EVCacheClient[] allEVCacheClients = Arrays.copyOf(evCacheClients, evCacheClients.length + duetEVCacheClients.length);
+	                System.arraycopy(duetEVCacheClients, 0, allEVCacheClients, evCacheClients.length, duetEVCacheClients.length);
+	                return allEVCacheClients;
+	            }
+	        }
+	        return evCacheClients;
+    	} finally {
+    		if(evCacheClients == null) return new EVCacheClient[0];
+    	}
     }
 
     private void refresh() throws IOException {
