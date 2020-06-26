@@ -588,7 +588,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
             // common scenario for duet usage
             if (null == evCacheClients || evCacheClients.length == 0) {
-                return duetEVCacheClients;
+            	return new EVCacheClient[0];
             }
 
             if (null != duetEVCacheClients && duetEVCacheClients.length > 0) {
