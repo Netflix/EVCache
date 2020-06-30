@@ -1576,30 +1576,30 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final Map<String, T> decanonicalR = new HashMap<String, T>((keys.size() * 4) / 3 + 1);
         final Collection<EVCacheKey> evcKeys = new ArrayList<EVCacheKey>();
         /* Canonicalize keys and perform fast failure checking */
-        if (_useInMemoryCache.get()) {
-	        for (String k : keys) {
-	            final EVCacheKey evcKey = getEVCacheKey(k);
-	            T value = null;
+        for (String k : keys) {
+            final EVCacheKey evcKey = getEVCacheKey(k);
+            T value = null;
+            if (_useInMemoryCache.get()) {
                 try {
                     final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) _pool.getEVCacheClientForRead().getTranscoder() : (Transcoder<T>) _transcoder) : tc;
                     value = (T) getInMemoryCache(transcoder).get(evcKey);
+                    if(value == null)  if (log.isInfoEnabled() && shouldLog()) log.info("Value not_found in inmemory cache for APP " + _appName + ", key : " + evcKey + "; value : " + value );
                 } catch (ExecutionException e) {
                     if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
                     throw new EVCacheException("ExecutionException", e);
                 }
-	            if(value == null) {
-	                evcKeys.add(evcKey);
-	                if (log.isInfoEnabled() && shouldLog()) log.info("Value not_found in inmemory cache for APP " + _appName + ", key : " + evcKey + "; value : " + value );
-	            } else {
-	                decanonicalR.put(evcKey.getKey(), value);
-	                if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + evcKey + (log.isTraceEnabled() ? "; value : " + value : ""));
-	            }
-	        }
-
-	        if(evcKeys.size() == 0 && decanonicalR.size() == keys.size()) {
-	            if (log.isDebugEnabled() && shouldLog()) log.debug("All Values retrieved from inmemory cache for APP " + _appName + ", keys : " + keys + (log.isTraceEnabled() ? "; value : " + decanonicalR : ""));
-	            return decanonicalR;
-	        }
+            }
+            if(value == null) {
+                evcKeys.add(evcKey);
+            } else {
+                decanonicalR.put(evcKey.getKey(), value);
+                if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + evcKey + (log.isTraceEnabled() ? "; value : " + value : ""));
+            }
+        }
+        
+        if(evcKeys.size() == 0 && decanonicalR.size() == keys.size()) {
+        	if (log.isDebugEnabled() && shouldLog()) log.debug("All Values retrieved from inmemory cache for APP " + _appName + ", keys : " + keys + (log.isTraceEnabled() ? "; value : " + decanonicalR : ""));
+        	return decanonicalR;
         }
 
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Call.BULK);
