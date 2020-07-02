@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.archaius.api.Property;
 import com.netflix.archaius.api.PropertyRepository;
+import com.netflix.evcache.EVCache.Call;
 import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.event.EVCacheEvent;
@@ -1524,8 +1525,14 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                             tVal = tc.decode(cd);
                         }
                         final EVCacheKey evcKey = keyMap.get(i.getKey());
-                        if (log.isDebugEnabled() && shouldLog()) log.debug("APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
-                        retMap.put(evcKey, tVal);
+                        if(evcKey.getCanonicalKey(client.isDuetClient()).equals(val.getKey())) {
+                            if (log.isDebugEnabled() && shouldLog()) log.debug("APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
+                            retMap.put(evcKey, tVal);
+                        	
+                        } else {
+                            if (log.isDebugEnabled() && shouldLog()) log.debug("CACHE COLLISION : APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
+                            incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.BULK.name(), EVCacheMetricsFactory.READ);
+                        }
                     } else {
                         final EVCacheKey evcKey = keyMap.get(i.getKey());
                         if (log.isDebugEnabled() && shouldLog()) log.debug("APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);

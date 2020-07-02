@@ -1050,17 +1050,21 @@ public class EVCacheClient {
                 returnVal = assembleChunks(_canonicalKeys, tc, hasZF);
             } else if(shouldHashKey()) {
                 final Collection<String> hashKeys = new ArrayList<String>(canonicalKeys.size());
+                returnVal = new HashMap<String, T>(canonicalKeys.size());
                 for(String cKey : canonicalKeys) {
                     final String hKey = getHashedKey(cKey);
                     hashKeys.add(hKey);
+                    returnVal.put(cKey, null);
                 }
                 final Map<String, Object> vals = evcacheMemcachedClient.asyncGetBulk(hashKeys, evcacheValueTranscoder, null).getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
                 if(vals != null && !vals.isEmpty()) {
-                    returnVal = new HashMap<String, T>(vals.size());
                     for(Entry<String, Object> entry : vals.entrySet()) {
                         final Object obj = entry.getValue();
                         if(obj instanceof EVCacheValue) {
                             final EVCacheValue val = (EVCacheValue)obj;
+                            if(val == null || !(returnVal.containsKey(val.getKey()))) {
+                                incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.BULK);
+                            }                            
                             final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
                             if(tc == null) {
                                 returnVal.put(val.getKey(), (T)evcacheMemcachedClient.getTranscoder().decode(cd));
@@ -1094,18 +1098,22 @@ public class EVCacheClient {
                 return assembleChunks(_canonicalKeys, tc, hasZF, scheduler);
             } else if(shouldHashKey()) {
                 final Collection<String> hashKeys = new ArrayList<String>(canonicalKeys.size());
+                final HashMap<String, T> returnVal = new HashMap<String, T>();
                 for(String cKey : canonicalKeys) {
                     final String hKey = getHashedKey(cKey);
                     hashKeys.add(hKey);
+                    returnVal.compute(cKey, null);
                 }
                 final Single<Map<String, Object>> vals = evcacheMemcachedClient.asyncGetBulk(hashKeys, evcacheValueTranscoder, null).getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF, scheduler);
                 if(vals != null ) {
                     return vals.flatMap(r -> {
-                        HashMap<String, T> returnVal = new HashMap<String, T>();
                         for(Entry<String, Object> entry : r.entrySet()) {
                             final Object obj = entry.getValue();
                             if(obj instanceof EVCacheValue) {
                                 final EVCacheValue val = (EVCacheValue)obj;
+                                if(val == null || !(returnVal.containsKey(val.getKey()))) {
+                                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.BULK);
+                                }
                                 final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
                                 if(tc == null) {
                                     returnVal.put(val.getKey(), (T)evcacheMemcachedClient.getTranscoder().decode(cd));
