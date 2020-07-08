@@ -28,20 +28,25 @@ public class EVCacheClientUtil {
     /**
      * TODO : once metaget is available we need to get the remaining ttl from an existing entry and use it 
      */
-    public EVCacheLatch add(EVCacheKey evcKey, CachedData cd, boolean shouldHashKey, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy) throws Exception {
+    public EVCacheLatch add(EVCacheKey evcKey, final CachedData cd, boolean shouldHashKey, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy) throws Exception {
         if (cd == null) return null; 
         
         final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
 
+        CachedData cd1 = null;
         Boolean firstStatus = null;
         for (EVCacheClient client : clients) {
             String key = evcKey.getDerivedKey(client.isDuetClient());
             if (shouldHashKey) {
-                final EVCacheValue val = new EVCacheValue(evcKey.getCanonicalKey(client.isDuetClient()), cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
-                cd = evcacheValueTranscoder.encode(val);
+            	if(cd1 == null) {
+	                final EVCacheValue val = new EVCacheValue(evcKey.getCanonicalKey(client.isDuetClient()), cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
+	                cd1 = evcacheValueTranscoder.encode(val);
+            	}
+            } else {
+            	cd1 = cd;
             }
-            final Future<Boolean> f = client.add(key, timeToLive, cd, latch);
+            final Future<Boolean> f = client.add(key, timeToLive, cd1, latch);
             if (log.isDebugEnabled()) log.debug("ADD : Op Submitted : APP " + _appName + ", key " + key + "; future : " + f + "; client : " + client);
             boolean status = f.get().booleanValue();
             if(!status) { // most common case
