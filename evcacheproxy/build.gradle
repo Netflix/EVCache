@@ -43,7 +43,6 @@ dependencies {
  buildDeb {
     requires('nflx-ezconfig')
     requires('apache-tomcat8')
-    requires('nflx-rend-http')
 }
 
 eclipse {
