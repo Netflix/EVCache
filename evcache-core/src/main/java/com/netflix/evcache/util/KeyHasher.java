@@ -13,7 +13,6 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 
 public class KeyHasher {
-
     /**
      * meta data size 
      * 40 + key + 'item_hdr' size
@@ -24,9 +23,30 @@ And if client flags are present:
 And if CAS and client flags are present:
 40 + keysize + 4 bytes(for flags) + 8(for CAS) + 12
      */
-    
-    
-    
+
+    public enum HashingAlgorithm {
+        murmur3,
+        adler32,
+        crc32,
+        sha1,
+        sha256,
+        siphash24,
+        goodfasthash,
+        md5
+    }
+
+    public static HashingAlgorithm getHashingAlgorithmFromString(String algorithmStr) {
+        try {
+            if (null == algorithmStr || algorithmStr.isEmpty()) {
+                return null;
+            }
+            return HashingAlgorithm.valueOf(algorithmStr.toLowerCase());
+        } catch (IllegalArgumentException ex) {
+            // default to md5 incase of unsupported algorithm
+            return HashingAlgorithm.md5;
+        }
+    }
+
     private static final Logger log = LoggerFactory.getLogger(KeyHasher.class);
     private static final Encoder encoder= Base64.getEncoder().withoutPadding();
 
@@ -45,40 +65,40 @@ And if CAS and client flags are present:
 //        }
 //    }
 
-    public static String getHashedKey(String key, String hashingAlgorithm) {
+    public static String getHashedKey(String key, HashingAlgorithm hashingAlgorithm) {
         final long start = System.nanoTime();
-        HashFunction hf = null; 
-        switch(hashingAlgorithm.toLowerCase()) {
-            case "murmur3" :
+        HashFunction hf = null;
+        switch (hashingAlgorithm) {
+            case murmur3:
                 hf = Hashing.murmur3_128();
                 break;
-    
-            case "adler32" :
+
+            case adler32:
                 hf = Hashing.adler32();
                 break;
-    
-            case "crc32" :
+
+            case crc32:
                 hf = Hashing.crc32();
                 break;
-    
-            case "sha1" :
+
+            case sha1:
                 hf = Hashing.sha1();
                 break;
-    
-            case "sha256" :
+
+            case sha256:
                 hf = Hashing.sha256();
                 break;
-    
-            case "siphash24" :
+
+            case siphash24:
                 hf = Hashing.sipHash24();
                 break;
 
-            case "goodfasthash" :
+            case goodfasthash:
                 hf = Hashing.goodFastHash(128);
                 break;
-    
-            case "md5" :
-            default :
+
+            case md5:
+            default:
                 hf = Hashing.md5();
                 break;
         }
