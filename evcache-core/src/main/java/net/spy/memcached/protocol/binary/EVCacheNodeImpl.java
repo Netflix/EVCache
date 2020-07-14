@@ -325,4 +325,9 @@ public class EVCacheNodeImpl extends BinaryMemcachedNodeImpl implements EVCacheN
     public String getConnectTime() {
         return ISODateTimeFormat.dateTime().print(stTime);
     }
+
+	@Override
+	public EVCacheClient getEVCacheClient() {
+		return client;
+	}
 }
