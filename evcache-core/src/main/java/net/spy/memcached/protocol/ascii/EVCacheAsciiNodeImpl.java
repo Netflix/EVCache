@@ -230,4 +230,8 @@ public class EVCacheAsciiNodeImpl extends TCPMemcachedNodeImpl implements EVCach
   }
   
   
+	@Override
+	public EVCacheClient getEVCacheClient() {
+		return client;
+	}
 }
