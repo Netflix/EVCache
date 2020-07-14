@@ -1,5 +1,6 @@
 package com.netflix.evcache.util;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Base64.Encoder;
@@ -65,8 +66,23 @@ And if CAS and client flags are present:
 //        }
 //    }
 
-    public static String getHashedKey(String key, HashingAlgorithm hashingAlgorithm) {
+    public static String getHashedKeyEncoded(String key, HashingAlgorithm hashingAlgorithm, Integer maxHashingBytes) {
         final long start = System.nanoTime();
+        byte[] digest = getHashedKey(key, hashingAlgorithm, maxHashingBytes);
+        if(log.isDebugEnabled()) log.debug("Key : " + key +"; digest length : " + digest.length + "; byte Array contents : " + Arrays.toString(digest) );
+        final String hKey = encoder.encodeToString(digest);
+        if(log.isDebugEnabled()) log.debug("Key : " + key +"; Hashed & encoded key : " + hKey + "; Took " + (System.nanoTime() - start) + " nanos");
+        return hKey;
+    }
+
+    public static byte[] getHashedKeyInBytes(String key, HashingAlgorithm hashingAlgorithm, Integer maxHashingBytes) {
+        final long start = System.nanoTime();
+        byte[] digest = getHashedKey(key, hashingAlgorithm, maxHashingBytes);
+        if(log.isDebugEnabled()) log.debug("Key : " + key +"; digest length : " + digest.length + "; byte Array contents : " + Arrays.toString(digest) + "; Took " + (System.nanoTime() - start) + " nanos");
+        return digest;
+    }
+
+    private static byte[] getHashedKey(String key, HashingAlgorithm hashingAlgorithm, Integer maxHashingBytes) {
         HashFunction hf = null;
         switch (hashingAlgorithm) {
             case murmur3:
@@ -105,9 +121,11 @@ And if CAS and client flags are present:
 
         final HashCode hc = hf.newHasher().putString(key, Charsets.UTF_8).hash();
         final byte[] digest = hc.asBytes();
-        if(log.isDebugEnabled()) log.debug("Key : " + key +"; digest length : " + digest.length + "; byte Array contents : " + Arrays.toString(digest) );
-        final String hKey = encoder.encodeToString(digest);
-        if(log.isDebugEnabled()) log.debug("Key : " + key +"; Hashed & encoded key : " + hKey + "; Took " + (System.nanoTime() - start) + " nanos");
-        return hKey;
+
+        if (maxHashingBytes != null && maxHashingBytes > 0 && maxHashingBytes < digest.length) {
+            return Arrays.copyOfRange(digest, 0, maxHashingBytes);
+        }
+
+        return digest;
     }
 }

@@ -40,7 +40,7 @@ public class EVCacheTracingEventListenerUnitTests {
     when(mockEVCacheEvent.getAppName()).thenReturn("dummyAppName");
     when(mockEVCacheEvent.getCacheName()).thenReturn("dummyCacheName");
     when(mockEVCacheEvent.getEVCacheKeys())
-        .thenReturn(Arrays.asList(new EVCacheKey("dummyAppName", "dummyKey", "dummyCanonicalKey", null)));
+        .thenReturn(Arrays.asList(new EVCacheKey("dummyAppName", "dummyKey", "dummyCanonicalKey", null, null, null)));
     when(mockEVCacheEvent.getStatus()).thenReturn("success");
     when(mockEVCacheEvent.getDurationInMillis()).thenReturn(1L);
     when(mockEVCacheEvent.getTTL()).thenReturn(0);

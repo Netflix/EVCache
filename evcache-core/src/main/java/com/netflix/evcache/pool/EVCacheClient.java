@@ -89,6 +89,8 @@ public class EVCacheClient {
     private final Property<Boolean> ignoreInactiveNodes;
     private final Property<Boolean> enableChunking;
     private final Property<Boolean> hashKeyByServerGroup;
+    private final Property<Boolean> shouldEncodeHashKey;
+    private final Property<Integer> maxHashingBytes;
     private final Property<Integer> chunkSize, writeBlock;
     private final ChunkTranscoder chunkingTranscoder;
     private final SerializingTranscoder decodingTranscoder;
@@ -148,6 +150,8 @@ public class EVCacheClient {
 
         this.hashKeyByServerGroup = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.key", Boolean.class).orElse(false);
         this.hashingAlgo = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.algo", String.class).orElseGet(appName + ".hash.algo").orElse("siphash24");
+        this.shouldEncodeHashKey = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.encode", Boolean.class).orElse(null);
+        this.maxHashingBytes = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.max.bytes", Integer.class).orElse(null);
         ping();
     }
 
@@ -164,6 +168,14 @@ public class EVCacheClient {
     
     public boolean isDuetClient() {
         return isDuetClient;
+    }
+
+    public Boolean shouldEncodeHashKey() {
+        return this.shouldEncodeHashKey.get();
+    }
+
+    public Integer getMaxHashingBytes() {
+        return this.maxHashingBytes.get();
     }
 
     private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys, EVCache.Call call) throws EVCacheException {
@@ -1042,7 +1054,7 @@ public class EVCacheClient {
         }
     }
 
-    protected boolean shouldHashKey() {
+    private boolean shouldHashKey() {
         return hashKeyByServerGroup.get();
     }
 
