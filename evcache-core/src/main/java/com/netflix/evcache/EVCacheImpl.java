@@ -1986,6 +1986,11 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             CachedData cd = null;
             int index = 0;
             for (EVCacheClient client : clients) {
+                // ensure key hashing is not enabled
+                if (evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()) != null) {
+                    throw new IllegalArgumentException("append is not supported when key hashing is enabled.");
+                }
+
                 if (cd == null) {
                     if (tc != null) {
                         cd = tc.encode(value);
@@ -2442,6 +2447,11 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         try {
             CachedData cd = null;
             for (EVCacheClient client : clients) {
+                // ensure key hashing is not enabled
+                if (evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()) != null) {
+                    throw new IllegalArgumentException("appendOrAdd is not supported when key hashing is enabled.");
+                }
+
                 if (cd == null) {
                     if (tc != null) {
                         cd = tc.encode(value);
