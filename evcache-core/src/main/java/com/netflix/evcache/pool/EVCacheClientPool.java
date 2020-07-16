@@ -70,6 +70,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     // name of the duet EVCache application, if applicable.
     private final Property<String> duet;
+    // indicates if duet needs to be primary
+    private final Property<Boolean> duetPrimary;
     // evCacheClientPool of the duet EVCache application, if applicable. Supports daisy chaining.
     private EVCacheClientPool duetClientPool;
 
@@ -174,6 +176,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             setupDuet();
         });
 
+        this.duetPrimary = config.getPropertyRepository().get(appName + ".duet.primary", Boolean.class).orElseGet("evcache.duet.primary").orElse(false);
+
         tagList = new ArrayList<Tag>(2);
         EVCacheMetricsFactory.getInstance().addAppNameTags(tagList, _appName);
 
@@ -251,11 +255,20 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     public EVCacheClient getEVCacheClientForRead() {
         EVCacheClient evCacheClient = getEVCacheClientForReadInternal();
 
-        if (evCacheClient != null) {
+        // most common production scenario
+        if (null == duetClientPool) {
             return evCacheClient;
         }
 
-        return duetClientPool != null ? duetClientPool.getEVCacheClientForRead() : null;
+        // return duet if current client is not available or if duet is primary
+        if (null == evCacheClient || duetPrimary.get()) {
+            EVCacheClient duetClient = duetClientPool.getEVCacheClientForRead();
+
+            // if duetClient is not present, fallback to evCacheClient
+            return null == duetClient ? evCacheClient : duetClient;
+        }
+
+        return evCacheClient;
     }
 
     private List<EVCacheClient> getAllEVCacheClientForReadInternal() {
@@ -288,17 +301,26 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     public List<EVCacheClient> getAllEVCacheClientForRead() {
         List<EVCacheClient> evCacheClients = getAllEVCacheClientForReadInternal();
-        if (duetClientPool != null) {
-            List<EVCacheClient> duetEVCacheClients = duetClientPool.getAllEVCacheClientForRead();
-            if (null == evCacheClients)
-                return duetEVCacheClients;
 
-            if (null == duetEVCacheClients)
-                return evCacheClients;
-
-            evCacheClients.addAll(duetClientPool.getAllEVCacheClientForRead());
+        // most common production scenario
+        if (null == duetClientPool) {
+            return evCacheClients;
         }
-        return evCacheClients;
+
+        List<EVCacheClient> duetEVCacheClients = duetClientPool.getAllEVCacheClientForRead();
+        if (null == evCacheClients)
+            return duetEVCacheClients;
+
+        if (null == duetEVCacheClients)
+            return evCacheClients;
+
+        if (duetPrimary.get()) {
+            duetEVCacheClients.addAll(evCacheClients);
+            return duetEVCacheClients;
+        } else {
+            evCacheClients.addAll(duetEVCacheClients);
+            return evCacheClients;
+        }
     }
 
     private EVCacheClient selectClient(List<EVCacheClient> clients) {
@@ -340,11 +362,20 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     public EVCacheClient getEVCacheClientForReadExclude(ServerGroup rsetUsed) {
         EVCacheClient evCacheClient = getEVCacheClientForReadExcludeInternal(rsetUsed);
 
-        if (evCacheClient != null) {
+        // most common production scenario
+        if (null == duetClientPool) {
             return evCacheClient;
         }
 
-        return duetClientPool != null ? duetClientPool.getEVCacheClientForReadExclude(rsetUsed) : null;
+        // return duet if current client is not available or if duet is primary
+        if (null == evCacheClient || duetPrimary.get()) {
+            EVCacheClient duetClient = duetClientPool.getEVCacheClientForReadExclude(rsetUsed);
+
+            // if duetClient is not present, fallback to evCacheClient
+            return null == duetClient ? evCacheClient : duetClient;
+        }
+
+        return evCacheClient;
     }
 
     private EVCacheClient getEVCacheClientInternal(ServerGroup serverGroup) {
@@ -374,11 +405,20 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     public EVCacheClient getEVCacheClient(ServerGroup serverGroup) {
         EVCacheClient evCacheClient = getEVCacheClientInternal(serverGroup);
 
-        if (evCacheClient != null) {
+        // most common production scenario
+        if (null == duetClientPool) {
             return evCacheClient;
         }
 
-        return duetClientPool != null ? duetClientPool.getEVCacheClient(serverGroup) : null;
+        // return duet if current client is not available or if duet is primary
+        if (null == evCacheClient || duetPrimary.get()) {
+            EVCacheClient duetClient = duetClientPool.getEVCacheClient(serverGroup);
+
+            // if duetClient is not present, fallback to evCacheClient
+            return null == duetClient ? evCacheClient : duetClient;
+        }
+
+        return evCacheClient;
     }
 
     private List<EVCacheClient> getEVCacheClientsForReadExcludingInternal(ServerGroup serverGroupToExclude) {
@@ -431,17 +471,26 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     public List<EVCacheClient> getEVCacheClientsForReadExcluding(ServerGroup serverGroupToExclude) {
         List<EVCacheClient> evCacheClients = getEVCacheClientsForReadExcludingInternal(serverGroupToExclude);
-        if (duetClientPool != null) {
-            List<EVCacheClient> duetEVCacheClients = duetClientPool.getEVCacheClientsForReadExcluding(serverGroupToExclude);
-            if (null == evCacheClients)
-                return duetEVCacheClients;
 
-            if (null == duetEVCacheClients)
-                return evCacheClients;
-
-            evCacheClients.addAll(duetEVCacheClients);
+        // most common production scenario
+        if (null == duetClientPool) {
+            return evCacheClients;
         }
-        return evCacheClients;
+
+        List<EVCacheClient> duetEVCacheClients = duetClientPool.getEVCacheClientsForReadExcluding(serverGroupToExclude);
+        if (null == evCacheClients)
+            return duetEVCacheClients;
+
+        if (null == duetEVCacheClients)
+            return evCacheClients;
+
+        if (duetPrimary.get()) {
+            duetEVCacheClients.addAll(evCacheClients);
+            return duetEVCacheClients;
+        } else {
+            evCacheClients.addAll(duetEVCacheClients);
+            return evCacheClients;
+        }
     }
 
     public boolean isInWriteOnly(ServerGroup serverGroup) {
@@ -503,27 +552,39 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public EVCacheClient[] getWriteOnlyEVCacheClients() {
-    	EVCacheClient[] evCacheClients = null;
-    	try {
-	    	evCacheClients = getWriteOnlyEVCacheClientsInternal();
-	        if (duetClientPool != null) {
-	            EVCacheClient[] duetEVCacheClients = duetClientPool.getWriteOnlyEVCacheClients();
-	
-	            // common scenario for duet usage
-	            if (null == evCacheClients || evCacheClients.length == 0) {
-	                return duetEVCacheClients;
-	            }
-	
-	            if (null != duetEVCacheClients && duetEVCacheClients.length > 0) {
-	                EVCacheClient[] allEVCacheClients = Arrays.copyOf(evCacheClients, evCacheClients.length + duetEVCacheClients.length);
-	                System.arraycopy(duetEVCacheClients, 0, allEVCacheClients, evCacheClients.length, duetEVCacheClients.length);
-	                return allEVCacheClients;
-	            }
-	        }
-	        return evCacheClients;
-    	} finally {
-    		if(evCacheClients == null) return new EVCacheClient[0];
-    	}
+        EVCacheClient[] evCacheClients = getWriteOnlyEVCacheClientsInternal();
+
+        // most common production scenario
+        if (null == duetClientPool) {
+            return evCacheClients;
+        }
+
+        EVCacheClient[] duetEVCacheClients = duetClientPool.getWriteOnlyEVCacheClients();
+        if (null == evCacheClients || evCacheClients.length == 0) {
+            return duetEVCacheClients;
+        }
+
+        if (null == duetEVCacheClients || duetEVCacheClients.length == 0) {
+            return evCacheClients;
+        }
+
+        if (duetPrimary.get()) {
+            // return write-only of duet app and all writers of original app to which duet is attached
+            // get all writers of original app
+            evCacheClients = getEVCacheClientForWriteInternal();
+
+            EVCacheClient[] allEVCacheClients = Arrays.copyOf(duetEVCacheClients, duetEVCacheClients.length + evCacheClients.length);
+            System.arraycopy(evCacheClients, 0, allEVCacheClients, duetEVCacheClients.length, evCacheClients.length);
+            return allEVCacheClients;
+        } else {
+            // return write-only of original app and all writers of duet app
+            // get all writers of duet app
+            duetEVCacheClients = duetClientPool.getEVCacheClientForWrite();
+
+            EVCacheClient[] allEVCacheClients = Arrays.copyOf(evCacheClients, evCacheClients.length + duetEVCacheClients.length);
+            System.arraycopy(duetEVCacheClients, 0, allEVCacheClients, evCacheClients.length, duetEVCacheClients.length);
+            return allEVCacheClients;
+        }
     }
 
     EVCacheClient[] getAllWriteClients() {
@@ -594,27 +655,31 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public EVCacheClient[] getEVCacheClientForWrite() {
-    	EVCacheClient[] evCacheClients = null; 
-    	try {
-	        evCacheClients = getEVCacheClientForWriteInternal();
-	        if (duetClientPool != null) {
-	            EVCacheClient[] duetEVCacheClients = duetClientPool.getEVCacheClientForWrite();
-	
-	            // common scenario for duet usage
-	            if (null == evCacheClients || evCacheClients.length == 0) {
-	                return duetEVCacheClients;
-	            }
-	
-	            if (null != duetEVCacheClients && duetEVCacheClients.length > 0) {
-	                EVCacheClient[] allEVCacheClients = Arrays.copyOf(evCacheClients, evCacheClients.length + duetEVCacheClients.length);
-	                System.arraycopy(duetEVCacheClients, 0, allEVCacheClients, evCacheClients.length, duetEVCacheClients.length);
-	                return allEVCacheClients;
-	            }
-	        }
-	        return evCacheClients;
-    	} finally {
-    		if(evCacheClients == null) return new EVCacheClient[0];
-    	}
+        EVCacheClient[] evCacheClients = getEVCacheClientForWriteInternal();
+
+        // most common production scenario
+        if (null == duetClientPool) {
+            return evCacheClients;
+        }
+
+        EVCacheClient[] duetEVCacheClients = duetClientPool.getEVCacheClientForWrite();
+        if (null == evCacheClients || evCacheClients.length == 0) {
+            return duetEVCacheClients;
+        }
+
+        if (null == duetEVCacheClients || duetEVCacheClients.length == 0) {
+            return evCacheClients;
+        }
+
+        if (duetPrimary.get()) {
+            EVCacheClient[] allEVCacheClients = Arrays.copyOf(duetEVCacheClients, duetEVCacheClients.length + evCacheClients.length);
+            System.arraycopy(evCacheClients, 0, allEVCacheClients, duetEVCacheClients.length, evCacheClients.length);
+            return allEVCacheClients;
+        } else {
+            EVCacheClient[] allEVCacheClients = Arrays.copyOf(evCacheClients, evCacheClients.length + duetEVCacheClients.length);
+            System.arraycopy(duetEVCacheClients, 0, allEVCacheClients, evCacheClients.length, duetEVCacheClients.length);
+            return allEVCacheClients;
+        }
     }
 
     private void refresh() throws IOException {
@@ -1432,7 +1497,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public boolean supportsFallback() {
-        return memcachedFallbackReadInstances.getSize() > 1 || (duetClientPool != null && duetClientPool.supportsFallback());
+        return memcachedFallbackReadInstances.getSize() > 1 || (duetClientPool != null && duetPrimary.get() && duetClientPool.supportsFallback());
     }
 
     public boolean isLogEventEnabled() {
@@ -1486,6 +1551,9 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public Property<Integer> getOperationTimeout() {
+        if (duetClientPool !=null && duetPrimary.get()) {
+            return duetClientPool.getOperationTimeout();
+        }
         return _operationTimeout;
     }
 
@@ -1528,6 +1596,9 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public Property<Integer> getReadTimeout() {
+        if (duetClientPool != null && duetPrimary.get()) {
+            return duetClientPool.getReadTimeout();
+        }
         return _readTimeout;
     }
 
