@@ -35,6 +35,7 @@ import com.netflix.evcache.EVCacheConnectException;
 import com.netflix.evcache.EVCacheException;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheReadQueueException;
+import com.netflix.evcache.EVCacheTranscoder;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.operation.EVCacheFutures;
 import com.netflix.evcache.operation.EVCacheItem;
@@ -43,7 +44,6 @@ import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.KeyHasher;
-import com.netflix.evcache.util.KeyHasher.HashingAlgorithm;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
 import com.netflix.spectator.api.Tag;
@@ -88,11 +88,11 @@ public class EVCacheClient {
     private final Property<Integer> maxReadQueueSize;
     private final Property<Boolean> ignoreInactiveNodes;
     private final Property<Boolean> enableChunking;
+    private final Property<Boolean> hashKeyByApp;
     private final Property<Boolean> hashKeyByServerGroup;
-    private final Property<Boolean> shouldEncodeHashKey;
-    private final Property<Integer> maxHashingBytes;
     private final Property<Integer> chunkSize, writeBlock;
     private final ChunkTranscoder chunkingTranscoder;
+    private final EVCacheTranscoder evcacheValueTranscoder;
     private final SerializingTranscoder decodingTranscoder;
     private static final int SPECIAL_BYTEARRAY = (8 << 8);
     private final EVCacheClientPool pool;
@@ -148,10 +148,12 @@ public class EVCacheClient {
         this.decodingTranscoder = new SerializingTranscoder(Integer.MAX_VALUE);
         decodingTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
 
+        this.evcacheValueTranscoder = new EVCacheTranscoder();
+        evcacheValueTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
+
+        this.hashKeyByApp = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElseGet(appName + ".auto.hash.keys").orElseGet("evcache.auto.hash.keys").orElse(false);
         this.hashKeyByServerGroup = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.key", Boolean.class).orElse(false);
         this.hashingAlgo = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.algo", String.class).orElseGet(appName + ".hash.algo").orElse("siphash24");
-        this.shouldEncodeHashKey = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.encode", Boolean.class).orElse(null);
-        this.maxHashingBytes = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.max.bytes", Integer.class).orElse(null);
         ping();
     }
 
@@ -168,14 +170,6 @@ public class EVCacheClient {
     
     public boolean isDuetClient() {
         return isDuetClient;
-    }
-
-    public Boolean shouldEncodeHashKey() {
-        return this.shouldEncodeHashKey.get();
-    }
-
-    public Integer getMaxHashingBytes() {
-        return this.maxHashingBytes.get();
     }
 
     private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys, EVCache.Call call) throws EVCacheException {
@@ -852,6 +846,24 @@ public class EVCacheClient {
     public <T> T get(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF, boolean chunked) throws Exception {
         if (chunked) {
             return assembleChunks(key, false, 0, tc, hasZF);
+        } else if(shouldHashKey()) {
+            final String hKey = getHashedKey(key);
+            final Object obj = evcacheMemcachedClient.asyncGet(hKey, evcacheValueTranscoder, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+            if(obj instanceof EVCacheValue) {
+                final EVCacheValue val = (EVCacheValue)obj;
+                if(val == null || !(val.getKey().equals(key))) {
+                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.GET);
+                    return null;
+                }
+                final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
+                if(tc == null) {
+                    return (T)evcacheMemcachedClient.getTranscoder().decode(cd);
+                } else {
+                    return tc.decode(cd);
+                }
+            } else {
+                return null;
+            }
         } else {
             return evcacheMemcachedClient.asyncGet(key, tc, null).get(readTimeout.get(),
                     TimeUnit.MILLISECONDS, _throwException, hasZF);
@@ -873,6 +885,24 @@ public class EVCacheClient {
     public <T> Single<T> get(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF, boolean chunked, Scheduler scheduler)  throws Exception {
         if (chunked) {
             return assembleChunks(key, _throwException, 0, tc, hasZF, scheduler);
+        }  else if(shouldHashKey()) {
+            final String hKey = getHashedKey(key);
+            final Object obj = evcacheMemcachedClient.asyncGet(hKey, evcacheValueTranscoder, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+            if(obj instanceof EVCacheValue) {
+                final EVCacheValue val = (EVCacheValue)obj;
+                if(val == null || !(val.getKey().equals(key))) {
+                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.GET);
+                    return null;
+                }
+                final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
+                if(tc == null) {
+                    return Single.just((T)evcacheMemcachedClient.getTranscoder().decode(cd));
+                } else {
+                    return Single.just(tc.decode(cd));
+                }
+            } else {
+                return null;
+            }
         } else {
             return evcacheMemcachedClient.asyncGet(key, tc, null)
                 .get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF, scheduler);
@@ -910,6 +940,30 @@ public class EVCacheClient {
         final T returnVal;
         if (enableChunking.get()) {
             return assembleChunks(key, false, 0, tc, hasZF);
+        } else if(shouldHashKey()) {
+            final String hKey = getHashedKey(key);
+            final Object obj;
+            if(ignoreTouch.get()) {
+                obj = _client.asyncGet(hKey, evcacheValueTranscoder, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+            } else {
+                final CASValue<Object> value = _client.asyncGetAndTouch(key, timeToLive, evcacheValueTranscoder).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+                obj = (value == null) ? null : value.getValue();
+            }
+            if(obj != null && obj instanceof EVCacheValue) {
+                final EVCacheValue val = (EVCacheValue)obj;
+                if(val == null || !(val.getKey().equals(key))) {
+                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.GET_AND_TOUCH);
+                    return null;
+                }
+                final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
+                if(tc == null) {
+                    return (T)_client.getTranscoder().decode(cd);
+                } else {
+                    return tc.decode(cd);
+                }
+            } else {
+                return null;
+            }
         } else {
             if(ignoreTouch.get()) {
                 returnVal = _client.asyncGet(key, tc, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
@@ -937,6 +991,45 @@ public class EVCacheClient {
             final Transcoder<T> tc = (transcoder == null) ? (Transcoder<T>) getTranscoder(): transcoder;
             if (enableChunking.get()) {
                 return assembleChunks(key, false, 0, tc, hasZF, scheduler);
+            } else if(shouldHashKey()) {
+                final String hKey = getHashedKey(key);
+                if(ignoreTouch.get()) {
+                    final Single<Object> value = _client.asyncGet(hKey, evcacheValueTranscoder, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF, scheduler);
+                    return value.flatMap(r -> {
+                        final CASValue<Object> rObj = (CASValue<Object>)r;
+                        final EVCacheValue val = (EVCacheValue)rObj.getValue();
+                        if(val == null || !(val.getKey().equals(key))) {
+                            incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.GET_AND_TOUCH);
+                            return null;
+                        }
+                        final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
+                        if(tc == null) {
+                            return Single.just((T)_client.getTranscoder().decode(cd));
+                        } else {
+                            return Single.just(tc.decode(cd));
+                        }
+                    });
+                } else {
+                    final Single<CASValue<Object>> value = _client.asyncGetAndTouch(hKey, timeToLive, evcacheValueTranscoder).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF, scheduler);
+                    if(value != null ) {
+                        return value.flatMap(r -> {
+                            final CASValue<Object> rObj = (CASValue<Object>)r;
+                            final EVCacheValue val = (EVCacheValue)rObj.getValue();
+                            if(val == null || !(val.getKey().equals(key))) {
+                                incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.GET_AND_TOUCH);
+                                return null;
+                            }
+                            final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
+                            if(tc == null) {
+                                return Single.just((T)_client.getTranscoder().decode(cd));
+                            } else {
+                                return Single.just(tc.decode(cd));
+                            }
+                        });
+                    } else {
+                        return null;
+                    }
+                }
             } else {
                 return _client.asyncGetAndTouch(key, timeToLive, tc)
                     .get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF, scheduler)
@@ -955,6 +1048,36 @@ public class EVCacheClient {
             if (tc == null) tc = (Transcoder<T>) getTranscoder();
             if (enableChunking.get()) {
                 returnVal = assembleChunks(_canonicalKeys, tc, hasZF);
+            } else if(shouldHashKey()) {
+                final Collection<String> hashKeys = new ArrayList<String>(canonicalKeys.size());
+                returnVal = new HashMap<String, T>(canonicalKeys.size());
+                for(String cKey : canonicalKeys) {
+                    final String hKey = getHashedKey(cKey);
+                    hashKeys.add(hKey);
+                    returnVal.put(cKey, null);
+                }
+                final Map<String, Object> vals = evcacheMemcachedClient.asyncGetBulk(hashKeys, evcacheValueTranscoder, null).getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+                if(vals != null && !vals.isEmpty()) {
+                    for(Entry<String, Object> entry : vals.entrySet()) {
+                        final Object obj = entry.getValue();
+                        if(obj instanceof EVCacheValue) {
+                            final EVCacheValue val = (EVCacheValue)obj;
+                            if(val == null || !(returnVal.containsKey(val.getKey()))) {
+                                incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.BULK);
+                            }                            
+                            final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
+                            if(tc == null) {
+                                returnVal.put(val.getKey(), (T)evcacheMemcachedClient.getTranscoder().decode(cd));
+                            } else {
+                                returnVal.put(val.getKey(), tc.decode(cd));
+                            }
+                        } else {
+                            if (log.isDebugEnabled()) log.debug("Value for key : " + entry.getKey() + " is not EVCacheValue. val : " + obj);
+                        }
+                    }
+                } else {
+                    return Collections.<String, T> emptyMap();
+                }
             } else {
                 returnVal = evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null)
                         .getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
@@ -973,6 +1096,39 @@ public class EVCacheClient {
             final Transcoder<T> tc = (transcoder == null) ? (Transcoder<T>) getTranscoder() : transcoder;
             if (enableChunking.get()) {
                 return assembleChunks(_canonicalKeys, tc, hasZF, scheduler);
+            } else if(shouldHashKey()) {
+                final Collection<String> hashKeys = new ArrayList<String>(canonicalKeys.size());
+                final HashMap<String, T> returnVal = new HashMap<String, T>();
+                for(String cKey : canonicalKeys) {
+                    final String hKey = getHashedKey(cKey);
+                    hashKeys.add(hKey);
+                    returnVal.compute(cKey, null);
+                }
+                final Single<Map<String, Object>> vals = evcacheMemcachedClient.asyncGetBulk(hashKeys, evcacheValueTranscoder, null).getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF, scheduler);
+                if(vals != null ) {
+                    return vals.flatMap(r -> {
+                        for(Entry<String, Object> entry : r.entrySet()) {
+                            final Object obj = entry.getValue();
+                            if(obj instanceof EVCacheValue) {
+                                final EVCacheValue val = (EVCacheValue)obj;
+                                if(val == null || !(returnVal.containsKey(val.getKey()))) {
+                                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.BULK);
+                                }
+                                final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
+                                if(tc == null) {
+                                    returnVal.put(val.getKey(), (T)evcacheMemcachedClient.getTranscoder().decode(cd));
+                                } else {
+                                    returnVal.put(val.getKey(), tc.decode(cd));
+                                }
+                            } else {
+                                if (log.isDebugEnabled()) log.debug("Value for key : " + entry.getKey() + " is not EVCacheValue. val : " + obj);
+                            }
+                        }
+                        return Single.just(returnVal);
+                    });
+                } else {
+                    return Single.just(Collections.<String, T> emptyMap());
+                }
             } else {
                 return evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null)
                     .getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF, scheduler);
@@ -987,7 +1143,12 @@ public class EVCacheClient {
                 "This operation is not supported as chunking is enabled on this EVCacheClient.");
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         if (!ensureWriteQueueSize(node, key, Call.APPEND)) return getDefaultFuture();
-        return evcacheMemcachedClient.append(key, value);
+        if(shouldHashKey()) {
+            final String hKey = getHashedKey(key);
+            return evcacheMemcachedClient.append(hKey, value);
+        } else {
+            return evcacheMemcachedClient.append(key, value);
+        }
     }
 
     public Future<Boolean> set(String key, CachedData value, int timeToLive) throws Exception {
@@ -1045,6 +1206,10 @@ public class EVCacheClient {
                     delete(key);
                     return evcacheMemcachedClient.set(key, timeToLive, value, null, evcacheLatch);
                 }
+            } else if(shouldHashKey()) {
+                final String hKey = getHashedKey(key);
+                final CachedData cVal = getEVCacheValue(key, value, timeToLive);
+                return evcacheMemcachedClient.set(hKey, timeToLive, cVal, null, evcacheLatch);
             } else {
                 return evcacheMemcachedClient.set(key, timeToLive, value, null, evcacheLatch);
             }
@@ -1054,12 +1219,17 @@ public class EVCacheClient {
         }
     }
 
-    private boolean shouldHashKey() {
-        return hashKeyByServerGroup.get();
+    protected CachedData getEVCacheValue(String key, CachedData cData, int timeToLive) {
+        final EVCacheValue val = new EVCacheValue(key, cData.getData(), cData.getFlags(), timeToLive, System.currentTimeMillis());
+        return evcacheValueTranscoder.encode(val);
     }
 
-    public HashingAlgorithm getHashingAlgorithm() {
-        return shouldHashKey() ? KeyHasher.getHashingAlgorithmFromString(hashingAlgo.get()) : null;
+    protected boolean shouldHashKey() {
+        return (!hashKeyByApp.get() && hashKeyByServerGroup.get());
+    }
+
+    protected String getHashedKey(String key) {
+        return KeyHasher.getHashedKey(key, hashingAlgo.get());
     }
 
     public <T> Future<Boolean> appendOrAdd(String key, CachedData value, int timeToLive, EVCacheLatch evcacheLatch) throws Exception {
@@ -1114,6 +1284,10 @@ public class EVCacheClient {
                     futures[i] = evcacheMemcachedClient.replace(key + "_" + prefix + i, timeToLive, cd[i], null, null);
                 }
                 return new EVCacheFutures(futures, key, appName, serverGroup, evcacheLatch);
+            } else if(shouldHashKey()) {
+                final String hKey = getHashedKey(key);
+                final CachedData cVal = getEVCacheValue(key, value, timeToLive);
+                return evcacheMemcachedClient.replace(hKey, timeToLive, cVal, null, evcacheLatch);
             } else {
                 return evcacheMemcachedClient.replace(key, timeToLive, value, null, evcacheLatch);
             }
@@ -1128,7 +1302,13 @@ public class EVCacheClient {
 
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
         if (!ensureWriteQueueSize(node, key, Call.ADD)) return getDefaultFuture();
-        return evcacheMemcachedClient.add(key, exp, value, null, latch);
+        if(shouldHashKey()) {
+            final String hKey = getHashedKey(key);
+            final CachedData cVal = getEVCacheValue(key, value, exp);
+            return evcacheMemcachedClient.add(hKey, exp, cVal, null, latch);
+        } else {
+            return evcacheMemcachedClient.add(key, exp, value, null, latch);
+        }
     }
 
     @Deprecated
@@ -1208,6 +1388,9 @@ public class EVCacheClient {
             } else {
                 return evcacheMemcachedClient.touch(key, timeToLive, latch);
             }
+        } else if(shouldHashKey()) {
+            final String hKey = getHashedKey(key);
+            return evcacheMemcachedClient.touch(hKey, timeToLive, latch);
         } else {
             return evcacheMemcachedClient.touch(key, timeToLive, latch);
         }
@@ -1219,7 +1402,12 @@ public class EVCacheClient {
                 "This operation is not supported as chunking is enabled on this EVCacheClient.");
         if (!validateNode(key, _throwException, Call.ASYNC_GET)) return null;
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
-        return evcacheMemcachedClient.asyncGet(key, tc, null);
+        if(shouldHashKey()) {
+            final String hKey = getHashedKey(key);
+            return evcacheMemcachedClient.asyncGet(hKey, tc, null);
+        } else {
+            return evcacheMemcachedClient.asyncGet(key, tc, null);
+        }
     }
 
     public Future<Boolean> delete(String key) throws Exception {
@@ -1251,6 +1439,9 @@ public class EVCacheClient {
                 }
                 return new EVCacheFutures(futures, key, appName, serverGroup, latch);
             }
+        } else if(shouldHashKey()) {
+            final String hKey = getHashedKey(key);
+            return evcacheMemcachedClient.delete(hKey, latch);
         } else {
             return evcacheMemcachedClient.delete(key, latch);
         }
@@ -1735,15 +1926,41 @@ public class EVCacheClient {
 
 
     public EVCacheItemMetaData metaDebug(String key) throws Exception {
+        if(shouldHashKey()) {
+            key = getHashedKey(key);
+        }
         final EVCacheItemMetaData obj = evcacheMemcachedClient.metaDebug(key);
         if(log.isDebugEnabled()) log.debug("EVCacheItemMetaData : " + obj);
         return obj;
     }
 
     public <T> EVCacheItem<T> metaGet(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF) throws Exception {
-        final EVCacheItem<T> obj = evcacheMemcachedClient.asyncMetaGet(key, tc, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
-        if (log.isDebugEnabled()) log.debug("EVCacheItem : " + obj);
-        return obj;
+        if(shouldHashKey()) {
+            final String hKey = getHashedKey(key);
+            final EVCacheItem<Object> obj = evcacheMemcachedClient.asyncMetaGet(hKey, evcacheValueTranscoder, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+            if(obj.getData() instanceof EVCacheValue) {
+                final EVCacheValue val = (EVCacheValue)obj.getData();
+                if(val == null || !(val.getKey().equals(key))) {
+                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.GET);
+                    return null;
+                }
+                final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
+                T t = null;
+                if(tc == null) {
+                    t = (T)evcacheMemcachedClient.getTranscoder().decode(cd);
+                } else {
+                    t = tc.decode(cd);
+                }
+                obj.setData(t);
+                obj.setFlag(val.getFlags());
+                return (EVCacheItem<T>) obj;
+            } else 
+                return null;
+        } else {
+            final EVCacheItem<T> obj = evcacheMemcachedClient.asyncMetaGet(key, tc, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+            if(log.isDebugEnabled()) log.debug("EVCacheItem : " + obj);
+            return obj;
+        }
     }
 
 
