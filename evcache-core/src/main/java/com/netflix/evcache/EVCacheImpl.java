@@ -66,19 +66,19 @@ import rx.Single;
 @SuppressWarnings("unchecked")
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "WMI_WRONG_MAP_ITERATOR",
     "DB_DUPLICATE_BRANCHES", "REC_CATCH_EXCEPTION","RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE" })
-final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
+public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheImpl.class);
 
     private final String _appName;
     private final String _cacheName;
     private final String _metricPrefix;
-    private final Transcoder<?> _transcoder;
+    protected final Transcoder<?> _transcoder;
     private final boolean _zoneFallback;
     private final boolean _throwException;
 
     private final int _timeToLive; // defaults to 15 minutes
-    private EVCacheClientPool _pool;
+    protected EVCacheClientPool _pool;
 
     private final Property<Boolean> _throwExceptionFP, _zoneFallbackFP, _useInMemoryCache;
     private final Property<Boolean> _bulkZoneFallbackFP;
@@ -94,7 +94,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private final EVCacheTranscoder evcacheValueTranscoder;
     private final Property<Integer> maxReadDuration, maxWriteDuration;
 
-    private final EVCacheClientPoolManager _poolManager;
+    protected final EVCacheClientPoolManager _poolManager;
     private final Map<String, Timer> timerMap = new ConcurrentHashMap<String, Timer>();
     private final Map<String, DistributionSummary> distributionSummaryMap = new ConcurrentHashMap<String, DistributionSummary>();
     private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
@@ -165,10 +165,10 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         });
 
         _pool.pingServers();
-        
+
         setupMonitoring();
     }
-    
+
     private void setupMonitoring() {
         try {
             final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + _appName
@@ -184,7 +184,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
     }
 
-    
+
 
     EVCacheKey getEVCacheKey(final String key) {
         if(key == null || key.length() == 0) throw new NullPointerException("Key cannot be null or empty");
@@ -713,7 +713,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
 
-    
+
     private int policyToCount(Policy policy, int count) {
         if (policy == null) return 0;
         switch (policy) {
@@ -1544,7 +1544,6 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                         if(evcKey.getCanonicalKey(client.isDuetClient()).equals(val.getKey())) {
                             if (log.isDebugEnabled() && shouldLog()) log.debug("APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
                             retMap.put(evcKey, tVal);
-                        	
                         } else {
                             if (log.isDebugEnabled() && shouldLog()) log.debug("CACHE COLLISION : APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
                             incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.BULK.name(), EVCacheMetricsFactory.READ);
@@ -1735,7 +1734,6 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 if (retMap == null || retMap.isEmpty()) {
                     if (log.isInfoEnabled() && shouldLog()) log.info("BULK : APP " + _appName + " ; Full cache miss for keys : " + keys);
                     if (event != null) event.setAttribute("status", "BMISS_ALL");
-    
                     final Map<String, T> returnMap = new HashMap<String, T>();
                     if (retMap != null && retMap.isEmpty()) {
                         for (String k : keys) {
@@ -1866,11 +1864,15 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     public <T> EVCacheLatch set(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
+        EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
+        return this.set(key, value, tc, timeToLive, policy, clients, clients.length - _pool.getWriteOnlyEVCacheClients().length);
+    }
+
+    protected <T> EVCacheLatch set(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy, EVCacheClient[] clients, int latchCount) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
         checkTTL(timeToLive, Call.SET);
 
         final boolean throwExc = doThrowException();
-        final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
             incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.SET);
             if (throwExc) throw new EVCacheException("Could not find a client to set the data");
@@ -1898,7 +1900,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         String status = EVCacheMetricsFactory.SUCCESS;
 
-        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
+        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, latchCount, _appName);
         try {
             CachedData cd = null;
             for (EVCacheClient client : clients) {
@@ -2521,11 +2523,15 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     @Override
     public <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
+        EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
+        return this.add(key, value, tc, timeToLive, policy, clients, clients.length - _pool.getWriteOnlyEVCacheClients().length);
+    }
+
+    protected <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy, EVCacheClient[] clients, int latchCount) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
         checkTTL(timeToLive, Call.ADD);
 
         final boolean throwExc = doThrowException();
-        final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
             incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.ADD);
             if (throwExc) throw new EVCacheException("Could not find a client to Add the data");
@@ -2564,8 +2570,8 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     cd = _pool.getEVCacheClientForRead().getTranscoder().encode(value);
                 }
             }
-            if(clientUtil == null) clientUtil = new EVCacheClientUtil(_pool);
-            latch = clientUtil.add(evcKey, cd, evcacheValueTranscoder, timeToLive, policy);
+            if(clientUtil == null) clientUtil = new EVCacheClientUtil(_appName, _pool.getOperationTimeout().get());
+            latch = clientUtil.add(evcKey, cd, evcacheValueTranscoder, timeToLive, policy, clients, latchCount);
             if (event != null) {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
