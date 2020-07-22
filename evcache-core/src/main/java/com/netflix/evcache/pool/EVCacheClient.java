@@ -1938,6 +1938,7 @@ public class EVCacheClient {
         if(shouldHashKey()) {
             final String hKey = getHashedKey(key);
             final EVCacheItem<Object> obj = evcacheMemcachedClient.asyncMetaGet(hKey, evcacheValueTranscoder, null).get(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+            if(obj == null) return null;
             if(obj.getData() instanceof EVCacheValue) {
                 final EVCacheValue val = (EVCacheValue)obj.getData();
                 if(val == null || !(val.getKey().equals(key))) {
