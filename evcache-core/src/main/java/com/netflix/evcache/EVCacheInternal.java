@@ -2,6 +2,7 @@ package com.netflix.evcache;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.Transcoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,16 +15,21 @@ import java.util.List;
 import java.util.Locale;
 
 public interface EVCacheInternal extends EVCache {
-    <T> EVCacheLatch addOrSetToWriteOnly(boolean replaceItem, String key, T value, Transcoder<T> tc, int timeToLive, EVCacheLatch.Policy policy) throws EVCacheException;
+    EVCacheLatch addOrSetToWriteOnly(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy) throws EVCacheException;
 
-    <T> EVCacheLatch addOrSet(boolean replaceItem, String key, T value, Transcoder<T> tc, int timeToLive, EVCacheLatch.Policy policy, List<String> serverGroups) throws EVCacheException;
+    EVCacheLatch addOrSet(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy, List<String> serverGroups) throws EVCacheException;
 
-    <T> EVCacheLatch addOrSet(boolean replaceItem, String key, T value, Transcoder<T> tc, int timeToLive, EVCacheLatch.Policy policy, String serverGroup) throws EVCacheException;
+    EVCacheLatch addOrSet(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy, String serverGroup) throws EVCacheException;
 
-    <T> EVCacheLatch addOrSet(boolean replaceItem, String key, T value, Transcoder<T> tc, int timeToLive, EVCacheLatch.Policy policy, String serverGroupName, String destinationIp) throws EVCacheException;
+    EVCacheLatch addOrSet(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy, String serverGroupName, String destinationIp) throws EVCacheException;
 
-    // does not work for auto hashed keys
-    boolean isKeyHashed(String appName, String serverGroup);
+    KeyHashedState isKeyHashed(String appName, String serverGroup);
+
+    public enum KeyHashedState {
+        YES,
+        NO,
+        MAYBE
+    }
 
     public class Builder {
         private static final Logger logger = LoggerFactory.getLogger(EVCacheInternalImpl.class);
