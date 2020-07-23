@@ -1,18 +1,34 @@
 package com.netflix.evcache;
 
 import com.netflix.archaius.api.PropertyRepository;
+import com.netflix.evcache.operation.EVCacheItem;
+import com.netflix.evcache.operation.EVCacheItemMetaData;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.ServerGroup;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.Transcoder;
 
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 public class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
+    public EVCacheItem<CachedData> metaGet(String key, Transcoder<CachedData> tc, boolean isOriginalKeyHashed) throws EVCacheException {
+        return this.metaGetInternal(key, tc, isOriginalKeyHashed);
+    }
+
+    public EVCacheItemMetaData metaDebug(String key, boolean isOriginalKeyHashed) throws EVCacheException {
+        return this.metaDebugInternal(key, isOriginalKeyHashed);
+    }
+
+    public Future<Boolean>[] delete(String key, boolean isOriginalKeyHashed) throws EVCacheException {
+        return this.deleteInternal(key, isOriginalKeyHashed);
+    }
+
     public EVCacheInternalImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
                 boolean throwException, EVCacheClientPoolManager poolManager) {
         super(appName, cacheName, timeToLive, transcoder, enableZoneFallback, throwException, poolManager);
@@ -53,9 +69,9 @@ public class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal 
         if (null != destinationIp && !destinationIp.isEmpty()) {
             // identify that evcache client whose primary node is the destination ip for the key being processed
             evCacheClients = evCacheClients.stream().filter(client ->
-                client.getNodeLocator()
+                    ((InetSocketAddress) client.getNodeLocator()
                         .getPrimary(getEVCacheKey(key).getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()))
-                        .getSocketAddress().toString().contains(destinationIp)
+                        .getSocketAddress()).getAddress().getHostAddress().equals(destinationIp)
             ).collect(Collectors.toList());
         }
 

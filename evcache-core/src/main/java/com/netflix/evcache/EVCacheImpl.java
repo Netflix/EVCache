@@ -513,6 +513,10 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     public EVCacheItemMetaData metaDebug(String key) throws EVCacheException {
+        return this.metaDebugInternal(key, false);
+    }
+
+    protected EVCacheItemMetaData metaDebugInternal(String key, boolean isOriginalKeyHashed) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException("Key cannot be null");
         final EVCacheKey evcKey = getEVCacheKey(key);
         final boolean throwExc = doThrowException();
@@ -547,7 +551,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         try {
             final boolean hasZF = hasZoneFallback();
             boolean throwEx = hasZF ? false : throwExc;
-            EVCacheItemMetaData data = getEVCacheItemMetaData(client, evcKey, throwEx, hasZF);
+            EVCacheItemMetaData data = getEVCacheItemMetaData(client, evcKey, throwEx, hasZF, isOriginalKeyHashed);
             if (data == null && hasZF) {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
                 if (fbClients != null && !fbClients.isEmpty()) {
@@ -568,7 +572,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                             }
                         }
                         tries++;
-                        data = getEVCacheItemMetaData(fbClient, evcKey, throwEx, (i < fbClients.size() - 1) ? true : false);
+                        data = getEVCacheItemMetaData(fbClient, evcKey, throwEx, (i < fbClients.size() - 1) ? true : false, isOriginalKeyHashed);
                         if (log.isDebugEnabled() && shouldLog()) log.debug("Retry for APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + fbClient.getServerGroup());
                         if (data != null) {
                             client = fbClient;
@@ -613,6 +617,10 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     public <T> EVCacheItem<T> metaGet(String key, Transcoder<T> tc) throws EVCacheException {
+        return this.metaGetInternal(key, tc, false);
+    }
+
+    protected <T> EVCacheItem<T> metaGetInternal(String key, Transcoder<T> tc, boolean isOriginalKeyHashed) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException("Key cannot be null");
         final EVCacheKey evcKey = getEVCacheKey(key);
         final boolean throwExc = doThrowException();
@@ -647,7 +655,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         try {
             final boolean hasZF = hasZoneFallback();
             boolean throwEx = hasZF ? false : throwExc;
-            EVCacheItem<T> data = getEVCacheItem(client, evcKey, tc, throwEx, hasZF);
+            EVCacheItem<T> data = getEVCacheItem(client, evcKey, tc, throwEx, hasZF, isOriginalKeyHashed);
             if (data == null && hasZF) {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
                 if (fbClients != null && !fbClients.isEmpty()) {
@@ -668,7 +676,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                             }
                         }
                         tries++;
-                        data = getEVCacheItem(fbClient, evcKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
+                        data = getEVCacheItem(fbClient, evcKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false, isOriginalKeyHashed);
                         if (log.isDebugEnabled() && shouldLog()) log.debug("Retry for APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + fbClient.getServerGroup());
                         if (data != null) {
                             client = fbClient;
@@ -945,10 +953,10 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
     }
 
-    private EVCacheItemMetaData getEVCacheItemMetaData(EVCacheClient client, EVCacheKey evcKey, boolean throwException, boolean hasZF) throws Exception {
+    private EVCacheItemMetaData getEVCacheItemMetaData(EVCacheClient client, EVCacheKey evcKey, boolean throwException, boolean hasZF, boolean isOriginalKeyHashed) throws Exception {
         if (client == null) return null;
         try {
-            return client.metaDebug(evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()));
+            return client.metaDebug(isOriginalKeyHashed ? evcKey.getKey() : evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()));
         } catch (EVCacheConnectException ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheConnectException while getting with metadata for APP " + _appName + ", key : " + evcKey + "; hasZF : " + hasZF, ex);
             if (!throwException || hasZF) return null;
@@ -968,20 +976,23 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
     }
 
-    private <T> EVCacheItem<T> getEVCacheItem(EVCacheClient client, EVCacheKey evcKey, Transcoder<T> tc, boolean throwException, boolean hasZF) throws Exception {
+    private <T> EVCacheItem<T> getEVCacheItem(EVCacheClient client, EVCacheKey evcKey, Transcoder<T> tc, boolean throwException, boolean hasZF, boolean isOriginalKeyHashed) throws Exception {
         if (client == null) return null;
         final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
         try {
-            String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes());
+            String hashKey = isOriginalKeyHashed ? evcKey.getKey() : evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes());
             String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
             if (hashKey != null) {
                 final EVCacheItem<Object> obj = client.metaGet(hashKey, evcacheValueTranscoder, throwException, hasZF);
+                if (null == obj) return null;
                 if (obj.getData() instanceof EVCacheValue) {
                     final EVCacheValue val = (EVCacheValue) obj.getData();
                     if (null == val) {
                         return null;
                     }
-                    if (!(val.getKey().equals(canonicalKey))) {
+
+                    // compare the key embedded in the value to the original key only if the original key is not passed hashed
+                    if (!isOriginalKeyHashed && !(val.getKey().equals(canonicalKey))) {
                         incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.META_GET.name(), EVCacheMetricsFactory.META_GET_OPERATION);
                         return null;
                     }
@@ -2043,7 +2054,11 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     public EVCacheFuture[] delete(String key) throws EVCacheException {
-        final EVCacheLatch latch = this.delete(key, null);
+        return this.deleteInternal(key, false);
+    }
+
+    protected EVCacheFuture[] deleteInternal(String key, boolean isOriginalKeyHashed) throws EVCacheException {
+        final EVCacheLatch latch = this.deleteInternal(key, null, isOriginalKeyHashed);
         if (latch == null) return new EVCacheFuture[0];
         final List<Future<Boolean>> futures = latch.getAllFutures();
         if (futures == null || futures.isEmpty()) return new EVCacheFuture[0];
@@ -2065,6 +2080,10 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     @Override
     public <T> EVCacheLatch delete(String key, Policy policy) throws EVCacheException {
+        return this.deleteInternal(key, policy, false);
+    }
+
+    protected <T> EVCacheLatch deleteInternal(String key, Policy policy, boolean isOriginalKeyHashed) throws EVCacheException {
         if (key == null) throw new IllegalArgumentException("Key cannot be null");
 
         final boolean throwExc = doThrowException();
@@ -2099,7 +2118,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
         try {
             for (int i = 0; i < clients.length; i++) {
-                Future<Boolean> future = clients[i].delete(evcKey.getDerivedKey(clients[i].isDuetClient(), clients[i].getHashingAlgorithm(), clients[i].shouldEncodeHashKey(), clients[i].getMaxHashingBytes()), latch);
+                Future<Boolean> future = clients[i].delete(isOriginalKeyHashed ? evcKey.getKey() : evcKey.getDerivedKey(clients[i].isDuetClient(), clients[i].getHashingAlgorithm(), clients[i].shouldEncodeHashKey(), clients[i].getMaxHashingBytes()), latch);
                 if (log.isDebugEnabled() && shouldLog()) log.debug("DELETE : APP " + _appName + ", Future " + future + " for key : " + evcKey);
             }
 
