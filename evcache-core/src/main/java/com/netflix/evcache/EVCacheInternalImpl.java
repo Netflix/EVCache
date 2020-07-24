@@ -50,14 +50,14 @@ public class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal 
         return addOrSet(replaceItem, key, value, timeToLive, policy, serverGroupName, null);
     }
 
-    public EVCacheLatch addOrSet(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy, String serverGroupName, String destinationIp) throws EVCacheException {
+    public EVCacheLatch addOrSet(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy, String serverGroupName, List<String> destinationIps) throws EVCacheException {
         List<String> serverGroups = new ArrayList<>();
         serverGroups.add(serverGroupName);
 
-        return addOrSet(replaceItem, key, value, timeToLive, policy, serverGroups, destinationIp);
+        return addOrSet(replaceItem, key, value, timeToLive, policy, serverGroups, destinationIps);
     }
 
-    private EVCacheLatch addOrSet(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy, List<String> serverGroups, String destinationIp) throws EVCacheException {
+    private EVCacheLatch addOrSet(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy, List<String> serverGroups, List<String> destinationIps) throws EVCacheException {
         Map<ServerGroup, List<EVCacheClient>> clientsByServerGroup = _pool.getAllInstancesByZone();
 
         List<EVCacheClient> evCacheClients = clientsByServerGroup.entrySet().stream()
@@ -66,12 +66,12 @@ public class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal 
                 .flatMap(List::stream)
                 .collect(Collectors.toList());
 
-        if (null != destinationIp && !destinationIp.isEmpty()) {
+        if (null != destinationIps && !destinationIps.isEmpty()) {
             // identify that evcache client whose primary node is the destination ip for the key being processed
             evCacheClients = evCacheClients.stream().filter(client ->
-                    ((InetSocketAddress) client.getNodeLocator()
+                    destinationIps.contains(((InetSocketAddress) client.getNodeLocator()
                         .getPrimary(getEVCacheKey(key).getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()))
-                        .getSocketAddress()).getAddress().getHostAddress().equals(destinationIp)
+                        .getSocketAddress()).getAddress().getHostAddress())
             ).collect(Collectors.toList());
         }
 
