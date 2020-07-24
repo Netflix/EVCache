@@ -30,7 +30,7 @@ public interface EVCacheInternal extends EVCache {
 
     EVCacheLatch addOrSet(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy, String serverGroup) throws EVCacheException;
 
-    EVCacheLatch addOrSet(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy, String serverGroupName, String destinationIp) throws EVCacheException;
+    EVCacheLatch addOrSet(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy, String serverGroupName, List<String> destinationIps) throws EVCacheException;
 
     KeyHashedState isKeyHashed(String appName, String serverGroup);
 
