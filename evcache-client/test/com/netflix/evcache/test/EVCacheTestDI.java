@@ -10,9 +10,9 @@ import java.util.*;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import com.netflix.evcache.EVCache;
-import com.netflix.evcache.EVCacheException;
-import com.netflix.evcache.EVCacheLatch;
+import com.netflix.evcache.*;
+import com.netflix.evcache.operation.EVCacheItem;
+import com.netflix.evcache.operation.EVCacheItemMetaData;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.KeyHasher;
@@ -20,7 +20,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
-import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 import rx.schedulers.Schedulers;
 
@@ -261,6 +260,8 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
 
     @Test(dependsOnMethods = {"testAppendOrAdd"})
     public void functionalTestsWithAppLevelAndASGLevelHashingScenarios() throws Exception {
+        refreshEVCache();
+
         // no hashing
         assertFalse(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElse(false).get());
         doFunctionalTests(false);
