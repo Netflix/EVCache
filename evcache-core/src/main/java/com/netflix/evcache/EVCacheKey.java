@@ -58,6 +58,10 @@ public class EVCacheKey {
 
     // overlays app level hashing and client level hashing
     public String getHashKey(boolean isDuet, HashingAlgorithm hashingAlgorithm, Boolean shouldEncodeHashKey, Integer maxHashingBytes) {
+        if (hashingAlgorithm == HashingAlgorithm.NO_HASHING) {
+            return null;
+        }
+
         if (null == hashingAlgorithm) {
             hashingAlgorithm = hashingAlgorithmAtAppLevel;
         }
@@ -80,7 +84,7 @@ public class EVCacheKey {
             hashingAlgorithm = hashingAlgorithmAtAppLevel;
         }
 
-        return null == hashingAlgorithm ? getCanonicalKey(isDuet) : getHashKey(isDuet, hashingAlgorithm, shouldEncodeHashKey, maxHashingBytes);
+        return null == hashingAlgorithm || hashingAlgorithm == HashingAlgorithm.NO_HASHING ? getCanonicalKey(isDuet) : getHashKey(isDuet, hashingAlgorithm, shouldEncodeHashKey, maxHashingBytes);
     }
 
     private String getHashKey(HashingAlgorithm hashingAlgorithm, Boolean shouldEncodeHashKey, Integer maxHashingBytes) {

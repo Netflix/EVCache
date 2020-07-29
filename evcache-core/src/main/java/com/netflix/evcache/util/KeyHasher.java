@@ -33,7 +33,8 @@ And if CAS and client flags are present:
         sha256,
         siphash24,
         goodfasthash,
-        md5
+        md5,
+        NO_HASHING // useful for disabling hashing at client level, while Hashing is enabled at App level
     }
 
     public static HashingAlgorithm getHashingAlgorithmFromString(String algorithmStr) {

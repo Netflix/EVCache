@@ -148,7 +148,7 @@ public class EVCacheClient {
         this.decodingTranscoder = new SerializingTranscoder(Integer.MAX_VALUE);
         decodingTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
 
-        this.hashKeyByServerGroup = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.key", Boolean.class).orElse(false);
+        this.hashKeyByServerGroup = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.key", Boolean.class).orElse(null);
         this.hashingAlgo = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.algo", String.class).orElseGet(appName + ".hash.algo").orElse("siphash24");
         this.shouldEncodeHashKey = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.encode", Boolean.class).orElse(null);
         this.maxHashingBytes = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.max.bytes", Integer.class).orElse(null);
@@ -1054,12 +1054,18 @@ public class EVCacheClient {
         }
     }
 
-    private boolean shouldHashKey() {
+    private Boolean shouldHashKey() {
         return hashKeyByServerGroup.get();
     }
 
     public HashingAlgorithm getHashingAlgorithm() {
-        return shouldHashKey() ? KeyHasher.getHashingAlgorithmFromString(hashingAlgo.get()) : null;
+        if (null == shouldHashKey()) {
+            // hash key property is not set at the client level
+            return null;
+        }
+
+        // return NO_HASHING if hashing is explicitly disabled at client level
+        return shouldHashKey() ? KeyHasher.getHashingAlgorithmFromString(hashingAlgo.get()) : HashingAlgorithm.NO_HASHING;
     }
 
     public <T> Future<Boolean> appendOrAdd(String key, CachedData value, int timeToLive, EVCacheLatch evcacheLatch) throws Exception {
