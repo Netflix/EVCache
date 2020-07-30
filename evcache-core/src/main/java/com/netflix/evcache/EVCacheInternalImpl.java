@@ -18,7 +18,7 @@ import java.util.*;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
-public class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
+class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
     private static final Logger log = LoggerFactory.getLogger(EVCacheInternalImpl.class);
 
     public EVCacheItem<CachedData> metaGet(String key, Transcoder<CachedData> tc, boolean isOriginalKeyHashed) throws EVCacheException {
