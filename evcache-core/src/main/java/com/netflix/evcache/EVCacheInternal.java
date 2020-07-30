@@ -1,26 +1,24 @@
 package com.netflix.evcache;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.netflix.evcache.operation.EVCacheItem;
 import com.netflix.evcache.operation.EVCacheItemMetaData;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import net.spy.memcached.CachedData;
+import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.transcoders.Transcoder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
-import javax.inject.Inject;
-import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.Future;
 
 public interface EVCacheInternal extends EVCache {
     EVCacheItem<CachedData> metaGet(String key, Transcoder<CachedData> tc, boolean isOriginalKeyHashed) throws EVCacheException;
 
+    Map<MemcachedNode, CachedValues> metaGetPerClient(String key, Transcoder<CachedData> tc, boolean isOriginalKeyHashed) throws EVCacheException;
+
     EVCacheItemMetaData metaDebug(String key, boolean isOriginalKeyHashed) throws EVCacheException;
+
+    Map<MemcachedNode, EVCacheItemMetaData> metaDebugPerClient(String key, boolean isOriginalKeyHashed) throws EVCacheException;
 
     Future<Boolean>[] delete(String key, boolean isOriginalKeyHashed) throws EVCacheException;
 
@@ -38,6 +36,32 @@ public interface EVCacheInternal extends EVCache {
         YES,
         NO,
         MAYBE
+    }
+
+    public static class CachedValues {
+        private final String key;
+        private final CachedData data;
+        private EVCacheItemMetaData itemMetaData;
+
+        public CachedValues(String key, CachedData data, EVCacheItemMetaData itemMetaData) {
+            this.key = key;
+            this.data = data;
+            this.itemMetaData = itemMetaData;
+        }
+
+        public String getKey() {
+            return key;
+        }
+
+        public CachedData getData() {
+            return data;
+        }
+
+        public EVCacheItemMetaData getEVCacheItemMetaData() {
+            return itemMetaData;
+        }
+
+
     }
 
     public class Builder extends EVCache.Builder {

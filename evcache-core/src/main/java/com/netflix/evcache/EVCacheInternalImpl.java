@@ -7,22 +7,62 @@ import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.ServerGroup;
 import net.spy.memcached.CachedData;
+import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.transcoders.Transcoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import sun.misc.Cache;
 
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 public class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
+    private static final Logger log = LoggerFactory.getLogger(EVCacheInternalImpl.class);
+
     public EVCacheItem<CachedData> metaGet(String key, Transcoder<CachedData> tc, boolean isOriginalKeyHashed) throws EVCacheException {
         return this.metaGetInternal(key, tc, isOriginalKeyHashed);
     }
 
+    public Map<MemcachedNode, CachedValues> metaGetPerClient(String key, Transcoder<CachedData> tc, boolean isOriginalKeyHashed) throws EVCacheException {
+        Map<MemcachedNode, CachedValues> map = new HashMap<>();
+        final Map<ServerGroup, List<EVCacheClient>> instancesByZone = _pool.getAllInstancesByZone();
+        final EVCacheKey evcKey = getEVCacheKey(key);
+        for (ServerGroup sGroup : instancesByZone.keySet()) {
+            try {
+                for (EVCacheClient client : instancesByZone.get(sGroup)) {
+                    EVCacheItem<CachedData> item = getEVCacheItem(client, evcKey, tc, true, false, isOriginalKeyHashed);
+                    map.put(client.getNodeLocator().getPrimary(key), null == item ? null : new CachedValues(key, item.getData(), item.getItemMetaData()));
+                }
+            } catch (Exception e) {
+                log.error("Error getting meta data", e);
+            }
+        }
+
+        return map;
+    }
+
     public EVCacheItemMetaData metaDebug(String key, boolean isOriginalKeyHashed) throws EVCacheException {
         return this.metaDebugInternal(key, isOriginalKeyHashed);
+    }
+
+    public Map<MemcachedNode, EVCacheItemMetaData> metaDebugPerClient(String key, boolean isOriginalKeyHashed) throws EVCacheException {
+        Map<MemcachedNode, EVCacheItemMetaData> map = new HashMap<>();
+        final Map<ServerGroup, List<EVCacheClient>> instancesByZone = _pool.getAllInstancesByZone();
+        final EVCacheKey evcKey = getEVCacheKey(key);
+        for (ServerGroup sGroup : instancesByZone.keySet()) {
+            try {
+                for (EVCacheClient client : instancesByZone.get(sGroup)) {
+                    EVCacheItemMetaData itemMetaData = getEVCacheItemMetaData(client, evcKey, true, false, isOriginalKeyHashed);
+                    map.put(client.getNodeLocator().getPrimary(key), itemMetaData);
+                }
+            } catch (Exception e) {
+                log.error("Error getting meta data", e);
+            }
+        }
+
+        return map;
     }
 
     public Future<Boolean>[] delete(String key, boolean isOriginalKeyHashed) throws EVCacheException {
