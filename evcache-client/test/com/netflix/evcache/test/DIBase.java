@@ -7,10 +7,12 @@ import com.netflix.archaius.config.MapConfig;
 import com.netflix.archaius.guice.ArchaiusModule;
 import com.netflix.discovery.guice.EurekaClientModule;
 import com.netflix.evcache.EVCache;
+import com.netflix.evcache.EVCacheInternal;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheModule;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.connection.DIConnectionModule;
+import com.netflix.evcache.operation.EVCacheItem;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
@@ -115,6 +117,12 @@ public abstract class DIBase  {
 
     protected EVCache.Builder getNewBuilder() {
         final EVCache.Builder evCacheBuilder = injector.getInstance(EVCache.Builder.class);
+        if(log.isDebugEnabled()) log.debug("evCacheBuilder : " + evCacheBuilder);
+        return evCacheBuilder;
+    }
+
+    protected EVCacheInternal.Builder getInternalNewBuilder() {
+        final EVCacheInternal.Builder evCacheBuilder = injector.getInstance(EVCacheInternal.Builder.class);
         if(log.isDebugEnabled()) log.debug("evCacheBuilder : " + evCacheBuilder);
         return evCacheBuilder;
     }
