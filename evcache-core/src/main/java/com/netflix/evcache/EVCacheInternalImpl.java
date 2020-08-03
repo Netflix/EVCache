@@ -18,6 +18,9 @@ import java.util.*;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
+/**
+ * This class is for internal-use only by EVCache components, and is not recommended to be used for any other purpose. EVCache and EVCacheImpl are recommended instead.
+ */
 class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
     private static final Logger log = LoggerFactory.getLogger(EVCacheInternalImpl.class);
 
