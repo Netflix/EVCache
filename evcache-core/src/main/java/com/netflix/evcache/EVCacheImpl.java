@@ -1790,7 +1790,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 }
             }
 
-            if (log.isDebugEnabled() && shouldLog()) log.debug("APP " + _appName + ", BULK : Data [" + decanonicalR + "]");
+            if (log.isDebugEnabled() && shouldLog()) log.debug("BulkGet; APP " + _appName + ", keys : " + keys + (log.isTraceEnabled() ? "; value : " + decanonicalR : ""));
             if (event != null) endEvent(event);
             return decanonicalR;
         } catch (net.spy.memcached.internal.CheckedOperationTimeoutException ex) {
