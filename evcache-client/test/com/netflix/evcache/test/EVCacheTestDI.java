@@ -5,21 +5,32 @@ import static org.testng.Assert.assertTrue;
 
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.Future;
 
+import java.util.*;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
+import com.netflix.evcache.*;
+import com.netflix.evcache.operation.EVCacheItem;
+import com.netflix.evcache.operation.EVCacheItemMetaData;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.KeyHasher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
-import com.netflix.evcache.EVCache;
-import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
-
 import rx.schedulers.Schedulers;
+
+
+import static org.testng.Assert.*;
 
 public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener<String> {
     private static final Logger log = LoggerFactory.getLogger(EVCacheTestDI.class);
     private int loops = 1;
+    private Map<String, String> propertiesToSet;
+    private String appName = "EVCACHE_TEST";
 
     public static void main(String args[]) {
         try {
@@ -31,31 +42,32 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
     }
 
     public EVCacheTestDI() {
+        propertiesToSet = new HashMap<>();
+        propertiesToSet.putIfAbsent(appName + ".us-east-1d.EVCacheClientPool.writeOnly", "false");
+        propertiesToSet.putIfAbsent(appName + ".EVCacheClientPool.poolSize", "1");
+        propertiesToSet.putIfAbsent(appName + ".ping.servers", "false");
+        propertiesToSet.putIfAbsent(appName + ".cid.throw.exception", "true");
+        propertiesToSet.putIfAbsent(appName + ".EVCacheClientPool.readTimeout", "500");
+        propertiesToSet.putIfAbsent(appName + ".EVCacheClientPool.bulkReadTimeout", "500");
+        propertiesToSet.putIfAbsent(appName + ".max.read.queue.length", "20");
+        propertiesToSet.putIfAbsent("EVCacheClientPoolManager.log.apps", appName);
+        propertiesToSet.putIfAbsent(appName + ".fallback.zone", "true");
+        propertiesToSet.putIfAbsent(appName + ".enable.throttling", "false");
+        propertiesToSet.putIfAbsent(appName + ".throttle.time", "0");
+        propertiesToSet.putIfAbsent(appName + ".throttle.percent", "0");
+        propertiesToSet.putIfAbsent(appName + ".log.operation", "1000");
+        propertiesToSet.putIfAbsent(appName + ".EVCacheClientPool.validate.input.queue", "true");
     }
 
     protected Properties getProps() {
         Properties props = super.getProps();
-        props.setProperty("EVCACHE_CCS.us-east-1d.EVCacheClientPool.writeOnly", "false");
-        props.setProperty("EVCACHE_CCS.EVCacheClientPool.poolSize", "1");
-        props.setProperty("EVCACHE_CCS.ping.servers", "false");
-        props.setProperty("EVCACHE_CCS.cid.throw.exception", "true");
-        props.setProperty("EVCACHE_CCS.EVCacheClientPool.readTimeout", "500");
-        props.setProperty("EVCACHE_CCS.EVCacheClientPool.bulkReadTimeout", "500");
-        props.setProperty("EVCACHE_CCS.max.read.queue.length", "20");
-        props.setProperty("EVCacheClientPoolManager.log.apps", "EVCACHE_CCS");
-        props.setProperty("EVCACHE_CCS.fallback.zone", "true");
-        props.setProperty("EVCACHE_CCS.enable.throttling", "false");
-        props.setProperty("EVCACHE_CCS.throttle.time", "0");
-        props.setProperty("EVCACHE_CCS.throttle.percent", "0");
-        props.setProperty("EVCACHE_CCS.log.operation", "1000");
-        props.setProperty("EVCACHE_CCS.EVCacheClientPool.validate.input.queue", "true");
-
+        propertiesToSet.entrySet().forEach(entry -> props.setProperty(entry.getKey(), entry.getValue()));
         return props;
     }
 
     @Test
     public void testEVCache() {
-        this.evCache = getNewBuilder().setAppName("EVCACHE_CCS").setCachePrefix("cid").enableRetry().build();
+        this.evCache = getNewBuilder().setAppName(appName).setCachePrefix("cid").enableRetry().build();
         assertNotNull(evCache);
     }
 
@@ -86,7 +98,7 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
             }
             assertTrue(exceptionThrown);
         }
-        
+
     }
 
     @Test(dependsOnMethods = { "testKeySizeCheck" })
@@ -239,6 +251,179 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         for (int i = 0; i < loops; i++) {
             assertTrue(appendOrAdd(i, evCache));
         }
+    }
+
+    private void refreshEVCache() {
+        setupEnv();
+        testEVCache();
+    }
+
+    @Test(dependsOnMethods = {"testAppendOrAdd"})
+    public void functionalTestsWithAppLevelAndASGLevelHashingScenarios() throws Exception {
+        refreshEVCache();
+
+        // no hashing
+        assertFalse(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElse(false).get());
+        doFunctionalTests(false);
+
+        // hashing at app level
+        propertiesToSet.put(appName + ".hash.key", "true");
+        refreshEVCache();
+        assertTrue(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElse(false).get());
+        doFunctionalTests(true);
+        propertiesToSet.remove(appName + ".hash.key");
+
+        // hashing at app level due to auto hashing as a consequence of a large key
+        propertiesToSet.put(appName + ".auto.hash.keys", "true");
+        refreshEVCache();
+        assertTrue(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".auto.hash.keys", Boolean.class).orElse(false).get());
+        assertFalse(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElse(false).get());
+        testWithLargeKey();
+        // negative scenario
+        propertiesToSet.remove(appName + ".auto.hash.keys");
+        refreshEVCache();
+        assertFalse(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".auto.hash.keys", Boolean.class).orElse(false).get());
+        assertFalse(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElse(false).get());
+        assertThrows(IllegalArgumentException.class, () -> {
+            testWithLargeKey();
+        });
+
+        // hashing at app level by choice AND different hashing at each asg
+        Map<String, KeyHasher.HashingAlgorithm> hashingAlgorithmsByServerGroup = new HashMap<>();
+        propertiesToSet.put(appName + ".hash.key", "true");
+        refreshEVCache();
+        assertTrue(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElse(false).get());
+
+        // get server group names, to be used to configure the ASG level hashing properties
+        Map<ServerGroup, List<EVCacheClient>> clientsByServerGroup = manager.getEVCacheClientPool(appName).getAllInstancesByServerGroup();
+        int i = 0;
+        for (ServerGroup serverGroup : clientsByServerGroup.keySet()) {
+            KeyHasher.HashingAlgorithm hashingAlgorithm = KeyHasher.HashingAlgorithm.values()[i++ % KeyHasher.HashingAlgorithm.values().length];
+            hashingAlgorithmsByServerGroup.put(serverGroup.getName(), hashingAlgorithm);
+            propertiesToSet.put(serverGroup.getName() + ".hash.key", "true");
+            propertiesToSet.put(serverGroup.getName() + ".hash.algo", hashingAlgorithm.name());
+        }
+        refreshEVCache();
+        clientsByServerGroup = manager.getEVCacheClientPool(appName).getAllInstancesByServerGroup();
+        // validate hashing properties of asgs
+        for (ServerGroup serverGroup : clientsByServerGroup.keySet()) {
+            assertEquals(clientsByServerGroup.get(serverGroup).get(0).getHashingAlgorithm(), hashingAlgorithmsByServerGroup.get(serverGroup.getName()));
+        }
+        doFunctionalTests(true);
+        for (ServerGroup serverGroup : clientsByServerGroup.keySet()) {
+            propertiesToSet.remove(serverGroup.getName());
+        }
+    }
+
+    private void testWithLargeKey() throws Exception {
+        StringBuilder sb = new StringBuilder();
+        for (int i= 0; i < 100; i++) {
+            sb.append(Long.toString(System.currentTimeMillis()));
+        }
+        String key = sb.toString();
+        String value = UUID.randomUUID().toString();
+
+        // set
+        EVCacheLatch latch = evCache.set(key, value, EVCacheLatch.Policy.ALL);
+        latch.await(1000, TimeUnit.MILLISECONDS);
+
+        // get
+        assertEquals(evCache.get(key), value);
+    }
+
+    private void doFunctionalTests(boolean isHashingEnabled) throws Exception {
+        String key1 = Long.toString(System.currentTimeMillis());
+        String value1 = UUID.randomUUID().toString();
+
+        // set
+        EVCacheLatch latch = evCache.set(key1, value1, EVCacheLatch.Policy.ALL);
+        latch.await(1000, TimeUnit.MILLISECONDS);
+
+        // get
+        assertEquals(evCache.get(key1), value1);
+
+        // replace
+        value1 = UUID.randomUUID().toString();
+        latch = evCache.replace(key1, value1, EVCacheLatch.Policy.ALL);
+        latch.await(1000, TimeUnit.MILLISECONDS);
+        // get
+        assertEquals(evCache.get(key1), value1);
+
+        // add a key
+        String key2 = Long.toString(System.currentTimeMillis());
+        String value2 = UUID.randomUUID().toString();
+        latch = evCache.add(key2, value2, null, 1000, EVCacheLatch.Policy.ALL);
+        latch.await(1000, TimeUnit.MILLISECONDS);
+        // get
+        assertEquals(evCache.get(key2), value2);
+
+        // appendoradd - append case
+        String value3 = UUID.randomUUID().toString();
+        if (isHashingEnabled) {
+            assertThrows(EVCacheException.class, () -> {
+                evCache.appendOrAdd(key2, value3, null, 1000, EVCacheLatch.Policy.ALL);
+            });
+        } else {
+            latch = evCache.appendOrAdd(key2, value3, null, 1000, EVCacheLatch.Policy.ALL);
+            latch.await(3000, TimeUnit.MILLISECONDS);
+            assertEquals(evCache.get(key2), value2 + value3);
+        }
+
+        // appendoradd - add case
+        String key3 = Long.toString(System.currentTimeMillis());
+        String value4 = UUID.randomUUID().toString();
+        if (isHashingEnabled) {
+            assertThrows(EVCacheException.class, () -> {
+                evCache.appendOrAdd(key3, value4, null, 1000, EVCacheLatch.Policy.ALL);
+            });
+        } else {
+            latch = evCache.appendOrAdd(key3, value4, null, 1000, EVCacheLatch.Policy.ALL);
+            latch.await(3000, TimeUnit.MILLISECONDS);
+            // get
+            assertEquals(evCache.get(key3), value4);
+        }
+
+        // append
+        String value5 = UUID.randomUUID().toString();
+        if (isHashingEnabled) {
+            assertThrows(EVCacheException.class, () -> {
+                evCache.append(key3, value5, 1000);
+            });
+        } else {
+            Future<Boolean> futures[] = evCache.append(key3, value5, 1000);
+            for (Future future : futures) {
+                assertTrue((Boolean) future.get());
+            }
+            // get
+            assertEquals(evCache.get(key3), value4 + value5);
+        }
+
+        String key4 = Long.toString(System.currentTimeMillis());
+        assertEquals(evCache.incr(key4, 1, 10, 1000), 10);
+        assertEquals(evCache.incr(key4, 10, 10, 1000), 20);
+
+        // decr
+        String key5 = Long.toString(System.currentTimeMillis());
+        assertEquals(evCache.decr(key5, 1, 10, 1000), 10);
+        assertEquals(evCache.decr(key5, 20, 10, 1000), 0);
+
+        // delete
+        latch = evCache.delete(key1, EVCacheLatch.Policy.ALL);
+        latch.await(1000, TimeUnit.MILLISECONDS);
+        latch = evCache.delete(key2, EVCacheLatch.Policy.ALL);
+        latch.await(1000, TimeUnit.MILLISECONDS);
+        latch = evCache.delete(key3, EVCacheLatch.Policy.ALL);
+        latch.await(1000, TimeUnit.MILLISECONDS);
+        latch = evCache.delete(key4, EVCacheLatch.Policy.ALL);
+        latch.await(1000, TimeUnit.MILLISECONDS);
+        latch = evCache.delete(key5, EVCacheLatch.Policy.ALL);
+        latch.await(1000, TimeUnit.MILLISECONDS);
+
+        assertNull(evCache.get(key1));
+        assertNull(evCache.get(key2));
+        assertNull(evCache.get(key3));
+        assertNull(evCache.get(key4));
+        assertNull(evCache.get(key5));
     }
 
     public void testAll() {

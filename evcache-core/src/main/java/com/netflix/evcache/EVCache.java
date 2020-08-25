@@ -1392,6 +1392,10 @@ public interface EVCache {
             return this;
         }
 
+        protected EVCache newImpl(String appName, String cachePrefix, int ttl, Transcoder<?> transcoder, boolean serverGroupRetry, boolean enableExceptionThrowing, EVCacheClientPoolManager poolManager) {
+          return new EVCacheImpl(appName, cachePrefix, ttl, transcoder, serverGroupRetry, enableExceptionThrowing, poolManager);
+        }
+
         /**
          * Returns a newly created {@code EVCache} based on the contents of the
          * {@code Builder}.
@@ -1417,8 +1421,7 @@ public interface EVCache {
 
             customize();
 
-            return new EVCacheImpl(
-                _appName, _cachePrefix, _ttl, _transcoder, _serverGroupRetry, _enableExceptionThrowing, _poolManager);
+            return newImpl(_appName, _cachePrefix, _ttl, _transcoder, _serverGroupRetry, _enableExceptionThrowing, _poolManager);
         }
     }
 }

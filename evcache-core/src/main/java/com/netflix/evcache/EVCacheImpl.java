@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.archaius.api.Property;
 import com.netflix.archaius.api.PropertyRepository;
-import com.netflix.evcache.EVCache.Call;
 import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.event.EVCacheEvent;
@@ -67,19 +66,19 @@ import rx.Single;
 @SuppressWarnings("unchecked")
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "WMI_WRONG_MAP_ITERATOR",
     "DB_DUPLICATE_BRANCHES", "REC_CATCH_EXCEPTION","RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE" })
-final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
+public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheImpl.class);
 
     private final String _appName;
     private final String _cacheName;
     private final String _metricPrefix;
-    private final Transcoder<?> _transcoder;
+    protected final Transcoder<?> _transcoder;
     private final boolean _zoneFallback;
     private final boolean _throwException;
 
     private final int _timeToLive; // defaults to 15 minutes
-    private EVCacheClientPool _pool;
+    protected EVCacheClientPool _pool;
 
     private final Property<Boolean> _throwExceptionFP, _zoneFallbackFP, _useInMemoryCache;
     private final Property<Boolean> _bulkZoneFallbackFP;
@@ -90,10 +89,12 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private final Property<Boolean> ignoreTouch;
     private final Property<Boolean> hashKey;
     private final Property<String> hashingAlgo;
+    private final Property<Boolean> shouldEncodeHashKey;
+    private final Property<Integer> maxHashingBytes;
     private final EVCacheTranscoder evcacheValueTranscoder;
     private final Property<Integer> maxReadDuration, maxWriteDuration;
 
-    private final EVCacheClientPoolManager _poolManager;
+    protected final EVCacheClientPoolManager _poolManager;
     private final Map<String, Timer> timerMap = new ConcurrentHashMap<String, Timer>();
     private final Map<String, DistributionSummary> distributionSummaryMap = new ConcurrentHashMap<String, DistributionSummary>();
     private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
@@ -147,6 +148,8 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
         this.hashKey = propertyRepository.get(appName + ".hash.key", Boolean.class).orElse(false);
         this.hashingAlgo = propertyRepository.get(appName + ".hash.algo", String.class).orElse("siphash24");
+        this.shouldEncodeHashKey = propertyRepository.get(appName + ".hash.encode", Boolean.class).orElse(true);
+        this.maxHashingBytes = propertyRepository.get(appName + ".hash.max.bytes", Integer.class).orElse(-1);
         this.autoHashKeys = propertyRepository.get(_appName + ".auto.hash.keys", Boolean.class).orElseGet("evcache.auto.hash.keys").orElse(false);
         this.evcacheValueTranscoder = new EVCacheTranscoder();
         evcacheValueTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
@@ -162,10 +165,10 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         });
 
         _pool.pingServers();
-        
+
         setupMonitoring();
     }
-    
+
     private void setupMonitoring() {
         try {
             final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + _appName
@@ -181,7 +184,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
     }
 
-    
+
 
     EVCacheKey getEVCacheKey(final String key) {
         if(key == null || key.length() == 0) throw new NullPointerException("Key cannot be null or empty");
@@ -199,20 +202,12 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             canonicalKey  = new StringBuilder(keyLength).append(_cacheName).append(':').append(key).toString();
         }
 
-        final String hashedKey;
-        if(hashKey.get()) {
-            hashedKey = KeyHasher.getHashedKey(canonicalKey, hashingAlgo.get());
-        } else if(autoHashKeys.get() && canonicalKey.length() > this.maxKeyLength.get()) {
-            hashedKey = KeyHasher.getHashedKey(canonicalKey, hashingAlgo.get());
-        } else {
-            hashedKey = null;
-        }
-
-        if (hashedKey == null && canonicalKey.length() > this.maxKeyLength.get()) {
+        if (canonicalKey.length() > this.maxKeyLength.get() && !hashKey.get() && !autoHashKeys.get()) {
             throw new IllegalArgumentException("Key is too long (maxlen = " + this.maxKeyLength.get() + ')');
         }
 
-        final EVCacheKey evcKey = new EVCacheKey(_appName, key, canonicalKey, hashedKey, hashingAlgo);
+        boolean shouldHashKeyAtAppLevel = hashKey.get() || (canonicalKey.length() > this.maxKeyLength.get() && autoHashKeys.get());
+        final EVCacheKey evcKey = new EVCacheKey(_appName, key, canonicalKey, shouldHashKeyAtAppLevel ? KeyHasher.getHashingAlgorithmFromString(hashingAlgo.get()) : null, this.shouldEncodeHashKey, this.maxHashingBytes);
         if (log.isDebugEnabled() && shouldLog()) log.debug("Key : " + key + "; EVCacheKey : " + evcKey);
         return evcKey;
     }
@@ -518,6 +513,10 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     public EVCacheItemMetaData metaDebug(String key) throws EVCacheException {
+        return this.metaDebugInternal(key, false);
+    }
+
+    protected EVCacheItemMetaData metaDebugInternal(String key, boolean isOriginalKeyHashed) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException("Key cannot be null");
         final EVCacheKey evcKey = getEVCacheKey(key);
         final boolean throwExc = doThrowException();
@@ -552,7 +551,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         try {
             final boolean hasZF = hasZoneFallback();
             boolean throwEx = hasZF ? false : throwExc;
-            EVCacheItemMetaData data = getEVCacheItemMetaData(client, evcKey, throwEx, hasZF);
+            EVCacheItemMetaData data = getEVCacheItemMetaData(client, evcKey, throwEx, hasZF, isOriginalKeyHashed);
             if (data == null && hasZF) {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
                 if (fbClients != null && !fbClients.isEmpty()) {
@@ -573,7 +572,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                             }
                         }
                         tries++;
-                        data = getEVCacheItemMetaData(fbClient, evcKey, throwEx, (i < fbClients.size() - 1) ? true : false);
+                        data = getEVCacheItemMetaData(fbClient, evcKey, throwEx, (i < fbClients.size() - 1) ? true : false, isOriginalKeyHashed);
                         if (log.isDebugEnabled() && shouldLog()) log.debug("Retry for APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + fbClient.getServerGroup());
                         if (data != null) {
                             client = fbClient;
@@ -618,6 +617,10 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     public <T> EVCacheItem<T> metaGet(String key, Transcoder<T> tc) throws EVCacheException {
+        return this.metaGetInternal(key, tc, false);
+    }
+
+    protected <T> EVCacheItem<T> metaGetInternal(String key, Transcoder<T> tc, boolean isOriginalKeyHashed) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException("Key cannot be null");
         final EVCacheKey evcKey = getEVCacheKey(key);
         final boolean throwExc = doThrowException();
@@ -652,7 +655,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         try {
             final boolean hasZF = hasZoneFallback();
             boolean throwEx = hasZF ? false : throwExc;
-            EVCacheItem<T> data = getEVCacheItem(client, evcKey, tc, throwEx, hasZF);
+            EVCacheItem<T> data = getEVCacheItem(client, evcKey, tc, throwEx, hasZF, isOriginalKeyHashed);
             if (data == null && hasZF) {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
                 if (fbClients != null && !fbClients.isEmpty()) {
@@ -673,7 +676,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                             }
                         }
                         tries++;
-                        data = getEVCacheItem(fbClient, evcKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
+                        data = getEVCacheItem(fbClient, evcKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false, isOriginalKeyHashed);
                         if (log.isDebugEnabled() && shouldLog()) log.debug("Retry for APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + fbClient.getServerGroup());
                         if (data != null) {
                             client = fbClient;
@@ -718,7 +721,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
 
-    
+
     private int policyToCount(Policy policy, int count) {
         if (policy == null) return 0;
         switch (policy) {
@@ -912,7 +915,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         if (client == null) return null;
         final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
         try {
-            String hashKey = evcKey.getHashKey(client.isDuetClient());
+            String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes());
             String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
 
             if(hashKey != null) {
@@ -950,10 +953,10 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
     }
 
-    private EVCacheItemMetaData getEVCacheItemMetaData(EVCacheClient client, EVCacheKey evcKey, boolean throwException, boolean hasZF) throws Exception {
+    protected EVCacheItemMetaData getEVCacheItemMetaData(EVCacheClient client, EVCacheKey evcKey, boolean throwException, boolean hasZF, boolean isOriginalKeyHashed) throws Exception {
         if (client == null) return null;
         try {
-            return client.metaDebug(evcKey.getDerivedKey(client.isDuetClient()));
+            return client.metaDebug(isOriginalKeyHashed ? evcKey.getKey() : evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()));
         } catch (EVCacheConnectException ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheConnectException while getting with metadata for APP " + _appName + ", key : " + evcKey + "; hasZF : " + hasZF, ex);
             if (!throwException || hasZF) return null;
@@ -973,11 +976,37 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
     }
 
-    private <T> EVCacheItem<T> getEVCacheItem(EVCacheClient client, EVCacheKey evcKey, Transcoder<T> tc, boolean throwException, boolean hasZF) throws Exception {
+    protected <T> EVCacheItem<T> getEVCacheItem(EVCacheClient client, EVCacheKey evcKey, Transcoder<T> tc, boolean throwException, boolean hasZF, boolean isOriginalKeyHashed) throws Exception {
         if (client == null) return null;
         final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
         try {
-            return client.metaGet(evcKey.getDerivedKey(client.isDuetClient()), transcoder, throwException, hasZF);
+            String hashKey = isOriginalKeyHashed ? evcKey.getKey() : evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes());
+            String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
+            if (hashKey != null) {
+                final EVCacheItem<Object> obj = client.metaGet(hashKey, evcacheValueTranscoder, throwException, hasZF);
+                if (null == obj) return null;
+                if (obj.getData() instanceof EVCacheValue) {
+                    final EVCacheValue val = (EVCacheValue) obj.getData();
+                    if (null == val) {
+                        return null;
+                    }
+
+                    // compare the key embedded in the value to the original key only if the original key is not passed hashed
+                    if (!isOriginalKeyHashed && !(val.getKey().equals(canonicalKey))) {
+                        incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.META_GET.name(), EVCacheMetricsFactory.META_GET_OPERATION);
+                        return null;
+                    }
+                    final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
+                    T t = transcoder.decode(cd);
+                    obj.setData(t);
+                    obj.setFlag(val.getFlags());
+                    return (EVCacheItem<T>) obj;
+                } else {
+                    return null;
+                }
+            } else {
+                return client.metaGet(canonicalKey, transcoder, throwException, hasZF);
+            }
         } catch (EVCacheConnectException ex) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("EVCacheConnectException while getting with meta data for APP " + _appName + ", key : " + evcKey + "; hasZF : " + hasZF, ex);
             if (!throwException || hasZF) return null;
@@ -1004,7 +1033,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private <T> Single<T> getData(EVCacheClient client, EVCacheKey evcKey, Transcoder<T> tc, boolean throwException, boolean hasZF, Scheduler scheduler) {
         if (client == null) return Single.error(new IllegalArgumentException("Client cannot be null"));
-        if(hashKey.get()) {
+        if(evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()) != null) {
             return Single.error(new IllegalArgumentException("Not supported"));
         } else {
             final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
@@ -1042,7 +1071,6 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     public <T> T getAndTouch(String key, int timeToLive) throws EVCacheException {
         return this.getAndTouch(key, timeToLive, (Transcoder<T>) _transcoder);
     }
-
 
     public <T> Single<T> getAndTouch(String key, int timeToLive, Scheduler scheduler) {
         return this.getAndTouch(key, timeToLive, (Transcoder<T>) _transcoder, scheduler);
@@ -1376,11 +1404,10 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         touchData(evcKey, timeToLive, clients, null);
     }
 
-
     private void touchData(EVCacheKey evcKey, int timeToLive, EVCacheClient[] clients, EVCacheLatch latch ) throws Exception {
         checkTTL(timeToLive, Call.TOUCH);
         for (EVCacheClient client : clients) {
-            client.touch(evcKey.getDerivedKey(client.isDuetClient()), timeToLive, latch);
+            client.touch(evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()), timeToLive, latch);
         }
     }
 
@@ -1425,7 +1452,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final Future<T> r;
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         try {
-            String hashKey = evcKey.getHashKey(client.isDuetClient());
+            String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes());
             String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
             if(hashKey != null) {
                 final Future<Object> objFuture = client.asyncGet(hashKey, evcacheValueTranscoder, throwExc, false);
@@ -1501,7 +1528,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             final Map<String, EVCacheKey> keyMap = new HashMap<String, EVCacheKey>(evcacheKeys.size() * 2);
             for(EVCacheKey evcKey : evcacheKeys) {
                 String key = evcKey.getCanonicalKey(client.isDuetClient());
-                String hashKey = evcKey.getHashKey(client.isDuetClient());
+                String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes());
                 if(hashKey != null) {
                     if (log.isDebugEnabled() && shouldLog()) log.debug("APP " + _appName + ", key [" + key + "], has been hashed [" + hashKey + "]");
                     key = hashKey;
@@ -1528,7 +1555,6 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                         if(evcKey.getCanonicalKey(client.isDuetClient()).equals(val.getKey())) {
                             if (log.isDebugEnabled() && shouldLog()) log.debug("APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
                             retMap.put(evcKey, tVal);
-                        	
                         } else {
                             if (log.isDebugEnabled() && shouldLog()) log.debug("CACHE COLLISION : APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
                             incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.BULK.name(), EVCacheMetricsFactory.READ);
@@ -1719,7 +1745,6 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 if (retMap == null || retMap.isEmpty()) {
                     if (log.isInfoEnabled() && shouldLog()) log.info("BULK : APP " + _appName + " ; Full cache miss for keys : " + keys);
                     if (event != null) event.setAttribute("status", "BMISS_ALL");
-    
                     final Map<String, T> returnMap = new HashMap<String, T>();
                     if (retMap != null && retMap.isEmpty()) {
                         for (String k : keys) {
@@ -1765,7 +1790,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 }
             }
 
-            if (log.isDebugEnabled() && shouldLog()) log.debug("APP " + _appName + ", BULK : Data [" + decanonicalR + "]");
+            if (log.isDebugEnabled() && shouldLog()) log.debug("BulkGet; APP " + _appName + ", keys : " + keys + (log.isTraceEnabled() ? "; value : " + decanonicalR : ""));
             if (event != null) endEvent(event);
             return decanonicalR;
         } catch (net.spy.memcached.internal.CheckedOperationTimeoutException ex) {
@@ -1850,11 +1875,15 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     public <T> EVCacheLatch set(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
+        EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
+        return this.set(key, value, tc, timeToLive, policy, clients, clients.length - _pool.getWriteOnlyEVCacheClients().length);
+    }
+
+    protected <T> EVCacheLatch set(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy, EVCacheClient[] clients, int latchCount) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
         checkTTL(timeToLive, Call.SET);
 
         final boolean throwExc = doThrowException();
-        final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
             incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.SET);
             if (throwExc) throw new EVCacheException("Could not find a client to set the data");
@@ -1882,27 +1911,26 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         String status = EVCacheMetricsFactory.SUCCESS;
 
-        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
+        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, latchCount, _appName);
         try {
             CachedData cd = null;
             for (EVCacheClient client : clients) {
                 String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
-                String hashKey = evcKey.getHashKey(client.isDuetClient());
-                if (cd == null) {
-                    if (tc != null) {
-                        cd = tc.encode(value);
-                    } else if ( _transcoder != null) {
-                        cd = ((Transcoder<Object>)_transcoder).encode(value);
-                    } else {
-                        cd = client.getTranscoder().encode(value);
-                    }
-                    if(hashKey != null) {
-                        final EVCacheValue val = new EVCacheValue(canonicalKey, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
-                        cd = evcacheValueTranscoder.encode(val);
-                    }
+                String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes());
+                if (tc != null) {
+                    cd = tc.encode(value);
+                } else if (_transcoder != null) {
+                    cd = ((Transcoder<Object>) _transcoder).encode(value);
+                } else {
+                    cd = client.getTranscoder().encode(value);
+                }
+                if (hashKey != null) {
+                    final EVCacheValue val = new EVCacheValue(canonicalKey, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
+                    cd = evcacheValueTranscoder.encode(val);
                 }
                 final Future<Boolean> future = client.set(hashKey == null ? canonicalKey : hashKey, cd, timeToLive, latch);
-                if (log.isDebugEnabled() && shouldLog()) log.debug("SET : APP " + _appName + ", Future " + future + " for key : " + evcKey);
+                if (log.isDebugEnabled() && shouldLog())
+                    log.debug("SET : APP " + _appName + ", Future " + future + " for key : " + evcKey);
             }
             if (event != null) {
                 event.setTTL(timeToLive);
@@ -1970,6 +1998,11 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             CachedData cd = null;
             int index = 0;
             for (EVCacheClient client : clients) {
+                // ensure key hashing is not enabled
+                if (evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()) != null) {
+                    throw new IllegalArgumentException("append is not supported when key hashing is enabled.");
+                }
+
                 if (cd == null) {
                     if (tc != null) {
                         cd = tc.encode(value);
@@ -1980,7 +2013,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     }
                     //if (cd != null) EVCacheMetricsFactory.getInstance().getDistributionSummary(_appName + "-AppendData-Size", tags).record(cd.getData().length);
                 }
-                final Future<Boolean> future = client.append(evcKey.getDerivedKey(client.isDuetClient()), cd);
+                final Future<Boolean> future = client.append(evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()), cd);
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
             }
             if (event != null) {
@@ -2020,7 +2053,11 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     public EVCacheFuture[] delete(String key) throws EVCacheException {
-        final EVCacheLatch latch = this.delete(key, null);
+        return this.deleteInternal(key, false);
+    }
+
+    protected EVCacheFuture[] deleteInternal(String key, boolean isOriginalKeyHashed) throws EVCacheException {
+        final EVCacheLatch latch = this.deleteInternal(key, null, isOriginalKeyHashed);
         if (latch == null) return new EVCacheFuture[0];
         final List<Future<Boolean>> futures = latch.getAllFutures();
         if (futures == null || futures.isEmpty()) return new EVCacheFuture[0];
@@ -2042,6 +2079,10 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     @Override
     public <T> EVCacheLatch delete(String key, Policy policy) throws EVCacheException {
+        return this.deleteInternal(key, policy, false);
+    }
+
+    protected <T> EVCacheLatch deleteInternal(String key, Policy policy, boolean isOriginalKeyHashed) throws EVCacheException {
         if (key == null) throw new IllegalArgumentException("Key cannot be null");
 
         final boolean throwExc = doThrowException();
@@ -2076,7 +2117,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
         try {
             for (int i = 0; i < clients.length; i++) {
-                Future<Boolean> future = clients[i].delete(evcKey.getDerivedKey(clients[i].isDuetClient()), latch);
+                Future<Boolean> future = clients[i].delete(isOriginalKeyHashed ? evcKey.getKey() : evcKey.getDerivedKey(clients[i].isDuetClient(), clients[i].getHashingAlgorithm(), clients[i].shouldEncodeHashKey(), clients[i].getMaxHashingBytes()), latch);
                 if (log.isDebugEnabled() && shouldLog()) log.debug("DELETE : APP " + _appName + ", Future " + future + " for key : " + evcKey);
             }
 
@@ -2151,7 +2192,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             final long[] vals = new long[clients.length];
             int index = 0;
             for (EVCacheClient client : clients) {
-                vals[index] = client.incr(evcKey.getDerivedKey(client.isDuetClient()), by, defaultVal, timeToLive);
+                vals[index] = client.incr(evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()), by, defaultVal, timeToLive);
                 if (vals[index] != -1 && currentValue < vals[index]) {
                     currentValue = vals[index];
                     if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + " current value = " + currentValue + " for key : " + key + " from client : " + client);
@@ -2166,12 +2207,12 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (vals[i] == -1 && currentValue > -1) {
                         if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + "; Zone " + clients[i].getZone()
                                 + " had a value = -1 so setting it to current value = " + currentValue + " for key : " + key);
-                        clients[i].incr(evcKey.getDerivedKey(clients[i].isDuetClient()), 0, currentValue, timeToLive);
+                        clients[i].incr(evcKey.getDerivedKey(clients[i].isDuetClient(), clients[i].getHashingAlgorithm(), clients[i].shouldEncodeHashKey(), clients[i].getMaxHashingBytes()), 0, currentValue, timeToLive);
                     } else if (vals[i] != currentValue) {
                         if(cd == null) cd = clients[i].getTranscoder().encode(String.valueOf(currentValue));
                         if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + "; Zone " + clients[i].getZone()
                                 + " had a value of " + vals[i] + " so setting it to current value = " + currentValue + " for key : " + key);
-                        clients[i].set(evcKey.getDerivedKey(clients[i].isDuetClient()), cd, timeToLive);
+                        clients[i].set(evcKey.getDerivedKey(clients[i].isDuetClient(), clients[i].getHashingAlgorithm(), clients[i].shouldEncodeHashKey(), clients[i].getMaxHashingBytes()), cd, timeToLive);
                     }
                 }
             }
@@ -2233,7 +2274,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             final long[] vals = new long[clients.length];
             int index = 0;
             for (EVCacheClient client : clients) {
-                vals[index] = client.decr(evcKey.getDerivedKey(client.isDuetClient()), by, defaultVal, timeToLive);
+                vals[index] = client.decr(evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()), by, defaultVal, timeToLive);
                 if (vals[index] != -1 && currentValue < vals[index]) {
                     currentValue = vals[index];
                     if (log.isDebugEnabled()) log.debug("DECR : APP " + _appName + " current value = " + currentValue + " for key : " + key + " from client : " + client);
@@ -2250,13 +2291,13 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                         if (log.isDebugEnabled()) log.debug("DECR : APP " + _appName + "; Zone " + clients[i].getZone()
                                 + " had a value = -1 so setting it to current value = "
                                 + currentValue + " for key : " + key);
-                        clients[i].decr(evcKey.getDerivedKey(clients[i].isDuetClient()), 0, currentValue, timeToLive);
+                        clients[i].decr(evcKey.getDerivedKey(clients[i].isDuetClient(), clients[i].getHashingAlgorithm(), clients[i].shouldEncodeHashKey(), clients[i].getMaxHashingBytes()), 0, currentValue, timeToLive);
                     } else if (vals[i] != currentValue) {
                         if(cd == null) cd = clients[i].getTranscoder().encode(currentValue);
                         if (log.isDebugEnabled()) log.debug("DECR : APP " + _appName + "; Zone " + clients[i].getZone()
                                 + " had a value of " + vals[i]
                                         + " so setting it to current value = " + currentValue + " for key : " + key);
-                        clients[i].set(evcKey.getDerivedKey(clients[i].isDuetClient()), cd, timeToLive);
+                        clients[i].set(evcKey.getDerivedKey(clients[i].isDuetClient(), clients[i].getHashingAlgorithm(), clients[i].shouldEncodeHashKey(), clients[i].getMaxHashingBytes()), cd, timeToLive);
                     }
                 }
             }
@@ -2334,21 +2375,19 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             CachedData cd = null;
             int index = 0;
             for (EVCacheClient client : clients) {
-                if (cd == null) {
-                    if (tc != null) {
-                        cd = tc.encode(value);
-                    } else if ( _transcoder != null) {
-                        cd = ((Transcoder<Object>)_transcoder).encode(value);
-                    } else {
-                        cd = client.getTranscoder().encode(value);
-                    }
-
-                    if(hashKey.get()) {
-                        final EVCacheValue val = new EVCacheValue(evcKey.getCanonicalKey(client.isDuetClient()), cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
-                        cd = evcacheValueTranscoder.encode(val);
-                    }
+                if (tc != null) {
+                    cd = tc.encode(value);
+                } else if (_transcoder != null) {
+                    cd = ((Transcoder<Object>) _transcoder).encode(value);
+                } else {
+                    cd = client.getTranscoder().encode(value);
                 }
-                final Future<Boolean> future = client.replace(evcKey.getDerivedKey(client.isDuetClient()), cd, timeToLive, latch);
+
+                if (evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()) != null) {
+                    final EVCacheValue val = new EVCacheValue(evcKey.getCanonicalKey(client.isDuetClient()), cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
+                    cd = evcacheValueTranscoder.encode(val);
+                }
+                final Future<Boolean> future = client.replace(evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()), cd, timeToLive, latch);
                 futures[index++] = new EVCacheFuture(future, key, _appName, client.getServerGroup());
             }
             if (event != null) {
@@ -2426,6 +2465,11 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         try {
             CachedData cd = null;
             for (EVCacheClient client : clients) {
+                // ensure key hashing is not enabled
+                if (evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()) != null) {
+                    throw new IllegalArgumentException("appendOrAdd is not supported when key hashing is enabled.");
+                }
+
                 if (cd == null) {
                     if (tc != null) {
                         cd = tc.encode(value);
@@ -2435,7 +2479,7 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                         cd = client.getTranscoder().encode(value);
                     }
                 }
-                final Future<Boolean> future = client.appendOrAdd(evcKey.getDerivedKey(client.isDuetClient()), cd, timeToLive, latch);
+                final Future<Boolean> future = client.appendOrAdd(evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()), cd, timeToLive, latch);
                 if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Future " + future + " for key : " + evcKey);
             }
             if (event != null) {
@@ -2471,7 +2515,6 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         return new EVCacheFuture[0];
     }
 
-
     public <T> boolean add(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
         final EVCacheLatch latch = add(key, value, tc, timeToLive, Policy.NONE);
         try {
@@ -2496,11 +2539,15 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     @Override
     public <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
+        EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
+        return this.add(key, value, tc, timeToLive, policy, clients, clients.length - _pool.getWriteOnlyEVCacheClients().length);
+    }
+
+    protected <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy, EVCacheClient[] clients, int latchCount) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
         checkTTL(timeToLive, Call.ADD);
 
         final boolean throwExc = doThrowException();
-        final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
             incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.ADD);
             if (throwExc) throw new EVCacheException("Could not find a client to Add the data");
@@ -2530,24 +2577,22 @@ final public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         EVCacheLatch latch = null;
         try {
             CachedData cd = null;
-            if (cd == null) {
-                if (tc != null) {
-                    cd = tc.encode(value);
-                } else if ( _transcoder != null) {
-                    cd = ((Transcoder<Object>)_transcoder).encode(value);
-                } else {
-                    cd = _pool.getEVCacheClientForRead().getTranscoder().encode(value);
-                }
+            if (tc != null) {
+                cd = tc.encode(value);
+            } else if (_transcoder != null) {
+                cd = ((Transcoder<Object>) _transcoder).encode(value);
+            } else {
+                cd = _pool.getEVCacheClientForRead().getTranscoder().encode(value);
             }
-            if(clientUtil == null) clientUtil = new EVCacheClientUtil(_pool);
-            latch = clientUtil.add(evcKey, cd, hashKey.get(), evcacheValueTranscoder, timeToLive, policy);
+            if (clientUtil == null) clientUtil = new EVCacheClientUtil(_appName, _pool.getOperationTimeout().get());
+            latch = clientUtil.add(evcKey, cd, evcacheValueTranscoder, timeToLive, policy, clients, latchCount);
             if (event != null) {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
-                if(_eventsUsingLatchFP.get()) {
+                if (_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
-                    if(latch instanceof EVCacheLatchImpl)
-                        ((EVCacheLatchImpl)latch).scheduledFutureValidation();
+                    if (latch instanceof EVCacheLatchImpl)
+                        ((EVCacheLatchImpl) latch).scheduledFutureValidation();
                 } else {
                     endEvent(event);
                 }
