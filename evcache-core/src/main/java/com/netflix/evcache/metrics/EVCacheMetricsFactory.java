@@ -346,6 +346,8 @@ public final class EVCacheMetricsFactory {
     public static final String PREFIX                           = "evc.prefix";
     public static final String EVENT                            = "evc.event";
     public static final String EVENT_STAGE                      = "evc.event.stage";
+    public static final String CONNECTION                       = "evc.connection";
+    public static final String TLS                              = "evc.tls";
 
     /**
      * Metric Tags Values  

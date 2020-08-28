@@ -98,7 +98,7 @@ public class EVCacheClient {
     private final EVCacheClientPool pool;
 //    private Counter addCounter = null;
     private final Property<Boolean> ignoreTouch;
-    private final List<Tag> tags;
+    private List<Tag> tags;
     private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
     private final Property<String> hashingAlgo;
     protected final Counter operationsCounter;
@@ -155,6 +155,7 @@ public class EVCacheClient {
         ping();
     }
 
+    
     public void ping() {
         try {
             final Map<SocketAddress, String> versions = getVersions();
@@ -1753,4 +1754,12 @@ public class EVCacheClient {
     }
 
 
+    public void addTag(String tagName, String tagValue) {
+        final Tag tag = new BasicTag(tagName, tagValue);
+        if(tags.contains(tag)) return;
+        final List<Tag> tagList = new ArrayList<Tag>(tags);
+        tagList.add(tag);
+        this.tags = Collections.<Tag>unmodifiableList(new ArrayList(tagList));
+        
+    }
 }

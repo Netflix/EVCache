@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.archaius.api.Property;
 import com.netflix.discovery.EurekaClient;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.DIEVCacheKetamaNodeLocatorConfiguration;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheNodeLocator;
@@ -22,6 +23,7 @@ public class DIAsciiConnectionFactory extends BaseAsciiConnectionFactory {
 
     DIAsciiConnectionFactory(EVCacheClient client, EurekaClient eurekaClient, int len, Property<Integer> operationTimeout, long opMaxBlockTime) {
         super(client, len, operationTimeout, opMaxBlockTime);
+        client.addTag(EVCacheMetricsFactory.CONNECTION, "ASCII");
         this.eurekaClient = eurekaClient;
     	if(log.isInfoEnabled()) log.info("Using ASCII Connection Factory!!!");
     }

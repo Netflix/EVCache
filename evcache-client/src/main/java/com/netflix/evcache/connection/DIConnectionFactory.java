@@ -2,6 +2,7 @@ package com.netflix.evcache.connection;
 
 import com.netflix.archaius.api.Property;
 import com.netflix.discovery.EurekaClient;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.DIEVCacheKetamaNodeLocatorConfiguration;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheNodeLocator;
@@ -17,6 +18,7 @@ public class DIConnectionFactory extends BaseConnectionFactory {
 
     DIConnectionFactory(EVCacheClient client, EurekaClient eurekaClient, int len, Property<Integer> operationTimeout, long opMaxBlockTime) {
         super(client, len, operationTimeout, opMaxBlockTime);
+        client.addTag(EVCacheMetricsFactory.CONNECTION, "BINARY");
         this.eurekaClient = eurekaClient;
     }
 
