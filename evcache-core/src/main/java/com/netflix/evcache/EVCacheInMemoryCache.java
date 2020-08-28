@@ -170,23 +170,30 @@ public class EVCacheInMemoryCache<T> {
         }
     }
 
+    private CacheStats previousStats = null;
     private long getSize() {
         final long size = cache.size();
         final CacheStats stats = cache.stats();
-
-        getCounter("hits").increment(stats.hitCount());
-        getCounter("miss").increment(stats.missCount());
-        getCounter("evictions").increment(stats.evictionCount());
-        getCounter("requests").increment(stats.requestCount());
-
-        getCounter("loadExceptionCount").increment(stats.loadExceptionCount());
-        getCounter("loadCount").increment(stats.loadCount());
-        getCounter("loadSuccessCount").increment(stats.loadSuccessCount());
-        getCounter("totalLoadTime-ms").increment(cache.stats().totalLoadTime()/1000000);
-
-        getGauge("hitrate").set(stats.hitRate());
-        getGauge("loadExceptionRate").set(stats.loadExceptionRate());
-        getGauge("averageLoadTime-ms").set(stats.averageLoadPenalty()/1000000);
+        if(previousStats != null) {
+            try {
+                getCounter("hits").increment(stats.hitCount() - previousStats.hitCount());
+                getCounter("miss").increment(stats.missCount()  - previousStats.missCount());
+                getCounter("evictions").increment(stats.evictionCount()  - previousStats.evictionCount());
+                getCounter("requests").increment(stats.requestCount()  - previousStats.requestCount());
+        
+                getCounter("loadExceptionCount").increment(stats.loadExceptionCount()  - previousStats.loadExceptionCount());
+                getCounter("loadCount").increment(stats.loadCount()  - previousStats.loadCount());
+                getCounter("loadSuccessCount").increment(stats.loadSuccessCount()  - previousStats.loadSuccessCount());
+                getCounter("totalLoadTime-ms").increment(( stats.totalLoadTime() - previousStats.totalLoadTime())/1000000);
+        
+                getGauge("hitrate").set(stats.hitRate());
+                getGauge("loadExceptionRate").set(stats.loadExceptionRate());
+                getGauge("averageLoadTime-ms").set(stats.averageLoadPenalty()/1000000);
+            } catch(Exception e) {
+                log.error("Error while reporting stats", e);
+            }
+        }
+        previousStats = stats;
         return size;
     }
 
