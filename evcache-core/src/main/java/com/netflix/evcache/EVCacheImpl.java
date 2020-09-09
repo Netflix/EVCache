@@ -2173,6 +2173,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final EVCacheKey evcKey = getEVCacheKey(key);
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.INCR);
         if (event != null) {
+            event.setTTL(timeToLive);
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
@@ -2256,6 +2257,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final EVCacheKey evcKey = getEVCacheKey(key);
         final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.DECR);
         if (event != null) {
+            event.setTTL(timeToLive);
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
                 if (shouldThrottle(event)) {
