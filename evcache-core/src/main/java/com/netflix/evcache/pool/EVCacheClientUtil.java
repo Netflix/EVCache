@@ -34,12 +34,16 @@ public class EVCacheClientUtil {
 
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, latchCount, _appName);
 
+        CachedData cdHashed = null;
         Boolean firstStatus = null;
         for (EVCacheClient client : clients) {
-            CachedData cd1 = null;
+            CachedData cd1;
             if (evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()) != null) {
-                final EVCacheValue val = new EVCacheValue(evcKey.getCanonicalKey(client.isDuetClient()), cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
-                cd1 = evcacheValueTranscoder.encode(val);
+                if(cdHashed == null) {
+                    final EVCacheValue val = new EVCacheValue(evcKey.getCanonicalKey(client.isDuetClient()), cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
+                    cdHashed = evcacheValueTranscoder.encode(val);
+                }
+                cd1 = cdHashed;
             } else {
             	cd1 = cd;
             }

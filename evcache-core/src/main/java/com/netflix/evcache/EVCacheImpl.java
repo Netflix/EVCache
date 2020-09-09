@@ -1914,6 +1914,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy, latchCount, _appName);
         try {
             CachedData cd = null;
+            CachedData cdHashed = null;
             for (EVCacheClient client : clients) {
                 String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
                 String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes());
@@ -1927,8 +1928,10 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     }
                 }
                 if (hashKey != null) {
-                    final EVCacheValue val = new EVCacheValue(canonicalKey, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
-                    final CachedData cdHashed = evcacheValueTranscoder.encode(val);
+                    if(cdHashed == null) {
+                        final EVCacheValue val = new EVCacheValue(canonicalKey, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
+                        cdHashed = evcacheValueTranscoder.encode(val);
+                    }
                     final Future<Boolean> future = client.set(hashKey, cdHashed, timeToLive, latch);
                     if (log.isDebugEnabled() && shouldLog()) log.debug("SET : APP " + _appName + ", Future " + future + " for hashed key : " + evcKey);
                 } else {
