@@ -82,7 +82,7 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
         if (replaceItem)
             return set(key, value, null, timeToLive, policy, clients, clients.length);
         else
-            return add(key, value, null, timeToLive, policy, clients, clients.length);
+            return add(key, value, null, timeToLive, policy, clients, clients.length, false);
     }
 
     public EVCacheLatch addOrSet(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy, List<String> serverGroups) throws EVCacheException {

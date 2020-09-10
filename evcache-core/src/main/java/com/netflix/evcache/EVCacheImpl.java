@@ -2553,6 +2553,10 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     protected <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy, EVCacheClient[] clients, int latchCount) throws EVCacheException {
+        return add(key, value, tc, timeToLive, policy, clients, latchCount, true);
+    }
+
+    protected <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy, EVCacheClient[] clients, int latchCount, boolean fixup) throws EVCacheException {
         if ((null == key) || (null == value)) throw new IllegalArgumentException();
         checkTTL(timeToLive, Call.ADD);
 
@@ -2594,7 +2598,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 cd = _pool.getEVCacheClientForRead().getTranscoder().encode(value);
             }
             if (clientUtil == null) clientUtil = new EVCacheClientUtil(_appName, _pool.getOperationTimeout().get());
-            latch = clientUtil.add(evcKey, cd, evcacheValueTranscoder, timeToLive, policy, clients, latchCount);
+            latch = clientUtil.add(evcKey, cd, evcacheValueTranscoder, timeToLive, policy, clients, latchCount, fixup);
             if (event != null) {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);

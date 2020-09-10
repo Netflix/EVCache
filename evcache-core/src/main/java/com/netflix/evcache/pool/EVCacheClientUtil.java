@@ -29,7 +29,7 @@ public class EVCacheClientUtil {
     /**
      * TODO : once metaget is available we need to get the remaining ttl from an existing entry and use it
      */
-    public EVCacheLatch add(EVCacheKey evcKey, final CachedData cd, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy, final EVCacheClient[] clients, int latchCount) throws Exception {
+    public EVCacheLatch add(EVCacheKey evcKey, final CachedData cd, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy, final EVCacheClient[] clients, int latchCount, boolean fixMissing) throws Exception {
         if (cd == null) return null;
 
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, latchCount, _appName);
@@ -49,19 +49,21 @@ public class EVCacheClientUtil {
             }
             String key = evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes());
             final Future<Boolean> f = client.add(key, timeToLive, cd1, latch);
-            if (log.isDebugEnabled()) log.debug("ADD : Op Submitted : APP " + _appName + ", key " + key + "; future : " + f + "; client : " + client);
-            boolean status = f.get().booleanValue();
-            if(!status) { // most common case
-                if(firstStatus == null) {
-                    for(int i = 0; i < clients.length; i++) {
-                        latch.countDown();
+            if(fixMissing) {
+                if (log.isDebugEnabled()) log.debug("ADD : Op Submitted : APP " + _appName + ", key " + key + "; future : " + f + "; client : " + client);
+                boolean status = f.get().booleanValue();
+                if(!status) { // most common case
+                    if(firstStatus == null) {
+                        for(int i = 0; i < clients.length; i++) {
+                            latch.countDown();
+                        }
+                        return latch;
+                    } else {
+                        return fixup(client, clients, evcKey, timeToLive, policy);
                     }
-                    return latch;
-                } else {
-                    return fixup(client, clients, evcKey, timeToLive, policy);
                 }
+                if(firstStatus == null) firstStatus = Boolean.valueOf(status);
             }
-            if(firstStatus == null) firstStatus = Boolean.valueOf(status);
         }
         return latch;
     }
