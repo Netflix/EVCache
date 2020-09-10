@@ -49,8 +49,8 @@ public class EVCacheClientUtil {
             }
             String key = evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes());
             final Future<Boolean> f = client.add(key, timeToLive, cd1, latch);
+            if (log.isDebugEnabled()) log.debug("ADD : Op Submitted : APP " + _appName + ", key " + key + "; future : " + f + "; client : " + client);
             if(fixMissing) {
-                if (log.isDebugEnabled()) log.debug("ADD : Op Submitted : APP " + _appName + ", key " + key + "; future : " + f + "; client : " + client);
                 boolean status = f.get().booleanValue();
                 if(!status) { // most common case
                     if(firstStatus == null) {
