@@ -171,28 +171,20 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     }
 
     private int policyToCount(Policy policy, int count) {
-        if (policy == null) return 0;
+        if (policy == null || count == 0) return 0;
         switch (policy) {
-        case NONE:
-            return 0;
-        case ONE:
-            return 1;
-        case QUORUM:
-            if (count == 0)
+            case NONE:
                 return 0;
-            else if (count <= 2)
+            case ONE:
                 return 1;
-            else
-                return (futures.size() / 2) + 1;
-        case ALL_MINUS_1:
-            if (count == 0)
-                return 0;
-            else if (count <= 2)
-                return 1;
-            else
-                return count - 1;
-        default:
-            return count;
+            case QUORUM:
+                if (count <= 2) return 1;
+                else return (futures.size() / 2) + 1;
+            case ALL_MINUS_1:
+                if (count <= 2) return 1;
+                else return count - 1;
+            default:
+                return count;
         }
     }
 
