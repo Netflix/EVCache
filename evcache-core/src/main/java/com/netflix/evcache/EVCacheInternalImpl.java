@@ -80,9 +80,9 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
     public EVCacheLatch addOrSetToWriteOnly(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy) throws EVCacheException {
         EVCacheClient[] clients = _pool.getWriteOnlyEVCacheClients();
         if (replaceItem)
-            return set(key, value, null, timeToLive, policy, clients, clients.length);
+            return set(key, value, null, timeToLive, policy, clients, 0);
         else
-            return add(key, value, null, timeToLive, policy, clients, clients.length, false);
+            return add(key, value, null, timeToLive, policy, clients, 0, false);
     }
 
     public EVCacheLatch addOrSet(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy, List<String> serverGroups) throws EVCacheException {
