@@ -67,23 +67,26 @@ And if CAS and client flags are present:
 //        }
 //    }
 
-    public static String getHashedKeyEncoded(String key, HashingAlgorithm hashingAlgorithm, Integer maxHashingBytes) {
+    public static String getHashedKeyEncoded(String key, HashingAlgorithm hashingAlgorithm, Integer maxDigestBytes, Integer maxHashBytes) {
         final long start = System.nanoTime();
-        byte[] digest = getHashedKey(key, hashingAlgorithm, maxHashingBytes);
+        byte[] digest = getHashedKey(key, hashingAlgorithm, maxDigestBytes);
         if(log.isDebugEnabled()) log.debug("Key : " + key +"; digest length : " + digest.length + "; byte Array contents : " + Arrays.toString(digest) );
-        final String hKey = encoder.encodeToString(digest);
+        String hKey = encoder.encodeToString(digest);
+        if (null != hKey && maxHashBytes != null && maxHashBytes > 0 && maxHashBytes < hKey.length()) {
+            hKey = hKey.substring(0, maxHashBytes);
+        }
         if(log.isDebugEnabled()) log.debug("Key : " + key +"; Hashed & encoded key : " + hKey + "; Took " + (System.nanoTime() - start) + " nanos");
         return hKey;
     }
 
-    public static byte[] getHashedKeyInBytes(String key, HashingAlgorithm hashingAlgorithm, Integer maxHashingBytes) {
+    public static byte[] getHashedKeyInBytes(String key, HashingAlgorithm hashingAlgorithm, Integer maxDigestBytes) {
         final long start = System.nanoTime();
-        byte[] digest = getHashedKey(key, hashingAlgorithm, maxHashingBytes);
+        byte[] digest = getHashedKey(key, hashingAlgorithm, maxDigestBytes);
         if(log.isDebugEnabled()) log.debug("Key : " + key +"; digest length : " + digest.length + "; byte Array contents : " + Arrays.toString(digest) + "; Took " + (System.nanoTime() - start) + " nanos");
         return digest;
     }
 
-    private static byte[] getHashedKey(String key, HashingAlgorithm hashingAlgorithm, Integer maxHashingBytes) {
+    private static byte[] getHashedKey(String key, HashingAlgorithm hashingAlgorithm, Integer maxDigestBytes) {
         HashFunction hf = null;
         switch (hashingAlgorithm) {
             case murmur3:
@@ -123,8 +126,8 @@ And if CAS and client flags are present:
         final HashCode hc = hf.newHasher().putString(key, Charsets.UTF_8).hash();
         final byte[] digest = hc.asBytes();
 
-        if (maxHashingBytes != null && maxHashingBytes > 0 && maxHashingBytes < digest.length) {
-            return Arrays.copyOfRange(digest, 0, maxHashingBytes);
+        if (maxDigestBytes != null && maxDigestBytes > 0 && maxDigestBytes < digest.length) {
+            return Arrays.copyOfRange(digest, 0, maxDigestBytes);
         }
 
         return digest;

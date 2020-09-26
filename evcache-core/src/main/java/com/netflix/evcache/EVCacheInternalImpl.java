@@ -11,7 +11,6 @@ import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.transcoders.Transcoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.Cache;
 
 import java.net.InetSocketAddress;
 import java.util.*;
@@ -113,7 +112,7 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
             // identify that evcache client whose primary node is the destination ip for the key being processed
             evCacheClients = evCacheClients.stream().filter(client ->
                     destinationIps.contains(((InetSocketAddress) client.getNodeLocator()
-                        .getPrimary(getEVCacheKey(key).getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()))
+                        .getPrimary(getEVCacheKey(key).getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashBytes()))
                         .getSocketAddress()).getAddress().getHostAddress())
             ).collect(Collectors.toList());
         }
