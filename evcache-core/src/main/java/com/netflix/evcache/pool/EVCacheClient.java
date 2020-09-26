@@ -16,7 +16,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -90,7 +89,8 @@ public class EVCacheClient {
     private final Property<Boolean> enableChunking;
     private final Property<Boolean> hashKeyByServerGroup;
     private final Property<Boolean> shouldEncodeHashKey;
-    private final Property<Integer> maxHashingBytes;
+    private final Property<Integer> maxDigestBytes;
+    private final Property<Integer> maxHashBytes;
     private final Property<Integer> chunkSize, writeBlock;
     private final ChunkTranscoder chunkingTranscoder;
     private final SerializingTranscoder decodingTranscoder;
@@ -151,7 +151,8 @@ public class EVCacheClient {
         this.hashKeyByServerGroup = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.key", Boolean.class).orElse(null);
         this.hashingAlgo = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.algo", String.class).orElseGet(appName + ".hash.algo").orElse("siphash24");
         this.shouldEncodeHashKey = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.encode", Boolean.class).orElse(null);
-        this.maxHashingBytes = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.max.bytes", Integer.class).orElse(null);
+        this.maxDigestBytes = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".max.digest.bytes", Integer.class).orElse(null);
+        this.maxHashBytes = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".max.hash.bytes", Integer.class).orElse(null);
         ping();
     }
 
@@ -175,8 +176,12 @@ public class EVCacheClient {
         return this.shouldEncodeHashKey.get();
     }
 
-    public Integer getMaxHashingBytes() {
-        return this.maxHashingBytes.get();
+    public Integer getMaxDigestBytes() {
+        return this.maxDigestBytes.get();
+    }
+
+    public Integer getMaxHashBytes() {
+        return this.maxHashBytes.get();
     }
 
     private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys, EVCache.Call call) throws EVCacheException {

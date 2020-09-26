@@ -38,7 +38,7 @@ public class EVCacheClientUtil {
         Boolean firstStatus = null;
         for (EVCacheClient client : clients) {
             CachedData cd1;
-            if (evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes()) != null) {
+            if (evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashBytes()) != null) {
                 if(cdHashed == null) {
                     final EVCacheValue val = new EVCacheValue(evcKey.getCanonicalKey(client.isDuetClient()), cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
                     cdHashed = evcacheValueTranscoder.encode(val);
@@ -47,7 +47,7 @@ public class EVCacheClientUtil {
             } else {
             	cd1 = cd;
             }
-            String key = evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxHashingBytes());
+            String key = evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashBytes());
             final Future<Boolean> f = client.add(key, timeToLive, cd1, latch);
             if (log.isDebugEnabled()) log.debug("ADD : Op Submitted : APP " + _appName + ", key " + key + "; future : " + f + "; client : " + client);
             if(fixMissing) {
@@ -71,12 +71,12 @@ public class EVCacheClientUtil {
     private EVCacheLatch fixup(EVCacheClient sourceClient, EVCacheClient[] destClients, EVCacheKey evcKey, int timeToLive, Policy policy) {
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, destClients.length, _appName);
         try {
-            final CachedData readData = sourceClient.get(evcKey.getDerivedKey(sourceClient.isDuetClient(), sourceClient.getHashingAlgorithm(), sourceClient.shouldEncodeHashKey(), sourceClient.getMaxHashingBytes()), ct, false, false);
+            final CachedData readData = sourceClient.get(evcKey.getDerivedKey(sourceClient.isDuetClient(), sourceClient.getHashingAlgorithm(), sourceClient.shouldEncodeHashKey(), sourceClient.getMaxDigestBytes(), sourceClient.getMaxHashBytes()), ct, false, false);
 
             if(readData != null) {
-                sourceClient.touch(evcKey.getDerivedKey(sourceClient.isDuetClient(), sourceClient.getHashingAlgorithm(), sourceClient.shouldEncodeHashKey(), sourceClient.getMaxHashingBytes()), timeToLive);
+                sourceClient.touch(evcKey.getDerivedKey(sourceClient.isDuetClient(), sourceClient.getHashingAlgorithm(), sourceClient.shouldEncodeHashKey(), sourceClient.getMaxDigestBytes(), sourceClient.getMaxHashBytes()), timeToLive);
                 for(EVCacheClient destClient : destClients) {
-                    destClient.set(evcKey.getDerivedKey(destClient.isDuetClient(), destClient.getHashingAlgorithm(), destClient.shouldEncodeHashKey(), destClient.getMaxHashingBytes()), readData, timeToLive, latch);
+                    destClient.set(evcKey.getDerivedKey(destClient.isDuetClient(), destClient.getHashingAlgorithm(), destClient.shouldEncodeHashKey(), destClient.getMaxDigestBytes(), destClient.getMaxHashBytes()), readData, timeToLive, latch);
                 }
             }
             latch.await(_operationTimeout, TimeUnit.MILLISECONDS);
