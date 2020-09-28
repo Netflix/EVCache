@@ -67,13 +67,13 @@ And if CAS and client flags are present:
 //        }
 //    }
 
-    public static String getHashedKeyEncoded(String key, HashingAlgorithm hashingAlgorithm, Integer maxDigestBytes, Integer maxHashBytes) {
+    public static String getHashedKeyEncoded(String key, HashingAlgorithm hashingAlgorithm, Integer maxDigestBytes, Integer maxHashLength) {
         final long start = System.nanoTime();
         byte[] digest = getHashedKey(key, hashingAlgorithm, maxDigestBytes);
         if(log.isDebugEnabled()) log.debug("Key : " + key +"; digest length : " + digest.length + "; byte Array contents : " + Arrays.toString(digest) );
         String hKey = encoder.encodeToString(digest);
-        if (null != hKey && maxHashBytes != null && maxHashBytes > 0 && maxHashBytes < hKey.length()) {
-            hKey = hKey.substring(0, maxHashBytes);
+        if (null != hKey && maxHashLength != null && maxHashLength > 0 && maxHashLength < hKey.length()) {
+            hKey = hKey.substring(0, maxHashLength);
         }
         if(log.isDebugEnabled()) log.debug("Key : " + key +"; Hashed & encoded key : " + hKey + "; Took " + (System.nanoTime() - start) + " nanos");
         return hKey;
