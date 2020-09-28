@@ -112,7 +112,7 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
             // identify that evcache client whose primary node is the destination ip for the key being processed
             evCacheClients = evCacheClients.stream().filter(client ->
                     destinationIps.contains(((InetSocketAddress) client.getNodeLocator()
-                        .getPrimary(getEVCacheKey(key).getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashBytes()))
+                        .getPrimary(getEVCacheKey(key).getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength()))
                         .getSocketAddress()).getAddress().getHostAddress())
             ).collect(Collectors.toList());
         }
