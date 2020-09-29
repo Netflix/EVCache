@@ -5,6 +5,7 @@ import com.netflix.evcache.operation.EVCacheItem;
 import com.netflix.evcache.operation.EVCacheItemMetaData;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.evcache.pool.EVCacheValue;
 import com.netflix.evcache.pool.ServerGroup;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.MemcachedNode;
@@ -34,7 +35,7 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
         for (ServerGroup sGroup : instancesByZone.keySet()) {
             try {
                 for (EVCacheClient client : instancesByZone.get(sGroup)) {
-                    EVCacheItem<CachedData> item = getEVCacheItem(client, evcKey, tc, true, false, isOriginalKeyHashed);
+                    EVCacheItem<CachedData> item = getEVCacheItem(client, evcKey, tc, true, false, isOriginalKeyHashed, false);
                     map.put(client.getNodeLocator().getPrimary(key), null == item ? null : new CachedValues(key, item.getData(), item.getItemMetaData()));
                 }
             } catch (Exception e) {

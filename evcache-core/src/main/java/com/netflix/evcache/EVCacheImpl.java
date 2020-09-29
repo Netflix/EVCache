@@ -37,6 +37,7 @@ import com.netflix.evcache.operation.EVCacheItem;
 import com.netflix.evcache.operation.EVCacheItemMetaData;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
+import com.netflix.evcache.pool.ChunkTranscoder;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
@@ -657,7 +658,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         try {
             final boolean hasZF = hasZoneFallback();
             boolean throwEx = hasZF ? false : throwExc;
-            EVCacheItem<T> data = getEVCacheItem(client, evcKey, tc, throwEx, hasZF, isOriginalKeyHashed);
+            EVCacheItem<T> data = getEVCacheItem(client, evcKey, tc, throwEx, hasZF, isOriginalKeyHashed, true);
             if (data == null && hasZF) {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
                 if (fbClients != null && !fbClients.isEmpty()) {
@@ -678,7 +679,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                             }
                         }
                         tries++;
-                        data = getEVCacheItem(fbClient, evcKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false, isOriginalKeyHashed);
+                        data = getEVCacheItem(fbClient, evcKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false, isOriginalKeyHashed, true);
                         if (log.isDebugEnabled() && shouldLog()) log.debug("Retry for APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + fbClient.getServerGroup());
                         if (data != null) {
                             client = fbClient;
@@ -978,33 +979,39 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
     }
 
-    protected <T> EVCacheItem<T> getEVCacheItem(EVCacheClient client, EVCacheKey evcKey, Transcoder<T> tc, boolean throwException, boolean hasZF, boolean isOriginalKeyHashed) throws Exception {
+    protected <T> EVCacheItem<T> getEVCacheItem(EVCacheClient client, EVCacheKey evcKey, Transcoder<T> tc, boolean throwException, boolean hasZF, boolean isOriginalKeyHashed, boolean desearilizeEVCacheValue) throws Exception {
         if (client == null) return null;
         final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
         try {
             String hashKey = isOriginalKeyHashed ? evcKey.getKey() : evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashBytes());
             String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
             if (hashKey != null) {
-                final EVCacheItem<Object> obj = client.metaGet(hashKey, evcacheValueTranscoder, throwException, hasZF);
-                if (null == obj) return null;
-                if (obj.getData() instanceof EVCacheValue) {
-                    final EVCacheValue val = (EVCacheValue) obj.getData();
-                    if (null == val) {
+                if(desearilizeEVCacheValue) {
+                    final EVCacheItem<Object> obj = client.metaGet(hashKey, evcacheValueTranscoder, throwException, hasZF);
+                    if (null == obj) return null;
+                    if (obj.getData() instanceof EVCacheValue) {
+                        final EVCacheValue val = (EVCacheValue) obj.getData();
+                        if (null == val) {
+                            return null;
+                        }
+    
+                        // compare the key embedded in the value to the original key only if the original key is not passed hashed
+                        if (!isOriginalKeyHashed && !(val.getKey().equals(canonicalKey))) {
+                            incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.META_GET.name(), EVCacheMetricsFactory.META_GET_OPERATION);
+                            return null;
+                        }
+                        final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
+                        T t = transcoder.decode(cd);
+                        obj.setData(t);
+                        obj.setFlag(val.getFlags());
+                        return (EVCacheItem<T>) obj;
+                    } else {
                         return null;
                     }
-
-                    // compare the key embedded in the value to the original key only if the original key is not passed hashed
-                    if (!isOriginalKeyHashed && !(val.getKey().equals(canonicalKey))) {
-                        incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.META_GET.name(), EVCacheMetricsFactory.META_GET_OPERATION);
-                        return null;
-                    }
-                    final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
-                    T t = transcoder.decode(cd);
-                    obj.setData(t);
-                    obj.setFlag(val.getFlags());
-                    return (EVCacheItem<T>) obj;
                 } else {
-                    return null;
+                    final EVCacheItem<CachedData> obj = client.metaGet(hashKey, new ChunkTranscoder(), throwException, hasZF);
+                    if (null == obj) return null;
+                    return (EVCacheItem<T>) obj;
                 }
             } else {
                 return client.metaGet(canonicalKey, transcoder, throwException, hasZF);
@@ -1918,8 +1925,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             CachedData cd = null;
             CachedData cdHashed = null;
             for (EVCacheClient client : clients) {
-                String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
-                String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashBytes());
+                final String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
+                final String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashBytes());
                 if(cd == null) {
                     if (tc != null) {
                         cd = tc.encode(value);
