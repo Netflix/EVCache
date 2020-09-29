@@ -10,7 +10,7 @@ import net.spy.memcached.transcoders.Transcoder;
  * @author smadappa
  *
  */
-class ChunkTranscoder extends BaseSerializingTranscoder implements Transcoder<CachedData> {
+public class ChunkTranscoder extends BaseSerializingTranscoder implements Transcoder<CachedData> {
 
 	public ChunkTranscoder() {
 		super(Integer.MAX_VALUE);

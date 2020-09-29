@@ -132,4 +132,13 @@ And if CAS and client flags are present:
 
         return digest;
     }
+
+    
+    public static void main(String args[]) {
+        String key = "MAP_LT:721af5a5-3452-4b62-86fb-5f31ccde8d99_187978153X28X2787347X1601330156682";
+        System.out.println(getHashedKeyEncoded(key, HashingAlgorithm.murmur3, null, null));
+        System.out.println(getHashedKeyEncoded(key, HashingAlgorithm.goodfasthash, null, null));
+        System.out.println(getHashedKeyEncoded(key, HashingAlgorithm.goodfasthash, 15, null));
+    }
+
 }
