@@ -1926,7 +1926,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             CachedData cdHashed = null;
             for (EVCacheClient client : clients) {
                 final String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
-                final String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashBytes());
+                final String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength());
                 if(cd == null) {
                     if (tc != null) {
                         cd = tc.encode(value);
