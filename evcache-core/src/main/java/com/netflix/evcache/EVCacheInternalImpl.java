@@ -82,6 +82,16 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
                     }
                 }
             }
+        } else if(instancesWithNull.size() > 0 && map.size() == 0) {
+            for (ServerGroup sGroup : instancesByZone.keySet()) {
+                try {
+                    for (EVCacheClient client : instancesByZone.get(sGroup)) {
+                        map.put(client.getNodeLocator().getPrimary(key), null);
+                    }
+                } catch (Exception e) {
+                    log.error("Error getting meta data", e);
+                }
+            }
         }
 
         if (log.isDebugEnabled()) log.debug("return map : " + map);
