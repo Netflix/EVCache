@@ -82,7 +82,7 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
                     }
                 }
             }
-        } else if(instancesWithNull.size() > 0 && map.size() == 0) {
+        } else if(map.size() == 0) {
             for (ServerGroup sGroup : instancesByZone.keySet()) {
                 try {
                     for (EVCacheClient client : instancesByZone.get(sGroup)) {
