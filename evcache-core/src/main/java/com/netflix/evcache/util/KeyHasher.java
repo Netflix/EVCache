@@ -1,17 +1,22 @@
 package com.netflix.evcache.util;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Base64.Encoder;
 
+import org.apache.log4j.BasicConfigurator;
+import org.apache.log4j.ConsoleAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.PatternLayout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.fzakaria.ascii85.Ascii85;
 import com.google.common.base.Charsets;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
+import com.netflix.archaius.api.Property;
 
 public class KeyHasher {
     /**
@@ -32,7 +37,6 @@ And if CAS and client flags are present:
         sha1,
         sha256,
         siphash24,
-        goodfasthash,
         md5,
         NO_HASHING // useful for disabling hashing at client level, while Hashing is enabled at App level
     }
@@ -52,30 +56,35 @@ And if CAS and client flags are present:
     private static final Logger log = LoggerFactory.getLogger(KeyHasher.class);
     private static final Encoder encoder= Base64.getEncoder().withoutPadding();
 
-//    public static String getHashedKey1(String key, String hashingAlgorithm) {
-//        try {
-//            final MessageDigest messageDigest = MessageDigest.getInstance(hashingAlgorithm);
-//            messageDigest.update(key.getBytes(), 0, key.length());
-//            final byte[] digest = messageDigest.digest();
-//            if(log.isDebugEnabled()) log.debug("Key : " + key +"; digest length : " + digest.length + "; byte Array contents : " + Arrays.toString(digest));
-//            final String hKey = encoder.encodeToString(digest);
-//            if(log.isDebugEnabled()) log.debug("Key : " + key +"; Hashed & encoded key : " + hKey);
-//            return hKey;
-//        } catch(NoSuchAlgorithmException ex){
-//            log.error("Exception while trying to conver key to its hash", ex);
-//            return key;
-//        }
-//    }
-
     public static String getHashedKeyEncoded(String key, HashingAlgorithm hashingAlgorithm, Integer maxDigestBytes, Integer maxHashLength) {
+        return getHashedKeyEncoded(key, hashingAlgorithm, maxDigestBytes, maxHashLength, null);
+    }
+    public static String getHashedKeyEncoded(String key, HashingAlgorithm hashingAlgorithm, Integer maxDigestBytes, Integer maxHashLength, String baseEncoder) {
         final long start = System.nanoTime();
         byte[] digest = getHashedKey(key, hashingAlgorithm, maxDigestBytes);
-        if(log.isDebugEnabled()) log.debug("Key : " + key +"; digest length : " + digest.length + "; byte Array contents : " + Arrays.toString(digest) );
-        String hKey = encoder.encodeToString(digest);
-        if (null != hKey && maxHashLength != null && maxHashLength > 0 && maxHashLength < hKey.length()) {
-            hKey = hKey.substring(0, maxHashLength);
+        if(log.isDebugEnabled()) {
+            final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
+            char[] hexChars = new char[digest.length * 2];
+            for (int j = 0; j < digest.length; j++) {
+                int v = digest[j] & 0xFF;
+                hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+                hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+            }
+            log.debug("Key : " + key +"; hex : " + new String(hexChars));
         }
-        if(log.isDebugEnabled()) log.debug("Key : " + key +"; Hashed & encoded key : " + hKey + "; Took " + (System.nanoTime() - start) + " nanos");
+        if(log.isDebugEnabled()) log.debug("Key : " + key +"; digest length : " + digest.length + "; byte Array contents : " + Arrays.toString(digest) );
+        String hKey = null;
+        if(baseEncoder != null && baseEncoder.equals("ascii85")) {
+            hKey = Ascii85.encode(digest);
+            if(log.isDebugEnabled()) log.debug("Key : " + key +"; Hashed & Ascii85 encoded key : " + hKey + "; Took " + (System.nanoTime() - start) + " nanos");
+        } else {
+            hKey = encoder.encodeToString(digest);
+            if (null != hKey && maxHashLength != null && maxHashLength > 0 && maxHashLength < hKey.length()) {
+                hKey = hKey.substring(0, maxHashLength);
+            }
+            if(log.isDebugEnabled()) log.debug("Key : " + key +"; Hashed & encoded key : " + hKey + "; Took " + (System.nanoTime() - start) + " nanos");
+        } 
+
         return hKey;
     }
 
@@ -113,10 +122,6 @@ And if CAS and client flags are present:
                 hf = Hashing.sipHash24();
                 break;
 
-            case goodfasthash:
-                hf = Hashing.goodFastHash(128);
-                break;
-
             case md5:
             default:
                 hf = Hashing.md5();
@@ -135,10 +140,13 @@ And if CAS and client flags are present:
 
     
     public static void main(String args[]) {
+        
+        BasicConfigurator.resetConfiguration();
+        BasicConfigurator.configure(new ConsoleAppender(new PatternLayout("%d{HH:mm:ss,SSS} [%t] %p %c %x - %m%n")));
+        org.apache.log4j.Logger.getRootLogger().setLevel(Level.DEBUG);
+
         String key = "MAP_LT:721af5a5-3452-4b62-86fb-5f31ccde8d99_187978153X28X2787347X1601330156682";
         System.out.println(getHashedKeyEncoded(key, HashingAlgorithm.murmur3, null, null));
-        System.out.println(getHashedKeyEncoded(key, HashingAlgorithm.goodfasthash, null, null));
-        System.out.println(getHashedKeyEncoded(key, HashingAlgorithm.goodfasthash, 15, null));
     }
 
 }

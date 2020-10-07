@@ -92,6 +92,8 @@ public class EVCacheClient {
     private final Property<Integer> maxDigestBytes;
     private final Property<Integer> maxHashLength;
     private final Property<Integer> chunkSize, writeBlock;
+    private final Property<String> encoderBase;
+
     private final ChunkTranscoder chunkingTranscoder;
     private final SerializingTranscoder decodingTranscoder;
     private static final int SPECIAL_BYTEARRAY = (8 << 8);
@@ -153,6 +155,7 @@ public class EVCacheClient {
         this.shouldEncodeHashKey = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.encode", Boolean.class).orElse(null);
         this.maxDigestBytes = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".max.digest.bytes", Integer.class).orElse(null);
         this.maxHashLength = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".max.hash.length", Integer.class).orElse(null);
+        this.encoderBase = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.encoder", String.class).orElse("base64");
         ping();
     }
 
@@ -174,6 +177,10 @@ public class EVCacheClient {
 
     public Boolean shouldEncodeHashKey() {
         return this.shouldEncodeHashKey.get();
+    }
+
+    public String getBaseEncoder() {
+        return this.encoderBase.get();
     }
 
     public Integer getMaxDigestBytes() {
