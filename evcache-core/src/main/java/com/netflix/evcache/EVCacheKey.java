@@ -134,7 +134,7 @@ public class EVCacheKey {
             hashedKeysByAlgorithmForDuet.put(key , val);
         }
         // TODO: Once the issue around passing hashedKey in bytes[] is figured, we will start using (nullable) shouldEncodeHashKey, and call KeyHasher.getHashedKeyInBytes() accordingly
-        return null;
+        return val;
     }
 
     @Override

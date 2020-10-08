@@ -44,6 +44,7 @@ import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheClientUtil;
 import com.netflix.evcache.pool.EVCacheValue;
 import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.KeyHasher;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
@@ -105,6 +106,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private final Property<Integer> maxKeyLength;
     private final Property<String> alias;
+    private final Property<String> encoderBase;
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
             boolean throwException, EVCacheClientPoolManager poolManager) {
@@ -153,6 +155,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         this.shouldEncodeHashKey = propertyRepository.get(appName + ".hash.encode", Boolean.class).orElse(true);
         this.maxDigestBytes = propertyRepository.get(appName + ".max.digest.bytes", Integer.class).orElse(-1);
         this.maxHashLength = propertyRepository.get(appName + ".max.hash.length", Integer.class).orElse(-1);
+        this.encoderBase = propertyRepository.get(appName + ".hash.encoder", String.class).orElse("base64");
         this.autoHashKeys = propertyRepository.get(_appName + ".auto.hash.keys", Boolean.class).orElseGet("evcache.auto.hash.keys").orElse(false);
         this.evcacheValueTranscoder = new EVCacheTranscoder();
         evcacheValueTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
@@ -210,7 +213,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
 
         boolean shouldHashKeyAtAppLevel = hashKey.get() || (canonicalKey.length() > this.maxKeyLength.get() && autoHashKeys.get());
-        final EVCacheKey evcKey = new EVCacheKey(_appName, key, canonicalKey, shouldHashKeyAtAppLevel ? KeyHasher.getHashingAlgorithmFromString(hashingAlgo.get()) : null, this.shouldEncodeHashKey, this.maxDigestBytes, this.maxHashLength);
+        final EVCacheKey evcKey = new EVCacheKey(_appName, key, canonicalKey, shouldHashKeyAtAppLevel ? KeyHasher.getHashingAlgorithmFromString(hashingAlgo.get()) : null, this.shouldEncodeHashKey, this.maxDigestBytes, this.maxHashLength, this.encoderBase.get());
         if (log.isDebugEnabled() && shouldLog()) log.debug("Key : " + key + "; EVCacheKey : " + evcKey);
         return evcKey;
     }
