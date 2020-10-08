@@ -315,11 +315,13 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             return evCacheClients;
 
         if (duetPrimary.get()) {
-            duetEVCacheClients.addAll(evCacheClients);
-            return duetEVCacheClients;
+            List<EVCacheClient> clients = new ArrayList<>(duetEVCacheClients);
+            clients.addAll(evCacheClients);
+            return clients;
         } else {
-            evCacheClients.addAll(duetEVCacheClients);
-            return evCacheClients;
+            List<EVCacheClient> clients = new ArrayList<>(evCacheClients);
+            clients.addAll(duetEVCacheClients);
+            return clients;
         }
     }
 
@@ -485,11 +487,13 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             return evCacheClients;
 
         if (duetPrimary.get()) {
-            duetEVCacheClients.addAll(evCacheClients);
-            return duetEVCacheClients;
+            List<EVCacheClient> clients = new ArrayList<>(duetEVCacheClients);
+            clients.addAll(evCacheClients);
+            return clients;
         } else {
-            evCacheClients.addAll(duetEVCacheClients);
-            return evCacheClients;
+            List<EVCacheClient> clients = new ArrayList<>(evCacheClients);
+            clients.addAll(duetEVCacheClients);
+            return clients;
         }
     }
 
