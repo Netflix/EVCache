@@ -19,10 +19,15 @@ public class EVCacheKey {
     // like max.hash.length. So changing max.hash.length alone would not necessarily trigger hash recalculation, but
     // one would have to change the hashing algorithm in order to having hashing properties taken into account.
     // This is to make such a hashing property change very obvious and not subtle.
-    private final Map<HashingAlgorithm, String> hashedKeysByAlgorithm;
-    private final Map<HashingAlgorithm, String> hashedKeysByAlgorithmForDuet;
+    private final Map<String, String> hashedKeysByAlgorithm;
+    private final Map<String, String> hashedKeysByAlgorithmForDuet;
+    private final String encoder;
 
     public EVCacheKey(String appName, String key, String canonicalKey, HashingAlgorithm hashingAlgorithmAtAppLevel, Property<Boolean> shouldEncodeHashKeyAtAppLevel, Property<Integer> maxDigestBytesAtAppLevel, Property<Integer> maxHashLengthAtAppLevel) {
+        this(appName, key, canonicalKey, hashingAlgorithmAtAppLevel, shouldEncodeHashKeyAtAppLevel, maxDigestBytesAtAppLevel, maxHashLengthAtAppLevel, null);
+    }
+
+    public EVCacheKey(String appName, String key, String canonicalKey, HashingAlgorithm hashingAlgorithmAtAppLevel, Property<Boolean> shouldEncodeHashKeyAtAppLevel, Property<Integer> maxDigestBytesAtAppLevel, Property<Integer> maxHashLengthAtAppLevel, String encoder) {
         super();
         this.appName = appName;
         this.key = key;
@@ -31,6 +36,7 @@ public class EVCacheKey {
         this.shouldEncodeHashKeyAtAppLevel = shouldEncodeHashKeyAtAppLevel;
         this.maxDigestBytesAtAppLevel = maxDigestBytesAtAppLevel;
         this.maxHashLengthAtAppLevel = maxHashLengthAtAppLevel;
+        this.encoder = encoder;
         hashedKeysByAlgorithm = new HashMap<>();
         hashedKeysByAlgorithmForDuet = new HashMap<>();
     }
@@ -59,11 +65,11 @@ public class EVCacheKey {
 
     @Deprecated
     public String getHashKey() {
-        return getHashKey(hashingAlgorithmAtAppLevel, null == shouldEncodeHashKeyAtAppLevel ? null : shouldEncodeHashKeyAtAppLevel.get(), null == maxDigestBytesAtAppLevel ? null : maxDigestBytesAtAppLevel.get(), null == maxHashLengthAtAppLevel ? null : maxHashLengthAtAppLevel.get());
+        return getHashKey(hashingAlgorithmAtAppLevel, null == shouldEncodeHashKeyAtAppLevel ? null : shouldEncodeHashKeyAtAppLevel.get(), null == maxDigestBytesAtAppLevel ? null : maxDigestBytesAtAppLevel.get(), null == maxHashLengthAtAppLevel ? null : maxHashLengthAtAppLevel.get(), encoder);
     }
 
     // overlays app level hashing and client level hashing
-    public String getHashKey(boolean isDuet, HashingAlgorithm hashingAlgorithm, Boolean shouldEncodeHashKey, Integer maxDigestBytes, Integer maxHashLength) {
+    public String getHashKey(boolean isDuet, HashingAlgorithm hashingAlgorithm, Boolean shouldEncodeHashKey, Integer maxDigestBytes, Integer maxHashLength, String baseEnoder) {
         if (hashingAlgorithm == HashingAlgorithm.NO_HASHING) {
             return null;
         }
@@ -83,36 +89,52 @@ public class EVCacheKey {
         if (null == maxHashLength) {
             maxHashLength = this.maxHashLengthAtAppLevel.get();
         }
+        
+        if(null == baseEnoder) {
+            baseEnoder = encoder;
+        }
 
-        return isDuet ? getHashKeyForDuet(hashingAlgorithm, shouldEncodeHashKey, maxDigestBytes, maxHashLength) : getHashKey(hashingAlgorithm, shouldEncodeHashKey, maxDigestBytes, maxHashLength);
+        return isDuet ? getHashKeyForDuet(hashingAlgorithm, shouldEncodeHashKey, maxDigestBytes, maxHashLength, baseEnoder) : getHashKey(hashingAlgorithm, shouldEncodeHashKey, maxDigestBytes, maxHashLength, baseEnoder);
     }
 
     // overlays app level hashing algorithm and client level hashing algorithm
-    public String getDerivedKey(boolean isDuet, HashingAlgorithm hashingAlgorithm, Boolean shouldEncodeHashKey, Integer maxDigestBytes, Integer maxHashLength) {
+    public String getDerivedKey(boolean isDuet, HashingAlgorithm hashingAlgorithm, Boolean shouldEncodeHashKey, Integer maxDigestBytes, Integer maxHashLength, String baseEnoder) {
         // this overlay of hashingAlgorithm helps determine if there at all needs to be hashing performed, otherwise, will return canonical key
         if (null == hashingAlgorithm) {
             hashingAlgorithm = hashingAlgorithmAtAppLevel;
         }
 
-        return null == hashingAlgorithm || hashingAlgorithm == HashingAlgorithm.NO_HASHING ? getCanonicalKey(isDuet) : getHashKey(isDuet, hashingAlgorithm, shouldEncodeHashKey, maxDigestBytes, maxHashLength);
+        return null == hashingAlgorithm || hashingAlgorithm == HashingAlgorithm.NO_HASHING ? getCanonicalKey(isDuet) : getHashKey(isDuet, hashingAlgorithm, shouldEncodeHashKey, maxDigestBytes, maxHashLength, baseEnoder);
     }
 
-    private String getHashKey(HashingAlgorithm hashingAlgorithm, Boolean shouldEncodeHashKey, Integer maxDigestBytes, Integer maxHashLength) {
+    private String getHashKey(HashingAlgorithm hashingAlgorithm, Boolean shouldEncodeHashKey, Integer maxDigestBytes, Integer maxHashLength, String encoder) {
         if (null == hashingAlgorithm) {
             return null;
         }
 
+        final String key = hashingAlgorithm.toString()+ maxDigestBytes != null ? maxDigestBytes.toString() : "-" + maxHashLength != null ? maxHashLength.toString() : "-" + encoder != null ? encoder : "-";
+        String val = hashedKeysByAlgorithm.get(key);
+        if(val == null) {
+            val = KeyHasher.getHashedKeyEncoded(getCanonicalKeyForDuet(), hashingAlgorithm, maxDigestBytes, maxHashLength, encoder);
+            hashedKeysByAlgorithm.put(key , val);
+        }
         // TODO: Once the issue around passing hashedKey in bytes[] is figured, we will start using (nullable) shouldEncodeHashKey, and call KeyHasher.getHashedKeyInBytes() accordingly
-        return hashedKeysByAlgorithm.computeIfAbsent(hashingAlgorithm, ha -> KeyHasher.getHashedKeyEncoded(canonicalKey, ha, maxDigestBytes, maxHashLength));
+        return val;
     }
 
-    private String getHashKeyForDuet(HashingAlgorithm hashingAlgorithm, Boolean shouldEncodeHashKey, Integer maxDigestBytes, Integer maxHashLength) {
+    private String getHashKeyForDuet(HashingAlgorithm hashingAlgorithm, Boolean shouldEncodeHashKey, Integer maxDigestBytes, Integer maxHashLength, String encoder) {
         if (null == hashingAlgorithm) {
             return null;
         }
 
+        final String key = hashingAlgorithm.toString()+ maxDigestBytes != null ? maxDigestBytes.toString() : "-" + maxHashLength != null ? maxHashLength.toString() : "-" + encoder != null ? encoder : "-";
+        String val = hashedKeysByAlgorithmForDuet.get(key);
+        if(val == null) {
+            val = KeyHasher.getHashedKeyEncoded(getCanonicalKeyForDuet(), hashingAlgorithm, maxDigestBytes, maxHashLength, encoder);
+            hashedKeysByAlgorithmForDuet.put(key , val);
+        }
         // TODO: Once the issue around passing hashedKey in bytes[] is figured, we will start using (nullable) shouldEncodeHashKey, and call KeyHasher.getHashedKeyInBytes() accordingly
-        return hashedKeysByAlgorithmForDuet.computeIfAbsent(hashingAlgorithm, ha -> KeyHasher.getHashedKeyEncoded(getCanonicalKeyForDuet(), ha, maxDigestBytes, maxHashLength));
+        return val;
     }
 
     @Override
