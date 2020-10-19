@@ -1,12 +1,17 @@
 package com.netflix.evcache;
 
-import com.netflix.archaius.api.Property;
-import com.netflix.evcache.util.KeyHasher;
-import com.netflix.evcache.util.KeyHasher.HashingAlgorithm;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.netflix.archaius.api.Property;
+import com.netflix.evcache.util.KeyHasher;
+import com.netflix.evcache.util.KeyHasher.HashingAlgorithm;
+
 public class EVCacheKey {
+    private static final Logger log = LoggerFactory.getLogger(EVCacheKey.class);
     private final String appName;
     private final HashingAlgorithm hashingAlgorithmAtAppLevel;
     private final Property<Boolean> shouldEncodeHashKeyAtAppLevel;
@@ -58,6 +63,7 @@ public class EVCacheKey {
         if (null == canonicalKeyForDuet) {
             final int duetKeyLength = appName.length() + 1 + canonicalKey.length();
             canonicalKeyForDuet = new StringBuilder(duetKeyLength).append(appName).append(':').append(canonicalKey).toString();
+            if (log.isDebugEnabled()) log.debug("canonicalKeyForDuet : " + canonicalKeyForDuet);
         }
 
         return canonicalKeyForDuet;
@@ -94,7 +100,9 @@ public class EVCacheKey {
             baseEnoder = encoder;
         }
 
-        return isDuet ? getHashKeyForDuet(hashingAlgorithm, shouldEncodeHashKey, maxDigestBytes, maxHashLength, baseEnoder) : getHashKey(hashingAlgorithm, shouldEncodeHashKey, maxDigestBytes, maxHashLength, baseEnoder);
+        final String rKey = isDuet ? getHashKeyForDuet(hashingAlgorithm, shouldEncodeHashKey, maxDigestBytes, maxHashLength, baseEnoder) : getHashKey(hashingAlgorithm, shouldEncodeHashKey, maxDigestBytes, maxHashLength, baseEnoder);
+        if (log.isDebugEnabled()) log.debug("Key : " + rKey);
+        return rKey;
     }
 
     // overlays app level hashing algorithm and client level hashing algorithm
@@ -104,7 +112,9 @@ public class EVCacheKey {
             hashingAlgorithm = hashingAlgorithmAtAppLevel;
         }
 
-        return null == hashingAlgorithm || hashingAlgorithm == HashingAlgorithm.NO_HASHING ? getCanonicalKey(isDuet) : getHashKey(isDuet, hashingAlgorithm, shouldEncodeHashKey, maxDigestBytes, maxHashLength, baseEnoder);
+        final String derivedKey = null == hashingAlgorithm || hashingAlgorithm == HashingAlgorithm.NO_HASHING ? getCanonicalKey(isDuet) : getHashKey(isDuet, hashingAlgorithm, shouldEncodeHashKey, maxDigestBytes, maxHashLength, baseEnoder);
+        if (log.isDebugEnabled()) log.debug("derivedKey : " + derivedKey);
+        return derivedKey;
     }
 
     private String getHashKey(HashingAlgorithm hashingAlgorithm, Boolean shouldEncodeHashKey, Integer maxDigestBytes, Integer maxHashLength, String encoder) {
@@ -115,9 +125,10 @@ public class EVCacheKey {
         final String key = hashingAlgorithm.toString()+ maxDigestBytes != null ? maxDigestBytes.toString() : "-" + maxHashLength != null ? maxHashLength.toString() : "-" + encoder != null ? encoder : "-";
         String val = hashedKeysByAlgorithm.get(key);
         if(val == null) {
-            val = KeyHasher.getHashedKeyEncoded(getCanonicalKeyForDuet(), hashingAlgorithm, maxDigestBytes, maxHashLength, encoder);
+            val = KeyHasher.getHashedKeyEncoded(canonicalKey, hashingAlgorithm, maxDigestBytes, maxHashLength, encoder);
             hashedKeysByAlgorithm.put(key , val);
         }
+        if (log.isDebugEnabled()) log.debug("getHashKey : " + val);
         // TODO: Once the issue around passing hashedKey in bytes[] is figured, we will start using (nullable) shouldEncodeHashKey, and call KeyHasher.getHashedKeyInBytes() accordingly
         return val;
     }
@@ -133,6 +144,7 @@ public class EVCacheKey {
             val = KeyHasher.getHashedKeyEncoded(getCanonicalKeyForDuet(), hashingAlgorithm, maxDigestBytes, maxHashLength, encoder);
             hashedKeysByAlgorithmForDuet.put(key , val);
         }
+        if (log.isDebugEnabled()) log.debug("getHashKeyForDuet : " + val);
         // TODO: Once the issue around passing hashedKey in bytes[] is figured, we will start using (nullable) shouldEncodeHashKey, and call KeyHasher.getHashedKeyInBytes() accordingly
         return val;
     }
