@@ -125,7 +125,7 @@ public class EVCacheKey {
         final String key = hashingAlgorithm.toString()+ maxDigestBytes != null ? maxDigestBytes.toString() : "-" + maxHashLength != null ? maxHashLength.toString() : "-" + encoder != null ? encoder : "-";
         String val = hashedKeysByAlgorithm.get(key);
         if(val == null) {
-            val = KeyHasher.getHashedKeyEncoded(canonicalKey, hashingAlgorithm, maxDigestBytes, maxHashLength, encoder);
+            val = KeyHasher.getHashedKeyEncoded(getCanonicalKey(false), hashingAlgorithm, maxDigestBytes, maxHashLength, encoder);
             hashedKeysByAlgorithm.put(key , val);
         }
         if (log.isDebugEnabled()) log.debug("getHashKey : " + val);
