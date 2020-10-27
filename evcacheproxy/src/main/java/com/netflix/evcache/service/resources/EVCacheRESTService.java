@@ -130,7 +130,7 @@ public class EVCacheRESTService {
             final EVCache evCache = getEVCache(appId);
             final CachedData cachedData = (CachedData) evCache.get(key, evcacheTranscoder);
             if (cachedData != null) {
-                return Response.status(200).type(MediaType.TEXT_PLAIN).entity(new String(cachedData.getData())).header("X-EVCache-Flags", flag).build();
+                return Response.status(200).type(MediaType.TEXT_PLAIN).entity(new String(cachedData.getData())).header("X-EVCache-SuccessCount", "0").header("X-EVCache-Flags", flag).build();
             } else {
                 final String value = IOUtils.toString(in);
                 final byte[] bytes = value.getBytes();
@@ -141,24 +141,24 @@ public class EVCacheRESTService {
                     if(!status) {
                         if(latch.getCompletedCount() > 0) {
                             if(latch.getSuccessCount() == 0) {
-                                return Response.serverError().build();
+                                return Response.serverError().header("X-EVCache-SuccessCount", latch.getSuccessCount()).build();
                             }
                         } else {
-                            return Response.serverError().build();
+                            return Response.serverError().header("X-EVCache-SuccessCount", latch.getSuccessCount()).build();
                         }
                     }
                 }
                 final CachedData cData = (CachedData) evCache.get(key, evcacheTranscoder);
-                if (cData == null ) return Response.serverError().build();
-                return Response.status(200).type(MediaType.TEXT_PLAIN).entity(new String(cData.getData())).header("X-EVCache-Flags", flag).build();
+                if (cData == null ) return Response.serverError().header("X-EVCache-SuccessCount", "0").build();
+                return Response.status(200).type(MediaType.TEXT_PLAIN).entity(new String(cData.getData())).header("X-EVCache-Flags", flag).header("X-EVCache-SuccessCount", latch != null ? latch.getSuccessCount() : "0").build();
             }
         } catch (EVCacheException e) {
             logger.error("EVCacheException", e);
-            return Response.serverError().build();
+            return Response.serverError().header("X-EVCache-SuccessCount", "0").build();
 
         } catch (Throwable t) {
             logger.error("Throwable", t);
-            return Response.serverError().build();
+            return Response.serverError().header("X-EVCache-SuccessCount", "0").build();
         }
     }
 
