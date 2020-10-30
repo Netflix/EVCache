@@ -74,7 +74,7 @@ And if CAS and client flags are present:
         }
         if(log.isDebugEnabled()) log.debug("Key : " + key +"; digest length : " + digest.length + "; byte Array contents : " + Arrays.toString(digest) );
         String hKey = null;
-        if(baseEncoder != null && baseEncoder.equals("ascii85")) {
+        if(baseEncoder != null && baseEncoder.equals("base85")) {
             hKey = Ascii85.encode(digest);
             if(log.isDebugEnabled()) log.debug("Key : " + key +"; Hashed & Ascii85 encoded key : " + hKey + "; Took " + (System.nanoTime() - start) + " nanos");
         } else {
@@ -145,8 +145,11 @@ And if CAS and client flags are present:
         BasicConfigurator.configure(new ConsoleAppender(new PatternLayout("%d{HH:mm:ss,SSS} [%t] %p %c %x - %m%n")));
         org.apache.log4j.Logger.getRootLogger().setLevel(Level.DEBUG);
 
-        String key = "MAP_LT:721af5a5-3452-4b62-86fb-5f31ccde8d99_187978153X28X2787347X1601330156682";
-        System.out.println(getHashedKeyEncoded(key, HashingAlgorithm.murmur3, null, null));
+        String key = "MAP_LT:d07c164f-e31d-45f5-9a9b-d031511d78f6_4364880X29X80231410X1602184378822";
+        String hkey = getHashedKeyEncoded(key, HashingAlgorithm.murmur3, null, null, "base64");
+        System.out.println(hkey + ", length - " + hkey.length());
+        hkey = getHashedKeyEncoded(key, HashingAlgorithm.murmur3, null, null, "ascii85");
+        System.out.println(hkey + ", length - " + hkey.length());
     }
 
 }
