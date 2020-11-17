@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URLDecoder;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -362,7 +363,9 @@ public class EVCacheRESTService {
     @GET
     @Path("{appId}/{key}")
     @Produces({MediaType.APPLICATION_OCTET_STREAM})
-    public Response getOperation(@PathParam("appId") String appId, @PathParam("key") String key, @DefaultValue("false") @QueryParam("raw") String raw) {
+    public Response getOperation(@PathParam("appId") String appId, @PathParam("key") String _key, @DefaultValue("false") @QueryParam("raw") String raw) {
+    	final String key = URLDecoder.decode(_key);
+    	if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + _key + " and url decoded " + key);
         appId = appId.toUpperCase();
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
