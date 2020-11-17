@@ -107,7 +107,9 @@ public class EVCacheRESTService {
     @GET
     @Path("set/{appId}/{key}/{value}/{ttl}")
     @Produces(MediaType.TEXT_PLAIN)
-    public Response setOperation(@PathParam("appId") String appId, @PathParam("key") String key, @PathParam("value") String val, @PathParam("ttl") String ttl) {
+    public Response setOperation(@PathParam("appId") String appId, @PathParam("key") String _key, @PathParam("value") String val, @PathParam("ttl") String ttl) {
+    	final String key = URLDecoder.decode(_key);
+    	if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + _key + " and url decoded " + key);
         appId = appId.toUpperCase();
         if (logger.isDebugEnabled()) logger.debug("Set for application " + appId + " for Key " + key);
         try {
@@ -123,9 +125,11 @@ public class EVCacheRESTService {
     @Path("putIfAbsent/{appId}/{key}")
     @Consumes({MediaType.TEXT_PLAIN, MediaType.APPLICATION_OCTET_STREAM})
     @Produces(MediaType.TEXT_PLAIN)
-    public Response putIfAbsentOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
+    public Response putIfAbsentOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String _key,
     		@QueryParam("ttl") String ttl, @DefaultValue("0") @QueryParam("flag") String flag) {
+    	final String key = URLDecoder.decode(_key);
         final String appId = pAppId.toUpperCase();
+    	if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + _key + " and url decoded " + key);
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
             final EVCache evCache = getEVCache(appId);
@@ -167,12 +171,14 @@ public class EVCacheRESTService {
     @Path("{appId}/{key}")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
     @Produces(MediaType.TEXT_PLAIN)
-    public Response setOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
+    public Response setOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String _key,
             @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag,
             @DefaultValue("false") @QueryParam("async") String async,
             @DefaultValue("false") @QueryParam("raw") String raw) {
         try {
+        	final String key = URLDecoder.decode(_key);
             final String appId = pAppId.toUpperCase();
+        	if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + _key + " and url decoded " + key);
             final byte[] bytes = IOUtils.toByteArray(in);
             return setData(appId, ttl, flag, key, bytes, Boolean.valueOf(async).booleanValue(), Boolean.valueOf(raw).booleanValue());
         } catch (EVCacheException e) {
@@ -267,11 +273,13 @@ public class EVCacheRESTService {
     @Path("{appId}/{key}")
     @Consumes({MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
     @Produces(MediaType.TEXT_PLAIN)
-    public Response putOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String key,
+    public Response putOperation(final InputStream in, @PathParam("appId") String pAppId, @PathParam("key") String _key,
             @QueryParam("ttl") String ttl, @DefaultValue("") @QueryParam("flag") String flag, 
             @DefaultValue("false") @QueryParam("async") String async, 
             @DefaultValue("false") @QueryParam("raw") String raw) {
         try {
+        	final String key = URLDecoder.decode(_key);
+        	if (logger.isDebugEnabled()) logger.debug("Get for application " + pAppId + " for Key " + _key + " and url decoded " + key);
             final String appId = pAppId.toUpperCase();
             final byte[] bytes = IOUtils.toByteArray(in);
             return setData(appId, ttl, flag, key, bytes, Boolean.valueOf(async).booleanValue(), Boolean.valueOf(raw).booleanValue());
@@ -322,8 +330,10 @@ public class EVCacheRESTService {
     @GET
     @Path("incr/{appId}/{key}")
     @Produces({MediaType.TEXT_PLAIN})
-    public Response incrOperation(@PathParam("appId") String appId, @PathParam("key") String key, @DefaultValue("1") @QueryParam("by") String byStr, 
+    public Response incrOperation(@PathParam("appId") String appId, @PathParam("key") String _key, @DefaultValue("1") @QueryParam("by") String byStr, 
             @DefaultValue("1") @QueryParam("def") String defStr, @DefaultValue("0") @QueryParam("ttl") String ttlStr) {
+    	final String key = URLDecoder.decode(_key);
+    	if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + _key + " and url decoded " + key);
         appId = appId.toUpperCase();
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
@@ -343,8 +353,10 @@ public class EVCacheRESTService {
     @GET
     @Path("decr/{appId}/{key}")
     @Produces({MediaType.TEXT_PLAIN})
-    public Response decrOperation(@PathParam("appId") String appId, @PathParam("key") String key, @DefaultValue("1") @QueryParam("by") String byStr, 
+    public Response decrOperation(@PathParam("appId") String appId, @PathParam("key") String _key, @DefaultValue("1") @QueryParam("by") String byStr, 
             @DefaultValue("1") @QueryParam("def") String defStr, @DefaultValue("0") @QueryParam("ttl") String ttlStr) {
+    	final String key = URLDecoder.decode(_key);
+    	if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + _key + " and url decoded " + key);
         appId = appId.toUpperCase();
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         try {
@@ -393,7 +405,9 @@ public class EVCacheRESTService {
     @Path("{appId}/{key}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.TEXT_PLAIN)
-    public Response deleteOperation(@PathParam("appId") String appId, @PathParam("key") String key) {
+    public Response deleteOperation(@PathParam("appId") String appId, @PathParam("key") String _key) {
+    	final String key = URLDecoder.decode(_key);
+    	if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + _key + " and url decoded " + key);
         if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
         appId = appId.toUpperCase();
         final EVCache evCache = getEVCache(appId);
