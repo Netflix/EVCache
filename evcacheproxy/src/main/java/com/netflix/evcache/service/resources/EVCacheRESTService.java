@@ -373,6 +373,34 @@ public class EVCacheRESTService {
     }
 
     @GET
+    @Path("get/{appId}")
+    @Produces({MediaType.APPLICATION_OCTET_STREAM})
+    public Response getOperationWithKey(@PathParam("appId") String appId, @QueryParam("key") String _key, @DefaultValue("false") @QueryParam("raw") String raw) {
+    	final String key = URLDecoder.decode(_key);
+    	if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + _key + " and url decoded " + key);
+        appId = appId.toUpperCase();
+        if (logger.isDebugEnabled()) logger.debug("Get for application " + appId + " for Key " + key);
+        try {
+            final EVCache evCache = getEVCache(appId);
+            final CachedData cachedData = (CachedData) evCache.get(key, (Boolean.valueOf(raw).booleanValue() ? rawTranscoder : evcacheTranscoder));
+            if (cachedData == null) {
+                return Response.status(404).type(MediaType.TEXT_PLAIN).entity("Key " + key + " Not Found in cache " + appId + "\n").build();
+            }
+            final byte[] bytes = cachedData.getData();
+            final int flag = cachedData.getFlags();
+            if (bytes == null) {
+                return Response.status(404).type(MediaType.TEXT_PLAIN).entity("Key " + key + " Not Found in cache " + appId + "\n").build();
+            } else {
+                return Response.status(200).type(MediaType.APPLICATION_OCTET_STREAM).entity(bytes).header("X-EVCache-Flags", flag).build();
+            }
+        } catch (EVCacheException e) {
+            logger.error("EVCacheException", e);
+            return Response.serverError().build();
+
+        }
+    }
+
+    @GET
     @Path("{appId}/{key}")
     @Produces({MediaType.APPLICATION_OCTET_STREAM})
     public Response getOperation(@PathParam("appId") String appId, @PathParam("key") String _key, @DefaultValue("false") @QueryParam("raw") String raw) {
