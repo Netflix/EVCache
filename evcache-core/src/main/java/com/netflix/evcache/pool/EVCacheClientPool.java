@@ -1007,6 +1007,15 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 return;
             }
 
+            for(ServerGroup serverGroup : memcachedInstancesByServerGroup.keySet()) {
+                if(!instances.containsKey(serverGroup)) {
+                    if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
+                            + " does not exist or is not enabled or is out of service. We will shutdown this client and remove it.");
+                    serverGroupDisabled(serverGroup);
+                }
+            }
+
+
             boolean updateAllEVCacheWriteClients = false;
             for (Entry<ServerGroup, EVCacheServerGroupConfig> serverGroupEntry : instances.entrySet()) {
                 final ServerGroup serverGroup = serverGroupEntry.getKey();
@@ -1022,16 +1031,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 if (discoveredHostsInServerGroup.size() == 0 && memcachedInstancesByServerGroup.containsKey(serverGroup)) {
                     if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                             + " has no active servers. Cleaning up this ServerGroup.");
-                    final List<EVCacheClient> clients = memcachedInstancesByServerGroup.remove(serverGroup);
-                    memcachedReadInstancesByServerGroup.remove(serverGroup);
-                    memcachedWriteInstancesByServerGroup.remove(serverGroup);
-                    setupAllEVCacheWriteClientsArray();
-                    for (EVCacheClient client : clients) {
-                        if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
-                                + "\n\tClient : " + client + " will be shutdown in 30 seconds.");
-                        client.shutdown(30, TimeUnit.SECONDS);
-                        client.getConnectionObserver().shutdown();
-                    }
+                    serverGroupDisabled(serverGroup);
                     continue;
                 }
 
@@ -1220,11 +1220,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     void shutdown() {
         if (log.isDebugEnabled()) log.debug("EVCacheClientPool for App : " + _appName + " and Zone : " + _zone + " is being shutdown.");
         _shutdown = true;
-        for (List<EVCacheClient> instancesInAZone : memcachedInstancesByServerGroup.values()) {
-            for (EVCacheClient client : instancesInAZone) {
-                client.shutdown(30, TimeUnit.SECONDS);
-                client.getConnectionObserver().shutdown();
-            }
+        
+        for(ServerGroup serverGroup : memcachedInstancesByServerGroup.keySet()) {
+            if (log.isDebugEnabled()) log.debug("\nSHUTDOWN\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup);
+            serverGroupDisabled(serverGroup);
         }
         setupMonitoring();
     }
