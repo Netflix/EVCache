@@ -1,14 +1,16 @@
 language: java
 jdk:
 - openjdk8
-# install: ./installViaTravis.sh
-script: ./buildViaTravis.sh
+install: "./installViaTravis.sh"
+script: "./buildViaTravis.sh"
 cache:
   directories:
-  - $HOME/.gradle/caches
+  - "$HOME/.gradle/caches"
 env:
   global:
-  - secure: O6fg6C3LiBPh8vZNOgvKE6delvjvLuKHRTFZLBB73QiIsJLe2wIu04EiB7NONX5ymutj+PyThXfsbDam3lWfqRlVLWOvNsxcZ/fYxshlW5rfkgPqu/tm9mF1vSbE99OoQ8KFoqbSA2JI+DIXw+W8UBnVlBBC2EBI0qgIFg1XcbI=
-  - secure: fuGT71xfokKZmVq1DH4VhkkQsnmNYMMjL1w2M9/vid1G204K99KOBcUtg6yJ/eFKTa30LVg1ZSKJD1UfmoIQkjtW81JxH+OsdrMbrnprxAW7sstiQn5GUmyScIQqP5phmFCEwWnHYVcBb/6q+MC/qJHFNQW4KD4cuJGrUmmZUEo=
-  - secure: XX3CWNwX6AbJPQjWvI3QZQSDLxO312Oxkj2wV4YbXHuH3fWvhhV551bCeQVtJhFKEMUtG1ux6DiVDtKfqD1zdlUi+m/f5GLzVTIoGwQkDBLQvGzrUJt5r2/jdKbooe+E1Ue0ArCfy5cS8crAlybj33jY/824hkoFDHXCaKKQw2w=
-  - secure: IHVSXxPPOfy8jzUYNeziIYuqZp/dbscH6UEa5VQ9cXu/47A87slFDiih6J/2KZ5xMhk+FMHSsE6GNPCiDJxpNQBgew2XxJJt/Q6blayeo/15mpGHUGFYgE4TGLuQSEe8da0vGJPQ0X+Zt54LSf9cBSNKKyz02b9lRqDSFg6I5QU=
+  - secure: b/ok1/ldyrztOi/9RIANYEno5Mc0uGct4JK06RM1tnfdWarhHSbi5qlV8gZIGliBJ+G1iPQjigCaRjhbCrMlp7t98MEJuMk1w5LSDmClzrWyxBGtOBN/1F6XgJSdKZCpSFSF1ubCyIJN01sxlsmPT0Ot87esqP5Boy77TmUoxN8=
+  - secure: IsbNOw9l+h6X+/4jr9nFBreV0Br6RcVqUVXL33CS9Fe0e9SHigFCULaXlYKk4Tx0q/y/dXCE1scx1+Vo7hegRx7vYpc0spXU0mfBiwnehdKVIy4HKbYTxxAttsfF2cxfIk15qjGkga+4EsLZwQoFeVC/p7WrgabkpLbWw/ncVnk=
+  - secure: MfSvCiTKfLPd6sjvbDXiIOmZGFrnUFh6Iisa5xqDtQ3dzvvtTAF+avk9irWpM5gNAvOrhz3TRrWyWZVL36mwml1g95QiCck7UrR0JpFMtvSpGbkvfE7F6bOwjJzBjSO2M/U1z0OW7kwhertq9A/xtb5boZ5VXJ6uBqHrcKQ3yXQ=
+  - secure: MY1osqsMImaZCTZn4iFYdm6+wIUYB+y8eTDOG1L7QE4RmHx1awTPmGLl2I7dvjLYrzy5iV3XXfrKCd+lO3f5VLNPl8CDVMZIoUO3Kqy4245B5j4obnYQ+C/5o4YnMJozzxULbNOcTs5wN43w9YOqaAXX5Y1efzmzbJzDoNCW34k=
+  - secure: eQIt0F0ZfOgtbc9bTaxe8G84+P1eFret5oqAUNoJF8WaZaN6qWm0pROAc3ydt17pZDamNMPGfsek+8HYnI80rquUztrN8RqPGF2b2XDayxY8lGn+9EKkwXMlOCxmNdroY24Jp15TzztFPZ8cu2a0ormI1fhBe7g1mqb5y8TXOZk=
+  - secure: Lj8do6WYiQuNloG+y6uB4YVzEgyti+y499IuEUpRiaIzrLzrVTlGRV8HIRdqOjW6lG6cFhmw1DwhL3W9R3wFr0O9m01hGbbgaDo6qi81NpzMzWlRqedsO6SULHi/OSAdkuvbt4F8m3k/w1B7aYFVIxdle9ujIEIVABNBvz4DU0A=
