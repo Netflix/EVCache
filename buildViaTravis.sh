@@ -6,18 +6,20 @@ if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then
   ./gradlew build -x test
 elif [ "$TRAVIS_PULL_REQUEST" == "false" ] && [ "$TRAVIS_TAG" == "" ]; then
   echo -e 'Build Branch with Snapshot => Branch ['$TRAVIS_BRANCH']'
-  ./gradlew -Prelease.travisci=true -PbintrayUser="${bintrayUser}" -PbintrayKey="${bintrayKey}" -PsonatypeUsername="${sonatypeUsername}" -PsonatypePassword="${sonatypePassword}" build snapshot -x test
+  ./gradlew -Prelease.travisci=true -PnetflixOss.username="$NETFLIX_OSS_REPO_USERNAME" -PnetflixOss.password="$NETFLIX_OSS_REPO_PASSWORD"  -Psonatype.signingPassword="$NETFLIX_OSS_SIGNING_PASSWORD" build snapshot -x test
 elif [ "$TRAVIS_PULL_REQUEST" == "false" ] && [ "$TRAVIS_TAG" != "" ]; then
   echo -e 'Build Branch for Release => Branch ['$TRAVIS_BRANCH']  Tag ['$TRAVIS_TAG']'
   case "$TRAVIS_TAG" in
   *-rc\.*)
-    ./gradlew -Prelease.travisci=true -Prelease.useLastTag=true -PbintrayUser="${bintrayUser}" -PbintrayKey="${bintrayKey}" -PsonatypeUsername="${sonatypeUsername}" -PsonatypePassword="${sonatypePassword}" -PnetflixossAltCandidateRepo=false candidate  -x test
+    ./gradlew -Prelease.travisci=true  -PnetflixOss.username="$NETFLIX_OSS_REPO_USERNAME" -PnetflixOss.password="$NETFLIX_OSS_REPO_PASSWORD"  -Psonatype.signingPassword="$NETFLIX_OSS_SIGNING_PASSWORD"  -Prelease.useLastTag=true -PnetflixossPublishCandidatesToMavenCentral=true candidate  -x test
     ;;
   *)
-    ./gradlew -Prelease.travisci=true -Prelease.useLastTag=true -PbintrayUser="${bintrayUser}" -PbintrayKey="${bintrayKey}" -PsonatypeUsername="${sonatypeUsername}" -PsonatypePassword="${sonatypePassword}" final -x test
+    ./gradlew -Prelease.travisci=true -PnetflixOss.username="$NETFLIX_OSS_REPO_USERNAME" -PnetflixOss.password="$NETFLIX_OSS_REPO_PASSWORD"  -Psonatype.username="$NETFLIX_OSS_SONATYPE_USERNAME" -Psonatype.password="$NETFLIX_OSS_SONATYPE_PASSWORD" -Psonatype.signingPassword="$NETFLIX_OSS_SIGNING_PASSWORD"  -Prelease.useLastTag=true final  -x test
     ;;
   esac
 else
   echo -e 'WARN: Should not be here => Branch ['$TRAVIS_BRANCH']  Tag ['$TRAVIS_TAG']  Pull Request ['$TRAVIS_PULL_REQUEST']'
   ./gradlew build -x test
 fi
+
+

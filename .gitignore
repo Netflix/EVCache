@@ -69,3 +69,6 @@ atlassian-ide-plugin.xml
 */gradlew
 .gitignore
 */test-output/*
+
+# publishing secrets
+secrets/signing-key
