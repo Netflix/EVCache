@@ -1,9 +1,8 @@
 apply plugin: 'java'
 
 repositories {
-        jcenter()
-        mavenLocal()
-        mavenCentral()
+    mavenCentral()
+    mavenLocal()
 }
 
 configurations.all {

@@ -1,6 +1,6 @@
 buildscript {
   repositories {
-    jcenter()
+    mavenCentral()
   }
 }
 
@@ -15,7 +15,7 @@ subprojects {
     group = "com.netflix.evcache"
 
     repositories {
-        jcenter()
+        mavenCentral()
     }
 
     sourceCompatibility = 1.8
