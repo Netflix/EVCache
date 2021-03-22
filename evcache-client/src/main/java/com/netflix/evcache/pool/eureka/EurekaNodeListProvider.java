@@ -56,7 +56,14 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
      */
     @Override
     public Map<ServerGroup, EVCacheServerGroupConfig> discoverInstances(String _appName) throws IOException {
-        if ((applicationInfoManager.getInfo().getStatus() == InstanceStatus.DOWN)) {
+        final Property<Boolean> ignoreAppEurekaStatus = props.get("evcache.ignoreAppEurekaStatus", Boolean.class).orElse(false);
+
+        if (ignoreAppEurekaStatus.get())
+            log.info("Not going to consider the eureka status of the application, to initialize evcache client.");
+
+        if (!ignoreAppEurekaStatus.get() && (applicationInfoManager.getInfo().getStatus() == InstanceStatus.DOWN)) {
+            log.info("Not initializing evcache client as application eureka status is DOWN. " +
+                    "One can override this behavior by setting evcache.ignoreAppEurekaStatus on application.");
             return Collections.<ServerGroup, EVCacheServerGroupConfig> emptyMap();
         }
 
