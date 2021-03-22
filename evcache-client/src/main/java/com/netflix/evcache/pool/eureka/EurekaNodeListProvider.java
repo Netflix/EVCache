@@ -63,7 +63,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
 
         if (!ignoreAppEurekaStatus.get() && (applicationInfoManager.getInfo().getStatus() == InstanceStatus.DOWN)) {
             log.info("Not initializing evcache client as application eureka status is DOWN. " +
-                    "One can override this behavior by setting evcache.ignoreAppEurekaStatus on application.");
+                    "One can override this behavior by setting evcache.ignoreAppEurekaStatus property to true, scoped to your application.");
             return Collections.<ServerGroup, EVCacheServerGroupConfig> emptyMap();
         }
 
