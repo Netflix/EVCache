@@ -11,8 +11,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import com.netflix.evcache.*;
-import com.netflix.evcache.operation.EVCacheItem;
-import com.netflix.evcache.operation.EVCacheItemMetaData;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.KeyHasher;
@@ -57,6 +55,7 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         propertiesToSet.putIfAbsent(appName + ".throttle.percent", "0");
         propertiesToSet.putIfAbsent(appName + ".log.operation", "1000");
         propertiesToSet.putIfAbsent(appName + ".EVCacheClientPool.validate.input.queue", "true");
+        propertiesToSet.putIfAbsent("evcache.use.binary.protocol", "false");
     }
 
     protected Properties getProps() {
@@ -418,6 +417,13 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         latch.await(1000, TimeUnit.MILLISECONDS);
         latch = evCache.delete(key5, EVCacheLatch.Policy.ALL);
         latch.await(1000, TimeUnit.MILLISECONDS);
+
+        // test expiry
+        String key6 = Long.toString(System.currentTimeMillis());
+        assertEquals(evCache.incr(key6, 1, 10, 5), 10);
+        Thread.sleep(5000);
+        assertNull(evCache.get(key6));
+
 
         assertNull(evCache.get(key1));
         assertNull(evCache.get(key2));
