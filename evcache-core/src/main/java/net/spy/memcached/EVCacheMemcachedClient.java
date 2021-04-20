@@ -100,6 +100,22 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         throw new UnsupportedOperationException("asyncGet");
     }
 
+    // Returns 'true' if keys don't match and logs & reports the error.
+    // Returns 'false' if keys match.
+    // TODO: Consider removing this code once we've fixed the Wrong key bug(s)
+    private boolean isWrongKeyReturned(String original_key, String returned_key) {
+        if (!original_key.equals(returned_key)) {
+            // If they keys don't match, log the error along with the key owning host's information and stack trace.
+            final String original_host = getHostNameByKey(original_key);
+            final String returned_host = getHostNameByKey(returned_key);
+            log.error("Wrong key returned. Key - " + original_key + " (Host: " + original_host + ") ; Returned Key "
+                        + returned_key + " (Host: " + returned_host + ")", new Exception());
+            client.reportWrongKeyReturned(original_host);
+            return true;
+        }
+        return false;
+    }
+
     public <T> EVCacheOperationFuture<T> asyncGet(final String key, final Transcoder<T> tc, EVCacheGetOperationListener<T> listener) {
         final CountDownLatch latch = new CountDownLatch(1);
         final EVCacheOperationFuture<T> rv = new EVCacheOperationFuture<T>(key, latch, new AtomicReference<T>(null), readTimeout.get().intValue(), executorService, client);
@@ -126,10 +142,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             @SuppressWarnings("unchecked")
             public void gotData(String k, int flags, byte[] data) {
 
-                if (!key.equals(k)) {
-                    log.error("Wrong key returned. Key - " + key + "; Returned Key " + k);
-                    return;
-                }
+                if (isWrongKeyReturned(key, k)) return;
+
                 if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Read data : key " + key + "; flags : " + flags + "; data : " + data);
                 if (data != null)  {
                     if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Key : " + key + "; val size : " + data.length);
@@ -255,7 +269,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             }
 
             public void gotData(String k, int flags, long cas, byte[] data) {
-                if (!key.equals(k)) log.warn("Wrong key returned. Key - " + key + "; Returned Key " + k);
+                if (isWrongKeyReturned(key, k)) return;
+
                 if (data != null) getDataSizeDistributionSummary(EVCacheMetricsFactory.GET_AND_TOUCH_OPERATION, EVCacheMetricsFactory.READ, EVCacheMetricsFactory.IPC_SIZE_INBOUND).record(data.length);
                 val = new CASValue<T>(cas, tc.decode(new CachedData(flags, data, tc.getMaxSize())));
             }
@@ -602,6 +617,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return maxReadDuration.get().intValue();
     }
 
+    private String getHostNameByKey(String key) {
+        MemcachedNode evcNode = getEVCacheNode(key);
+        return getHostName(evcNode.getSocketAddress());
+    }
+
     private String getHostName(SocketAddress sa) {
         if (sa == null) return null;
         if(sa instanceof InetSocketAddress) {
@@ -722,10 +742,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             @Override
             public void gotMetaData(String k, char flag, String fVal) {
                 if (log.isDebugEnabled()) log.debug("key " + k + "; val : " + fVal + "; flag : " + flag);
-                if (!key.equals(k)) {
-                    log.error("Wrong key returned. Expected Key - " + key + "; Returned Key " + k);
-                    return;
-                }
+                if (isWrongKeyReturned(key, k)) return;
+
                 switch (flag) {
                 case 's':
                     evItem.getItemMetaData().setSizeInBytes(Integer.parseInt(fVal));
@@ -765,10 +783,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             @Override
             public void gotData(String k, int flag, byte[] data) {
                 if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Read data : key " + k + "; flags : " + flag + "; data : " + data);
-                if (!key.equals(k)) {
-                    log.error("Wrong key returned. Expected Key - " + key + "; Returned Key " + k);
-                    return;
-                }
+                if (isWrongKeyReturned(key, k)) return;
+
                 if (data != null)  {
                     if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Key : " + k + "; val size : " + data.length);
                     getDataSizeDistributionSummary(EVCacheMetricsFactory.META_GET_OPERATION, EVCacheMetricsFactory.READ, EVCacheMetricsFactory.IPC_SIZE_INBOUND).record(data.length);
