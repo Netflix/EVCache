@@ -130,6 +130,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     // If they keys don't match, log the error along with the key owning host information.
                     final String host = getHostNameByKey(k);
                     log.error("Wrong key returned. Key - " + key + "; Returned Key " + k + "; Host" + host);
+                    // Print stack trace for debugging purposes.
+                    // TODO: Consider removing this code once we've fixed the Wrong key bug(s)
+                    new Throwable().printStackTrace();
                     client.reportWrongKeyReturned(host);
                     return;
                 }
@@ -262,6 +265,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     // If they keys don't match, log the error along with the key owning host information.
                     final String host = getHostNameByKey(k);
                     log.error("Wrong key returned. Key - " + key + "; Returned Key " + k + "; Host" + host);
+                    // Print stack trace for debugging purposes.
+                    // TODO: Consider removing this code once we've fixed the Wrong key bug(s)
+                    new Throwable().printStackTrace();
                     client.reportWrongKeyReturned(host);
                 }
                 if (data != null) getDataSizeDistributionSummary(EVCacheMetricsFactory.GET_AND_TOUCH_OPERATION, EVCacheMetricsFactory.READ, EVCacheMetricsFactory.IPC_SIZE_INBOUND).record(data.length);
@@ -739,6 +745,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     // If they keys don't match, log the error along with the key owning host information.
                     final String host = getHostNameByKey(k);
                     log.error("Wrong key returned. Key - " + key + "; Returned Key " + k + "; Host" + host);
+                    // Print stack trace for debugging purposes.
+                    // TODO: Consider removing this code once we've fixed the Wrong key bug(s)
+                    new Throwable().printStackTrace();
                     client.reportWrongKeyReturned(host);
                     return;
                 }
@@ -785,6 +794,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     // If they keys don't match, log the error along with the key owning host information.
                     final String host = getHostNameByKey(k);
                     log.error("Wrong key returned. Key - " + key + "; Returned Key " + k + "; Host" + host);
+                    // Print stack trace for debugging purposes.
+                    // TODO: Consider removing this code once we've fixed the Wrong key bug(s)
+                    new Throwable().printStackTrace();
                     client.reportWrongKeyReturned(host);
                     return;
                 }
