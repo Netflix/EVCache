@@ -127,7 +127,10 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             public void gotData(String k, int flags, byte[] data) {
 
                 if (!key.equals(k)) {
-                    log.error("Wrong key returned. Key - " + key + "; Returned Key " + k);
+                    // If they keys don't match, log the error along with the key owning host information.
+                    final String host = getHostNameByKey(k);
+                    log.error("Wrong key returned. Key - " + key + "; Returned Key " + k + "; Host" + host);
+                    client.reportWrongKeyReturned(host);
                     return;
                 }
                 if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Read data : key " + key + "; flags : " + flags + "; data : " + data);
@@ -255,7 +258,12 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             }
 
             public void gotData(String k, int flags, long cas, byte[] data) {
-                if (!key.equals(k)) log.warn("Wrong key returned. Key - " + key + "; Returned Key " + k);
+                if (!key.equals(k)) {
+                    // If they keys don't match, log the error along with the key owning host information.
+                    final String host = getHostNameByKey(k);
+                    log.error("Wrong key returned. Key - " + key + "; Returned Key " + k + "; Host" + host);
+                    client.reportWrongKeyReturned(host);
+                }
                 if (data != null) getDataSizeDistributionSummary(EVCacheMetricsFactory.GET_AND_TOUCH_OPERATION, EVCacheMetricsFactory.READ, EVCacheMetricsFactory.IPC_SIZE_INBOUND).record(data.length);
                 val = new CASValue<T>(cas, tc.decode(new CachedData(flags, data, tc.getMaxSize())));
             }
@@ -602,6 +610,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return maxReadDuration.get().intValue();
     }
 
+    private String getHostNameByKey(String key) {
+        EVCacheNode evcNode = (EVCacheNode)getEVCacheNode(key);
+        return getHostName(evcNode.getSocketAddress());
+    }
+
     private String getHostName(SocketAddress sa) {
         if (sa == null) return null;
         if(sa instanceof InetSocketAddress) {
@@ -723,7 +736,10 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             public void gotMetaData(String k, char flag, String fVal) {
                 if (log.isDebugEnabled()) log.debug("key " + k + "; val : " + fVal + "; flag : " + flag);
                 if (!key.equals(k)) {
-                    log.error("Wrong key returned. Expected Key - " + key + "; Returned Key " + k);
+                    // If they keys don't match, log the error along with the key owning host information.
+                    final String host = getHostNameByKey(k);
+                    log.error("Wrong key returned. Key - " + key + "; Returned Key " + k + "; Host" + host);
+                    client.reportWrongKeyReturned(host);
                     return;
                 }
                 switch (flag) {
@@ -766,7 +782,10 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             public void gotData(String k, int flag, byte[] data) {
                 if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Read data : key " + k + "; flags : " + flag + "; data : " + data);
                 if (!key.equals(k)) {
-                    log.error("Wrong key returned. Expected Key - " + key + "; Returned Key " + k);
+                    // If they keys don't match, log the error along with the key owning host information.
+                    final String host = getHostNameByKey(k);
+                    log.error("Wrong key returned. Key - " + key + "; Returned Key " + k + "; Host" + host);
+                    client.reportWrongKeyReturned(host);
                     return;
                 }
                 if (data != null)  {
