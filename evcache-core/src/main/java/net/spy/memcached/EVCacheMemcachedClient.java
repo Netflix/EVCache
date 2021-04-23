@@ -102,15 +102,15 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
     // Returns 'true' if keys don't match and logs & reports the error.
     // Returns 'false' if keys match.
-    private boolean checkWrongKeyReturned(String original_key, String returned_key) {
+    // TODO: Consider removing this code once we've fixed the Wrong key bug(s)
+    private boolean isWrongKeyReturned(String original_key, String returned_key) {
         if (!original_key.equals(returned_key)) {
-            // If they keys don't match, log the error along with the key owning host information.
-            final String host = getHostNameByKey(returned_key);
-            log.error("Wrong key returned. Key - " + original_key + "; Returned Key " + returned_key + "; Host" + host);
-            // Print stack trace for debugging purposes.
-            // TODO: Consider removing this code once we've fixed the Wrong key bug(s)
-            new Throwable().printStackTrace();
-            client.reportWrongKeyReturned(host);
+            // If they keys don't match, log the error along with the key owning host's information and stack trace.
+            final String original_host = getHostNameByKey(original_key);
+            final String returned_host = getHostNameByKey(returned_key);
+            log.error("Wrong key returned. Key - " + original_key + " (Host: " + original_host + ") ; Returned Key "
+                        + returned_key + " (Host: " + returned_host + ")", new Exception());
+            client.reportWrongKeyReturned(original_host);
             return true;
         }
         return false;
@@ -142,7 +142,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             @SuppressWarnings("unchecked")
             public void gotData(String k, int flags, byte[] data) {
 
-                if (checkWrongKeyReturned(key, k)) return;
+                if (isWrongKeyReturned(key, k)) return;
 
                 if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Read data : key " + key + "; flags : " + flags + "; data : " + data);
                 if (data != null)  {
@@ -269,8 +269,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             }
 
             public void gotData(String k, int flags, long cas, byte[] data) {
-                // TODO: Should we return here if wrong key is returned? We seem to do so everywhere else except here.
-                checkWrongKeyReturned(key, k);
+                if (isWrongKeyReturned(key, k)) return;
 
                 if (data != null) getDataSizeDistributionSummary(EVCacheMetricsFactory.GET_AND_TOUCH_OPERATION, EVCacheMetricsFactory.READ, EVCacheMetricsFactory.IPC_SIZE_INBOUND).record(data.length);
                 val = new CASValue<T>(cas, tc.decode(new CachedData(flags, data, tc.getMaxSize())));
@@ -619,7 +618,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     }
 
     private String getHostNameByKey(String key) {
-        EVCacheNode evcNode = (EVCacheNode)getEVCacheNode(key);
+        MemcachedNode evcNode = getEVCacheNode(key);
         return getHostName(evcNode.getSocketAddress());
     }
 
@@ -743,7 +742,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             @Override
             public void gotMetaData(String k, char flag, String fVal) {
                 if (log.isDebugEnabled()) log.debug("key " + k + "; val : " + fVal + "; flag : " + flag);
-                if (checkWrongKeyReturned(key, k)) return;
+                if (isWrongKeyReturned(key, k)) return;
 
                 switch (flag) {
                 case 's':
@@ -784,7 +783,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             @Override
             public void gotData(String k, int flag, byte[] data) {
                 if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Read data : key " + k + "; flags : " + flag + "; data : " + data);
-                if (checkWrongKeyReturned(key, k)) return;
+                if (isWrongKeyReturned(key, k)) return;
 
                 if (data != null)  {
                     if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug("Key : " + k + "; val size : " + data.length);
