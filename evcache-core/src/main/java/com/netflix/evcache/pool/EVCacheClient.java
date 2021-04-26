@@ -259,6 +259,9 @@ public class EVCacheClient {
         counter.increment();
     }
 
+    public void reportWrongKeyReturned(String hostName) {
+        incrementFailure(EVCacheMetricsFactory.WRONG_KEY_RETURNED, null, hostName);
+    }
 
     private boolean ensureWriteQueueSize(MemcachedNode node, String key, EVCache.Call call) throws EVCacheException {
         if (node instanceof EVCacheNode) {
