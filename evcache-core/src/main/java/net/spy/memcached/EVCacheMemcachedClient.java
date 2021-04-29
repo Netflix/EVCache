@@ -76,6 +76,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private Property<Long> mutateOperationTimeout;
     private final ConnectionFactory connectionFactory;
     private final Property<Integer> maxReadDuration, maxWriteDuration;
+    private final Property<Boolean> autoLogSwitchOnWrongKey;
 
     public EVCacheMemcachedClient(ConnectionFactory cf, List<InetSocketAddress> addrs,
                                   Property<Integer> readTimeout, EVCacheClient client) throws IOException {
@@ -86,6 +87,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         this.appName = client.getAppName();
         this.maxWriteDuration = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".max.write.duration.metric", Integer.class).orElseGet("evcache.max.write.duration.metric").orElse(50);
         this.maxReadDuration = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".max.read.duration.metric", Integer.class).orElseGet("evcache.max.read.duration.metric").orElse(20);
+        this.autoLogSwitchOnWrongKey = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".enable.auto.log.switch", Boolean.class).orElse(false);
     }
 
     public NodeLocator getNodeLocator() {
@@ -111,6 +113,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             log.error("Wrong key returned. Key - " + original_key + " (Host: " + original_host + ") ; Returned Key "
                         + returned_key + " (Host: " + returned_host + ")", new Exception());
             client.reportWrongKeyReturned(original_host);
+
+            // If we are configured to dynamically switch log levels to DEBUG on a wrong key error, do so here.
+            if (autoLogSwitchOnWrongKey.get()) {
+                org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel("DEBUG"));
+            }
             return true;
         }
         return false;
