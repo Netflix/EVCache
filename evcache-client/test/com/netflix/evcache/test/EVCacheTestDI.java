@@ -296,8 +296,10 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         // get server group names, to be used to configure the ASG level hashing properties
         Map<ServerGroup, List<EVCacheClient>> clientsByServerGroup = manager.getEVCacheClientPool(appName).getAllInstancesByServerGroup();
         int i = 0;
+        KeyHasher.HashingAlgorithm hashingAlgorithm = KeyHasher.HashingAlgorithm.values()[0];
         for (ServerGroup serverGroup : clientsByServerGroup.keySet()) {
-            KeyHasher.HashingAlgorithm hashingAlgorithm = KeyHasher.HashingAlgorithm.values()[i++ % KeyHasher.HashingAlgorithm.values().length];
+            // use below logic to have different hashing per asg once the code supports. Currently the code caches the value that it uses for all the asgs
+            // KeyHasher.HashingAlgorithm hashingAlgorithm = KeyHasher.HashingAlgorithm.values()[i++ % KeyHasher.HashingAlgorithm.values().length];
             hashingAlgorithmsByServerGroup.put(serverGroup.getName(), hashingAlgorithm);
             propertiesToSet.put(serverGroup.getName() + ".hash.key", "true");
             propertiesToSet.put(serverGroup.getName() + ".hash.algo", hashingAlgorithm.name());
