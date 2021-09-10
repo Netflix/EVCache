@@ -11,10 +11,10 @@ import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.discovery.EurekaClient;
 import com.netflix.discovery.shared.Application;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.pool.EVCacheClientPool;
 import com.netflix.evcache.pool.EVCacheNodeList;
 import com.netflix.evcache.pool.EVCacheServerGroupConfig;
 import com.netflix.evcache.pool.ServerGroup;
-import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
 import org.slf4j.Logger;
@@ -32,8 +32,6 @@ import java.util.Map;
 import java.util.Set;
 
 public class EurekaNodeListProvider implements EVCacheNodeList {
-    public static final String DEFAULT_PORT = "11211";
-    public static final String DEFAULT_SECURE_PORT = "11443";
 
     private static final Logger log = LoggerFactory.getLogger(EurekaNodeListProvider.class);
     private final EurekaClient _eurekaClient;
@@ -116,7 +114,8 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
             }
 
             final Map<String, String> metaInfo = iInfo.getMetadata();
-            final int evcachePort = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.port")) ? metaInfo.get("evcache.port") : DEFAULT_PORT);
+            final int evcachePort = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.port")) ?
+                    metaInfo.get("evcache.port") : EVCacheClientPool.DEFAULT_PORT);
             final int rendPort = (metaInfo != null && metaInfo.containsKey("rend.port")) ? Integer.parseInt(metaInfo.get("rend.port")) : 0;
             final int rendBatchPort = (metaInfo != null && metaInfo.containsKey("rend.batch.port")) ? Integer.parseInt(metaInfo.get("rend.batch.port")) : 0;
             final int udsproxyMemcachedPort = (metaInfo != null && metaInfo.containsKey("udsproxy.memcached.port")) ? Integer.parseInt(metaInfo.get("udsproxy.memcached.port")) : 0;
@@ -130,7 +129,8 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
             int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);
             final Property<Boolean> isSecure = props.get(asgName + ".use.secure", Boolean.class).orElseGet(_appName + ".use.secure").orElse(false);
             if(isSecure.get()) {
-                port = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.secure.port")) ? metaInfo.get("evcache.secure.port") : DEFAULT_SECURE_PORT);
+                port = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.secure.port")) ?
+                        metaInfo.get("evcache.secure.port") : EVCacheClientPool.DEFAULT_SECURE_PORT);
             }
 
             final ServerGroup serverGroup = new ServerGroup(zone, asgName);

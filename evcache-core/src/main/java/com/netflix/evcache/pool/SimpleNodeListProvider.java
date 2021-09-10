@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 
+import com.netflix.archaius.api.PropertyRepository;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -26,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.net.InetAddresses;
 import com.netflix.archaius.api.Property;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.evcache.pool.EVCacheClientPool;
 
 public class SimpleNodeListProvider implements EVCacheNodeList {
 
@@ -95,10 +97,11 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
     private Map<ServerGroup, EVCacheServerGroupConfig> bootstrapFromEureka(String appName) throws IOException {
         
         if(env == null || region == null) return Collections.<ServerGroup, EVCacheServerGroupConfig> emptyMap();
-        
+
         final String url = "http://discoveryreadonly." + region + ".dyn" + env + ".netflix.net:7001/v2/apps/" + appName;
         final CloseableHttpClient httpclient = HttpClients.createDefault();
         final long start = System.currentTimeMillis();
+        PropertyRepository props = EVCacheConfig.getInstance().getPropertyRepository();
         CloseableHttpResponse httpResponse = null;
         try {
             final RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(timeout).setConnectTimeout(timeout).build();
@@ -118,13 +121,20 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
             final JSONObject application = jsonObj.getJSONObject("application");
             final JSONArray instances = application.getJSONArray("instance");
             final Map<ServerGroup, EVCacheServerGroupConfig> serverGroupMap = new HashMap<ServerGroup, EVCacheServerGroupConfig>();
-            final Property<Boolean> useBatchPort = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".use.batch.port", Boolean.class).orElseGet("evcache.use.batch.port").orElse(false);
+            final Property<Boolean> useBatchPort = props.get(appName + ".use.batch.port", Boolean.class)
+                    .orElseGet("evcache.use.batch.port").orElse(false);
+            final int securePort = Integer.parseInt(props.get("evcache.secure.port", String.class)
+                    .orElse(EVCacheClientPool.DEFAULT_SECURE_PORT).get());
+
             for(int i = 0; i < instances.length(); i++) {
                 final JSONObject instanceObj = instances.getJSONObject(i);
                 final JSONObject metadataObj = instanceObj.getJSONObject("dataCenterInfo").getJSONObject("metadata");
 
                 final String asgName = instanceObj.getString("asgName");
-                final Property<Boolean> asgEnabled = EVCacheConfig.getInstance().getPropertyRepository().get(asgName + ".enabled", Boolean.class).orElse(true);
+                final Property<Boolean> asgEnabled = props.get(asgName + ".enabled", Boolean.class).orElse(true);
+                final boolean isSecure = props.get(asgName + ".use.secure", Boolean.class)
+                        .orElseGet(appName + ".use.secure").orElse(false).get();
+
                 if (!asgEnabled.get()) {
                     if(log.isDebugEnabled()) log.debug("ASG " + asgName + " is disabled so ignoring it");
                     continue;
@@ -134,7 +144,8 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
                 final ServerGroup rSet = new ServerGroup(zone, asgName);
                 final String localIp = metadataObj.getString("local-ipv4");
                 final JSONObject instanceMetadataObj = instanceObj.getJSONObject("metadata");
-                final String evcachePortString = instanceMetadataObj.optString("evcache.port", "11211");
+                final String evcachePortString = instanceMetadataObj.optString("evcache.port",
+                        EVCacheClientPool.DEFAULT_PORT);
                 final String rendPortString = instanceMetadataObj.optString("rend.port", "0");
                 final String rendBatchPortString = instanceMetadataObj.optString("rend.batch.port", "0");
                 final int rendPort = Integer.parseInt(rendPortString);
@@ -142,7 +153,9 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
                 final String rendMemcachedPortString = instanceMetadataObj.optString("rend.memcached.port", "0");
                 final String rendMementoPortString = instanceMetadataObj.optString("rend.memento.port", "0");
                 final int evcachePort = Integer.parseInt(evcachePortString);
-                final int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);
+                final int port = isSecure ? securePort : rendPort == 0 ?
+                        evcachePort : ((useBatchPort.get().booleanValue()) ?
+                        rendBatchPort : rendPort);
 
                 EVCacheServerGroupConfig config = serverGroupMap.get(rSet);
                 if(config == null) {

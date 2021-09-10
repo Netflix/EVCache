@@ -60,6 +60,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private final Property<Integer> _readTimeout; // Timeout for readOperation
     private final Property<Integer> _bulkReadTimeout; // Timeout for readOperation
     public static final String DEFAULT_PORT = "11211";
+    public static final String DEFAULT_SECURE_PORT = "11443";
 
     private final Property<Boolean> _retryAcrossAllReplicas;
     private long lastReconcileTime = 0;
