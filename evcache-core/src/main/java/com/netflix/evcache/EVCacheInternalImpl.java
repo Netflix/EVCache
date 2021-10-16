@@ -170,6 +170,10 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
             ).collect(Collectors.toList());
         }
 
+        if (evCacheClients.size() > 1) {
+            log.warn("Ended up with more than one evCacheClients: {},  key: {}, serverGroups: {}, destinationIps: {}", evCacheClients, key, serverGroups, destinationIps);
+        }
+
         EVCacheClient[] evCacheClientsArray = new EVCacheClient[evCacheClients.size()];
         evCacheClients.toArray(evCacheClientsArray);
 
