@@ -170,17 +170,17 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
             ).collect(Collectors.toList());
         }
 
-        if (evCacheClients.size() > 1) {
-            log.warn("Ended up with more than one evCacheClients: {},  key: {}, serverGroups: {}, destinationIps: {}", evCacheClients, key, serverGroups, destinationIps);
-        }
-
         EVCacheClient[] evCacheClientsArray = new EVCacheClient[evCacheClients.size()];
         evCacheClients.toArray(evCacheClientsArray);
 
-        if (replaceItem)
+        if (replaceItem) {
             return this.set(key, value, null, timeToLive, policy, evCacheClientsArray, evCacheClientsArray.length);
-        else
-            return this.add(key, value, null, timeToLive, policy, evCacheClientsArray, evCacheClientsArray.length);
+        }
+        else {
+            // given that we do not want to replace items, we should explicitly set fixup to false, otherwise "add" can
+            // result in "set" during fixup which can result in replacing items
+            return this.add(key, value, null, timeToLive, policy, evCacheClientsArray, evCacheClientsArray.length, false);
+        }
     }
 
     public KeyHashedState isKeyHashed(String appName, String serverGroup) {
