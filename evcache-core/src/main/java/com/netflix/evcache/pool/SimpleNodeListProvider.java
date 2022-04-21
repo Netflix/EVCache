@@ -133,7 +133,9 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
                 final String asgName = instanceObj.getString("asgName");
                 final Property<Boolean> asgEnabled = props.get(asgName + ".enabled", Boolean.class).orElse(true);
                 final boolean isSecure = props.get(asgName + ".use.secure", Boolean.class)
-                        .orElseGet(appName + ".use.secure").orElse(false).get();
+                        .orElseGet(appName + ".use.secure")
+                        .orElseGet("evcache.use.secure")
+                        .orElse(false).get();
 
                 if (!asgEnabled.get()) {
                     if(log.isDebugEnabled()) log.debug("ASG " + asgName + " is disabled so ignoring it");

@@ -127,7 +127,10 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
                 useRendBatchPortMap.put(asgName, useBatchPort);
             }
             int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);
-            final Property<Boolean> isSecure = props.get(asgName + ".use.secure", Boolean.class).orElseGet(_appName + ".use.secure").orElse(false);
+            final Property<Boolean> isSecure = props.get(asgName + ".use.secure", Boolean.class)
+                    .orElseGet(_appName + ".use.secure")
+                    .orElseGet("evcache.use.secure")
+                    .orElse(false);
             if(isSecure.get()) {
                 port = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.secure.port")) ?
                         metaInfo.get("evcache.secure.port") : EVCacheClientPool.DEFAULT_SECURE_PORT);
