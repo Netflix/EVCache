@@ -251,7 +251,14 @@ public class EVCacheClientPoolManager {
 
     private String getAppName(String _app) {
         _app = _app.toUpperCase();
-        final String app = EVCacheConfig.getInstance().getPropertyRepository().get("EVCacheClientPoolManager." + _app + ".alias", String.class).orElse(_app).get().toUpperCase();
+        Boolean ignoreAlias = EVCacheConfig.getInstance().getPropertyRepository()
+                .get("EVCacheClientPoolManager." + _app + ".ignoreAlias", Boolean.class)
+                .orElseGet("EVCacheClientPoolManager.ignoreAlias")
+                .orElse(false).get();
+        final String app = ignoreAlias ?  _app :
+                EVCacheConfig.getInstance().getPropertyRepository()
+                        .get("EVCacheClientPoolManager." + _app + ".alias", String.class)
+                        .orElse(_app).get().toUpperCase();
         if (log.isDebugEnabled()) log.debug("Original App Name : " + _app + "; Alias App Name : " + app);
         if(app != null && app.length() > 0) return app.toUpperCase();
         return _app;
