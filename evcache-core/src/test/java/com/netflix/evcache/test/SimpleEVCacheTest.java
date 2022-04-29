@@ -1,8 +1,5 @@
 package com.netflix.evcache.test;
 
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
-
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
@@ -29,9 +26,14 @@ import com.netflix.evcache.pool.EVCacheClientPoolManager;
 
 import rx.schedulers.Schedulers;
 
+import static org.testng.Assert.*;
+
 @SuppressWarnings({"unused","deprecation"})
 public class SimpleEVCacheTest extends Base {
     private static final Logger log = LogManager.getLogger(SimpleEVCacheTest.class);
+
+    private static final String APP_NAME = "EVCACHE_TEST";
+    private static final String ALIAS_APP_NAME = "EVCACHE";
 
     private ThreadPoolExecutor pool = null;
 
@@ -54,12 +56,18 @@ public class SimpleEVCacheTest extends Base {
         Logger.getLogger(EVCacheClientPool.class).setLevel(Level.DEBUG);
 
         final Properties props = getProps();
-        props.setProperty("EVCACHE_TEST.use.simple.node.list.provider", "true");
-        props.setProperty("EVCACHE_TEST.EVCacheClientPool.readTimeout", "1000");
-        props.setProperty("EVCACHE_TEST.EVCacheClientPool.bulkReadTimeout", "1000");
-        props.setProperty("EVCACHE_TEST.max.read.queue.length", "100");
-        props.setProperty("EVCACHE_TEST.operation.timeout", "10000");
-        props.setProperty("EVCACHE_TEST.throw.exception", "false");
+        props.setProperty(APP_NAME + ".use.simple.node.list.provider", "true");
+        props.setProperty(APP_NAME + ".EVCacheClientPool.readTimeout", "1000");
+        props.setProperty(APP_NAME + ".EVCacheClientPool.bulkReadTimeout", "1000");
+        props.setProperty(APP_NAME + ".max.read.queue.length", "100");
+        props.setProperty(APP_NAME + ".operation.timeout", "10000");
+        props.setProperty(APP_NAME + ".throw.exception", "false");
+
+        // Setting properties here for testing how we can disable aliases. If there are test case
+        // that requires aliases, these properties should go under a special condition.
+        props.setProperty("EVCacheClientPoolManager." + APP_NAME + ".alias", ALIAS_APP_NAME);
+        props.setProperty("EVCacheClientPoolManager." + APP_NAME + ".ignoreAlias", "true");
+        // End alias properties
 
         int maxThreads = 2;
         final BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>(100000);
@@ -74,10 +82,18 @@ public class SimpleEVCacheTest extends Base {
     public void setupClusterDetails() {
         manager = EVCacheClientPoolManager.getInstance();
     }
-    
+
+    @Test public void testDisablingAlias()
+    {
+        // Ensure alias is disabled, we see "EVCACHE_TEST" instead of "EVCACHE" as we have set above.
+        EVCacheClientPool pool = EVCacheClientPoolManager.getInstance().getEVCacheClientPool(APP_NAME);
+        assertEquals(pool.getAppName(), APP_NAME);
+    }
+
     public void testAll() {
         try {
-            EVCacheClientPoolManager.getInstance().initEVCache("EVCACHE_TEST");
+            EVCacheClientPoolManager.getInstance().initEVCache(APP_NAME);
+            testDisablingAlias();
             testEVCache();
 
             int i = 1;
