@@ -139,7 +139,7 @@ public class BaseAsciiConnectionFactory extends DefaultConnectionFactory {
     }
 
     public boolean shouldOptimize() {
-        return true;
+        return EVCacheConfig.getInstance().getPropertyRepository().get("evcache.broadcast.ascii.connection.optimize", Boolean.class).orElse(true).get();
     }
 
     public boolean isDefaultExecutorService() {

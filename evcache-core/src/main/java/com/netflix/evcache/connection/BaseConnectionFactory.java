@@ -133,7 +133,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public boolean shouldOptimize() {
-        return true;
+        return EVCacheConfig.getInstance().getPropertyRepository().get("evcache.broadcast.base.connection.optimize", Boolean.class).orElse(true).get();
     }
 
     public boolean isDefaultExecutorService() {
