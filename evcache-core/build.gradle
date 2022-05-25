@@ -39,7 +39,7 @@ dependencies {
         compile group:"javax.annotation",             name:"javax.annotation-api",             version:"latest.release"
         compile group:"com.github.fzakaria",          name:"ascii85",                          version:"latest.release"
 
-        testCompile group:"org.testng",               name:"testng",                           version:"latest.release"
+        testCompile group:"org.testng",               name:"testng",                           version:"7.5"
         testCompile group:"com.beust",                name:"jcommander",                       version:"1.72"
         testCompile group:"org.mockito",              name:"mockito-all",                      version:"latest.release"	
         testCompile group:'org.assertj',              name:'assertj-core',                     version:'latest.release'
