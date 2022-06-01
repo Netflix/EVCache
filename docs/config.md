@@ -92,7 +92,7 @@ EVCacheReplicationManager.<cache\>.acks | EVCacheReplicationManager.acks | 1 | y
 EVCacheReplicationManager.<cache\>.stickyPartitioner.intervalMs | EVCacheReplicationManager.stickyPartitioner.intervalMs | 1000 | yes
 EVCacheReplicationManager.<cache\>.partitioner.class | EVCacheReplicationManager.partitioner.class | com.netflix.nfkafka.StickyPartitioner | yes
 
-## Fixing Write Failues 
+## Fixing Write Failures
 Property Name | Override Property Name | Default Value | Dynamic |
 :----------- |:-------------|:-----------|:-----------
 <CACHE\>.WriteFailure.to.kafka | WriteFailure.to.kafka | false | yes
