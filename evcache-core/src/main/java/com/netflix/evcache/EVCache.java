@@ -6,6 +6,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import javax.annotation.Nullable;
@@ -69,7 +71,8 @@ import rx.Single;
 public interface EVCache {
 
     public static enum Call {
-        GET, GETL, GET_AND_TOUCH, ASYNC_GET, BULK, SET, DELETE, INCR, DECR, TOUCH, APPEND, PREPEND, REPLACE, ADD, APPEND_OR_ADD, GET_ALL, META_GET, META_SET, META_DEBUG
+        GET, GETL, GET_AND_TOUCH, ASYNC_GET, BULK, SET, DELETE, INCR, DECR, TOUCH, APPEND, PREPEND, REPLACE, ADD, APPEND_OR_ADD, GET_ALL, META_GET, META_SET, META_DEBUG,
+        COMPLETABLE_FUTURE_GET
     };
 
     /**
@@ -515,6 +518,30 @@ public interface EVCache {
      *             users.
      */
     <T> T get(String key, Transcoder<T> tc) throws EVCacheException;
+
+    /**
+     * Retrieve the value for the given a key using the specified Transcoder for
+     * deserialization.
+     *
+     * @param key
+     *            key to get. Ensure the key is properly encoded and does not
+     *            contain whitespace or control characters. The max length of the key (including prefix)
+     *            is 250 characters.
+     * @param tc
+     *            the Transcoder to deserialize the data
+     * @return the Completable Future of value for the given key from the cache (null if there is
+     *         none).
+     * @throws EVCacheException
+     *             in the rare circumstance where queue is too full to accept
+     *             any more requests or issues during deserialization or any IO
+     *             Related issues
+     *
+     *             Note: If the data is replicated by zone, then we can the
+     *             value from the zone local to the client. If we cannot find
+     *             this value then null is returned. This is transparent to the
+     *             users.
+     */
+    <T> CompletableFuture<T> get(String key, Transcoder<T> tc, ExecutorService executorService) throws EVCacheException;
 
     /**
      * Retrieve the meta data for the given a key 
