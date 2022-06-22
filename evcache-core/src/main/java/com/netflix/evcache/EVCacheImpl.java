@@ -70,8 +70,8 @@ import rx.Single;
  */
 
 @SuppressWarnings("unchecked")
-@edu.umd.cs.findbugs.annotations.SuppressFBWarnings({"PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "WMI_WRONG_MAP_ITERATOR",
-        "DB_DUPLICATE_BRANCHES", "REC_CATCH_EXCEPTION", "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE"})
+@edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "WMI_WRONG_MAP_ITERATOR",
+    "DB_DUPLICATE_BRANCHES", "REC_CATCH_EXCEPTION","RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE" })
 public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheImpl.class);
@@ -113,14 +113,14 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private final Property<String> encoderBase;
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
-                boolean throwException, EVCacheClientPoolManager poolManager) {
+            boolean throwException, EVCacheClientPoolManager poolManager) {
         this._appName = appName;
         this._cacheName = cacheName;
 
-        if (_cacheName != null && _cacheName.length() > 0) {
-            for (int i = 0; i < cacheName.length(); i++) {
-                if (Character.isWhitespace(cacheName.charAt(i))) {
-                    throw new IllegalArgumentException("Cache Prefix ``" + cacheName + "`` contains invalid character at position " + i);
+        if(_cacheName != null && _cacheName.length() > 0) {
+            for(int i = 0; i < cacheName.length(); i++) {
+                if(Character.isWhitespace(cacheName.charAt(i))){
+                    throw new IllegalArgumentException("Cache Prefix ``" + cacheName  + "`` contains invalid character at position " + i );
                 }
             }
         }
@@ -142,16 +142,16 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         _throwExceptionFP = propertyRepository.get(_metricName + ".throw.exception", Boolean.class).orElseGet(_appName + ".throw.exception").orElse(false);
         _zoneFallbackFP = propertyRepository.get(_metricName + ".fallback.zone", Boolean.class).orElseGet(_appName + ".fallback.zone").orElse(true);
         _bulkZoneFallbackFP = propertyRepository.get(_appName + ".bulk.fallback.zone", Boolean.class).orElse(true);
-        _bulkPartialZoneFallbackFP = propertyRepository.get(_appName + ".bulk.partial.fallback.zone", Boolean.class).orElse(true);
-        if (_cacheName == null) {
+        _bulkPartialZoneFallbackFP = propertyRepository.get(_appName+ ".bulk.partial.fallback.zone", Boolean.class).orElse(true);
+        if(_cacheName == null) {
             _useInMemoryCache = propertyRepository.get(_appName + ".use.inmemory.cache", Boolean.class).orElseGet("evcache.use.inmemory.cache").orElse(false);
         } else {
             _useInMemoryCache = propertyRepository.get(_appName + "." + _cacheName + ".use.inmemory.cache", Boolean.class).orElseGet(_appName + ".use.inmemory.cache").orElseGet("evcache.use.inmemory.cache").orElse(false);
         }
         _eventsUsingLatchFP = propertyRepository.get(_appName + ".events.using.latch", Boolean.class).orElseGet("evcache.events.using.latch").orElse(false);
-        maxReadDuration = propertyRepository.get(_appName + ".max.read.duration.metric", Integer.class).orElseGet("evcache.max.write.duration.metric").orElse(20);
-        maxWriteDuration = propertyRepository.get(_appName + ".max.write.duration.metric", Integer.class).orElseGet("evcache.max.write.duration.metric").orElse(50);
-        ignoreTouch = propertyRepository.get(appName + ".ignore.touch", Boolean.class).orElse(false);
+         maxReadDuration = propertyRepository.get(_appName + ".max.read.duration.metric", Integer.class).orElseGet("evcache.max.write.duration.metric").orElse(20);
+         maxWriteDuration = propertyRepository.get(_appName + ".max.write.duration.metric", Integer.class).orElseGet("evcache.max.write.duration.metric").orElse(50);
+         ignoreTouch = propertyRepository.get(appName + ".ignore.touch", Boolean.class).orElse(false);
 
 
         this.hashKey = propertyRepository.get(appName + ".hash.key", Boolean.class).orElse(false);
@@ -197,10 +197,10 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
 
     EVCacheKey getEVCacheKey(final String key) {
-        if (key == null || key.length() == 0) throw new NullPointerException("Key cannot be null or empty");
-        for (int i = 0; i < key.length(); i++) {
-            if (Character.isWhitespace(key.charAt(i))) {
-                throw new IllegalArgumentException("key ``" + key + "`` contains invalid character at position " + i);
+        if(key == null || key.length() == 0) throw new NullPointerException("Key cannot be null or empty");
+        for(int i = 0; i < key.length(); i++) {
+            if(Character.isWhitespace(key.charAt(i))){
+                throw new IllegalArgumentException("key ``" + key + "`` contains invalid character at position " + i );
             }
         }
 
@@ -209,7 +209,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             canonicalKey = key;
         } else {
             final int keyLength = _cacheName.length() + 1 + key.length();
-            canonicalKey = new StringBuilder(keyLength).append(_cacheName).append(':').append(key).toString();
+            canonicalKey  = new StringBuilder(keyLength).append(_cacheName).append(':').append(key).toString();
         }
 
         if (canonicalKey.length() > this.maxKeyLength.get() && !hashKey.get() && !autoHashKeys.get()) {
@@ -261,7 +261,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 if (evcacheEventListener.onThrottle(event)) {
                     return true;
                 }
-            } catch (Exception e) {
+            } catch(Exception e) {
                 incrementEventFailure("throttle", event.getCall(), evcacheEventListener.getClass().getName());
                 if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing throttle event on listener " + evcacheEventListener + " for event " + event, e);
             }
@@ -274,7 +274,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
             try {
                 evcacheEventListener.onStart(event);
-            } catch (Exception e) {
+            } catch(Exception e) {
                 incrementEventFailure("start", event.getCall(), evcacheEventListener.getClass().getName());
                 if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing start event on listener " + evcacheEventListener + " for event " + event, e);
             }
@@ -287,7 +287,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
             try {
                 evcacheEventListener.onComplete(event);
-            } catch (Exception e) {
+            } catch(Exception e) {
                 incrementEventFailure("end", event.getCall(), evcacheEventListener.getClass().getName());
                 if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing end event on listener " + evcacheEventListener + " for event " + event, e);
             }
@@ -300,7 +300,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         for (EVCacheEventListener evcacheEventListener : evcacheEventListenerList) {
             try {
                 evcacheEventListener.onError(event, t);
-            } catch (Exception e) {
+            } catch(Exception e) {
                 incrementEventFailure("error", event.getCall(), evcacheEventListener.getClass().getName());
                 if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing error event on listener " + evcacheEventListener + " for event " + event, e);
             }
@@ -319,13 +319,13 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private void incrementFastFail(String metric, Call call) {
         final String name = metric + call.name();
         Counter counter = counterMap.get(name);
-        if (counter == null) {
+        if(counter == null) {
             final List<Tag> tagList = new ArrayList<Tag>(tags.size() + 3);
             tagList.addAll(tags);
-            if (call != null) {
+            if(call != null) {
                 final String operation = call.name();
                 final String operationType;
-                switch (call) {
+                switch(call) {
                     case GET:
                     case GET_AND_TOUCH:
                     case GETL:
@@ -333,10 +333,10 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     case ASYNC_GET:
                         operationType = EVCacheMetricsFactory.READ;
                         break;
-                    default:
+                    default :
                         operationType = EVCacheMetricsFactory.WRITE;
                 }
-                if (operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
+                if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
                 if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
             }
             tagList.add(new BasicTag(EVCacheMetricsFactory.FAILURE_REASON, metric));
@@ -349,24 +349,24 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private void incrementEventFailure(String metric, Call call, String event) {
         final String name = metric + call.name() + event;
         Counter counter = counterMap.get(name);
-        if (counter == null) {
+        if(counter == null) {
             final List<Tag> tagList = new ArrayList<Tag>(tags.size() + 3);
             tagList.addAll(tags);
-            if (call != null) {
+            if(call != null) {
                 final String operation = call.name();
                 final String operationType;
-                switch (call) {
-                    case GET:
-                    case GET_AND_TOUCH:
-                    case GETL:
-                    case BULK:
-                    case ASYNC_GET:
-                        operationType = EVCacheMetricsFactory.READ;
-                        break;
-                    default:
-                        operationType = EVCacheMetricsFactory.WRITE;
+                switch(call) {
+                case GET:
+                case GET_AND_TOUCH:
+                case GETL:
+                case BULK:
+                case ASYNC_GET:
+                    operationType = EVCacheMetricsFactory.READ;
+                    break;
+                default :
+                    operationType = EVCacheMetricsFactory.WRITE;
                 }
-                if (operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
+                if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
                 if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
             }
             tagList.add(new BasicTag(EVCacheMetricsFactory.EVENT_STAGE, metric));
@@ -380,11 +380,11 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private void incrementFailure(String metric, String operation, String operationType) {
         final String name = metric + operation;
         Counter counter = counterMap.get(name);
-        if (counter == null) {
+        if(counter == null) {
             final List<Tag> tagList = new ArrayList<Tag>(tags.size() + 3);
             tagList.addAll(tags);
-            if (operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
-            if (operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
+            if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
+            if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
             tagList.add(new BasicTag(EVCacheMetricsFactory.FAILURE_REASON, metric));
             counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_FAIL, tagList);
             counterMap.put(name, counter);
@@ -402,13 +402,13 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 value = (T) getInMemoryCache(transcoder).get(evcKey);
             } catch (ExecutionException e) {
                 final boolean throwExc = doThrowException();
-                if (throwExc) {
-                    if (e.getCause() instanceof DataNotFoundException) {
+                if(throwExc) {
+                    if(e.getCause() instanceof DataNotFoundException) {
                         return null;
                     }
-                    if (e.getCause() instanceof EVCacheException) {
+                    if(e.getCause() instanceof EVCacheException) {
                         if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
-                        throw (EVCacheException) e.getCause();
+                        throw (EVCacheException)e.getCause();
                     }
                     throw new EVCacheException("ExecutionException", e);
                 }
@@ -442,8 +442,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
                     return null;
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.GET);
                 return null;
             }
@@ -463,7 +463,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 if (fbClients != null && !fbClients.isEmpty()) {
                     for (int i = 0; i < fbClients.size(); i++) {
                         final EVCacheClient fbClient = fbClients.get(i);
-                        if (i >= fbClients.size() - 1) throwEx = throwExc;
+                        if(i >= fbClients.size() - 1) throwEx = throwExc;
                         if (event != null) {
                             try {
                                 if (shouldThrottle(event)) {
@@ -471,8 +471,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
                                     return null;
                                 }
-                            } catch (EVCacheException ex) {
-                                if (throwExc) throw ex;
+                            } catch(EVCacheException ex) {
+                                if(throwExc) throw ex;
                                 status = EVCacheMetricsFactory.THROTTLED;
                                 return null;
                             }
@@ -516,7 +516,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return null;
             throw new EVCacheException("Exception getting data for APP " + _appName + ", key = " + evcKey, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.GET.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("GET : APP " + _appName + ", Took " + duration + " milliSec.");
         }
@@ -700,8 +700,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
                     return null;
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.META_DEBUG);
                 return null;
             }
@@ -721,7 +721,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 if (fbClients != null && !fbClients.isEmpty()) {
                     for (int i = 0; i < fbClients.size(); i++) {
                         final EVCacheClient fbClient = fbClients.get(i);
-                        if (i >= fbClients.size() - 1) throwEx = throwExc;
+                        if(i >= fbClients.size() - 1) throwEx = throwExc;
                         if (event != null) {
                             try {
                                 if (shouldThrottle(event)) {
@@ -729,8 +729,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
                                     return null;
                                 }
-                            } catch (EVCacheException ex) {
-                                if (throwExc) throw ex;
+                            } catch(EVCacheException ex) {
+                                if(throwExc) throw ex;
                                 status = EVCacheMetricsFactory.THROTTLED;
                                 return null;
                             }
@@ -774,7 +774,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return null;
             throw new EVCacheException("Exception getting with metadata for APP " + _appName + ", key = " + evcKey, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.META_DEBUG.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("META_DEBUG : APP " + _appName + ", Took " + duration + " milliSec.");
         }
@@ -804,8 +804,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
                     return null;
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.META_GET);
                 return null;
             }
@@ -825,7 +825,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 if (fbClients != null && !fbClients.isEmpty()) {
                     for (int i = 0; i < fbClients.size(); i++) {
                         final EVCacheClient fbClient = fbClients.get(i);
-                        if (i >= fbClients.size() - 1) throwEx = throwExc;
+                        if(i >= fbClients.size() - 1) throwEx = throwExc;
                         if (event != null) {
                             try {
                                 if (shouldThrottle(event)) {
@@ -833,8 +833,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
                                     return null;
                                 }
-                            } catch (EVCacheException ex) {
-                                if (throwExc) throw ex;
+                            } catch(EVCacheException ex) {
+                                if(throwExc) throw ex;
                                 status = EVCacheMetricsFactory.THROTTLED;
                                 return null;
                             }
@@ -878,7 +878,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return null;
             throw new EVCacheException("Exception getting with meta data for APP " + _appName + ", key = " + evcKey, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.META_GET.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("META_GET : APP " + _appName + ", Took " + duration + " milliSec.");
         }
@@ -889,26 +889,26 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private int policyToCount(Policy policy, int count) {
         if (policy == null) return 0;
         switch (policy) {
-            case NONE:
+        case NONE:
+            return 0;
+        case ONE:
+            return 1;
+        case QUORUM:
+            if (count == 0)
                 return 0;
-            case ONE:
-                return 1;
-            case QUORUM:
-                if (count == 0)
-                    return 0;
-                else if (count <= 2)
-                    return count;
-                else
-                    return (count / 2) + 1;
-            case ALL_MINUS_1:
-                if (count == 0)
-                    return 0;
-                else if (count <= 2)
-                    return 1;
-                else
-                    return count - 1;
-            default:
+            else if (count <= 2)
                 return count;
+            else
+                return (count / 2) + 1;
+        case ALL_MINUS_1:
+            if (count == 0)
+                return 0;
+            else if (count <= 2)
+                return 1;
+            else
+                return count - 1;
+        default:
+            return count;
         }
     }
 
@@ -924,7 +924,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
 
         final int expectedSuccessCount = policyToCount(policy, clients.length);
-        if (expectedSuccessCount <= 1) return get(key, tc);
+        if(expectedSuccessCount <= 1) return get(key, tc);
 
         final long startTime = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         String status = EVCacheMetricsFactory.SUCCESS;
@@ -942,39 +942,39 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             final Map<T, List<EVCacheClient>> evcacheClientMap = new HashMap<T, List<EVCacheClient>>();
             //final Map<T, Integer> tMap = new HashMap<T,Integer>();
             if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : Total Requests " + clients.length + "; Expected Success Count : " + expectedSuccessCount);
-            for (Future<T> future : futureList) {
+            for(Future<T> future : futureList) {
                 try {
-                    if (future instanceof EVCacheOperationFuture) {
-                        EVCacheOperationFuture<T> evcacheOperationFuture = (EVCacheOperationFuture<T>) future;
+                    if(future instanceof EVCacheOperationFuture) {
+                        EVCacheOperationFuture<T> evcacheOperationFuture = (EVCacheOperationFuture<T>)future;
                         long duration = endTime - System.currentTimeMillis();
-                        if (duration < 20) duration = 20;
+                        if(duration < 20) duration = 20;
                         if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : block duration : " + duration);
                         final T t = evcacheOperationFuture.get(duration, TimeUnit.MILLISECONDS, throwExc, false);
                         if (log.isTraceEnabled() && shouldLog()) log.trace("GET : CONSISTENT : value : " + t);
-                        if (t != null) {
+                        if(t != null) {
                             final List<EVCacheClient> cList = evcacheClientMap.computeIfAbsent(t, k -> new ArrayList<EVCacheClient>(clients.length));
                             cList.add(evcacheOperationFuture.getEVCacheClient());
                             if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : Added Client to ArrayList " + cList);
                         }
                     }
                 } catch (Exception e) {
-                    log.error("Exception", e);
+                    log.error("Exception",e);
                 }
             }
             T retVal = null;
-            /* TODO : use metaget to get TTL and set it. For now we will delete the inconsistent value */
-            for (Entry<T, List<EVCacheClient>> entry : evcacheClientMap.entrySet()) {
+             /* TODO : use metaget to get TTL and set it. For now we will delete the inconsistent value */
+            for(Entry<T, List<EVCacheClient>> entry : evcacheClientMap.entrySet()) {
                 if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : Existing Count for Value : " + entry.getValue().size() + "; expectedSuccessCount : " + expectedSuccessCount);
-                if (entry.getValue().size() >= expectedSuccessCount) {
+                if(entry.getValue().size() >= expectedSuccessCount) {
                     retVal = entry.getKey();
                 } else {
-                    for (EVCacheClient client : entry.getValue()) {
+                    for(EVCacheClient client : entry.getValue()) {
                         if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : Delete in-consistent vale from : " + client);
                         client.delete(key);
                     }
                 }
             }
-            if (retVal != null) {
+            if(retVal != null) {
                 if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : policy : " + policy + " was met. Will return the value. Total Duration : " + (System.currentTimeMillis() - startTime) + " milli Seconds.");
                 return retVal;
             }
@@ -985,7 +985,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return null;
             throw new EVCacheException("Exception getting data for APP " + _appName + ", key = " + key, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - startTime;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- startTime;
             getTimer(Call.GET_ALL.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries, maxReadDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("GET : CONSISTENT : APP " + _appName + ", Took " + duration + " milliSec.");
         }
@@ -1025,9 +1025,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
                 if (fbClients != null && !fbClients.isEmpty()) {
                     return Observable.concat(Observable.from(fbClients).map(
-                                    fbClient -> getData(fbClients.indexOf(fbClient), fbClients.size(), fbClient, evcKey, tc, throwEx, throwExc, false, scheduler) //TODO : for the last one make sure to pass throwExc
-                                            //.doOnSuccess(fbData -> increment("RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
-                                            .toObservable()))
+                            fbClient -> getData(fbClients.indexOf(fbClient), fbClients.size(), fbClient, evcKey, tc, throwEx, throwExc, false, scheduler) //TODO : for the last one make sure to pass throwExc
+                            //.doOnSuccess(fbData -> increment("RETRY_" + ((fbData == null) ? "MISS" : "HIT")))
+                            .toObservable()))
                             .firstOrDefault(null, fbData -> (fbData != null)).toSingle();
                 }
             }
@@ -1065,7 +1065,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 throw sneakyThrow(new EVCacheException("Exception getting data for APP " + _appName + ", key = " + evcKey, ex));
             }
         }).doAfterTerminate(() -> {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.GET_AND_TOUCH.name(), EVCacheMetricsFactory.READ, null, EVCacheMetricsFactory.SUCCESS, 1, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("GET : APP " + _appName + ", Took " + duration + " milliSec.");
         });
@@ -1078,11 +1078,11 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder());
             String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
 
-            if (hashKey != null) {
+            if(hashKey != null) {
                 final Object obj = client.get(hashKey, evcacheValueTranscoder, throwException, hasZF);
-                if (obj != null && obj instanceof EVCacheValue) {
-                    final EVCacheValue val = (EVCacheValue) obj;
-                    if (!val.getKey().equals(canonicalKey)) {
+                if(obj != null && obj instanceof EVCacheValue) {
+                    final EVCacheValue val = (EVCacheValue)obj;
+                    if(!val.getKey().equals(canonicalKey)) {
                         incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.GET.name(), EVCacheMetricsFactory.READ);
                         return null;
                     }
@@ -1225,7 +1225,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             String hashKey = isOriginalKeyHashed ? evcKey.getKey() : evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder());
             String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
             if (hashKey != null) {
-                if (desearilizeEVCacheValue) {
+                if(desearilizeEVCacheValue) {
                     final EVCacheItem<Object> obj = client.metaGet(hashKey, evcacheValueTranscoder, throwException, hasZF);
                     if (null == obj) return null;
                     if (obj.getData() instanceof EVCacheValue) {
@@ -1275,13 +1275,13 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     private <T> Single<T> getData(int index, int size, EVCacheClient client, EVCacheKey canonicalKey, Transcoder<T> tc, boolean throwEx, boolean throwExc, boolean hasZF, Scheduler scheduler) {
-        if (index >= size - 1) throwEx = throwExc;
+        if(index >= size -1) throwEx = throwExc;
         return getData(client, canonicalKey, tc, throwEx, hasZF, scheduler);
     }
 
     private <T> Single<T> getData(EVCacheClient client, EVCacheKey evcKey, Transcoder<T> tc, boolean throwException, boolean hasZF, Scheduler scheduler) {
         if (client == null) return Single.error(new IllegalArgumentException("Client cannot be null"));
-        if (evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder()) != null) {
+        if(evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder()) != null) {
             return Single.error(new IllegalArgumentException("Not supported"));
         } else {
             final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
@@ -1327,7 +1327,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     public <T> Single<T> getAndTouch(String key, int timeToLive, Transcoder<T> tc, Scheduler scheduler) {
         if (null == key) return Single.error(new IllegalArgumentException("Key cannot be null"));
         checkTTL(timeToLive, Call.GET_AND_TOUCH);
-        if (hashKey.get()) {
+        if(hashKey.get()) {
             return Single.error(new IllegalArgumentException("Not supported"));
         }
 
@@ -1359,12 +1359,12 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
                 if (fbClients != null && !fbClients.isEmpty()) {
                     return Observable.concat(Observable.from(fbClients).map(
-                                    //TODO : for the last one make sure to pass throwExc
-                                    fbClient -> getData(fbClients.indexOf(fbClient), fbClients.size(), fbClient, evcKey, tc, throwEx, throwExc, false, scheduler)
-                                            .doOnSuccess(fbData -> {
-                                                //increment("RETRY_" + ((fbData == null) ? "MISS" : "HIT"));
-                                            })
-                                            .toObservable()))
+                            //TODO : for the last one make sure to pass throwExc
+                            fbClient -> getData(fbClients.indexOf(fbClient), fbClients.size(), fbClient, evcKey, tc, throwEx, throwExc, false, scheduler)
+                            .doOnSuccess(fbData ->  {
+                                //increment("RETRY_" + ((fbData == null) ? "MISS" : "HIT"));
+                            })
+                            .toObservable()))
                             .firstOrDefault(null, fbData -> (fbData != null)).toSingle();
                 }
             }
@@ -1407,8 +1407,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 throw sneakyThrow(new EVCacheException("Exception executing getAndTouch APP " + _appName + ", key = " + evcKey, ex));
             }
         }).doAfterTerminate(() -> {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
-            getTimer(Call.GET_AND_TOUCH.name(), EVCacheMetricsFactory.READ, null, EVCacheMetricsFactory.SUCCESS, 1, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
+            getTimer(Call.GET_AND_TOUCH.name(), EVCacheMetricsFactory.READ, null, EVCacheMetricsFactory.SUCCESS, 1, maxReadDuration.get().intValue(),client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("GET_AND_TOUCH : APP " + _appName + ", Took " + duration+ " milliSec.");
         });
     }
@@ -1425,13 +1425,13 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) _pool.getEVCacheClientForRead().getTranscoder() : (Transcoder<T>) _transcoder) : tc;
                 value = (T) getInMemoryCache(transcoder).get(evcKey);
             } catch (ExecutionException e) {
-                if (throwExc) {
-                    if (e.getCause() instanceof DataNotFoundException) {
+                if(throwExc) {
+                    if(e.getCause() instanceof DataNotFoundException) {
                         return null;
                     }
-                    if (e.getCause() instanceof EVCacheException) {
+                    if(e.getCause() instanceof EVCacheException) {
                         if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
-                        throw (EVCacheException) e.getCause();
+                        throw (EVCacheException)e.getCause();
                     }
                     throw new EVCacheException("ExecutionException", e);
                 }
@@ -1445,7 +1445,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 return value;
             }
         }
-        if (ignoreTouch.get()) {
+        if(ignoreTouch.get()) {
             return doGet(evcKey, tc);
         } else {
             return doGetAndTouch(evcKey, timeToLive, tc);
@@ -1470,8 +1470,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
                     return null;
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.GET_AND_TOUCH);
                 return null;
             }
@@ -1491,7 +1491,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
                 for (int i = 0; i < fbClients.size(); i++) {
                     final EVCacheClient fbClient = fbClients.get(i);
-                    if (i >= fbClients.size() - 1) throwEx = throwExc;
+                    if(i >= fbClients.size() - 1) throwEx = throwExc;
                     if (event != null) {
                         try {
                             if (shouldThrottle(event)) {
@@ -1499,8 +1499,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                 if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
                                 return null;
                             }
-                        } catch (EVCacheException ex) {
-                            if (throwExc) throw ex;
+                        } catch(EVCacheException ex) {
+                            if(throwExc) throw ex;
                             status = EVCacheMetricsFactory.THROTTLED;
                             return null;
                         }
@@ -1537,7 +1537,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (log.isDebugEnabled() && shouldLog()) log.debug("CheckedOperationTimeoutException executing getAndTouch APP " + _appName + ", key : " + evcKey, ex);
             if (!throwExc) return null;
             throw new EVCacheException("CheckedOperationTimeoutException executing getAndTouch APP " + _appName + ", key  = " + evcKey
-                    + ".\nYou can set the following property to increase the timeout " + _appName + ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex);
+                    + ".\nYou can set the following property to increase the timeout " + _appName+ ".EVCacheClientPool.readTimeout=<timeout in milli-seconds>", ex);
         } catch (Exception ex) {
             status = EVCacheMetricsFactory.ERROR;
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception executing getAndTouch APP " + _appName + ", key = " + evcKey, ex);
@@ -1548,7 +1548,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return null;
             throw new EVCacheException("Exception executing getAndTouch APP " + _appName + ", key = " + evcKey, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.GET_AND_TOUCH.name(), EVCacheMetricsFactory.READ, cacheOperation, status, tries, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("Took " + duration + " milliSec to get&Touch the value for APP " + _appName + ", key " + evcKey);
         }
@@ -1567,7 +1567,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (future instanceof EVCacheFuture) {
                 eFutures[i] = (EVCacheFuture) future;
             } else if (future instanceof EVCacheOperationFuture) {
-                final EVCacheOperationFuture<Boolean> evfuture = (EVCacheOperationFuture<Boolean>) future;
+                final EVCacheOperationFuture<Boolean> evfuture = (EVCacheOperationFuture<Boolean>)future;
                 eFutures[i] = new EVCacheFuture(future, key, _appName, evfuture.getServerGroup(), evfuture.getEVCacheClient());
             } else {
                 eFutures[i] = new EVCacheFuture(future, key, _appName, null);
@@ -1598,8 +1598,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.TOUCH);
                 return null;
             }
@@ -1614,7 +1614,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
             if (event != null) {
                 event.setTTL(timeToLive);
-                if (_eventsUsingLatchFP.get()) {
+                if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
                     latch.scheduledFutureValidation();
                 } else {
@@ -1632,7 +1632,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName);
             throw new EVCacheException("Exception setting data for APP " + _appName + ", key : " + evcKey, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTTLDistributionSummary(Call.TOUCH.name(), EVCacheMetricsFactory.WRITE, EVCacheMetricsFactory.TTL).record(timeToLive);
             getTimer(Call.TOUCH.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("TOUCH : APP " + _appName + " for key : " + evcKey + " with timeToLive : " + timeToLive);
@@ -1648,7 +1648,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         touchData(evcKey, timeToLive, clients, null);
     }
 
-    private void touchData(EVCacheKey evcKey, int timeToLive, EVCacheClient[] clients, EVCacheLatch latch) throws Exception {
+    private void touchData(EVCacheKey evcKey, int timeToLive, EVCacheClient[] clients, EVCacheLatch latch ) throws Exception {
         checkTTL(timeToLive, Call.TOUCH);
         for (EVCacheClient client : clients) {
             client.touch(evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder()), timeToLive, latch);
@@ -1685,8 +1685,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return null;
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.ASYNC_GET);
                 return null;
             }
@@ -1698,9 +1698,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         try {
             String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder());
             String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
-            if (hashKey != null) {
+            if(hashKey != null) {
                 final Future<Object> objFuture = client.asyncGet(hashKey, evcacheValueTranscoder, throwExc, false);
-                r = new Future<T>() {
+                r = new Future<T> () {
 
                     @Override
                     public boolean cancel(boolean mayInterruptIfRunning) {
@@ -1723,9 +1723,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     }
 
                     private T getFromObj(Object obj) {
-                        if (obj != null && obj instanceof EVCacheValue) {
-                            final EVCacheValue val = (EVCacheValue) obj;
-                            if (!val.getKey().equals(canonicalKey)) {
+                        if(obj != null && obj instanceof EVCacheValue) {
+                            final EVCacheValue val = (EVCacheValue)obj;
+                            if(!val.getKey().equals(canonicalKey)) {
                                 incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.ASYNC_GET.name(), EVCacheMetricsFactory.READ);
                                 return null;
                             }
@@ -1758,7 +1758,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return null;
             throw new EVCacheException("Exception getting data for APP " + _appName + ", key : " + key, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.ASYNC_GET.name(), EVCacheMetricsFactory.READ, null, status, 1, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("Took " + duration + " milliSec to execute AsyncGet the value for APP " + _appName + ", key " + key);
         }
@@ -1880,33 +1880,33 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         try {
             boolean hasHashedKey = false;
             final Map<String, EVCacheKey> keyMap = new HashMap<String, EVCacheKey>(evcacheKeys.size() * 2);
-            for (EVCacheKey evcKey : evcacheKeys) {
+            for(EVCacheKey evcKey : evcacheKeys) {
                 String key = evcKey.getCanonicalKey(client.isDuetClient());
                 String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder());
-                if (hashKey != null) {
+                if(hashKey != null) {
                     if (log.isDebugEnabled() && shouldLog()) log.debug("APP " + _appName + ", key [" + key + "], has been hashed [" + hashKey + "]");
                     key = hashKey;
                     hasHashedKey = true;
                 }
                 keyMap.put(key, evcKey);
             }
-            if (hasHashedKey) {
+            if(hasHashedKey) {
                 final Map<String, Object> objMap = client.getBulk(keyMap.keySet(), evcacheValueTranscoder, throwException, hasZF);
-                final Map<EVCacheKey, T> retMap = new HashMap<EVCacheKey, T>((int) (objMap.size() / 0.75) + 1);
+                final Map<EVCacheKey, T> retMap = new HashMap<EVCacheKey, T>((int)(objMap.size()/0.75) + 1);
                 for (Map.Entry<String, Object> i : objMap.entrySet()) {
                     final Object obj = i.getValue();
-                    if (obj instanceof EVCacheValue) {
+                    if(obj instanceof EVCacheValue) {
                         if (log.isDebugEnabled() && shouldLog()) log.debug("APP " + _appName + ", The value for key [" + i.getKey() + "] is EVCache Value");
-                        final EVCacheValue val = (EVCacheValue) obj;
+                        final EVCacheValue val = (EVCacheValue)obj;
                         final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
                         final T tVal;
-                        if (tc == null) {
-                            tVal = (T) client.getTranscoder().decode(cd);
+                        if(tc == null) {
+                            tVal = (T)client.getTranscoder().decode(cd);
                         } else {
                             tVal = tc.decode(cd);
                         }
                         final EVCacheKey evcKey = keyMap.get(i.getKey());
-                        if (evcKey.getCanonicalKey(client.isDuetClient()).equals(val.getKey())) {
+                        if(evcKey.getCanonicalKey(client.isDuetClient()).equals(val.getKey())) {
                             if (log.isDebugEnabled() && shouldLog()) log.debug("APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
                             retMap.put(evcKey, tVal);
                         } else {
@@ -1916,15 +1916,15 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     } else {
                         final EVCacheKey evcKey = keyMap.get(i.getKey());
                         if (log.isDebugEnabled() && shouldLog()) log.debug("APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
-                        retMap.put(evcKey, (T) obj);
+                        retMap.put(evcKey, (T)obj);
                     }
                 }
                 return retMap;
 
             } else {
-                if (tc == null && _transcoder != null) tc = (Transcoder<T>) _transcoder;
+                if(tc == null && _transcoder != null) tc = (Transcoder<T>)_transcoder;
                 final Map<String, T> objMap = client.getBulk(keyMap.keySet(), tc, throwException, hasZF);
-                final Map<EVCacheKey, T> retMap = new HashMap<EVCacheKey, T>((int) (objMap.size() / 0.75) + 1);
+                final Map<EVCacheKey, T> retMap = new HashMap<EVCacheKey, T>((int)(objMap.size()/0.75) + 1);
                 for (Map.Entry<String, T> i : objMap.entrySet()) {
                     final EVCacheKey evcKey = keyMap.get(i.getKey());
                     if (log.isDebugEnabled() && shouldLog()) log.debug("APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
@@ -1950,14 +1950,14 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private <T> Map<String, T> getBulk(final Collection<String> keys, Transcoder<T> tc, boolean touch, int timeToLive) throws EVCacheException {
         if (null == keys) throw new IllegalArgumentException();
-        if (keys.isEmpty()) return Collections.<String, T>emptyMap();
+        if (keys.isEmpty()) return Collections.<String, T> emptyMap();
         checkTTL(timeToLive, Call.BULK);
         final boolean throwExc = doThrowException();
         final EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
             incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.BULK);
             if (throwExc) throw new EVCacheException("Could not find a client to get the data in bulk");
-            return Collections.<String, T>emptyMap();// Fast failure
+            return Collections.<String, T> emptyMap();// Fast failure
         }
 
         final Map<String, T> decanonicalR = new HashMap<String, T>((keys.size() * 4) / 3 + 1);
@@ -1976,7 +1976,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     throw new EVCacheException("ExecutionException", e);
                 }
             }
-            if (value == null) {
+            if(value == null) {
                 evcKeys.add(evcKey);
             } else {
                 decanonicalR.put(evcKey.getKey(), value);
@@ -1984,9 +1984,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             }
         }
 
-        if (evcKeys.size() == 0 && decanonicalR.size() == keys.size()) {
+        if(evcKeys.size() == 0 && decanonicalR.size() == keys.size()) {
         	if (log.isDebugEnabled() && shouldLog()) log.debug("All Values retrieved from inmemory cache for APP " + _appName + ", keys : " + keys + (log.isTraceEnabled() ? "; value : " + decanonicalR : ""));
-            return decanonicalR;
+        	return decanonicalR;
         }
 
         final EVCacheEvent event = createEVCacheEvent(Collections.singletonList(client), Call.BULK);
@@ -1996,10 +1996,10 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 if (shouldThrottle(event)) {
                     incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.BULK);
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & keys " + keys);
-                    return Collections.<String, T>emptyMap();
+                    return Collections.<String, T> emptyMap();
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.BULK);
                 return null;
             }
@@ -2023,7 +2023,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (fbClients != null && !fbClients.isEmpty()) {
                         for (int i = 0; i < fbClients.size(); i++) {
                             final EVCacheClient fbClient = fbClients.get(i);
-                            if (i >= fbClients.size() - 1) throwEx = throwExc;
+                            if(i >= fbClients.size() - 1) throwEx = throwExc;
                             if (event != null) {
                                 try {
                                     if (shouldThrottle(event)) {
@@ -2031,8 +2031,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                         if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKeys);
                                         return null;
                                     }
-                                } catch (EVCacheException ex) {
-                                    if (throwExc) throw ex;
+                                } catch(EVCacheException ex) {
+                                    if(throwExc) throw ex;
                                     status = EVCacheMetricsFactory.THROTTLED;
                                     return null;
                                 }
@@ -2047,7 +2047,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 } else if (retMap != null && keys.size() > retMap.size() && _bulkPartialZoneFallbackFP.get()) {
                     final int initRetrySize = keys.size() - retMap.size();
                     List<EVCacheKey> retryEVCacheKeys = new ArrayList<EVCacheKey>(initRetrySize);
-                    for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext(); ) {
+                    for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext();) {
                         final EVCacheKey key = keysItr.next();
                         if (!retMap.containsKey(key)) {
                             retryEVCacheKeys.add(key);
@@ -2065,9 +2065,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                         if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & keys " + retryEVCacheKeys);
                                         return null;
                                     }
-                                } catch (EVCacheException ex) {
+                                } catch(EVCacheException ex) {
                                     status = EVCacheMetricsFactory.THROTTLED;
-                                    if (throwExc) throw ex;
+                                    if(throwExc) throw ex;
                                     return null;
                                 }
                             }
@@ -2082,7 +2082,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                             if (retryEVCacheKeys.size() == fbRetMap.size()) break;
                             if (ind < fbClients.size()) {
                                 retryEVCacheKeys = new ArrayList<EVCacheKey>(keys.size() - retMap.size());
-                                for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext(); ) {
+                                for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext();) {
                                     final EVCacheKey key = keysItr.next();
                                     if (!retMap.containsKey(key)) {
                                         retryEVCacheKeys.add(key);
@@ -2095,7 +2095,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 }
             }
 
-            if (decanonicalR.isEmpty()) {
+            if(decanonicalR.isEmpty()) {
                 if (retMap == null || retMap.isEmpty()) {
                     if (log.isInfoEnabled() && shouldLog()) log.info("BULK : APP " + _appName + " ; Full cache miss for keys : " + keys);
                     if (event != null) event.setAttribute("status", "BMISS_ALL");
@@ -2116,7 +2116,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             /* Decanonicalize the keys */
             boolean partialHit = false;
             final List<String> decanonicalHitKeys = new ArrayList<String>(retMap.size());
-            for (Iterator<EVCacheKey> itr = evcKeys.iterator(); itr.hasNext(); ) {
+            for (Iterator<EVCacheKey> itr = evcKeys.iterator(); itr.hasNext();) {
                 final EVCacheKey key = itr.next();
                 final String deCanKey = key.getKey();
                 final T value = retMap.get(key);
@@ -2167,9 +2167,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return null;
             throw new EVCacheException("Exception getting bulk data for APP " + _appName + ", keys = " + evcKeys, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
 
-            if (bulkKeysSize == null) {
+            if(bulkKeysSize == null) {
                 final List<Tag> tagList = new ArrayList<Tag>(4);
                 tagList.addAll(tags);
                 tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, EVCacheMetricsFactory.BULK_OPERATION));
@@ -2217,11 +2217,11 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     public <T> EVCacheLatch set(String key, T value, Policy policy) throws EVCacheException {
-        return set(key, value, (Transcoder<T>) _transcoder, _timeToLive, policy);
+        return set(key, value, (Transcoder<T>)_transcoder, _timeToLive, policy);
     }
 
     public <T> EVCacheLatch set(String key, T value, int timeToLive, Policy policy) throws EVCacheException {
-        return set(key, value, (Transcoder<T>) _transcoder, timeToLive, policy);
+        return set(key, value, (Transcoder<T>)_transcoder, timeToLive, policy);
     }
 
     public <T> EVCacheLatch set(String key, T value, Transcoder<T> tc, EVCacheLatch.Policy policy) throws EVCacheException {
@@ -2254,8 +2254,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheLatchImpl(policy, 0, _appName);
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.SET);
                 return null;
             }
@@ -2272,7 +2272,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             for (EVCacheClient client : clients) {
                 final String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
                 final String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder());
-                if (cd == null) {
+                if(cd == null) {
                     if (tc != null) {
                         cd = tc.encode(value);
                     } else if (_transcoder != null) {
@@ -2282,7 +2282,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     }
                 }
                 if (hashKey != null) {
-                    if (cdHashed == null) {
+                    if(cdHashed == null) {
                         final EVCacheValue val = new EVCacheValue(canonicalKey, cd.getData(), cd.getFlags(), timeToLive, System.currentTimeMillis());
                         cdHashed = evcacheValueTranscoder.encode(val);
                     }
@@ -2296,7 +2296,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (event != null) {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
-                if (_eventsUsingLatchFP.get()) {
+                if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
                     latch.scheduledFutureValidation();
                 } else {
@@ -2311,7 +2311,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName);
             throw new EVCacheException("Exception setting data for APP " + _appName + ", key : " + evcKey, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTTLDistributionSummary(Call.SET.name(), EVCacheMetricsFactory.WRITE, EVCacheMetricsFactory.TTL).record(timeToLive);
             getTimer(Call.SET.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("SET : APP " + _appName + ", Took " + duration + " milliSec for key : " + evcKey);
@@ -2344,8 +2344,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheFuture[0];
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.APPEND);
                 return null;
             }
@@ -2367,8 +2367,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 if (cd == null) {
                     if (tc != null) {
                         cd = tc.encode(value);
-                    } else if (_transcoder != null) {
-                        cd = ((Transcoder<Object>) _transcoder).encode(value);
+                    } else if ( _transcoder != null) {
+                        cd = ((Transcoder<Object>)_transcoder).encode(value);
                     } else {
                         cd = client.getTranscoder().encode(value);
                     }
@@ -2394,7 +2394,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return new EVCacheFuture[0];
             throw new EVCacheException("Exception setting data for APP " + _appName + ", key : " + evcKey, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             //timer.record(duration, TimeUnit.MILLISECONDS);
             getTimer(Call.APPEND.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND : APP " + _appName + ", Took " + duration + " milliSec for key : " + evcKey);
@@ -2428,7 +2428,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (future instanceof EVCacheFuture) {
                 eFutures[i] = (EVCacheFuture) future;
             } else if (future instanceof EVCacheOperationFuture) {
-                final EVCacheOperationFuture<Boolean> evfuture = (EVCacheOperationFuture<Boolean>) future;
+                final EVCacheOperationFuture<Boolean> evfuture = (EVCacheOperationFuture<Boolean>)future;
                 eFutures[i] = new EVCacheFuture(future, key, _appName, evfuture.getServerGroup(), evfuture.getEVCacheClient());
             } else {
                 eFutures[i] = new EVCacheFuture(future, key, _appName, null);
@@ -2456,7 +2456,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
 
         final EVCacheKey evcKey = getEVCacheKey(key);
-        final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.DELETE);
+       final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.DELETE);
         if (event != null) {
             event.setEVCacheKeys(Arrays.asList(evcKey));
             try {
@@ -2465,8 +2465,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.DELETE);
                 return null;
             }
@@ -2483,7 +2483,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             }
 
             if (event != null) {
-                if (_eventsUsingLatchFP.get()) {
+                if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
                     latch.scheduledFutureValidation();
                 } else {
@@ -2501,7 +2501,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName);
             throw new EVCacheException("Exception while deleting the data for APP " + _appName + ", key : " + key, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.DELETE.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             //timer.record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("DELETE : APP " + _appName + " Took " + duration + " milliSec for key : " + key);
@@ -2538,8 +2538,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return -1;
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.INCR);
                 return -1;
             }
@@ -2571,7 +2571,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                 + " had a value = -1 so setting it to current value = " + currentValue + " for key : " + key);
                         clients[i].incr(evcKey.getDerivedKey(clients[i].isDuetClient(), clients[i].getHashingAlgorithm(), clients[i].shouldEncodeHashKey(), clients[i].getMaxDigestBytes(), clients[i].getMaxHashLength(), clients[i].getBaseEncoder()), 0, currentValue, timeToLive);
                     } else if (vals[i] != currentValue) {
-                        if (cd == null) cd = clients[i].getTranscoder().encode(String.valueOf(currentValue));
+                        if(cd == null) cd = clients[i].getTranscoder().encode(String.valueOf(currentValue));
                         if (log.isDebugEnabled()) log.debug("INCR : APP " + _appName + "; Zone " + clients[i].getZone()
                                 + " had a value of " + vals[i] + " so setting it to current value = " + currentValue + " for key : " + key);
                         clients[i].set(evcKey.getDerivedKey(clients[i].isDuetClient(), clients[i].getHashingAlgorithm(), clients[i].shouldEncodeHashKey(), clients[i].getMaxDigestBytes(), clients[i].getMaxHashLength(), clients[i].getBaseEncoder()), cd, timeToLive);
@@ -2591,7 +2591,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return -1;
             throw new EVCacheException("Exception incrementing value for APP " + _appName + ", key : " + key, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.INCR.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("INCR : APP " + _appName + ", Took " + duration
                     + " milliSec for key : " + key + " with value as " + currentValue);
@@ -2622,8 +2622,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return -1;
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.DECR);
                 return -1;
             }
@@ -2656,10 +2656,10 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                 + currentValue + " for key : " + key);
                         clients[i].decr(evcKey.getDerivedKey(clients[i].isDuetClient(), clients[i].getHashingAlgorithm(), clients[i].shouldEncodeHashKey(), clients[i].getMaxDigestBytes(), clients[i].getMaxHashLength(), clients[i].getBaseEncoder()), 0, currentValue, timeToLive);
                     } else if (vals[i] != currentValue) {
-                        if (cd == null) cd = clients[i].getTranscoder().encode(currentValue);
+                        if(cd == null) cd = clients[i].getTranscoder().encode(currentValue);
                         if (log.isDebugEnabled()) log.debug("DECR : APP " + _appName + "; Zone " + clients[i].getZone()
                                 + " had a value of " + vals[i]
-                                + " so setting it to current value = " + currentValue + " for key : " + key);
+                                        + " so setting it to current value = " + currentValue + " for key : " + key);
                         clients[i].set(evcKey.getDerivedKey(clients[i].isDuetClient(), clients[i].getHashingAlgorithm(), clients[i].shouldEncodeHashKey(), clients[i].getMaxDigestBytes(), clients[i].getMaxHashLength(), clients[i].getBaseEncoder()), cd, timeToLive);
                     }
                 }
@@ -2678,7 +2678,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return -1;
             throw new EVCacheException("Exception decrementing value for APP " + _appName + ", key : " + key, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.DECR.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("DECR : APP " + _appName + ", Took " + duration + " milliSec for key : " + key + " with value as " + currentValue);
         }
@@ -2694,8 +2694,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         return replace(key, value, (Transcoder<T>) _transcoder, _timeToLive, policy);
     }
 
-    public <T> EVCacheLatch replace(String key, T value, int timeToLive, Policy policy) throws EVCacheException {
-        return replace(key, value, (Transcoder<T>) _transcoder, timeToLive, policy);
+    public <T> EVCacheLatch replace(String key, T value,  int timeToLive, Policy policy) throws EVCacheException {
+        return replace(key, value, (Transcoder<T>)_transcoder, timeToLive, policy);
     }
 
     @Override
@@ -2722,8 +2722,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheLatchImpl(policy, 0, _appName);
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.REPLACE);
                 return null;
             }
@@ -2756,7 +2756,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (event != null) {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
-                if (_eventsUsingLatchFP.get()) {
+                if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
                     latch.scheduledFutureValidation();
                 } else {
@@ -2774,7 +2774,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName);
             throw new EVCacheException("Exception setting data for APP " + _appName + ", key : " + evcKey, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.REPLACE.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("REPLACE : APP " + _appName + ", Took " + duration + " milliSec for key : " + evcKey);
         }
@@ -2815,8 +2815,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.APPEND_OR_ADD);
                 return null;
             }
@@ -2836,8 +2836,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 if (cd == null) {
                     if (tc != null) {
                         cd = tc.encode(value);
-                    } else if (_transcoder != null) {
-                        cd = ((Transcoder<Object>) _transcoder).encode(value);
+                    } else if ( _transcoder != null) {
+                        cd = ((Transcoder<Object>)_transcoder).encode(value);
                     } else {
                         cd = client.getTranscoder().encode(value);
                     }
@@ -2848,7 +2848,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (event != null) {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
-                if (_eventsUsingLatchFP.get()) {
+                if(_eventsUsingLatchFP.get()) {
                     latch.setEVCacheEvent(event);
                     latch.scheduledFutureValidation();
                 } else {
@@ -2866,7 +2866,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName);
             throw new EVCacheException("Exception while appendOrAdd data for APP " + _appName + ", key : " + evcKey, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.APPEND_OR_ADD.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("APPEND_OR_ADD : APP " + _appName + ", Took " + duration + " milliSec for key : " + evcKey);
         }
@@ -2874,7 +2874,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     public <T> Future<Boolean>[] appendOrAdd(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException {
         final EVCacheLatch latch = this.appendOrAdd(key, value, tc, timeToLive, Policy.ALL_MINUS_1);
-        if (latch != null) return latch.getAllFutures().toArray(new Future[latch.getAllFutures().size()]);
+        if(latch != null) return latch.getAllFutures().toArray(new Future[latch.getAllFutures().size()]);
         return new EVCacheFuture[0];
     }
 
@@ -2883,19 +2883,19 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         try {
             latch.await(_pool.getOperationTimeout().get(), TimeUnit.MILLISECONDS);
             final List<Future<Boolean>> allFutures = latch.getAllFutures();
-            for (Future<Boolean> future : allFutures) {
-                if (!future.get()) return false;
+            for(Future<Boolean> future : allFutures) {
+                if(!future.get()) return false;
             }
             return true;
         } catch (InterruptedException e) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception adding the data for APP " + _appName + ", key : " + key, e);
             final boolean throwExc = doThrowException();
-            if (throwExc) throw new EVCacheException("Exception add data for APP " + _appName + ", key : " + key, e);
+            if(throwExc) throw new EVCacheException("Exception add data for APP " + _appName + ", key : " + key, e);
             return false;
         } catch (ExecutionException e) {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Exception adding the data for APP " + _appName + ", key : " + key, e);
             final boolean throwExc = doThrowException();
-            if (throwExc) throw new EVCacheException("Exception add data for APP " + _appName + ", key : " + key, e);
+            if(throwExc) throw new EVCacheException("Exception add data for APP " + _appName + ", key : " + key, e);
             return false;
         }
     }
@@ -2931,8 +2931,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
                     return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
                 }
-            } catch (EVCacheException ex) {
-                if (throwExc) throw ex;
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
                 incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.ADD);
                 return new EVCacheLatchImpl(policy, 0, _appName); // Fast failure
             }
@@ -2976,7 +2976,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (!throwExc) return new EVCacheLatchImpl(policy, 0, _appName);
             throw new EVCacheException("Exception adding data for APP " + _appName + ", key : " + evcKey, ex);
         } finally {
-            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime() - start;
+            final long duration = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime()- start;
             getTimer(Call.ADD.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
             if (log.isDebugEnabled() && shouldLog()) log.debug("ADD : APP " + _appName + ", Took " + duration + " milliSec for key : " + evcKey);
         }
@@ -2984,7 +2984,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private DistributionSummary getTTLDistributionSummary(String operation, String type, String metric) {
         DistributionSummary distributionSummary = distributionSummaryMap.get(operation);
-        if (distributionSummary != null) return distributionSummary;
+        if(distributionSummary != null) return distributionSummary;
 
         final List<Tag> tagList = new ArrayList<Tag>(6);
         tagList.addAll(tags);
@@ -2997,26 +2997,26 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private Timer getTimer(String operation, String operationType, String hit, String status, int tries, long duration, ServerGroup serverGroup) {
         String name = ((hit != null) ? operation + hit : operation);
-        if (status != null) name += status;
-        if (tries >= 0) name += tries;
-        if (serverGroup != null) name += serverGroup.getName();
+        if(status != null) name += status;
+        if(tries >= 0) name += tries;
+        if(serverGroup != null) name += serverGroup.getName();
         //if(_cacheName != null) name += _cacheName;
 
         Timer timer = timerMap.get(name);
-        if (timer != null) return timer;
+        if(timer != null) return timer;
 
         final List<Tag> tagList = new ArrayList<Tag>(7);
         tagList.addAll(tags);
-        if (operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
-        if (operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
-        if (status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_RESULT, status));
-        if (hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
-        switch (tries) {
-            case 0:
-            case 1:
+        if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
+        if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
+        if(status != null) tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_RESULT, status));
+        if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
+        switch(tries) {
+            case 0 :
+            case 1 :
                 tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, EVCacheMetricsFactory.INITIAL));
                 break;
-            case 2:
+            case 2 :
                 tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, EVCacheMetricsFactory.SECOND));
                 break;
             default:
@@ -3025,7 +3025,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
 
 //        if(tries == 0) tagList.add(new BasicTag(EVCacheMetricsFactory.ATTEMPT, String.valueOf(tries)));
-        if (serverGroup != null) {
+        if(serverGroup != null) {
             tagList.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
             tagList.add(new BasicTag(EVCacheMetricsFactory.ZONE, serverGroup.getZone()));
         }
