@@ -16,6 +16,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import javax.management.MBeanServer;
@@ -525,9 +526,45 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     public <T> CompletableFuture<T> get(String key, Transcoder<T> tc, ExecutorService executorService) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException("Key cannot be null");
         final EVCacheKey evcKey = getEVCacheKey(key);
-        return doAsyncGet(evcKey, tc, executorService);
+        return CompletableFuture.supplyAsync(SupplierUtils.wrap(() -> getInMemory(evcKey, tc)), executorService)
+                .thenCompose(inMemoryData -> {
+                    try {
+                        return inMemoryData == null? doAsyncGet(evcKey, tc, executorService) : CompletableFuture.completedFuture(inMemoryData);
+                    } catch (EVCacheException e) {
+                        throw sneakyThrow(e);
+                    }
+                });
     }
 
+    private <T> T getInMemory(EVCacheKey evcKey, Transcoder<T> tc) throws EVCacheException {
+        if (_useInMemoryCache.get()) {
+            T value = null;
+            try {
+                final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) _pool.getEVCacheClientForRead().getTranscoder() : (Transcoder<T>) _transcoder) : tc;
+                value = getInMemoryCache(transcoder).get(evcKey);
+            } catch (ExecutionException e) {
+                final boolean throwExc = doThrowException();
+                if(throwExc) {
+                    if(e.getCause() instanceof DataNotFoundException) {
+                        return null;
+                    }
+                    if(e.getCause() instanceof EVCacheException) {
+                        if (log.isDebugEnabled() && shouldLog()) log.debug("ExecutionException while getting data from InMemory Cache", e);
+                        throw (EVCacheException)e.getCause();
+                    }
+                    throw new EVCacheException("ExecutionException", e);
+                }
+            }
+            if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + evcKey + (log.isTraceEnabled() ? "; value : " + value : ""));
+            if (value != null) {
+                if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + evcKey + (log.isTraceEnabled() ? "; value : " + value : ""));
+                return value;
+            } else {
+                if (log.isInfoEnabled() && shouldLog()) log.info("Value not_found in inmemory cache for APP " + _appName + ", key : " + evcKey + "; value : " + value );
+            }
+        }
+        return null;
+    }
     <T> CompletableFuture<T> doAsyncGet(EVCacheKey evcKey, Transcoder<T> tc, ExecutorService executorService) throws EVCacheException {
         final boolean throwExc = doThrowException();
         EVCacheClient client = buildEvCacheClient(throwExc);
@@ -631,19 +668,44 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         return data;
     }
 
-    public static <T> CompletableFuture<T> anyOf(List<? extends CompletionStage<? extends T>> l) {
-
-        CompletableFuture<T> f = new CompletableFuture<>();
-        Consumer<T> complete = f::complete;
-        CompletableFuture.allOf(l
-                .stream()
-                .map(s -> s.thenAccept(complete))
-                .toArray(CompletableFuture<?>[]::new)
-        ).exceptionally(ex -> {
-            f.completeExceptionally(ex);
-            return null;
-        });
-        return f;
+    private <T> CompletableFuture<T> handleRetries(List<EVCacheClient> fbClients,
+                                                   EVCacheEvent event,
+                                                   EVCacheKey evcKey,
+                                                   Transcoder<T> tc,
+                                                   boolean throwExc,
+                                                   boolean throwEx,
+                                                   boolean hasZF,
+                                                   ExecutorService executorService) {
+       if (fbClients == null || fbClients.size() == 0) {
+           throw sneakyThrow(new EVCacheException("fb clients is null or empty"));
+       }
+       CompletableFuture<T> future = getAsyncData(0,
+               fbClients.size(),
+               fbClients.get(0),
+               event,
+               evcKey,
+               tc,
+               throwEx,
+               throwExc,
+               hasZF,
+               executorService);
+       for (int i = 1; i < fbClients.size(); i ++) {
+           int index = i ;
+           EVCacheClient client = fbClients.get(i);
+           future =future.thenApply(CompletableFuture::completedFuture)
+                   .exceptionally(t -> getAsyncData(index,
+                           fbClients.size(),
+                           client,
+                           event,
+                           evcKey,
+                           tc,
+                           throwEx,
+                           throwExc,
+                           hasZF,
+                           executorService))
+                   .thenCompose(Function.identity());
+       }
+        return future;
     }
 
     private <T> CompletableFuture<T> handleRetry(T data,
@@ -657,21 +719,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         boolean throwEx = !hasZF && throwExc;
         if (data == null && hasZF) {
             final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
-            if (fbClients != null && !fbClients.isEmpty()) {
-                return anyOf(fbClients.
-                        stream()
-                        .map(fbClient -> getAsyncData(fbClients.indexOf(fbClient),
-                                fbClients.size(),
-                                fbClient,
-                                event,
-                                evcKey,
-                                tc,
-                                throwEx,
-                                throwExc,
-                                hasZF,
-                                executorService))
-                        .collect(Collectors.toList()));
-            }
+            return handleRetries(fbClients, event, evcKey, tc, throwExc, throwEx, hasZF, executorService);
         }
         return CompletableFuture.completedFuture(data);
     }
@@ -1145,7 +1193,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
         CompletableFuture<T> result;
         if (hashKey != null) {
-            result = CompletableFuture.supplyAsync(SupplierUtils.wrap(() -> client.get(hashKey, evcacheValueTranscoder, throwException, hasZF)), executorService)
+            result = CompletableFuture
+                    .supplyAsync(SupplierUtils.wrap(() -> client.get(hashKey, evcacheValueTranscoder, throwException, hasZF)), executorService)
                     .thenApply(val -> getData(transcoder, canonicalKey, val))
                     .exceptionally(ex -> handleClientException(hashKey, (RuntimeException) ex, throwException, hasZF));
 
