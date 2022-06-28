@@ -72,7 +72,7 @@ public interface EVCache {
 
     public static enum Call {
         GET, GETL, GET_AND_TOUCH, ASYNC_GET, BULK, SET, DELETE, INCR, DECR, TOUCH, APPEND, PREPEND, REPLACE, ADD, APPEND_OR_ADD, GET_ALL, META_GET, META_SET, META_DEBUG,
-        COMPLETABLE_FUTURE_GET
+        COMPLETABLE_FUTURE_GET, COMPLETABLE_FUTURE_GET_BULK
     };
 
     /**
@@ -481,6 +481,7 @@ public interface EVCache {
      */
     <T> T get(String key) throws EVCacheException;
 
+    <T> CompletableFuture<T> get(String key, ExecutorService executorService) throws EVCacheException;
     /**
      * Retrieve the value for the given key.
      *
@@ -731,6 +732,8 @@ public interface EVCache {
      *             Related issues
      */
     <T> Map<String, T> getBulk(String... keys) throws EVCacheException;
+
+    <T> CompletableFuture<Map<String, T>> getBulk(ExecutorService executorService, String... keys) throws EVCacheException;
 
     /**
      * Retrieve the value for a set of keys, using a specified Transcoder for

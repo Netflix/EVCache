@@ -45,16 +45,17 @@ public class SimpleEurekaEVCacheTest extends Base {
         org.apache.log4j.Logger.getLogger(EVCacheImpl.class).setLevel(Level.ERROR);
         org.apache.log4j.Logger.getLogger(EVCacheClient.class).setLevel(Level.ERROR);
         org.apache.log4j.Logger.getLogger(EVCacheClientPool.class).setLevel(Level.ERROR);
-        System.setProperty("evcache.use.simple.node.list.provider", "true");
-        System.setProperty("EVCACHE_AB.EVCacheClientPool.readTimeout", "100000");
-        System.setProperty("EVCACHE_AB.EVCacheClientPool.bulkReadTimeout", "10000");
-        System.setProperty("EVCACHE_AB.max.read.queue.length", "100");
-        System.setProperty("EVCACHE_AB.operation.timeout", "10000");
-        System.setProperty("EVCACHE_AB.throw.exception", "false");
-        System.setProperty("EVCACHE_AB.chunk.data", "false");
+        System.setProperty("evcache.use.simple.node.list.provider", "false");
+        System.setProperty("EVCACHE_TEST_SRIRAM.EVCacheClientPool.readTimeout", "100000");
+        System.setProperty("EVCACHE_TEST_SRIRAM.EVCacheClientPool.bulkReadTimeout", "10000");
+        System.setProperty("EVCACHE_TEST_SRIRAM.max.read.queue.length", "100");
+        System.setProperty("EVCACHE_TEST_SRIRAM.operation.timeout", "10000");
+        System.setProperty("EVCACHE_TEST_SRIRAM.throw.exception", "false");
+        System.setProperty("EVCACHE_TEST_SRIRAM.chunk.data", "false");
         System.setProperty("NETFLIX_ENVIRONMENT", "test");
         System.setProperty("EC2_REGION", "us-east-1");
         System.setProperty("evcache.thread.daemon", "true");
+        //System.setProperty("EVCACHE_TEST_SRIRAM.use.secure", "false");
 
         int maxThreads = 2;
         final BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>(100000);
@@ -74,7 +75,7 @@ public class SimpleEurekaEVCacheTest extends Base {
     public void testAll() {
         try {
             setupClusterDetails();
-            EVCacheClientPoolManager.getInstance().initEVCache("EVCACHE_AB");
+            EVCacheClientPoolManager.getInstance().initEVCache("EVCACHE_TEST_SRIRAM");
             testEVCache();
 
             int i = 1;
@@ -121,7 +122,7 @@ public class SimpleEurekaEVCacheTest extends Base {
 
     @Test
     public void testEVCache() {
-        this.evCache = (new EVCache.Builder()).setAppName("EVCACHE_AB").setCachePrefix(null).enableRetry().build();
+        this.evCache = (new EVCache.Builder()).setAppName("EVCACHE_TEST_SRIRAM").setCachePrefix(null).enableRetry().build();
         assertNotNull(evCache);
     }
 
@@ -190,6 +191,7 @@ public class SimpleEurekaEVCacheTest extends Base {
             String val = vals.get(key);
         }
     }
+
     
     public void testAppendOrAdd() throws Exception {
         for (int i = 0; i < 10; i++) {

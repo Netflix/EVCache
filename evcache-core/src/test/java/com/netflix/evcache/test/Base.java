@@ -5,9 +5,9 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
+import net.spy.memcached.transcoders.Transcoder;
 import org.apache.log4j.Appender;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.ConsoleAppender;
@@ -219,6 +219,15 @@ public abstract class Base  {
         return value;
     }
 
+    public String completableFutureGet(int i, EVCache gCache) throws Exception {
+        String key = "key_" + i;
+        ExecutorService executorService = Executors.newFixedThreadPool(10);
+        CompletableFuture<String> value = gCache.<String>get(key, executorService);
+        if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
+        String val =  value.get();
+        return val;
+    }
+
     public String getWithPolicy(int i, EVCache gCache, Policy policy) throws Exception {
         String key = "key_" + i;
         String value = gCache.<String>get(key, null, policy);
@@ -237,6 +246,13 @@ public abstract class Base  {
         final Map<String, String> value = gCache.<String>getBulk(keys);
         if(log.isDebugEnabled()) log.debug("getBulk : keys : " + Arrays.toString(keys) + "; values = " + value);
         return value;
+    }
+
+    public Map<String, String> getCompletableBulk(String keys[], EVCache gCache) throws Exception {
+        ExecutorService executorService = Executors.newFixedThreadPool(10);
+        final CompletableFuture<Map<String, String>> value = gCache.<String>getBulk(executorService, keys);
+        if(log.isDebugEnabled()) log.debug("getBulk : keys : " + Arrays.toString(keys) + "; values = " + value);
+        return value.get();
     }
 
     public Map<String, String> getBulkAndTouch(String keys[], EVCache gCache, int ttl) throws Exception {
