@@ -716,9 +716,14 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 executorService);
         int nextIndex = fbClientIndex + 1;
         return nextIndex <= fbClients.size() ?
-                future.thenApply(s -> s != null ? CompletableFuture.completedFuture(s) : handleRetries(fbClients, nextIndex, event, evcKey, tc, throwExc, throwEx, hasZF, executorService))
+                future.thenApply(s -> s != null ? handleSuccessCompletion(s, evcKey, fbClients, fbClientIndex) : handleRetries(fbClients, nextIndex, event, evcKey, tc, throwExc, throwEx, hasZF, executorService))
                         .exceptionally(t -> handleRetries(fbClients, nextIndex, event, evcKey, tc, throwExc, throwEx, hasZF, executorService))
                         .thenCompose(Function.identity()): null;
+    }
+
+    public <T> CompletableFuture<T> handleSuccessCompletion(T s, EVCacheKey key, List<EVCacheClient> fbClients, int index) {
+        log.debug("fectched the key {} from {}", key.getKey(), fbClients.get(index).getServerGroup().getName());
+        return CompletableFuture.completedFuture(s);
     }
 
     private <T> CompletableFuture<T> handleRetry(T data,
@@ -2331,6 +2336,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         AtomicInteger tries = new AtomicInteger(1);
         boolean throwEx = !hasZF && throwExc;
         return getAsyncBulkData(client, dto.getEvcKeys(), tc, throwEx, hasZF, event,  executorService)
+                .thenCompose(data -> handleBulkRetry(data, dto.getEvcKeys(), keys, tc, client, event, hasZF, throwExc, executorService))
                 .thenApply(data -> handleBulkData(dto.getDecanonicalR(),data,  event, keys, dto.getEvcKeys()))
                 .exceptionally(ex -> handleException(ex, throwExc, event, dto.getEvcKeys()))
                 .handle((data, ex) -> handleBulkFinally(data, status, tries, client, cacheOperation, keys, start));
@@ -2406,16 +2412,29 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         return null;
     }
 
+    private <T> List<EVCacheKey> buildMissKeyMap(List<EVCacheKey> evcKeys,
+                                    Map<EVCacheKey, T> retMap) {
+        final int initRetrySize = evcKeys.size() - retMap.size();
+        List<EVCacheKey> retryEVCacheKeys = new ArrayList<EVCacheKey>(initRetrySize);
+        for (final EVCacheKey key : evcKeys) {
+            if (!retMap.containsKey(key)) {
+                retryEVCacheKeys.add(key);
+            }
+        }
+        return retryEVCacheKeys;
+    }
     private <T> CompletableFuture<Map<EVCacheKey, T>> handlePartialRetry(EVCacheClient client,
                                                                       EVCacheEvent event,
                                                                       List<EVCacheKey> evcKeys,
+                                                                      Map<EVCacheKey, T> retMap,
                                                                       Transcoder<T> tc,
                                                                       boolean throwExc,
                                                                       boolean throwEx,
                                                                       boolean hasZF,
                                                                       ExecutorService executorService) {
         final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
-        return handleFullBulkRetries(fbClients, event, evcKeys, tc, throwExc, throwEx, hasZF, executorService);
+        List<EVCacheKey> retryEVCacheKeys = buildMissKeyMap(evcKeys, retMap);
+        return handlePartialBulkRetries(fbClients, 0, event, retryEVCacheKeys, tc, throwExc, throwEx, hasZF, executorService);
     }
 
     private <T> CompletableFuture<Map<EVCacheKey, T>> handleFullRetry(EVCacheClient client,
@@ -2427,10 +2446,11 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                                                       boolean hasZF,
                                                                       ExecutorService executorService) {
         final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
-        return handleFullBulkRetries(fbClients, event, evcKeys, tc, throwExc, throwEx, hasZF, executorService);
+        return handleFullBulkRetries(fbClients, 0, event, evcKeys, tc, throwExc, throwEx, hasZF, executorService);
     }
 
     private <T> CompletableFuture<Map<EVCacheKey, T>> handleFullBulkRetries(List<EVCacheClient> fbClients,
+                                                                        int fbClientIndex,
                                                                         EVCacheEvent event,
                                                                         List<EVCacheKey> evcKeys,
                                                                         Transcoder<T> tc,
@@ -2438,12 +2458,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                                                         boolean throwEx,
                                                                         boolean hasZF,
                                                                         ExecutorService executorService) {
-        if (fbClients == null || fbClients.size() == 0) {
-            throw sneakyThrow(new EVCacheException("fb clients is null or empty"));
-        }
-        CompletableFuture<Map<EVCacheKey, T>> future = getAsyncBulkData(0,
+        CompletableFuture<Map<EVCacheKey, T>> future = getAsyncBulkData(fbClientIndex,
                 fbClients.size(),
-                fbClients.get(0),
+                fbClients.get(fbClientIndex),
                 event,
                 evcKeys,
                 tc,
@@ -2451,26 +2468,15 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 throwExc,
                 hasZF,
                 executorService);
-        for (int i = 1; i < fbClients.size(); i ++) {
-            int index = i ;
-            EVCacheClient client = fbClients.get(i);
-            future =future.thenApply(CompletableFuture::completedFuture)
-                    .exceptionally(t -> getAsyncBulkData(index,
-                            fbClients.size(),
-                            client,
-                            event,
-                            evcKeys,
-                            tc,
-                            throwEx,
-                            throwExc,
-                            hasZF,
-                            executorService))
-                    .thenCompose(Function.identity());
-        }
-        return future;
+        int nextIndex = fbClientIndex + 1;
+        return nextIndex <= fbClients.size() ?
+                future.thenApply(s -> s != null ? CompletableFuture.completedFuture(s) : handleFullBulkRetries(fbClients, nextIndex, event, evcKeys, tc, throwExc, throwEx, hasZF, executorService))
+                        .exceptionally(t -> handleFullBulkRetries(fbClients, nextIndex, event, evcKeys, tc, throwExc, throwEx, hasZF, executorService))
+                        .thenCompose(Function.identity()): null;
     }
 
     private <T> CompletableFuture<Map<EVCacheKey, T>> handlePartialBulkRetries(List<EVCacheClient> fbClients,
+                                                                            int fbClientIndex,
                                                                             EVCacheEvent event,
                                                                             List<EVCacheKey> evcKeys,
                                                                             Transcoder<T> tc,
@@ -2478,12 +2484,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                                                             boolean throwEx,
                                                                             boolean hasZF,
                                                                             ExecutorService executorService) {
-        if (fbClients == null || fbClients.size() == 0) {
-            throw sneakyThrow(new EVCacheException("fb clients is null or empty"));
-        }
-        CompletableFuture<Map<EVCacheKey, T>> future = getAsyncBulkData(0,
+        CompletableFuture<Map<EVCacheKey, T>> future = getAsyncBulkData(fbClientIndex,
                 fbClients.size(),
-                fbClients.get(0),
+                fbClients.get(fbClientIndex),
                 event,
                 evcKeys,
                 tc,
@@ -2491,23 +2494,17 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 throwExc,
                 hasZF,
                 executorService);
-        for (int i = 1; i < fbClients.size(); i ++) {
-            int index = i ;
-            EVCacheClient client = fbClients.get(i);
-            future =future.thenApply(CompletableFuture::completedFuture)
-                    .exceptionally(t -> getAsyncBulkData(index,
-                            fbClients.size(),
-                            client,
-                            event,
-                            evcKeys,
-                            tc,
-                            throwEx,
-                            throwExc,
-                            hasZF,
-                            executorService))
-                    .thenCompose(Function.identity());
-        }
-        return future;
+        int nextIndex = fbClientIndex + 1;
+        return nextIndex <= fbClients.size() ?
+                //FIX THIS
+                future
+                        .thenApply(s -> checkForCompleteness() ? CompletableFuture.completedFuture(s) : handlePartialBulkRetries(fbClients, nextIndex, event, evcKeys, tc, throwExc, throwEx, hasZF, executorService))
+                        .exceptionally(t -> handlePartialBulkRetries(fbClients, nextIndex, event, evcKeys, tc, throwExc, throwEx, hasZF, executorService))
+                        .thenCompose(Function.identity()): null;
+    }
+
+    private boolean checkForCompleteness() {
+        return true;
     }
 
     private <T> CompletableFuture<Map<EVCacheKey, T>> handleBulkRetry(Map<EVCacheKey, T> retMap,
@@ -2524,7 +2521,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (retMap == null || retMap.isEmpty()) {
                 return handleFullRetry(client, event, evcKeys, tc, throwExc, throwEx, hasZF, executorService);
             } else if (keys.size() > retMap.size() && _bulkPartialZoneFallbackFP.get()) {
-                return handlePartialRetry(client, event, evcKeys, tc, throwExc, throwEx, hasZF, executorService);
+                return handlePartialRetry(client, event, evcKeys, retMap, tc, throwExc, throwEx, hasZF, executorService);
             }
         }
         return CompletableFuture.completedFuture(retMap);

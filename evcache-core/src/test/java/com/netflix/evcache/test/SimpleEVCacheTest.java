@@ -66,6 +66,7 @@ public class SimpleEVCacheTest extends Base {
         props.setProperty(APP_NAME + ".throw.exception", "false");
         props.setProperty(APP_NAME + ".hash.algo", "murmur3");
         props.setProperty(APP_NAME + ".hash.key", "true");
+        props.setProperty(APP_NAME + ".max.retry.count", "2");
 
         // Setting properties here for testing how we can disable aliases. If there are test case
         // that requires aliases, these properties should go under a special condition.
@@ -106,9 +107,9 @@ public class SimpleEVCacheTest extends Base {
             //while (flag) {
                 try {
 //                    testAdd();
-                    testInsert();
+                    //testInsert();
 //                    testAppend();
-                        testGet();
+//                        testGet();
                     //testGetWithPolicy();
 //                    testGetObservable();
 //                    testGetAndTouch();
@@ -116,7 +117,7 @@ public class SimpleEVCacheTest extends Base {
 //                    testBulkAndTouch();
 //                    testAppendOrAdd();
                      testCompletableFutureGet();
-                    testCompletableFutureBulk();
+                    //testCompletableFutureBulk();
 //                    if(i++ % 5 == 0) testDelete();
                     //Thread.sleep(3000);
                 } catch (Exception e) {
