@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
@@ -481,7 +482,7 @@ public interface EVCache {
      */
     <T> T get(String key) throws EVCacheException;
 
-    <T> CompletableFuture<T> get(String key, ExecutorService executorService) throws EVCacheException;
+    <T> CompletableFuture<T> getCompletableFuture(String key) throws EVCacheException;
     /**
      * Retrieve the value for the given key.
      *
@@ -542,7 +543,7 @@ public interface EVCache {
      *             this value then null is returned. This is transparent to the
      *             users.
      */
-    <T> CompletableFuture<T> get(String key, Transcoder<T> tc, ExecutorService executorService) throws EVCacheException;
+    <T> CompletableFuture<T> getCompletableFuture(String key, Transcoder<T> tc) throws EVCacheException;
 
     /**
      * Retrieve the meta data for the given a key 
@@ -733,7 +734,7 @@ public interface EVCache {
      */
     <T> Map<String, T> getBulk(String... keys) throws EVCacheException;
 
-    <T> CompletableFuture<Map<String, T>> getBulk(ExecutorService executorService, String... keys) throws EVCacheException;
+    <T> CompletableFuture<Map<String, T>> getBulkCompletableFuture(String... keys) throws EVCacheException, ExecutionException, InterruptedException;
 
     /**
      * Retrieve the value for a set of keys, using a specified Transcoder for

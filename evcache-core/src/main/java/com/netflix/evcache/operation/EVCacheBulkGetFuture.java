@@ -12,12 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -151,6 +146,17 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                         .orElseGet("evcache.max.read.duration.metric").orElse(20).get().intValue())).record(pauseDuration, TimeUnit.MILLISECONDS);
             }
         }
+    }
+
+    public CompletableFuture<Map<String, T>> getSomeCompletableFuture(long to, TimeUnit unit, boolean throwException, boolean hasZF) {
+        CompletableFuture<Map<String, T>> completableFuture = new CompletableFuture<>();
+       try {
+           Map<String, T> value = getSome(to, unit, throwException, hasZF);
+           completableFuture.complete(value);
+       } catch (Exception e) {
+            completableFuture.completeExceptionally(e);
+       }
+       return completableFuture;
     }
 
     public Single<Map<String, T>> observe() {

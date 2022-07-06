@@ -187,7 +187,7 @@ public class EVCacheClient {
         return this.maxHashLength.get();
     }
 
-    private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys, EVCache.Call call) throws EVCacheException {
+    private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys, EVCache.Call call) {
         if (evcacheMemcachedClient.getNodeLocator() == null) return canonicalKeys;
         final Collection<String> retKeys = new ArrayList<>(canonicalKeys.size());
         for (String key : canonicalKeys) {
@@ -861,6 +861,12 @@ public class EVCacheClient {
         return evcacheMemcachedClient.decr(key, by, defaultVal, timeToLive);
     }
 
+    public <T> CompletableFuture<T> getCompletableFuture(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF) {
+            return evcacheMemcachedClient
+                    .asyncGet(key, tc, null)
+                    .getCompletableFuture(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+    }
+
     public <T> T get(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF, boolean chunked) throws Exception {
         if (chunked) {
             return assembleChunks(key, false, 0, tc, hasZF);
@@ -976,6 +982,15 @@ public class EVCacheClient {
             return Collections.<String, T> emptyMap();
         }
         return returnVal;
+    }
+
+    public <T> CompletableFuture<Map<String, T>> getBulkCompletableFuture(Collection<String> _canonicalKeys, Transcoder<T> tc, boolean _throwException,
+                                      boolean hasZF) {
+        final Collection<String> canonicalKeys = validateReadQueueSize(_canonicalKeys, Call.BULK);
+        if (tc == null) tc = (Transcoder<T>) getTranscoder();
+        return evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null)
+                .getSomeCompletableFuture(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+
     }
 
     public <T> Single<Map<String, T>> getBulk(Collection<String> _canonicalKeys, final Transcoder<T> transcoder, boolean _throwException,

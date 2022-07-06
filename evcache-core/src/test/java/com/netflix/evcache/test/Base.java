@@ -221,10 +221,10 @@ public abstract class Base  {
 
     public String completableFutureGet(int i, EVCache gCache) throws Exception {
         String key = "key_" + i;
-        ExecutorService executorService = Executors.newFixedThreadPool(10);
-        CompletableFuture<String> value = gCache.<String>get(key, executorService);
+        CompletableFuture<String> value = gCache.<String>getCompletableFuture(key);
         if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
         String val =  value.get();
+        if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + val);
         return val;
     }
 
@@ -249,8 +249,7 @@ public abstract class Base  {
     }
 
     public Map<String, String> getCompletableBulk(String keys[], EVCache gCache) throws Exception {
-        ExecutorService executorService = Executors.newFixedThreadPool(10);
-        final CompletableFuture<Map<String, String>> value = gCache.<String>getBulk(executorService, keys);
+        final CompletableFuture<Map<String, String>> value = gCache.<String>getBulkCompletableFuture(keys);
         if(log.isDebugEnabled()) log.debug("getBulk : keys : " + Arrays.toString(keys) + "; values = " + value);
         return value.get();
     }

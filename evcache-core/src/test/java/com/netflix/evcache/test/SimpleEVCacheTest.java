@@ -107,17 +107,17 @@ public class SimpleEVCacheTest extends Base {
             //while (flag) {
                 try {
 //                    testAdd();
-                    //testInsert();
+                    testInsert();
 //                    testAppend();
 //                        testGet();
                     //testGetWithPolicy();
-//                    testGetObservable();
+//                  testGetObservable();
 //                    testGetAndTouch();
 //                    testBulk();
 //                    testBulkAndTouch();
 //                    testAppendOrAdd();
-                     testCompletableFutureGet();
-                    //testCompletableFutureBulk();
+                    testCompletableFutureGet();
+                    testCompletableFutureBulk();
 //                    if(i++ % 5 == 0) testDelete();
                     //Thread.sleep(3000);
                 } catch (Exception e) {
