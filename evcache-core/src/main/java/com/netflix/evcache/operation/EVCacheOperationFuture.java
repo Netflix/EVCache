@@ -232,6 +232,66 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         );
     }
 
+    static <T> CompletableFuture<T> withTimeout(CompletableFuture<T> future,
+                                                long timeout,
+                                                TimeUnit unit,
+                                                boolean throwException) {
+        // [DABP-2005] split timeout to 5 slots to not timeout during GC.
+        long splitTimeout = Math.max(1, timeout / 5);
+        CompletableFuture<Void> chain = CompletableFuture.completedFuture(null);
+        for (int i = 0; i < 5; i++) {
+            final int j = i;
+            chain = chain.thenCompose(
+                            unused -> getNext(future, j, timeout, splitTimeout, unit, throwException));
+        }
+        return future;
+    }
+
+    private static <U> CompletableFuture<Void> getNext(CompletableFuture<U> future, final int j, long timeout, long splitTimeout, TimeUnit unit, boolean throwException) {
+        CompletableFuture<Void> next = new CompletableFuture<>();
+        if (future.isDone()) {
+            next.complete(null);
+        } else {
+            ScheduledFuture<?> scheduledTimeout;
+            if (j < 4) {
+                scheduledTimeout =
+                        LazySharedExecutor.executor.schedule(
+                                () -> {
+                                    next.complete(null);
+                                },
+                                splitTimeout,
+                                TimeUnit.MILLISECONDS);
+            } else {
+                scheduledTimeout =
+                        LazySharedExecutor.executor.schedule(
+                                () -> {
+                                    if (throwException) {
+                                        future.completeExceptionally(new TimeoutException("Timeout after " + timeout));
+                                    } else {
+                                        future.complete(null);
+                                    }
+                                },
+                                splitTimeout,
+                                unit);
+            }
+            // If the completable future completes normally, don't bother timing it out.
+            // Also cleans the ref for GC.
+            future.whenComplete(
+                    (r, exp) -> {
+                        if (exp == null) {
+                            scheduledTimeout.cancel(false);
+                            next.complete(null);
+                        }
+                    });
+        }
+        return next;
+    }
+
+    private static <U> CompletableFuture<U> makeFutureWithTimeout(long timeout, TimeUnit units, boolean throwException) {
+        final CompletableFuture<U> future = new CompletableFuture<>();
+        return withTimeout(future, timeout, units, throwException);
+    }
+
     public  CompletableFuture<T> timeoutAfter(long timeout, TimeUnit units, boolean throwException) {
         final CompletableFuture<T> promise = new CompletableFuture<>();
         ScheduledFuture<?> timeoutFuture = LazySharedExecutor.executor.schedule(
@@ -259,10 +319,6 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
             else if (op.hasErrored() ) { t = new ExecutionException(op.getException());}
         }
         future.completeExceptionally(t);
-    }
-
-    public CompletableFuture<T> makeFutureWithTimeout(long timeout, TimeUnit unit, boolean throwException) {
-        return timeoutAfter(timeout, unit, throwException);
     }
 
     public CompletableFuture<T> getAsync(long timeout, TimeUnit units, boolean throwException, boolean hasZF) {
