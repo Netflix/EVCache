@@ -221,7 +221,7 @@ public abstract class Base  {
 
     public String completableFutureGet(int i, EVCache gCache) throws Exception {
         String key = "key_" + i;
-        CompletableFuture<String> value = gCache.<String>getCompletableFuture(key);
+        CompletableFuture<String> value = gCache.<String>getAsync(key);
         if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
         String val =  value.get();
         if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + val);

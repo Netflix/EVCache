@@ -518,7 +518,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
     }
 
-    public <T> CompletableFuture<T> getCompletableFuture(String key, Transcoder<T> tc) {
+    public <T> CompletableFuture<T> getAsync(String key, Transcoder<T> tc) {
         if (null == key) throw new IllegalArgumentException("Key cannot be null");
         final EVCacheKey evcKey = getEVCacheKey(key);
         return getInMemory(evcKey, tc)
@@ -527,8 +527,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                         : CompletableFuture.completedFuture(data));
     }
 
-    public <T> CompletableFuture<T> getCompletableFuture(String key) {
-        return this.getCompletableFuture(key, (Transcoder<T>) _transcoder);
+    public <T> CompletableFuture<T> getAsync(String key) {
+        return this.getAsync(key, (Transcoder<T>) _transcoder);
     }
 
     private <T> CompletableFuture<T> getInMemory(EVCacheKey evcKey, Transcoder<T> tc) {
@@ -1225,12 +1225,12 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
         CompletableFuture<T> result;
         if (hashKey != null) {
-            result = client.getCompletableFuture(hashKey, evcacheValueTranscoder, throwException, hasZF)
+            result = client.getAsync(hashKey, evcacheValueTranscoder, throwException, hasZF)
                     .thenApply(val -> getData(transcoder, canonicalKey, val))
                     .exceptionally(ex -> handleClientException(hashKey, (RuntimeException) ex, throwException, hasZF));
 
         } else {
-            result = client.getCompletableFuture(canonicalKey, transcoder, throwException, hasZF)
+            result = client.getAsync(canonicalKey, transcoder, throwException, hasZF)
                     .exceptionally(ex -> handleClientException(canonicalKey, (RuntimeException) ex, throwException, hasZF));
         }
         return result;

@@ -482,7 +482,7 @@ public interface EVCache {
      */
     <T> T get(String key) throws EVCacheException;
 
-    <T> CompletableFuture<T> getCompletableFuture(String key) throws EVCacheException;
+    <T> CompletableFuture<T> getAsync(String key) throws EVCacheException;
     /**
      * Retrieve the value for the given key.
      *
@@ -543,7 +543,7 @@ public interface EVCache {
      *             this value then null is returned. This is transparent to the
      *             users.
      */
-    <T> CompletableFuture<T> getCompletableFuture(String key, Transcoder<T> tc) throws EVCacheException;
+    <T> CompletableFuture<T> getAsync(String key, Transcoder<T> tc) throws EVCacheException;
 
     /**
      * Retrieve the meta data for the given a key 

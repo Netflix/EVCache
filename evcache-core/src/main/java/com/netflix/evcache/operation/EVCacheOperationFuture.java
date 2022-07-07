@@ -1,5 +1,6 @@
 package com.netflix.evcache.operation;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
@@ -8,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,8 +49,27 @@ import rx.functions.Action0;
 @SuppressWarnings("restriction")
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings("EXS_EXCEPTION_SOFTENING_HAS_CHECKED")
 public class EVCacheOperationFuture<T> extends OperationFuture<T> {
-
     private static final Logger log = LoggerFactory.getLogger(EVCacheOperationFuture.class);
+
+    private static final class LazySharedExecutor {
+        private static final ScheduledThreadPoolExecutor executor =
+            new ScheduledThreadPoolExecutor(
+                1,
+                new ThreadFactoryBuilder()
+                    .setDaemon(true)
+                    .setNameFormat("evcache-timeout-%s")
+                    .setUncaughtExceptionHandler(
+                        (t, e) ->
+                            log.error(
+                                "{} timeout operation failed with exception: {}", t.getName(), e))
+                    .build());
+
+        static {
+            // We don't need to keep around all those cancellation tasks taking up memory once the
+            // initial caller completes.
+            executor.setRemoveOnCancelPolicy(true);
+        }
+    }
 
     private final CountDownLatch latch;
     private final AtomicReference<T> objRef;
@@ -213,19 +232,24 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         );
     }
 
-
-
-    public  <T> CompletableFuture<T> timeoutAfter(long timeout, TimeUnit units, boolean throwException) {
+    public  CompletableFuture<T> timeoutAfter(long timeout, TimeUnit units, boolean throwException) {
         final CompletableFuture<T> promise = new CompletableFuture<>();
-        ScheduledExecutorService delayer = Executors.newScheduledThreadPool(1);
-        delayer.schedule(() -> {
-            final TimeoutException ex = new TimeoutException("Timeout after " + timeout);
-            return promise.completeExceptionally(ex);
-        }, timeout, units);
+        ScheduledFuture<?> timeoutFuture = LazySharedExecutor.executor.schedule(
+            () -> {
+                if (throwException) {
+                    promise.completeExceptionally(new TimeoutException("Timeout after " + timeout));
+                } else {
+                    promise.complete(null);
+                }
+            },
+            timeout, units);
+        promise.whenComplete((bt, exp) -> {
+            if (exp == null) timeoutFuture.cancel(true);
+        });
         return promise;
     }
 
-    private <T> void handleTimeoutException(boolean throwException, CompletableFuture<T> future) {
+    private void handleTimeoutException(boolean throwException, CompletableFuture<T> future) {
         MemcachedConnection.opTimedOut(op);
         if (op != null) op.timeOut();
         ExecutionException t = null;
@@ -237,26 +261,25 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         future.completeExceptionally(t);
     }
 
-    public CompletableFuture<T> within(CompletableFuture<T> future, long timeout, TimeUnit unit, boolean throwException) {
-        final CompletableFuture<T> timeoutFuture = timeoutAfter(timeout, unit, throwException);
-        return future.applyToEither(timeoutFuture, Function.identity());
+    public CompletableFuture<T> makeFutureWithTimeout(long timeout, TimeUnit unit, boolean throwException) {
+        return timeoutAfter(timeout, unit, throwException);
     }
 
-    public CompletableFuture<T> getCompletableFuture(long timeout, TimeUnit units, boolean throwException, boolean hasZF) {
-        CompletableFuture<T> future =  within(getData(timeout, units, throwException, hasZF), 10, units, throwException);
+    public CompletableFuture<T> getAsync(long timeout, TimeUnit units, boolean throwException, boolean hasZF) {
+        CompletableFuture<T> future = makeFutureWithTimeout(timeout, units, throwException);
+        doAsyncGet(future);
         return future;
     }
 
-    public CompletableFuture<T> getData(long duration, TimeUnit unit, boolean throwException, boolean hasZF) {
-        CompletableFuture<T> completableFuture = new CompletableFuture<>();
-        try {
-            T t = get(duration, unit, throwException, hasZF);
-            completableFuture.complete(t);
-        } catch (Exception ex) {
-            completableFuture.completeExceptionally(ex);
-            return completableFuture;
-        }
-        return completableFuture;
+    private void doAsyncGet(CompletableFuture<T> cf) {
+        this.addListener((EVCacheGetOperationListener<T>) future -> {
+            try {
+                T result = future.get();
+                cf.complete(result);
+            } catch (Exception t) {
+                cf.completeExceptionally(t);
+            }
+        });
     }
 
     public Single<T> get(long duration, TimeUnit units, boolean throwException, boolean hasZF, Scheduler scheduler) {
