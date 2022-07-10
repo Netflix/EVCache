@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
 
+import com.netflix.evcache.EVCacheGetOperationListener;
+import net.spy.memcached.internal.BulkGetCompletionListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -169,6 +171,27 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                 }
             })
         );
+    }
+
+    public CompletableFuture<Map<String, T>> getAsyncSome(long timeout, TimeUnit units, boolean throwException) {
+        CompletableFuture<Map<String, T>> future = EVCacheOperationFuture.makeFutureWithTimeout(timeout, units, throwException);
+        doAsyncGetSome(future);
+        return future;
+    }
+
+    public void doAsyncGetSome(CompletableFuture<Map<String, T>> promise) {
+        this.addListener(future -> {
+            try {
+                Map<String, T> m = new HashMap<>();
+                Map<String, ?> result = future.get();
+                for (Map.Entry<String, ?> me : result.entrySet()) {
+                    m.put(me.getKey(), (T)me.getValue());
+                }
+                promise.complete(m);
+            } catch (Exception t) {
+                promise.completeExceptionally(t);
+            }
+        });
     }
 
     public Single<Map<String, T>> getSome(long to, TimeUnit units, boolean throwException, boolean hasZF, Scheduler scheduler) {

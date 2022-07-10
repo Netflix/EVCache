@@ -287,7 +287,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         return next;
     }
 
-    private static <U> CompletableFuture<U> makeFutureWithTimeout(long timeout, TimeUnit units, boolean throwException) {
+    public static <U> CompletableFuture<U> makeFutureWithTimeout(long timeout, TimeUnit units, boolean throwException) {
         final CompletableFuture<U> future = new CompletableFuture<>();
         return withTimeout(future, timeout, units, throwException);
     }

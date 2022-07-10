@@ -984,12 +984,11 @@ public class EVCacheClient {
         return returnVal;
     }
 
-    public <T> CompletableFuture<Map<String, T>> getBulkCompletableFuture(Collection<String> _canonicalKeys, Transcoder<T> tc, boolean _throwException,
-                                      boolean hasZF) {
+    public <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> _canonicalKeys, Transcoder<T> tc, boolean _throwException) {
         final Collection<String> canonicalKeys = validateReadQueueSize(_canonicalKeys, Call.BULK);
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
         return evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null)
-                .getSomeCompletableFuture(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+                .getAsyncSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException);
 
     }
 
