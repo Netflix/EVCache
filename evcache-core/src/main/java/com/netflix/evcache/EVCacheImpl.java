@@ -44,7 +44,6 @@ import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheClientUtil;
 import com.netflix.evcache.pool.EVCacheValue;
 import com.netflix.evcache.pool.ServerGroup;
-import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.KeyHasher;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
@@ -96,6 +95,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private final Property<Integer> maxHashLength;
     private final EVCacheTranscoder evcacheValueTranscoder;
     private final Property<Integer> maxReadDuration, maxWriteDuration;
+    private final Property<Boolean> clientReadRetry;
 
     protected final EVCacheClientPoolManager _poolManager;
     private final Map<String, Timer> timerMap = new ConcurrentHashMap<String, Timer>();
@@ -169,6 +169,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         this.alias.subscribe(i -> {
             this._pool = poolManager.getEVCacheClientPool(_appName);
         });
+
+        this.clientReadRetry = propertyRepository.get(appName + ".router.client.read.shouldRetry", Boolean.class).orElse(true);
 
         _pool.pingServers();
 
@@ -454,31 +456,37 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             final boolean hasZF = hasZoneFallback();
             boolean throwEx = hasZF ? false : throwExc;
             T data = getData(client, evcKey, tc, throwEx, hasZF);
-            if (data == null && hasZF) {
-                final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
-                if (fbClients != null && !fbClients.isEmpty()) {
-                    for (int i = 0; i < fbClients.size(); i++) {
-                        final EVCacheClient fbClient = fbClients.get(i);
-                        if(i >= fbClients.size() - 1) throwEx = throwExc;
-                        if (event != null) {
-                            try {
-                                if (shouldThrottle(event)) {
+            // In case of router, we don't need to retry from client (router.shouldRetry = false)
+            // Retries will be handled by the router
+            if (clientReadRetry.get()) {
+                if (data == null && hasZF) {
+                    final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
+                    if (fbClients != null && !fbClients.isEmpty()) {
+                        for (int i = 0; i < fbClients.size(); i++) {
+                            final EVCacheClient fbClient = fbClients.get(i);
+                            if (i >= fbClients.size() - 1) throwEx = throwExc;
+                            if (event != null) {
+                                try {
+                                    if (shouldThrottle(event)) {
+                                        status = EVCacheMetricsFactory.THROTTLED;
+                                        if (throwExc)
+                                            throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
+                                        return null;
+                                    }
+                                } catch (EVCacheException ex) {
+                                    if (throwExc) throw ex;
                                     status = EVCacheMetricsFactory.THROTTLED;
-                                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
                                     return null;
                                 }
-                            } catch(EVCacheException ex) {
-                                if(throwExc) throw ex;
-                                status = EVCacheMetricsFactory.THROTTLED;
-                                return null;
                             }
-                        }
-                        tries++;
-                        data = getData(fbClient, evcKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
-                        if (log.isDebugEnabled() && shouldLog()) log.debug("Retry for APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + fbClient.getServerGroup());
-                        if (data != null) {
-                            client = fbClient;
-                            break;
+                            tries++;
+                            data = getData(fbClient, evcKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
+                            if (log.isDebugEnabled() && shouldLog())
+                                log.debug("Retry for APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + fbClient.getServerGroup());
+                            if (data != null) {
+                                client = fbClient;
+                                break;
+                            }
                         }
                     }
                 }
@@ -662,31 +670,37 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             final boolean hasZF = hasZoneFallback();
             boolean throwEx = hasZF ? false : throwExc;
             EVCacheItem<T> data = getEVCacheItem(client, evcKey, tc, throwEx, hasZF, isOriginalKeyHashed, true);
-            if (data == null && hasZF) {
-                final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
-                if (fbClients != null && !fbClients.isEmpty()) {
-                    for (int i = 0; i < fbClients.size(); i++) {
-                        final EVCacheClient fbClient = fbClients.get(i);
-                        if(i >= fbClients.size() - 1) throwEx = throwExc;
-                        if (event != null) {
-                            try {
-                                if (shouldThrottle(event)) {
+            // In case of router, we don't need to retry from client (router.shouldRetry = false)
+            // Retries will be handled by the router
+            if (clientReadRetry.get()) {
+                if (data == null && hasZF) {
+                    final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
+                    if (fbClients != null && !fbClients.isEmpty()) {
+                        for (int i = 0; i < fbClients.size(); i++) {
+                            final EVCacheClient fbClient = fbClients.get(i);
+                            if (i >= fbClients.size() - 1) throwEx = throwExc;
+                            if (event != null) {
+                                try {
+                                    if (shouldThrottle(event)) {
+                                        status = EVCacheMetricsFactory.THROTTLED;
+                                        if (throwExc)
+                                            throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
+                                        return null;
+                                    }
+                                } catch (EVCacheException ex) {
+                                    if (throwExc) throw ex;
                                     status = EVCacheMetricsFactory.THROTTLED;
-                                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
                                     return null;
                                 }
-                            } catch(EVCacheException ex) {
-                                if(throwExc) throw ex;
-                                status = EVCacheMetricsFactory.THROTTLED;
-                                return null;
                             }
-                        }
-                        tries++;
-                        data = getEVCacheItem(fbClient, evcKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false, isOriginalKeyHashed, true);
-                        if (log.isDebugEnabled() && shouldLog()) log.debug("Retry for APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + fbClient.getServerGroup());
-                        if (data != null) {
-                            client = fbClient;
-                            break;
+                            tries++;
+                            data = getEVCacheItem(fbClient, evcKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false, isOriginalKeyHashed, true);
+                            if (log.isDebugEnabled() && shouldLog())
+                                log.debug("Retry for APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + fbClient.getServerGroup());
+                            if (data != null) {
+                                client = fbClient;
+                                break;
+                            }
                         }
                     }
                 }
@@ -756,9 +770,15 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     public <T> T get(String key, Transcoder<T> tc, Policy policy) throws EVCacheException {
         if (null == key) throw new IllegalArgumentException();
-
+        // In case of router, client works as proxy and sends the request to the router.
+        // Currently, there is no way of passing the policy parameter to the router. So if this property is set
+        // then we just call the get API.
+        if (!clientReadRetry.get()) {
+            return get(key, tc);
+        }
         final boolean throwExc = doThrowException();
-        final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
+
+        EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
         if (clients.length == 0) {
             incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.GET);
             if (throwExc) throw new EVCacheException("Could not find a client to asynchronously get the data");
@@ -866,8 +886,10 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         final boolean hasZF = hasZoneFallback();
         final boolean throwEx = hasZF ? false : throwExc;
+        // In case of router, we don't need to retry from client (router.shouldRetry = false)
+        // Retries will be handled by the router
         return getData(client, evcKey, tc, throwEx, hasZF, scheduler).flatMap(data -> {
-            if (data == null && hasZF) {
+            if (data == null && hasZF && clientReadRetry.get()) {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
                 if (fbClients != null && !fbClients.isEmpty()) {
                     return Observable.concat(Observable.from(fbClients).map(
@@ -1123,7 +1145,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final boolean throwEx = hasZF ? false : throwExc;
         //anyway we have to touch all copies so let's just reuse getData instead of getAndTouch
         return getData(client, evcKey, tc, throwEx, hasZF, scheduler).flatMap(data -> {
-            if (data == null && hasZF) {
+            if (data == null && hasZF && clientReadRetry.get()) {
                 final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
                 if (fbClients != null && !fbClients.isEmpty()) {
                     return Observable.concat(Observable.from(fbClients).map(
@@ -1255,30 +1277,36 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             final boolean hasZF = hasZoneFallback();
             boolean throwEx = hasZF ? false : throwExc;
             T data = getData(client, evcKey, tc, throwEx, hasZF);
-            if (data == null && hasZF) {
-                final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
-                for (int i = 0; i < fbClients.size(); i++) {
-                    final EVCacheClient fbClient = fbClients.get(i);
-                    if(i >= fbClients.size() - 1) throwEx = throwExc;
-                    if (event != null) {
-                        try {
-                            if (shouldThrottle(event)) {
+            // In case of router, we don't need to retry from client (router.shouldRetry = false)
+            // Retries will be handled by the router
+            if (clientReadRetry.get()) {
+                if (data == null && hasZF) {
+                    final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
+                    for (int i = 0; i < fbClients.size(); i++) {
+                        final EVCacheClient fbClient = fbClients.get(i);
+                        if (i >= fbClients.size() - 1) throwEx = throwExc;
+                        if (event != null) {
+                            try {
+                                if (shouldThrottle(event)) {
+                                    status = EVCacheMetricsFactory.THROTTLED;
+                                    if (throwExc)
+                                        throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
+                                    return null;
+                                }
+                            } catch (EVCacheException ex) {
+                                if (throwExc) throw ex;
                                 status = EVCacheMetricsFactory.THROTTLED;
-                                if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKey);
                                 return null;
                             }
-                        } catch(EVCacheException ex) {
-                            if(throwExc) throw ex;
-                            status = EVCacheMetricsFactory.THROTTLED;
-                            return null;
                         }
-                    }
-                    tries++;
-                    data = getData(fbClient, evcKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
-                    if (log.isDebugEnabled() && shouldLog()) log.debug("GetAndTouch Retry for APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "")  + "], ServerGroup : " + fbClient.getServerGroup());
-                    if (data != null) {
-                        client = fbClient;
-                        break;
+                        tries++;
+                        data = getData(fbClient, evcKey, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
+                        if (log.isDebugEnabled() && shouldLog())
+                            log.debug("GetAndTouch Retry for APP " + _appName + ", key [" + evcKey + (log.isTraceEnabled() ? "], Value [" + data : "") + "], ServerGroup : " + fbClient.getServerGroup());
+                        if (data != null) {
+                            client = fbClient;
+                            break;
+                        }
                     }
                 }
             }
@@ -1674,82 +1702,92 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             final boolean hasZF = hasZoneFallbackForBulk();
             boolean throwEx = hasZF ? false : throwExc;
             Map<EVCacheKey, T> retMap = getBulkData(client, evcKeys, tc, throwEx, hasZF);
-            List<EVCacheClient> fbClients = null;
-            if (hasZF) {
-                if (retMap == null || retMap.isEmpty()) {
-                    fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
-                    if (fbClients != null && !fbClients.isEmpty()) {
-                        for (int i = 0; i < fbClients.size(); i++) {
-                            final EVCacheClient fbClient = fbClients.get(i);
-                            if(i >= fbClients.size() - 1) throwEx = throwExc;
-                            if (event != null) {
-                                try {
-                                    if (shouldThrottle(event)) {
+            // In case of router, we don't need to retry from client (router.shouldRetry = false)
+            // Retries will be handled by the router
+            if (clientReadRetry.get()) {
+                List<EVCacheClient> fbClients = null;
+                if (hasZF) {
+                    if (retMap == null || retMap.isEmpty()) {
+                        fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
+                        if (fbClients != null && !fbClients.isEmpty()) {
+                            for (int i = 0; i < fbClients.size(); i++) {
+                                final EVCacheClient fbClient = fbClients.get(i);
+                                if (i >= fbClients.size() - 1) throwEx = throwExc;
+                                if (event != null) {
+                                    try {
+                                        if (shouldThrottle(event)) {
+                                            status = EVCacheMetricsFactory.THROTTLED;
+                                            if (throwExc)
+                                                throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKeys);
+                                            return null;
+                                        }
+                                    } catch (EVCacheException ex) {
+                                        if (throwExc) throw ex;
                                         status = EVCacheMetricsFactory.THROTTLED;
-                                        if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKeys);
                                         return null;
                                     }
-                                } catch(EVCacheException ex) {
-                                    if(throwExc) throw ex;
-                                    status = EVCacheMetricsFactory.THROTTLED;
-                                    return null;
                                 }
+                                tries++;
+                                retMap = getBulkData(fbClient, evcKeys, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
+                                if (log.isDebugEnabled() && shouldLog())
+                                    log.debug("Fallback for APP " + _appName + ", key [" + evcKeys + (log.isTraceEnabled() ? "], Value [" + retMap : "") + "], zone : " + fbClient.getZone());
+                                if (retMap != null && !retMap.isEmpty()) break;
                             }
-                            tries++;
-                            retMap = getBulkData(fbClient, evcKeys, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
-                            if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + evcKeys + (log.isTraceEnabled() ? "], Value [" + retMap : "") + "], zone : " + fbClient.getZone());
-                            if (retMap != null && !retMap.isEmpty()) break;
+                            //increment("BULK-FULL_RETRY-" + ((retMap == null || retMap.isEmpty()) ? "MISS" : "HIT"));
                         }
-                        //increment("BULK-FULL_RETRY-" + ((retMap == null || retMap.isEmpty()) ? "MISS" : "HIT"));
-                    }
-                } else if (retMap != null && keys.size() > retMap.size() && _bulkPartialZoneFallbackFP.get()) {
-                    final int initRetrySize = keys.size() - retMap.size();
-                    List<EVCacheKey> retryEVCacheKeys = new ArrayList<EVCacheKey>(initRetrySize);
-                    for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext();) {
-                        final EVCacheKey key = keysItr.next();
-                        if (!retMap.containsKey(key)) {
-                            retryEVCacheKeys.add(key);
+                    } else if (retMap != null && keys.size() > retMap.size() && _bulkPartialZoneFallbackFP.get()) {
+                        final int initRetrySize = keys.size() - retMap.size();
+                        List<EVCacheKey> retryEVCacheKeys = new ArrayList<EVCacheKey>(initRetrySize);
+                        for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext(); ) {
+                            final EVCacheKey key = keysItr.next();
+                            if (!retMap.containsKey(key)) {
+                                retryEVCacheKeys.add(key);
+                            }
                         }
-                    }
 
-                    fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
-                    if (fbClients != null && !fbClients.isEmpty()) {
-                        for (int ind = 0; ind < fbClients.size(); ind++) {
-                            final EVCacheClient fbClient = fbClients.get(ind);
-                            if (event != null) {
-                                try {
-                                    if (shouldThrottle(event)) {
+                        fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
+                        if (fbClients != null && !fbClients.isEmpty()) {
+                            for (int ind = 0; ind < fbClients.size(); ind++) {
+                                final EVCacheClient fbClient = fbClients.get(ind);
+                                if (event != null) {
+                                    try {
+                                        if (shouldThrottle(event)) {
+                                            status = EVCacheMetricsFactory.THROTTLED;
+                                            if (throwExc)
+                                                throw new EVCacheException("Request Throttled for app " + _appName + " & keys " + retryEVCacheKeys);
+                                            return null;
+                                        }
+                                    } catch (EVCacheException ex) {
                                         status = EVCacheMetricsFactory.THROTTLED;
-                                        if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & keys " + retryEVCacheKeys);
+                                        if (throwExc) throw ex;
                                         return null;
                                     }
-                                } catch(EVCacheException ex) {
-                                    status = EVCacheMetricsFactory.THROTTLED;
-                                    if(throwExc) throw ex;
-                                    return null;
                                 }
-                            }
-                            tries++;
+                                tries++;
 
-                            final Map<EVCacheKey, T> fbRetMap = getBulkData(fbClient, retryEVCacheKeys, tc, false, hasZF);
-                            if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + retryEVCacheKeys + "], Fallback Server Group : " + fbClient .getServerGroup().getName());
-                            for (Map.Entry<EVCacheKey, T> i : fbRetMap.entrySet()) {
-                                retMap.put(i.getKey(), i.getValue());
-                                if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + i.getKey() + (log.isTraceEnabled() ? "], Value [" + i.getValue(): "]"));
-                            }
-                            if (retryEVCacheKeys.size() == fbRetMap.size()) break;
-                            if (ind < fbClients.size()) {
-                                retryEVCacheKeys = new ArrayList<EVCacheKey>(keys.size() - retMap.size());
-                                for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext();) {
-                                    final EVCacheKey key = keysItr.next();
-                                    if (!retMap.containsKey(key)) {
-                                        retryEVCacheKeys.add(key);
+                                final Map<EVCacheKey, T> fbRetMap = getBulkData(fbClient, retryEVCacheKeys, tc, false, hasZF);
+                                if (log.isDebugEnabled() && shouldLog())
+                                    log.debug("Fallback for APP " + _appName + ", key [" + retryEVCacheKeys + "], Fallback Server Group : " + fbClient.getServerGroup().getName());
+                                for (Map.Entry<EVCacheKey, T> i : fbRetMap.entrySet()) {
+                                    retMap.put(i.getKey(), i.getValue());
+                                    if (log.isDebugEnabled() && shouldLog())
+                                        log.debug("Fallback for APP " + _appName + ", key [" + i.getKey() + (log.isTraceEnabled() ? "], Value [" + i.getValue() : "]"));
+                                }
+                                if (retryEVCacheKeys.size() == fbRetMap.size()) break;
+                                if (ind < fbClients.size()) {
+                                    retryEVCacheKeys = new ArrayList<EVCacheKey>(keys.size() - retMap.size());
+                                    for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext(); ) {
+                                        final EVCacheKey key = keysItr.next();
+                                        if (!retMap.containsKey(key)) {
+                                            retryEVCacheKeys.add(key);
+                                        }
                                     }
                                 }
                             }
                         }
+                        if (log.isDebugEnabled() && shouldLog() && retMap.size() == keys.size())
+                            log.debug("Fallback SUCCESS for APP " + _appName + ",  retMap [" + retMap + "]");
                     }
-                    if (log.isDebugEnabled() && shouldLog() && retMap.size() == keys.size()) log.debug("Fallback SUCCESS for APP " + _appName + ",  retMap [" + retMap + "]");
                 }
             }
 
