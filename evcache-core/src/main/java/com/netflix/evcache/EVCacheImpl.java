@@ -2289,20 +2289,25 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
     }
 
-    private <T> CompletableFuture<EVCacheBulkDataDto<T>> handleBulkInMemory(Collection<String> keys, Transcoder<T> tc) throws ExecutionException, InterruptedException {
-        final Map<String, T> decanonicalR = new HashMap<String, T>((keys.size() * 4) / 3 + 1);
-        final List<EVCacheKey> evcKeys = new ArrayList<EVCacheKey>();
+    private <T> EVCacheBulkDataDto<T> handleBulkInMemory(Collection<String> keys,
+                                                         Transcoder<T> tc,
+                                                         Map<String, T> decanonicalR,
+                                                         List<EVCacheKey> evcKeys) throws Exception {
+        //final Map<String, T> decanonicalR = new HashMap<String, T>((keys.size() * 4) / 3 + 1);
+        //final List<EVCacheKey> evcKeys = new ArrayList<EVCacheKey>();
         for (String k : keys) {
             final EVCacheKey evcKey = getEVCacheKey(k);
-            CompletableFuture<T> value = getAsyncInMemory(evcKey, tc);
-            if(value.isCompletedExceptionally()) {
-                evcKeys.add(evcKey);
+            T value = getInMemory(evcKey, tc);
+            if (value != null) {
+                decanonicalR.put(evcKey.getKey(), value);
+                if (log.isDebugEnabled() && shouldLog())
+                    log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : "
+                        + evcKey + (log.isTraceEnabled() ? "; value : " + value : ""));
             } else {
-                decanonicalR.put(evcKey.getKey(), value.get());
-                if (log.isDebugEnabled() && shouldLog()) log.debug("Value retrieved from inmemory cache for APP " + _appName + ", key : " + evcKey + (log.isTraceEnabled() ? "; value : " + value : ""));
+                evcKeys.add(evcKey);
             }
         }
-        return CompletableFuture.completedFuture(new EVCacheBulkDataDto<>(decanonicalR, evcKeys));
+        return new EVCacheBulkDataDto<>(decanonicalR, evcKeys);
     }
 
     public <T> CompletableFuture<Map<String, T>> getBulkCompletableFuture(String... keys) throws ExecutionException, InterruptedException {
