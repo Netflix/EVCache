@@ -97,6 +97,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private final Property<Integer> maxReadDuration, maxWriteDuration;
     private final Property<Boolean> clientReadRetry;
     private final Property<Boolean> clientWriteToAllReplicas;
+    private final Property<Boolean> cacheWarmerRouterConnectionEnabled;
+    private final Property<String> cacheWarmerKeyPrefix;
 
     protected final EVCacheClientPoolManager _poolManager;
     private final Map<String, Timer> timerMap = new ConcurrentHashMap<String, Timer>();
@@ -173,12 +175,20 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
         this.clientReadRetry = propertyRepository.get(appName + ".router.client.read.shouldRetry", Boolean.class).orElse(true);
         this.clientWriteToAllReplicas = propertyRepository.get(appName + ".router.client.write.shouldWriteToAllReplicas", Boolean.class).orElse(true);
-
+        this.cacheWarmerRouterConnectionEnabled = propertyRepository.get(appName + ".router.cachewarmer.connection.enabled", Boolean.class).orElse(false);
+        this.cacheWarmerKeyPrefix = propertyRepository.get(appName + ".router.cachewarmer.key.prefix", String.class).orElse("/cachewarmer/");
         _pool.pingServers();
 
         setupMonitoring();
     }
 
+    protected Boolean isCacheWarmerRouterConnectionEnabled() {
+        return cacheWarmerRouterConnectionEnabled.get();
+    }
+
+    protected String getCacheWarmerKeyPrefix() {
+        return cacheWarmerKeyPrefix.get();
+    }
     private void setupMonitoring() {
         try {
             final ObjectName mBeanName = ObjectName.getInstance("com.netflix.evcache:Group=" + _appName
@@ -2212,7 +2222,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         return _timeToLive;
     }
 
-    private EVCacheClient[] getClientsForWrite() {
+    protected EVCacheClient[] getClientsForWrite() {
         EVCacheClient[] clients;
         if (clientWriteToAllReplicas.get()) {
             clients = _pool.getEVCacheClientForWrite();

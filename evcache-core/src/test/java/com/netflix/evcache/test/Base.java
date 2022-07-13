@@ -8,6 +8,8 @@ import java.util.Properties;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import com.netflix.evcache.EVCacheInternal;
+import net.spy.memcached.CachedData;
 import org.apache.log4j.Appender;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.ConsoleAppender;
@@ -129,6 +131,16 @@ public abstract class Base  {
         String val = "val_add_"+System.currentTimeMillis();
         String key = "key_" + i;
         boolean status = gCache.add(key, val, null, 60 * 60);
+        if(log.isDebugEnabled()) log.debug("ADD : key : " + key + "; success = " + status);
+        return status;
+    }
+
+    public boolean internalAdd(int i, EVCacheInternal gCache) throws Exception {
+        //String val = "This is a very long value that should work well since we are going to use compression on it. blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah val_"+i;
+        String val = "val_add_"+System.currentTimeMillis();
+        String key = "key_" + i;
+        EVCacheLatch latch = gCache.addOrSetToWriteOnly(true, key, new CachedData(1, val.getBytes(), 255),  60 * 60, null );
+        boolean status = latch.await(1000, TimeUnit.MILLISECONDS);
         if(log.isDebugEnabled()) log.debug("ADD : key : " + key + "; success = " + status);
         return status;
     }

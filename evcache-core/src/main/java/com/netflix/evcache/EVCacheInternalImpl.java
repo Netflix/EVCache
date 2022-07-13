@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
     private static final Logger log = LoggerFactory.getLogger(EVCacheInternalImpl.class);
 
+
     public EVCacheItem<CachedData> metaGet(String key, Transcoder<CachedData> tc, boolean isOriginalKeyHashed) throws EVCacheException {
         return this.metaGetInternal(key, tc, isOriginalKeyHashed);
     }
@@ -130,7 +131,18 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
     }
 
     public EVCacheLatch addOrSetToWriteOnly(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy) throws EVCacheException {
-        EVCacheClient[] clients = _pool.getWriteOnlyEVCacheClients();
+        EVCacheClient[] clients;
+        if (isCacheWarmerRouterConnectionEnabled()) {
+            EVCacheClient client = _pool.getEVCacheClientForRead();
+            if (client == null) {
+                clients = new EVCacheClient[]{};
+            } else {
+                clients = new EVCacheClient[]{client};
+            }
+            key = getCacheWarmerKeyPrefix() + key;
+        } else {
+            clients = _pool.getWriteOnlyEVCacheClients();
+        }
         if (replaceItem)
             return set(key, value, null, timeToLive, policy, clients, 0);
         else

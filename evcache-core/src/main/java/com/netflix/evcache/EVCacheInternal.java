@@ -74,4 +74,13 @@ public interface EVCacheInternal extends EVCache {
             return new EVCacheInternalImpl(appName, cachePrefix, ttl, transcoder, serverGroupRetry, enableExceptionThrowing, poolManager);
         }
     }
+
+    public class BuilderInternal  extends EVCache.Builder {
+        public BuilderInternal() {
+            super();
+        }
+        protected EVCacheInternalImpl newImpl(String appName, String cachePrefix, int ttl, Transcoder<?> transcoder, boolean serverGroupRetry, boolean enableExceptionThrowing, EVCacheClientPoolManager poolManager) {
+            return new EVCacheInternalImpl(appName, cachePrefix, ttl, transcoder, serverGroupRetry, enableExceptionThrowing, poolManager);
+        }
+    }
 }
