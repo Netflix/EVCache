@@ -597,15 +597,15 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         StringBuilder status = new StringBuilder(EVCacheMetricsFactory.SUCCESS);
         StringBuilder cacheOperation = new StringBuilder(EVCacheMetricsFactory.YES);
-        AtomicInteger tries = new AtomicInteger(1);
         final boolean hasZF = hasZoneFallback();
+        RetryCount retryCount = new RetryCount();
         boolean throwEx = !hasZF && throwExc;
-        return getAsyncData(client, evcKey, tc, throwEx, hasZF)
-                .thenCompose(data -> handleRetry(data, evcKey, tc, client, hasZF, throwExc, event))
+        return getAsyncData(client, evcKey, tc)
+                .thenCompose(data -> handleRetry(data, evcKey, tc, client, hasZF, throwExc, event, retryCount))
                 .handle((data, ex) -> {
                     if (ex != null) {
                         handleMissData(event, evcKey, client, cacheOperation);
-                        handleFinally(data, status, tries, client, cacheOperation, start, Call.COMPLETABLE_FUTURE_GET);
+                        handleFinally(data, status, retryCount.get(), client, cacheOperation, start, Call.COMPLETABLE_FUTURE_GET);
                         handleException(ex, event);
                         if (throwEx) {
                             throw new RuntimeException(ex);
@@ -613,7 +613,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                             return null;
                         }
                     } else {
-                        handleFinally(data, status, tries, client, cacheOperation, start, Call.COMPLETABLE_FUTURE_GET);
+                        handleFinally(data, status, retryCount.get(), client, cacheOperation, start, Call.COMPLETABLE_FUTURE_GET);
                         handleData(data, event, evcKey, client, cacheOperation);
                         return data;
                     }
@@ -672,7 +672,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
     private <T> T handleFinally(T data,
                                 StringBuilder status,
-                                AtomicInteger tries,
+                                Integer tries,
                                 EVCacheClient client,
                                 StringBuilder cacheOperation,
                                 Long start,
@@ -682,26 +682,32 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 EVCacheMetricsFactory.READ,
                 cacheOperation.toString(),
                 status.toString(),
-                tries.get(),
+                tries,
                 maxReadDuration.get(),
                 client.getServerGroup())
                 .record(duration, TimeUnit.MILLISECONDS);
         if (log.isDebugEnabled() && shouldLog())
-            log.debug("GET : APP " + _appName + ", Took " + duration + " milliSec.");
+            log.debug("GET ASYNC : APP " + _appName + ", Took " + duration + " milliSec.");
         return data;
     }
 
     private void handleException(Throwable ex, EVCacheEvent event) {
-        if (ex.getCause() instanceof net.spy.memcached.internal.CheckedOperationTimeoutException) {
-            if (event != null) {
-                event.setStatus(EVCacheMetricsFactory.TIMEOUT);
-                eventError(event, ex);
+        if (ex.getCause() instanceof  RuntimeException) {
+            Throwable runTimeCause = ex.getCause();
+            if (runTimeCause.getCause() instanceof ExecutionException) {
+                Throwable executionExceptionCause = runTimeCause.getCause();
+                if (executionExceptionCause.getCause() instanceof net.spy.memcached.internal.CheckedOperationTimeoutException) {
+                    if (event != null) {
+                        event.setStatus(EVCacheMetricsFactory.TIMEOUT);
+                        eventError(event, ex);
+                    }
+                }
+                return;
             }
-        } else {
-            if (event != null) {
-                event.setStatus(EVCacheMetricsFactory.ERROR);
-                eventError(event, ex);
-            }
+        }
+        if (event != null) {
+            event.setStatus(EVCacheMetricsFactory.ERROR);
+            eventError(event, ex);
         }
     }
 
@@ -709,7 +715,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         cacheOperation.replace(0, cacheOperation.length(), EVCacheMetricsFactory.NO);
         if (event != null) event.setAttribute("status", "GMISS");
         if (log.isInfoEnabled() && shouldLog())
-            log.info("GET : APP " + _appName + " ; cache miss for key : " + evcKey);
+            log.info("GET ASYNC : APP " + _appName + " ; cache miss for key : " + evcKey);
         endEvent(null, evcKey, client, event);
     }
 
@@ -724,34 +730,31 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     private <T> CompletableFuture<T> handleRetries(List<EVCacheClient> fbClients,
-                                                        int fbClientIndex,
-                                                        EVCacheEvent event,
-                                                        EVCacheKey evcKey,
-                                                        Transcoder<T> tc,
-                                                        boolean throwExc,
-                                                        boolean throwEx,
-                                                        boolean hasZF) {
-        CompletableFuture<T> future = getAsyncData(fbClientIndex,
-                fbClients.size(),
+                                                   int fbClientIndex,
+                                                   EVCacheEvent event,
+                                                   EVCacheKey evcKey,
+                                                   Transcoder<T> tc,
+                                                   RetryCount retryCount) {
+        if (fbClientIndex >= fbClients.size()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        log.debug("searching key in the server {}" , fbClients.get(fbClientIndex).getServerGroup().getName());
+        CompletableFuture<T> future = getAsyncData(
                 fbClients.get(fbClientIndex),
                 event,
                 evcKey,
-                tc,
-                throwEx,
-                throwExc,
-                hasZF);
+                tc);
         int nextIndex = fbClientIndex + 1;
-        return nextIndex <= fbClients.size() ?
-                future.thenApply(s -> s != null ?
-                                handleSuccessCompletion(s, evcKey, fbClients, fbClientIndex) :
-                                handleRetries(fbClients, nextIndex, event, evcKey, tc, throwExc, throwEx, hasZF))
-                        .exceptionally(t -> handleRetries(fbClients, nextIndex, event, evcKey, tc, throwExc, throwEx, hasZF))
-                        .thenCompose(Function.identity())
-                : CompletableFuture.completedFuture(null);
+        retryCount.incr();
+        return future.thenApply(s -> s != null ?
+                        handleSuccessCompletion(s, evcKey, fbClients, fbClientIndex, retryCount) :
+                        handleRetries(fbClients, nextIndex, event, evcKey, tc, retryCount))
+                .exceptionally(t -> handleRetries(fbClients, nextIndex, event, evcKey, tc, retryCount))
+                .thenCompose(Function.identity());
     }
 
-    public <T> CompletableFuture<T> handleSuccessCompletion(T s, EVCacheKey key, List<EVCacheClient> fbClients, int index) {
-        log.debug("fetched the key {} from server {}", key.getKey(), fbClients.get(index).getServerGroup().getName());
+    public <T> CompletableFuture<T> handleSuccessCompletion(T s, EVCacheKey key, List<EVCacheClient> fbClients, int index, RetryCount retryCount) {
+        log.debug("fetched the key {} from server {} and retry count {}", key.getKey(), fbClients.get(index).getServerGroup().getName(), retryCount.get());
         return CompletableFuture.completedFuture(s);
     }
 
@@ -761,12 +764,11 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                                  EVCacheClient client,
                                                  boolean hasZF,
                                                  boolean throwExc,
-                                                 EVCacheEvent event) {
-        boolean throwEx = !hasZF && throwExc;
-
+                                                 EVCacheEvent event,
+                                                 RetryCount retryCount) {
         if (data == null && hasZF) {
             final List<EVCacheClient> fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
-            return handleRetries(fbClients, 0, event, evcKey, tc, throwExc, throwEx, hasZF);
+            return handleRetries(fbClients, 0, event, evcKey, tc, retryCount);
         }
         return CompletableFuture.completedFuture(data);
     }
@@ -1208,58 +1210,43 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
     }
 
-    private <T> CompletableFuture<T> getAsyncData(int index,
-                                                  int size,
-                                                  EVCacheClient client,
+    private <T> CompletableFuture<T> getAsyncData(EVCacheClient client,
                                                   EVCacheEvent event,
-                                                  EVCacheKey key, Transcoder<T> tc,
-                                                  boolean throwEx,
-                                                  boolean throwExc,
-                                                  boolean hasZF) {
-
-        if (index >= size - 1) throwEx = throwExc;
+                                                  EVCacheKey key,
+                                                  Transcoder<T> tc) {
         if (event != null) {
             if (shouldThrottle(event)) {
                 CompletableFuture<T> completableFuture = new CompletableFuture<>();
-                if (throwExc){
-                    completableFuture.completeExceptionally(new EVCacheException("Request Throttled for app " + _appName + " & key " + key));
-                } else {
-                    completableFuture.complete(null);
-                }
-                 return completableFuture;
+                completableFuture.completeExceptionally(new EVCacheException("Request Throttled for app " + _appName + " & key " + key));
+                return completableFuture;
             }
         }
-        return getAsyncData(client, key, tc, throwEx, hasZF);
+        return getAsyncData(client, key, tc);
     }
 
     private <T> CompletableFuture<T> getAsyncData(EVCacheClient client,
                                                   EVCacheKey evcKey,
-                                                  Transcoder<T> tc,
-                                                  boolean throwException,
-                                                  boolean hasZF) {
+                                                  Transcoder<T> tc) {
         final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
         String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder());
         String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
         CompletableFuture<T> result;
         if (hashKey != null) {
-            result = client.getAsync(hashKey, evcacheValueTranscoder, throwException, hasZF)
+            result = client.getAsync(hashKey, evcacheValueTranscoder)
                     .thenApply(val -> getData(transcoder, canonicalKey, val))
-                    .exceptionally(ex -> handleClientException(hashKey, (RuntimeException) ex, throwException, hasZF));
+                    .exceptionally(ex -> handleClientException(hashKey,  ex));
 
         } else {
-            result = client.getAsync(canonicalKey, transcoder, throwException, hasZF)
-                    .exceptionally(ex -> handleClientException(canonicalKey, (RuntimeException) ex, throwException, hasZF));
+            result = client.getAsync(canonicalKey, transcoder)
+                    .exceptionally(ex -> handleClientException(canonicalKey, ex));
         }
         return result;
     }
 
-    private <T> T handleClientException(String evcKey, RuntimeException ex, boolean throwException, boolean hasZF) throws RuntimeException {
-        if (!throwException || hasZF) {
-            if (log.isDebugEnabled() && shouldLog())
-                log.debug("Exception while getting data for APP " + _appName + ", key : " + evcKey + "; hasZF : " + hasZF, ex);
-            return null;
-        }
-        throw ex;
+    private <T> T handleClientException(String evcKey, Throwable ex) {
+        if (log.isDebugEnabled() && shouldLog())
+            log.debug("Exception while getting data for APP " + _appName + ", key : " + evcKey + ":" +  ex);
+        throw sneakyThrow(ex);
     }
 
     private <T> T getData(Transcoder<T> transcoder, String canonicalKey, Object obj) {
@@ -2289,12 +2276,23 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
     }
 
+    private <T> CompletableFuture<EVCacheBulkDataDto<T>> handleBulkInMemory(Collection<String> keys, Transcoder<T> tc) {
+        final Map<String, T> decanonicalR = new HashMap<>((keys.size() * 4) / 3 + 1);
+        final List<EVCacheKey> evcKeys = new ArrayList<>();
+        CompletableFuture<EVCacheBulkDataDto<T>> promise = new CompletableFuture<>();
+        try {
+            EVCacheBulkDataDto<T> data = handleBulkInMemory(keys, tc, decanonicalR, evcKeys);
+            promise.complete(data);
+        } catch (Exception e) {
+            promise.completeExceptionally(e);
+        }
+        return promise;
+    }
+
     private <T> EVCacheBulkDataDto<T> handleBulkInMemory(Collection<String> keys,
                                                          Transcoder<T> tc,
                                                          Map<String, T> decanonicalR,
                                                          List<EVCacheKey> evcKeys) throws Exception {
-        //final Map<String, T> decanonicalR = new HashMap<String, T>((keys.size() * 4) / 3 + 1);
-        //final List<EVCacheKey> evcKeys = new ArrayList<EVCacheKey>();
         for (String k : keys) {
             final EVCacheKey evcKey = getEVCacheKey(k);
             T value = getInMemory(evcKey, tc);
@@ -2331,7 +2329,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
 
         final boolean throwExc = doThrowException();
-        EVCacheClient client = null;
+        EVCacheClient client = _pool.getEVCacheClientForRead();;
         if (client == null) {
             return null;
         }

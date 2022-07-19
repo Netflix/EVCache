@@ -861,10 +861,10 @@ public class EVCacheClient {
         return evcacheMemcachedClient.decr(key, by, defaultVal, timeToLive);
     }
 
-    public <T> CompletableFuture<T> getAsync(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF) {
+    public <T> CompletableFuture<T> getAsync(String key, Transcoder<T> tc) {
             return evcacheMemcachedClient
                     .asyncGet(key, tc, null)
-                    .getAsync(readTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+                    .getAsync(readTimeout.get(), TimeUnit.MILLISECONDS);
     }
 
     public <T> T get(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF, boolean chunked) throws Exception {

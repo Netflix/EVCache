@@ -223,8 +223,9 @@ public abstract class Base  {
         String key = "key_" + i;
         CompletableFuture<String> value = gCache.<String>getAsync(key);
         String val =  value.get();
-        if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
-        if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + val);
+        if(log.isDebugEnabled()) log.debug("get : key : " + key
+                + " completableFuture value = " + value
+                + " actual value = " + val);
         return val;
     }
 

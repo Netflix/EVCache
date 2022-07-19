@@ -414,5 +414,4 @@ public final class EVCacheMetricsFactory {
     public static final String META_GET_OPERATION               = "M_GET";
     public static final String META_SET_OPERATION               = "M_SET";
     public static final String META_DEBUG_OPERATION             = "M_DEBUG";
-
 }
