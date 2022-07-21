@@ -173,8 +173,13 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         );
     }
 
-    public CompletableFuture<Map<String, T>> getAsyncSome(long timeout, TimeUnit units, boolean throwException) {
-        CompletableFuture<Map<String, T>> future = new CompletableFuture<>();
+    public <U> CompletableFuture<U> makeFutureWithTimeout(long timeout, TimeUnit units) {
+        final CompletableFuture<U> future = new CompletableFuture<>();
+        return EVCacheOperationFuture.withTimeout(future, timeout, units);
+    }
+
+    public CompletableFuture<Map<String, T>> getAsyncSome(long timeout, TimeUnit units) {
+        CompletableFuture<Map<String, T>> future = makeFutureWithTimeout(timeout, units);
         doAsyncGetSome(future);
         return future;
     }
