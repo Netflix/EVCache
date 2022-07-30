@@ -135,7 +135,7 @@ public abstract class Base  {
 
     public boolean insert(int i, EVCache gCache) throws Exception {
         //String val = "This is a very long value that should work well since we are going to use compression on it. blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah val_"+i;
-        String val = "val_"+i;
+        String val = "val_01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"+i;
         String key = "key_" + i;
         Future<Boolean>[] status = gCache.set(key, val, 60 * 60);
         for(Future<Boolean> s : status) {
@@ -221,12 +221,19 @@ public abstract class Base  {
 
     public String completableFutureGet(int i, EVCache gCache) throws Exception {
         String key = "key_" + i;
-        CompletableFuture<String> value = gCache.<String>getAsync(key);
+        gCache.<String>getAsync(key).handle((data, ex) -> {
+            System.out.println(data);
+            return data;
+        });
+        /*
         String val =  value.get();
         if(log.isDebugEnabled()) log.debug("get : key : " + key
                 + " completableFuture value = " + value
                 + " actual value = " + val);
         return val;
+
+         */
+        return null;
     }
 
     public String getWithPolicy(int i, EVCache gCache, Policy policy) throws Exception {

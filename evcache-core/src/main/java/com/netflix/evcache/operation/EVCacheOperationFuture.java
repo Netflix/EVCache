@@ -274,6 +274,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                     (r, exp) -> {
                         if (exp == null) {
                             scheduledTimeout.cancel(false);
+                            log.debug("completing the future");
                             next.complete(null);
                         }
                     });
@@ -301,7 +302,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     }
 
     public CompletableFuture<T> getAsync(long timeout, TimeUnit units) {
-        CompletableFuture<T> future = makeFutureWithTimeout(timeout, units);
+        CompletableFuture<T> future = new CompletableFuture<>();
         doAsyncGet(future);
         return future.handle((data, ex) -> {
             if (ex != null) {
