@@ -302,7 +302,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     }
 
     public CompletableFuture<T> getAsync(long timeout, TimeUnit units) {
-        CompletableFuture<T> future = new CompletableFuture<>();
+        CompletableFuture<T> future = makeFutureWithTimeout(timeout, units);
         doAsyncGet(future);
         return future.handle((data, ex) -> {
             if (ex != null) {
@@ -312,15 +312,17 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         });
     }
 
-    private void doAsyncGet(CompletableFuture<T> cf) {
-        this.addListener((EVCacheGetOperationListener<T>) future -> {
+    private EVCacheGetOperationListener<T> doAsyncGet(CompletableFuture<T> cf) {
+        EVCacheGetOperationListener<T> listener = future -> {
             try {
                 T result = future.get();
                 cf.complete(result);
             } catch (Exception t) {
                 cf.completeExceptionally(t);
             }
-        });
+        };
+        this.addListener(listener);
+        return listener;
     }
 
     public Single<T> get(long duration, TimeUnit units, boolean throwException, boolean hasZF, Scheduler scheduler) {

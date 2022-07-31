@@ -185,7 +185,7 @@ public class SimpleEVCacheTest extends Base {
 
     @Test(dependsOnMethods = { "testInsert" })
     public void testCompletableFutureGet() throws Exception {
-        for (int i = 0; i < 1000000; i++) {
+        for (int i = 0; i < 10000000; i++) {
             final String val = completableFutureGet(i, evCache);
             //assertNotNull(val);
         }

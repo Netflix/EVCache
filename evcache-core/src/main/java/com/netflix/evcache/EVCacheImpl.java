@@ -577,21 +577,22 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     private <T> CompletableFuture<T> doAsyncGet(EVCacheKey evcKey, Transcoder<T> tc)  {
-        CompletableFuture<T> completableFuture = new CompletableFuture<>();
+        CompletableFuture<T> errorFuture = new CompletableFuture<>();
         final boolean throwExc = doThrowException();
         //Building the client
-        EVCacheClient client = buildEvCacheClient(throwExc, Call.COMPLETABLE_FUTURE_GET, completableFuture);
-        if (completableFuture.isCompletedExceptionally() || client == null) {
+        EVCacheClient client = buildEvCacheClient(throwExc, Call.COMPLETABLE_FUTURE_GET, errorFuture);
+        if (errorFuture.isCompletedExceptionally() || client == null) {
             if (client == null ) {
-                completableFuture.complete(null);
+                errorFuture.complete(null);
             }
-            return completableFuture;
+            return errorFuture;
         }
         //Building the start event
-        EVCacheEvent event = buildAndStartEvent(client, Collections.singletonList(evcKey), throwExc, completableFuture);
-        if (completableFuture.isCompletedExceptionally()) {
-            return completableFuture;
+        EVCacheEvent event = buildAndStartEvent(client, Collections.singletonList(evcKey), throwExc, errorFuture);
+        if (errorFuture.isCompletedExceptionally()) {
+            return errorFuture;
         }
+        errorFuture.cancel(false);
 
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         StringBuilder status = new StringBuilder(EVCacheMetricsFactory.SUCCESS);
@@ -1236,17 +1237,16 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
         String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder());
         String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
-        CompletableFuture<T> result;
+
         if (hashKey != null) {
-            result = client.getAsync(hashKey, evcacheValueTranscoder)
+            return client.getAsync(hashKey, evcacheValueTranscoder)
                     .thenApply(val -> getData(transcoder, canonicalKey, val))
                     .exceptionally(ex -> handleClientException(hashKey,  ex));
 
         } else {
-            result = client.getAsync(canonicalKey, transcoder)
+            return client.getAsync(canonicalKey, transcoder)
                     .exceptionally(ex -> handleClientException(canonicalKey, ex));
         }
-        return result;
     }
 
     private <T> T handleClientException(String evcKey, Throwable ex) {
