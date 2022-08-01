@@ -235,23 +235,42 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     static <T> CompletableFuture<T> withTimeout(CompletableFuture<T> future,
                                                 long timeout,
                                                 TimeUnit unit) {
-        // [DABP-2005] split timeout to 5 slots to not timeout during GC.
-        long splitTimeout = Math.max(1, timeout / 5);
+        int timeoutSlots = getTimeoutSlots((int) timeout);
+        // [DABP-2005] split timeout to timeoutSlots slots to not timeout during GC.
+        long splitTimeout = Math.max(1, timeout / timeoutSlots);
         CompletableFuture<Void> chain = CompletableFuture.completedFuture(null);
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < timeoutSlots; i++) {
             final int j = i;
-            chain = chain.thenCompose(unused -> getNext(future, j, timeout, splitTimeout, unit));
+            chain = chain.thenCompose(unused -> getNext(future, j, timeout, splitTimeout, unit, timeoutSlots));
         }
         return future;
     }
 
-    private static<T>  CompletableFuture<Void> getNext(CompletableFuture<T> future, final int j, long timeout, long splitTimeout, TimeUnit unit) {
+    private static int getTimeoutSlots(int timeout) {
+        int timeoutSlots;
+        int val = timeout /10;
+        if (val == 0 ) {
+            timeoutSlots = 1;
+        } else if (val >= 1 && val < 5) {
+            timeoutSlots = val;
+        } else {
+            timeoutSlots = 5;
+        }
+        return timeoutSlots;
+    }
+
+    private static<T>  CompletableFuture<Void> getNext(CompletableFuture<T> future,
+                                                       final int j,
+                                                       long timeout,
+                                                       long splitTimeout,
+                                                       TimeUnit unit,
+                                                       int timeoutSlots) {
         CompletableFuture<Void> next = new CompletableFuture<>();
         if (future.isDone()) {
             next.complete(null);
         } else {
             ScheduledFuture<?> scheduledTimeout;
-            if (j < 4) {
+            if (j < timeoutSlots - 1) {
                 scheduledTimeout =
                         LazySharedExecutor.executor.schedule(
                                 () -> {
