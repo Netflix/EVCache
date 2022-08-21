@@ -256,8 +256,8 @@ public abstract class Base  {
         return value;
     }
 
-    public Map<String, String> getCompletableBulk(String keys[], EVCache gCache) throws Exception {
-        final CompletableFuture<Map<String, String>> value = gCache.<String>getBulkCompletableFuture(keys);
+    public Map<String, String> getAsyncBulk(String keys[], EVCache gCache) throws Exception {
+        final CompletableFuture<Map<String, String>> value = gCache.<String>getAsyncBulk(keys);
         if(log.isDebugEnabled()) log.debug("getBulk : keys : " + Arrays.toString(keys) + "; values = " + value);
         return value.get();
     }

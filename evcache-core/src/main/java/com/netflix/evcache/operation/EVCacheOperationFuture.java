@@ -282,6 +282,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                 scheduledTimeout =
                         LazySharedExecutor.executor.schedule(
                                 () -> {
+                                    if(log.isDebugEnabled()) log.debug("Throwing timeout exception after {} {}", timeout, unit);
                                     future.completeExceptionally(new TimeoutException("Timeout after " + timeout));
                                 },
                                 splitTimeout,
@@ -293,7 +294,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                     (r, exp) -> {
                         if (exp == null) {
                             scheduledTimeout.cancel(false);
-                            log.debug("completing the future");
+                            if(log.isDebugEnabled()) log.debug("completing the future");
                             next.complete(null);
                         }
                     });
@@ -306,15 +307,19 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         return withTimeout(future, timeout, units);
     }
 
-    private CompletableFuture<T> handleTimeoutException() {
+    private void handleTimeoutException() {
+        if(log.isDebugEnabled()) log.debug("handling the timeout in handleTimeoutException");
         MemcachedConnection.opTimedOut(op);
         if (op != null) op.timeOut();
         ExecutionException t = null;
         if (op.isTimedOut()) {
+            if(log.isDebugEnabled()) log.debug("Checked Operation timed out with operation {}.", op);
             t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op));
         } else if (op.isCancelled()) {
+            if(log.isDebugEnabled()) log.debug("Cancelled with operation {}.", op);
             t = new ExecutionException(new CancellationException("Cancelled"));
         } else if (op.hasErrored() ) {
+            if(log.isDebugEnabled()) log.debug("Other exception with operation {}.", op);
             t = new ExecutionException(op.getException());
         }
         throw new RuntimeException(t);
@@ -331,7 +336,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         });
     }
 
-    private EVCacheGetOperationListener<T> doAsyncGet(CompletableFuture<T> cf) {
+    private void doAsyncGet(CompletableFuture<T> cf) {
         EVCacheGetOperationListener<T> listener = future -> {
             try {
                 T result = future.get();
@@ -341,7 +346,6 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
             }
         };
         this.addListener(listener);
-        return listener;
     }
 
     public Single<T> get(long duration, TimeUnit units, boolean throwException, boolean hasZF, Scheduler scheduler) {

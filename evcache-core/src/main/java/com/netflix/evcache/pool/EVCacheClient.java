@@ -862,9 +862,10 @@ public class EVCacheClient {
     }
 
     public <T> CompletableFuture<T> getAsync(String key, Transcoder<T> tc) {
-            return evcacheMemcachedClient
-                    .asyncGet(key, tc, null)
-                    .getAsync(readTimeout.get(), TimeUnit.MILLISECONDS);
+        if(log.isDebugEnabled()) log.debug("fetching data getAsync {}", key);
+        return evcacheMemcachedClient
+                .asyncGet(key, tc, null)
+                .getAsync(readTimeout.get(), TimeUnit.MILLISECONDS);
     }
 
     public <T> T get(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF, boolean chunked) throws Exception {
@@ -985,11 +986,11 @@ public class EVCacheClient {
     }
 
     public <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> _canonicalKeys, Transcoder<T> tc) {
-        final Collection<String> canonicalKeys = validateReadQueueSize(_canonicalKeys, Call.BULK);
+        final Collection<String> canonicalKeys = validateReadQueueSize(_canonicalKeys, Call.COMPLETABLE_FUTURE_GET_BULK);
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
         return evcacheMemcachedClient
                 .asyncGetBulk(canonicalKeys, tc, null)
-                .getAsyncSome(5, TimeUnit.MILLISECONDS);
+                .getAsyncSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS);
 
     }
 

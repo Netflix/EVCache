@@ -7,8 +7,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import javax.annotation.Nullable;
@@ -18,12 +16,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.evcache.EVCacheLatch.Policy;
 import com.netflix.evcache.operation.EVCacheItem;
 import com.netflix.evcache.operation.EVCacheItemMetaData;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
-import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.transcoders.Transcoder;
 import rx.Scheduler;
@@ -70,7 +66,7 @@ import rx.Single;
  * @author smadappa
  */
 public interface EVCache {
-
+    // TODO: Remove Async methods (Project rx) and rename  COMPLETABLE_* with ASYNC_*
     public static enum Call {
         GET, GETL, GET_AND_TOUCH, ASYNC_GET, BULK, SET, DELETE, INCR, DECR, TOUCH, APPEND, PREPEND, REPLACE, ADD, APPEND_OR_ADD, GET_ALL, META_GET, META_SET, META_DEBUG,
         COMPLETABLE_FUTURE_GET, COMPLETABLE_FUTURE_GET_BULK
@@ -475,13 +471,32 @@ public interface EVCache {
      *             any more requests or issues during deserialization or any IO
      *             Related issues
      *
-     *             Note: If the data is replicated by zone, then we can the
+     *             Note: If the data is replicated by zone, then we can get the
      *             value from the zone local to the client. If we cannot find
      *             this value then null is returned. This is transparent to the
      *             users.
      */
     <T> T get(String key) throws EVCacheException;
 
+    /**
+     * Async Retrieve the value for the given key.
+     *
+     * @param key
+     *            key to get. Ensure the key is properly encoded and does not
+     *            contain whitespace or control characters. The max length of the key (including prefix)
+     *            is 250 characters.
+     * @return the Value for the given key from the cache (null if there is
+     *         none).
+     * @throws EVCacheException
+     *             in the rare circumstance where queue is too full to accept
+     *             any more requests or issues during deserialization or any IO
+     *             Related issues
+     *
+     *             Note: If the data is replicated by zone, then we can get the
+     *             value from the zone local to the client. If we cannot find
+     *             this value then null is returned. This is transparent to the
+     *             users.
+     */
     <T> CompletableFuture<T> getAsync(String key) throws EVCacheException;
     /**
      * Retrieve the value for the given key.
@@ -514,7 +529,7 @@ public interface EVCache {
      *             any more requests or issues during deserialization or any IO
      *             Related issues
      *
-     *             Note: If the data is replicated by zone, then we can the
+     *             Note: If the data is replicated by zone, then we can get the
      *             value from the zone local to the client. If we cannot find
      *             this value then null is returned. This is transparent to the
      *             users.
@@ -522,7 +537,7 @@ public interface EVCache {
     <T> T get(String key, Transcoder<T> tc) throws EVCacheException;
 
     /**
-     * Retrieve the value for the given a key using the specified Transcoder for
+     * Async Retrieve the value for the given a key using the specified Transcoder for
      * deserialization.
      *
      * @param key
@@ -538,7 +553,7 @@ public interface EVCache {
      *             any more requests or issues during deserialization or any IO
      *             Related issues
      *
-     *             Note: If the data is replicated by zone, then we can the
+     *             Note: If the data is replicated by zone, then we can get the
      *             value from the zone local to the client. If we cannot find
      *             this value then null is returned. This is transparent to the
      *             users.
@@ -585,7 +600,7 @@ public interface EVCache {
      *             any more requests or issues during deserialization or any IO
      *             Related issues
      *
-     *             Note: If the data is replicated by zone, then we can the
+     *             Note: If the data is replicated by zone, then we can get the
      *             value from the zone local to the client. If we cannot find
      *             this value we retry other zones, if still not found, then null is returned. 
      */
@@ -614,7 +629,7 @@ public interface EVCache {
      *             any more requests or issues during deserialization or any IO
      *             Related issues
      *
-     *             Note: If the data is replicated by zone, then we can the
+     *             Note: If the data is replicated by zone, then we can get the
      *             value from the zone local to the client. If we cannot find
      *             this value then null is returned. This is transparent to the
      *             users.
@@ -628,7 +643,7 @@ public interface EVCache {
      * @param key
      *            key to get. Ensure the key is properly encoded and does not
      *            contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param tc
      *            the Transcoder to deserialize the data
      * @param scheduler
@@ -645,7 +660,7 @@ public interface EVCache {
      * @param key
      *            key to get. Ensure the key is properly encoded and does not
      *            contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param timeToLive
      *            the new expiration of this object i.e. less than 30 days in
      *            seconds or the exact expiry time as UNIX time
@@ -663,7 +678,7 @@ public interface EVCache {
      * @param key
      *            key to get. Ensure the key is properly encoded and does not
      *            contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param timeToLive
      *            the new expiration of this object i.e. less than 30 days in
      *            seconds or the exact expiry time as UNIX time
@@ -684,7 +699,7 @@ public interface EVCache {
      * @param key
      *            the key to get. Ensure the key is properly encoded and does
      *            not contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param timeToLive
      *            the new expiration of this object i.e. less than 30 days in
      *            seconds or the exact expiry time as UNIX time
@@ -702,7 +717,7 @@ public interface EVCache {
      * @param key
      *            the key to get. Ensure the key is properly encoded and does
      *            not contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param timeToLive
      *            the new expiration of this object i.e. less than 30 days in
      *            seconds or the exact expiry time as UNIX time
@@ -722,7 +737,7 @@ public interface EVCache {
      * @param keys
      *            the keys for which we need the values. Ensure each key is properly encoded and does
      *            not contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @return a map of the values (for each value that exists). If the Returned
      *         map contains the key but the value in null then the key does not
      *         exist in the cache. if a key is missing then we were not able to
@@ -734,7 +749,23 @@ public interface EVCache {
      */
     <T> Map<String, T> getBulk(String... keys) throws EVCacheException;
 
-    <T> CompletableFuture<Map<String, T>> getBulkCompletableFuture(String... keys) throws EVCacheException, ExecutionException, InterruptedException;
+    /**
+     * Async Retrieve the value of a set of keys.
+     *
+     * @param keys
+     *            the keys for which we need the values. Ensure each key is properly encoded and does
+     *            not contain whitespace or control characters. The max length of the key (including prefix)
+     *            is 200 characters.
+     * @return a map of the values (for each value that exists). If the Returned
+     *         map contains the key but the value in null then the key does not
+     *         exist in the cache. if a key is missing then we were not able to
+     *         retrieve the data for that key due to some exception
+     * @throws EVCacheException
+     *             in the rare circumstance where queue is too full to accept
+     *             any more requests or issues during deserialization or any IO
+     *             Related issues
+     */
+    <T> CompletableFuture<Map<String, T>> getAsyncBulk(String... keys);
 
     /**
      * Retrieve the value for a set of keys, using a specified Transcoder for
@@ -743,7 +774,7 @@ public interface EVCache {
      * @param keys
      *            keys to which we need the values.Ensure each key is properly encoded and does
      *            not contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param tc
      *            the transcoder to use for deserialization
      * @return a map of the values (for each value that exists). If the Returned
@@ -764,7 +795,7 @@ public interface EVCache {
      * @param keys
      *            The collection of keys for which we need the values. Ensure each key is properly encoded and does
      *            not contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @return a map of the values (for each value that exists). If the Returned
      *         map contains the key but the value in null then the key does not
      *         exist in the cache. if a key is missing then we were not able to
@@ -783,7 +814,7 @@ public interface EVCache {
      * @param keys
      *            The collection of keys for which we need the values. Ensure each key is properly encoded and does
      *            not contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param tc
      *            the transcoder to use for deserialization
      * @return a map of the values (for each value that exists). If the Returned
@@ -804,7 +835,7 @@ public interface EVCache {
      * @param keys
      *            The collection of keys for which we need the values. Ensure each key is properly encoded and does
      *            not contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param tc
      *            the transcoder to use for deserialization
      * @param timeToLive
@@ -830,7 +861,7 @@ public interface EVCache {
      *            the key for which we need the value. Ensure the key is
      *            properly encoded and does not contain whitespace or control
      *            characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @return the Futures containing the Value or null.
      * @throws EVCacheException
      *             in the circumstance where queue is too full to accept any
@@ -850,7 +881,7 @@ public interface EVCache {
      *            the key for which we need the value. Ensure the key is
      *            properly encoded and does not contain whitespace or control
      *            characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param tc
      *            the transcoder to use for deserialization
      * @return the Futures containing the Value or null.
@@ -871,7 +902,7 @@ public interface EVCache {
      *            the key. Ensure the key is
      *            properly encoded and does not contain whitespace or control
      *            characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param by
      *            the amount to increment
      * @param def
@@ -893,7 +924,7 @@ public interface EVCache {
      *            the key. Ensure the key is
      *            properly encoded and does not contain whitespace or control
      *            characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param by
      *            the amount to decrement
      * @param def
@@ -917,7 +948,7 @@ public interface EVCache {
      *            the key under which this object should be appended. Ensure the
      *            key is properly encoded and does not contain whitespace or
      *            control characters.  The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param T
      *            the value to be appended
      * @param tc
@@ -944,7 +975,7 @@ public interface EVCache {
      *            the key under which this object should be appended. Ensure the
      *            key is properly encoded and does not contain whitespace or
      *            control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param T
      *            the value to be appended
      * @param timeToLive
@@ -969,7 +1000,7 @@ public interface EVCache {
      *            the key which this object should be added to. Ensure the
      *            key is properly encoded and does not contain whitespace or
      *            control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param T
      *            the value to be added
      * @param tc
@@ -997,7 +1028,7 @@ public interface EVCache {
      *            the key which this object should be added to. Ensure the
      *            key is properly encoded and does not contain whitespace or
      *            control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param T
      *            the value to be added
      * @param tc
@@ -1029,7 +1060,7 @@ public interface EVCache {
      *            the key to touch.  Ensure the
      *            key is properly encoded and does not contain whitespace or
      *            control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param ttl
      *            the new expiration time in seconds
      *
@@ -1050,7 +1081,7 @@ public interface EVCache {
      *            the key to touch.  Ensure the
      *            key is properly encoded and does not contain whitespace or
      *            control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param ttl
      *            the new expiration time in seconds
      *
@@ -1078,7 +1109,7 @@ public interface EVCache {
      *            the key under which this object should be appended or Added. Ensure the
      *            key is properly encoded and does not contain whitespace or
      *            control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param T
      *            the value to be appended
      * @param tc
@@ -1105,7 +1136,7 @@ public interface EVCache {
      *            the key under which this object should be appended or Added. Ensure the
      *            key is properly encoded and does not contain whitespace or
      *            control characters. The max length of the key (including prefix)
-     *            is 250 characters.
+     *            is 200 characters.
      * @param T
      *            the value to be appended
      * @param tc

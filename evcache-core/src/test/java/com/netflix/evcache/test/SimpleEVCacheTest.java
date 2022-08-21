@@ -228,7 +228,7 @@ public class SimpleEVCacheTest extends Base {
         for (int i = 0; i < keys.length; i++) {
             keys[i] = "key_" + i;
         }
-        Map<String, String> vals = getCompletableBulk(keys, evCache);
+        Map<String, String> vals = getAsyncBulk(keys, evCache);
         assertTrue(!vals.isEmpty());
         for (int i = 0; i < vals.size(); i++) {
             String key = "key_" + i;
