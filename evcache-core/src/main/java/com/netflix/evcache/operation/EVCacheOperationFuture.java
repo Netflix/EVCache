@@ -247,6 +247,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     }
 
     private static int getTimeoutSlots(int timeout) {
+        if(log.isDebugEnabled()) log.debug("Timeout is {}", timeout);
         int timeoutSlots;
         int val = timeout /10;
         if (val == 0 ) {
@@ -256,6 +257,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         } else {
             timeoutSlots = 5;
         }
+        if(log.isDebugEnabled()) log.debug("timeoutSlots is {}", timeoutSlots);
         return timeoutSlots;
     }
 
@@ -274,6 +276,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                 scheduledTimeout =
                         LazySharedExecutor.executor.schedule(
                                 () -> {
+                                    if(log.isDebugEnabled()) log.debug("Completing now for loop {} and timeout slot {}", j, timeoutSlots);
                                     next.complete(null);
                                 },
                                 splitTimeout,
@@ -282,7 +285,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                 scheduledTimeout =
                         LazySharedExecutor.executor.schedule(
                                 () -> {
-                                    if(log.isDebugEnabled()) log.debug("Throwing timeout exception after {} {}", timeout, unit);
+                                    if(log.isDebugEnabled()) log.debug("Throwing timeout exception after {} {} with timeout slot {}", timeout, unit, timeoutSlots);
                                     future.completeExceptionally(new TimeoutException("Timeout after " + timeout));
                                 },
                                 splitTimeout,
