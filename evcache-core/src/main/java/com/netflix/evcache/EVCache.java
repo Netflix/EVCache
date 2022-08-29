@@ -788,6 +788,24 @@ public interface EVCache {
      */
     <T> Map<String, T> getBulk(Transcoder<T> tc, String... keys) throws EVCacheException;
 
+
+    /**
+     * Async Retrieve the value for a set of keys, using a specified Transcoder for
+     * deserialization.
+     *
+     * @param keys
+     *            keys to which we need the values.Ensure each key is properly encoded and does
+     *            not contain whitespace or control characters. The max length of the key (including prefix)
+     *            is 200 characters.
+     * @param tc
+     *            the transcoder to use for deserialization
+     * @return a map of the values (for each value that exists). If the Returned
+     *         map contains the key but the value in null then the key does not
+     *         exist in the cache. if a key is missing then we were not able to
+     *         retrieve the data for that key due to some exception
+     */
+    <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> keys, Transcoder<T> tc);
+
     /**
      * Retrieve the value for the collection of keys, using the default
      * Transcoder for deserialization.

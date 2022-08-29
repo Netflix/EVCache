@@ -2342,7 +2342,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         return this.getAsyncBulk(Arrays.asList(keys), (Transcoder<T>) _transcoder);
     }
 
-    private <T> CompletableFuture<Map<String, T>> getAsyncBulk(final Collection<String> keys, Transcoder<T> tc) {
+    public <T> CompletableFuture<Map<String, T>> getAsyncBulk(final Collection<String> keys, Transcoder<T> tc) {
         if (null == keys) throw new IllegalArgumentException();
         if (keys.isEmpty()) return CompletableFuture.completedFuture(Collections.emptyMap());
         return handleBulkInMemory(keys, tc)
