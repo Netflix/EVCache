@@ -285,6 +285,10 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                 scheduledTimeout =
                         LazySharedExecutor.executor.schedule(
                                 () -> {
+                                    next.complete(null);
+                                    if (future.isDone()) {
+                                        return;
+                                    }
                                     if(log.isDebugEnabled()) log.debug("Throwing timeout exception after {} {} with timeout slot {}", timeout, unit, timeoutSlots);
                                     future.completeExceptionally(new TimeoutException("Timeout after " + timeout));
                                 },
