@@ -760,10 +760,6 @@ public interface EVCache {
      *         map contains the key but the value in null then the key does not
      *         exist in the cache. if a key is missing then we were not able to
      *         retrieve the data for that key due to some exception
-     * @throws EVCacheException
-     *             in the rare circumstance where queue is too full to accept
-     *             any more requests or issues during deserialization or any IO
-     *             Related issues
      */
     <T> CompletableFuture<Map<String, T>> getAsyncBulk(String... keys);
 
@@ -791,7 +787,7 @@ public interface EVCache {
 
     /**
      * Async Retrieve the value for a set of keys, using a specified Transcoder for
-     * deserialization.
+     * deserialization. In Beta testing (To be used by gateway team)
      *
      * @param keys
      *            keys to which we need the values.Ensure each key is properly encoded and does

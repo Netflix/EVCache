@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
+import net.spy.memcached.ops.OperationState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -289,7 +290,10 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                                     if (future.isDone()) {
                                         return;
                                     }
-                                    if(log.isDebugEnabled()) log.debug("Throwing timeout exception after {} {} with timeout slot {}", timeout, unit, timeoutSlots);
+                                    if(log.isDebugEnabled()) log.warn("Throwing timeout exception after {} {} with timeout slot {}",
+                                            timeout,
+                                            unit,
+                                            timeoutSlots);
                                     future.completeExceptionally(new TimeoutException("Timeout after " + timeout));
                                 },
                                 splitTimeout,
@@ -314,22 +318,24 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         return withTimeout(future, timeout, units);
     }
 
-    private void handleTimeoutException() {
-        if(log.isDebugEnabled()) log.debug("handling the timeout in handleTimeoutException");
-        MemcachedConnection.opTimedOut(op);
-        if (op != null) op.timeOut();
-        ExecutionException t = null;
-        if (op.isTimedOut()) {
-            if(log.isDebugEnabled()) log.debug("Checked Operation timed out with operation {}.", op);
-            t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op));
-        } else if (op.isCancelled()) {
-            if(log.isDebugEnabled()) log.debug("Cancelled with operation {}.", op);
-            t = new ExecutionException(new CancellationException("Cancelled"));
-        } else if (op.hasErrored() ) {
-            if(log.isDebugEnabled()) log.debug("Other exception with operation {}.", op);
-            t = new ExecutionException(op.getException());
+    private void handleException() {
+        if (log.isDebugEnabled()) log.debug("handling the timeout in handleTimeoutException");
+        if (op != null) {
+            MemcachedConnection.opTimedOut(op);
+            op.timeOut();
+            ExecutionException t = null;
+            if (op.isTimedOut()) {
+                if (log.isDebugEnabled()) log.debug("Checked Operation timed out with operation {}.", op);
+                t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op));
+            } else if (op.isCancelled()) {
+                if (log.isDebugEnabled()) log.debug("Cancelled with operation {}.", op);
+                t = new ExecutionException(new CancellationException("Cancelled"));
+            } else if (op.hasErrored()) {
+                if (log.isDebugEnabled()) log.debug("Other exception with operation {}.", op);
+                t = new ExecutionException(op.getException());
+            }
+            throw new RuntimeException(t);
         }
-        throw new RuntimeException(t);
     }
 
     public CompletableFuture<T> getAsync(long timeout, TimeUnit units) {
@@ -337,7 +343,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
         doAsyncGet(future);
         return future.handle((data, ex) -> {
             if (ex != null) {
-                handleTimeoutException();
+                handleException();
             }
             return data;
         });

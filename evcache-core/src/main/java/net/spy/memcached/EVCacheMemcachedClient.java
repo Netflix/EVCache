@@ -189,24 +189,21 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return rv;
     }
 
-    public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys, final Transcoder<T> tc, EVCacheGetOperationListener<T> listener) {
+    public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys,
+                                                    final Transcoder<T> tc,
+                                                    EVCacheGetOperationListener<T> listener) {
         final Map<String, Future<T>> m = new ConcurrentHashMap<String, Future<T>>();
 
         // Break the gets down into groups by key
         final Map<MemcachedNode, Collection<String>> chunks = new HashMap<MemcachedNode, Collection<String>>();
         final NodeLocator locator = mconn.getLocator();
 
-        final Iterator<String> keyIter = keys.iterator();
-        while (keyIter.hasNext()) {
-            final String key = keyIter.next();
+        //Populate Node and key Map
+        for (String key : keys) {
             StringUtils.validateKey(key, opFact instanceof BinaryOperationFactory);
             final MemcachedNode primaryNode = locator.getPrimary(key);
             if (primaryNode.isActive()) {
-                Collection<String> ks = chunks.get(primaryNode);
-                if (ks == null) {
-                    ks = new ArrayList<String>();
-                    chunks.put(primaryNode, ks);
-                }
+                Collection<String> ks = chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>());
                 ks.add(key);
             }
         }

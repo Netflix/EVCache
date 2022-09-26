@@ -184,21 +184,29 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         doAsyncGetSome(future);
         return future.handle((data, ex) -> {
             if (ex != null) {
-                handleBulkTimeoutException();
+                handleBulkException();
             }
             return data;
         });
     }
 
-    public void handleBulkTimeoutException() {
+    public void handleBulkException() {
         ExecutionException t = null;
         for (Operation op : ops) {
-            if (op.isCancelled()) t =  new ExecutionException(new CancellationException("Cancelled"));
-            else if (op.hasErrored()) t =  new ExecutionException(op.getException());
-            else {
-                op.timeOut();
-                MemcachedConnection.opTimedOut(op);
-                t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op));
+            if (op.getState() != OperationState.COMPLETE) {
+                if (op.isCancelled()) {
+                    throw new RuntimeException(new ExecutionException(new CancellationException("Cancelled")));
+                }
+                else if (op.hasErrored()) {
+                    throw new RuntimeException(new ExecutionException(op.getException()));
+                }
+                else {
+                    op.timeOut();
+                    MemcachedConnection.opTimedOut(op);
+                    t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op));
+                }
+            } else {
+                MemcachedConnection.opSucceeded(op);
             }
         }
         throw new RuntimeException(t);

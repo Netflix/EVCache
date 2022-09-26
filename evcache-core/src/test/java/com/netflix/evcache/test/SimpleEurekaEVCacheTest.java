@@ -39,23 +39,22 @@ public class SimpleEurekaEVCacheTest extends Base {
 
     @BeforeSuite
     public void setProps() {
-        
+
         org.apache.log4j.Logger.getLogger(SimpleEurekaEVCacheTest.class).setLevel(Level.DEBUG);
         org.apache.log4j.Logger.getLogger(Base.class).setLevel(Level.DEBUG);
         org.apache.log4j.Logger.getLogger(EVCacheImpl.class).setLevel(Level.ERROR);
         org.apache.log4j.Logger.getLogger(EVCacheClient.class).setLevel(Level.ERROR);
         org.apache.log4j.Logger.getLogger(EVCacheClientPool.class).setLevel(Level.ERROR);
-        System.setProperty("evcache.use.simple.node.list.provider", "false");
-        System.setProperty("EVCACHE_TEST_SRIRAM.EVCacheClientPool.readTimeout", "100000");
-        System.setProperty("EVCACHE_TEST_SRIRAM.EVCacheClientPool.bulkReadTimeout", "10000");
-        System.setProperty("EVCACHE_TEST_SRIRAM.max.read.queue.length", "100");
-        System.setProperty("EVCACHE_TEST_SRIRAM.operation.timeout", "10000");
-        System.setProperty("EVCACHE_TEST_SRIRAM.throw.exception", "false");
-        System.setProperty("EVCACHE_TEST_SRIRAM.chunk.data", "false");
+        System.setProperty("evcache.use.simple.node.list.provider", "true");
+        System.setProperty("EVCACHE_AB.EVCacheClientPool.readTimeout", "100000");
+        System.setProperty("EVCACHE_AB.EVCacheClientPool.bulkReadTimeout", "10000");
+        System.setProperty("EVCACHE_AB.max.read.queue.length", "100");
+        System.setProperty("EVCACHE_AB.operation.timeout", "10000");
+        System.setProperty("EVCACHE_AB.throw.exception", "false");
+        System.setProperty("EVCACHE_AB.chunk.data", "false");
         System.setProperty("NETFLIX_ENVIRONMENT", "test");
         System.setProperty("EC2_REGION", "us-east-1");
         System.setProperty("evcache.thread.daemon", "true");
-        //System.setProperty("EVCACHE_TEST_SRIRAM.use.secure", "false");
 
         int maxThreads = 2;
         final BlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>(100000);
@@ -71,11 +70,11 @@ public class SimpleEurekaEVCacheTest extends Base {
     public void setupClusterDetails() {
         manager = EVCacheClientPoolManager.getInstance();
     }
-    
+
     public void testAll() {
         try {
             setupClusterDetails();
-            EVCacheClientPoolManager.getInstance().initEVCache("EVCACHE_TEST_SRIRAM");
+            EVCacheClientPoolManager.getInstance().initEVCache("EVCACHE_AB");
             testEVCache();
 
             int i = 1;
@@ -92,6 +91,8 @@ public class SimpleEurekaEVCacheTest extends Base {
                     testBulk();
                     testBulkAndTouch();
                     testAppendOrAdd();
+                    testCompletableFutureGet();
+                    testCompletableFutureBulk();
                     if(i++ % 5 == 0) testDelete();
                     Thread.sleep(1000);
                     if (i > 100) break;
@@ -106,13 +107,13 @@ public class SimpleEurekaEVCacheTest extends Base {
         }
         shutdown();
     }
-    
+
     public void testGetForKey(String key) throws Exception {
         String value = evCache.<String>get(key);
         if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
     }
 
-    
+
 
     @BeforeSuite
     public void setupEnv() {
@@ -122,7 +123,7 @@ public class SimpleEurekaEVCacheTest extends Base {
 
     @Test
     public void testEVCache() {
-        this.evCache = (new EVCache.Builder()).setAppName("EVCACHE_TEST_SRIRAM").setCachePrefix(null).enableRetry().build();
+        this.evCache = (new EVCache.Builder()).setAppName("EVCACHE_AB").setCachePrefix(null).enableRetry().build();
         assertNotNull(evCache);
     }
 
@@ -153,6 +154,29 @@ public class SimpleEurekaEVCacheTest extends Base {
         for (int i = 0; i < 10; i++) {
             final String val = get(i, evCache);
             // assertNotNull(val);
+        }
+    }
+
+    @Test(dependsOnMethods = { "testInsert" })
+    public void testCompletableFutureGet() throws Exception {
+        for (int i = 0; i < 1000; i++) {
+            final String val = completableFutureGet(i, evCache);
+            assertNotNull(val);
+        }
+
+    }
+
+    @Test(dependsOnMethods = { "testGetAndTouch" })
+    public void testCompletableFutureBulk() throws Exception {
+        final String[] keys = new String[12];
+        for (int i = 0; i < keys.length; i++) {
+            keys[i] = "key_" + i;
+        }
+        Map<String, String> vals = getAsyncBulk(keys, evCache);
+        assertTrue(!vals.isEmpty());
+        for (int i = 0; i < vals.size(); i++) {
+            String key = "key_" + i;
+            String val = vals.get(key);
         }
     }
 
@@ -192,7 +216,6 @@ public class SimpleEurekaEVCacheTest extends Base {
         }
     }
 
-    
     public void testAppendOrAdd() throws Exception {
         for (int i = 0; i < 10; i++) {
             assertTrue(appendOrAdd(i, evCache));
@@ -258,7 +281,7 @@ public class SimpleEurekaEVCacheTest extends Base {
             deleteLatch(i, "EVCACHE");
         }
     }
-    
+
     public void testGetObservable() throws Exception {
         for (int i = 0; i < 10; i++) {
             final String val = getObservable(i, evCache, Schedulers.computation());
@@ -266,7 +289,7 @@ public class SimpleEurekaEVCacheTest extends Base {
 //            obs.doOnNext(new OnNextHandler(key)).doOnError(new OnErrorHandler(key)).subscribe();
         }
     }
-    
+
 
     class StatusChecker implements Runnable {
         Future<Boolean>[] status;
@@ -293,5 +316,5 @@ public class SimpleEurekaEVCacheTest extends Base {
         pool.shutdown();
         super.shutdown();
     }
-    
+
 }

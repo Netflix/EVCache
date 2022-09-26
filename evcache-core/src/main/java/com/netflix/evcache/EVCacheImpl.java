@@ -1984,7 +1984,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 } else {
                     if (log.isDebugEnabled() && shouldLog())
                         log.debug("CACHE COLLISION : APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
-                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.BULK.name(), EVCacheMetricsFactory.READ);
+                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.COMPLETABLE_FUTURE_GET_BULK.name(), EVCacheMetricsFactory.READ);
                 }
             } else {
                 final EVCacheKey evcKey = keyMap.get(i.getKey());
@@ -1999,7 +1999,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private <T> Map<EVCacheKey, T> getBulkData(EVCacheClient client, Collection<EVCacheKey> evcacheKeys, Transcoder<T> tc, boolean throwException, boolean hasZF) throws Exception {
         try {
             boolean hasHashedKey = false;
-            final Map<String, EVCacheKey> keyMap = new HashMap<String, EVCacheKey>(evcacheKeys.size() * 2);
+            final Map<String, EVCacheKey> keyMap = new HashMap<>(evcacheKeys.size() * 2);
             for(EVCacheKey evcKey : evcacheKeys) {
                 String key = evcKey.getCanonicalKey(client.isDuetClient());
                 String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder());
@@ -2012,7 +2012,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             }
             if(hasHashedKey) {
                 final Map<String, Object> objMap = client.getBulk(keyMap.keySet(), evcacheValueTranscoder, throwException, hasZF);
-                final Map<EVCacheKey, T> retMap = new HashMap<EVCacheKey, T>((int)(objMap.size()/0.75) + 1);
+                final Map<EVCacheKey, T> retMap = new HashMap<>((int) (objMap.size() / 0.75) + 1);
                 for (Map.Entry<String, Object> i : objMap.entrySet()) {
                     final Object obj = i.getValue();
                     if(obj instanceof EVCacheValue) {
