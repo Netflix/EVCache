@@ -37,7 +37,6 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
     private final EurekaClient _eurekaClient;
     private PropertyRepository props;
     private final ApplicationInfoManager applicationInfoManager;
-    private final Map<String, Property<Boolean>> useRendBatchPortMap = new HashMap<String, Property<Boolean>>();
     @SuppressWarnings("rawtypes") // Archaius2 PropertyRepository does not support ParameterizedTypes
 	private Property<Set> ignoreHosts = null;
 
@@ -116,17 +115,9 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
             final Map<String, String> metaInfo = iInfo.getMetadata();
             final int evcachePort = Integer.parseInt((metaInfo != null && metaInfo.containsKey("evcache.port")) ?
                     metaInfo.get("evcache.port") : EVCacheClientPool.DEFAULT_PORT);
-            final int rendPort = (metaInfo != null && metaInfo.containsKey("rend.port")) ? Integer.parseInt(metaInfo.get("rend.port")) : 0;
-            final int rendBatchPort = (metaInfo != null && metaInfo.containsKey("rend.batch.port")) ? Integer.parseInt(metaInfo.get("rend.batch.port")) : 0;
-            final int udsproxyMemcachedPort = (metaInfo != null && metaInfo.containsKey("udsproxy.memcached.port")) ? Integer.parseInt(metaInfo.get("udsproxy.memcached.port")) : 0;
-            final int udsproxyMementoPort = (metaInfo != null && metaInfo.containsKey("udsproxy.memento.port")) ? Integer.parseInt(metaInfo.get("udsproxy.memento.port")) : 0;
 
-            Property<Boolean> useBatchPort = useRendBatchPortMap.get(asgName);
-            if (useBatchPort == null) {
-                useBatchPort = props.get(_appName + ".use.batch.port", Boolean.class).orElseGet("evcache.use.batch.port").orElse(false);
-                useRendBatchPortMap.put(asgName, useBatchPort);
-            }
-            int port = rendPort == 0 ? evcachePort : ((useBatchPort.get().booleanValue()) ? rendBatchPort : rendPort);
+
+            int port = evcachePort;
             final Property<Boolean> isSecure = props.get(asgName + ".use.secure", Boolean.class)
                     .orElseGet(_appName + ".use.secure")
                     .orElseGet("evcache.use.secure")
@@ -144,7 +135,7 @@ public class EurekaNodeListProvider implements EVCacheNodeList {
                 instances = config.getInetSocketAddress();
             } else {
                 instances = new HashSet<InetSocketAddress>();
-                config = new EVCacheServerGroupConfig(serverGroup, instances, rendPort, udsproxyMemcachedPort, udsproxyMementoPort);
+                config = new EVCacheServerGroupConfig(serverGroup, instances);
                 instancesSpecific.put(serverGroup, config);
                 //EVCacheMetricsFactory.getInstance().getRegistry().gauge(EVCacheMetricsFactory.getInstance().getRegistry().createId(_appName + "-port", "ServerGroup", asgName, "APP", _appName), Long.valueOf(port));
             }

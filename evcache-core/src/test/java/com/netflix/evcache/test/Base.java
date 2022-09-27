@@ -135,7 +135,7 @@ public abstract class Base  {
 
     public boolean insert(int i, EVCache gCache) throws Exception {
         //String val = "This is a very long value that should work well since we are going to use compression on it. blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah val_"+i;
-        String val = "val_"+i;
+        String val = "val_01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"+i;
         String key = "key_" + i;
         Future<Boolean>[] status = gCache.set(key, val, 60 * 60);
         for(Future<Boolean> s : status) {

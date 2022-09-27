@@ -288,6 +288,8 @@ public final class EVCacheMetricsFactory {
     public static final String INTERNAL_POOL_CONFIG                 = "internal.evc.client.pool.config";
     public static final String INTERNAL_POOL_REFRESH                = "internal.evc.client.pool.refresh";
 
+    public static final String INTERNAL_BOOTSTRAP_EUREKA            = "internal.evc.client.pool.bootstrap.eureka";
+
     public static final String INTERNAL_STATS                       = "internal.evc.client.stats";
     
     public static final String INTERNAL_TTL                         = "internal.evc.item.ttl";

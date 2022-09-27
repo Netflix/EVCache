@@ -1337,25 +1337,7 @@ public class EVCacheClient {
     }
 
     public Map<SocketAddress, Map<String, String>> getStats(String cmd) {
-        if(config.isRendInstance()) {
-            List<InetSocketAddress> udsproxyInetSocketAddress = new ArrayList<InetSocketAddress>(memcachedNodesInZone.size());
-            for(InetSocketAddress address : memcachedNodesInZone) {
-                udsproxyInetSocketAddress.add(new InetSocketAddress(address.getHostName(), config.getUdsproxyMemcachedPort()));
-            }
-
-            MemcachedClient mc = null;
-            try {
-                mc = new MemcachedClient(connectionFactory, udsproxyInetSocketAddress);
-                return mc.getStats(cmd);
-            } catch(Exception ex) {
-
-            } finally {
-                if(mc != null) mc.shutdown();
-            }
-            return Collections.<SocketAddress, Map<String, String>>emptyMap();
-        } else {
-            return evcacheMemcachedClient.getStats(cmd);
-        }
+        return evcacheMemcachedClient.getStats(cmd);
     }
 
     public Map<SocketAddress, String> execCmd(String cmd, String[] ips) {

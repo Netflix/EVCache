@@ -56,6 +56,7 @@ public class SimpleEVCacheTest extends Base {
         Logger.getLogger(EVCacheClientPool.class).setLevel(Level.DEBUG);
 
         final Properties props = getProps();
+        props.setProperty(APP_NAME + ".EVCacheClientPool.zoneAffinity", "false");
         props.setProperty(APP_NAME + ".use.simple.node.list.provider", "true");
         props.setProperty(APP_NAME + ".EVCacheClientPool.readTimeout", "1000");
         props.setProperty(APP_NAME + ".EVCacheClientPool.bulkReadTimeout", "1000");
@@ -100,17 +101,17 @@ public class SimpleEVCacheTest extends Base {
             boolean flag = true;
             while (flag) {
                 try {
-//                    testAdd();
+//                  testAdd();
                     testInsert();
-//                    testAppend();
+//                  testAppend();
                     testGet();
                     testGetWithPolicy();
-//                    testGetObservable();
-//                    testGetAndTouch();
-//                    testBulk();
-//                    testBulkAndTouch();
-//                    testAppendOrAdd();
-//                    if(i++ % 5 == 0) testDelete();
+//                  testGetObservable();
+//                  testGetAndTouch();
+//                  testBulk();
+//                  testBulkAndTouch();
+//                  testAppendOrAdd();
+//                  if(i++ % 5 == 0) testDelete();
                     //Thread.sleep(3000);
                 } catch (Exception e) {
                     log.error(e);

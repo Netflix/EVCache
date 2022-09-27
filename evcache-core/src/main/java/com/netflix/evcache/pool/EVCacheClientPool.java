@@ -22,7 +22,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -56,6 +55,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private final String _zone;
     private final EVCacheClientPoolManager manager;
     private ServerGroupCircularIterator localServerGroupIterator = null;
+    private final Property<Boolean> _zoneAffinity;
     private final Property<Integer> _poolSize; // Number of MemcachedClients to each cluster
     private final Property<Integer> _readTimeout; // Timeout for readOperation
     private final Property<Integer> _bulkReadTimeout; // Timeout for readOperation
@@ -144,6 +144,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             clearState();
             refreshPool(true, true);
         };
+        this._zoneAffinity = config.getPropertyRepository().get(appName + ".EVCacheClientPool.zoneAffinity", Boolean.class).orElse(true);
         this._poolSize = config.getPropertyRepository().get(appName + ".EVCacheClientPool.poolSize", Integer.class).orElse(1);
         this._poolSize.subscribe(callback);
         this._readTimeout = config.getPropertyRepository().get(appName + ".EVCacheClientPool.readTimeout", Integer.class).orElse(manager.getDefaultReadTimeout().get());
@@ -230,21 +231,32 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
         try {
             List<EVCacheClient> clients = null;
-            if (localServerGroupIterator != null) {
-                clients = memcachedReadInstancesByServerGroup.get(localServerGroupIterator.next());
-            }
-
-            if (clients == null) {
-                final ServerGroup fallbackServerGroup = memcachedFallbackReadInstances.next();
-                if (fallbackServerGroup == null) {
-                    if (log.isDebugEnabled()) log.debug("fallbackServerGroup is null.");
-                    return null;
+            if (_zoneAffinity.get()) {
+                if (localServerGroupIterator != null) {
+                    clients = memcachedReadInstancesByServerGroup.get(localServerGroupIterator.next());
                 }
-                clients = memcachedReadInstancesByServerGroup.get(fallbackServerGroup);
+
+                if (clients == null) {
+                    final ServerGroup fallbackServerGroup = memcachedFallbackReadInstances.next();
+                    if (fallbackServerGroup == null) {
+                        if (log.isDebugEnabled()) log.debug("fallbackServerGroup is null.");
+                        return null;
+                    }
+                    clients = memcachedReadInstancesByServerGroup.get(fallbackServerGroup);
+                }
+            } else {
+                clients = new ArrayList<EVCacheClient>(memcachedReadInstancesByServerGroup.size() - 1);
+                for (Iterator<ServerGroup> itr = memcachedReadInstancesByServerGroup.keySet().iterator(); itr
+                        .hasNext();) {
+                    final ServerGroup serverGroup = itr.next();
+                    final List<EVCacheClient> clientList = memcachedReadInstancesByServerGroup.get(serverGroup);
+                    final EVCacheClient client = selectClient(clientList);
+                    if (client != null) clients.add(client);
+                }
             }
             return selectClient(clients);
         } catch (Throwable t) {
-            log.error("Exception trying to get an readable EVCache Instances for zone {}", _zone, t);
+            log.error("Exception trying to get an readable EVCache Instances for zone {}", t);
             return null;
         }
     }
@@ -284,7 +296,6 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             if (localServerGroupIterator != null) {
                 clients = memcachedReadInstancesByServerGroup.get(localServerGroupIterator.next());
             }
-
             if (clients == null) {
                 final ServerGroup fallbackServerGroup = memcachedFallbackReadInstances.next();
                 if (fallbackServerGroup == null) {
