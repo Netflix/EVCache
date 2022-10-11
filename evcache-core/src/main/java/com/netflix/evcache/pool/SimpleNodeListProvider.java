@@ -5,14 +5,12 @@ import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.StringTokenizer;
+import java.time.Duration;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 import com.netflix.archaius.api.PropertyRepository;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -27,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.net.InetAddresses;
 import com.netflix.archaius.api.Property;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.spectator.api.Tag;
 import com.netflix.evcache.pool.EVCacheClientPool;
 
 public class SimpleNodeListProvider implements EVCacheNodeList {
@@ -121,8 +120,6 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
             final JSONObject application = jsonObj.getJSONObject("application");
             final JSONArray instances = application.getJSONArray("instance");
             final Map<ServerGroup, EVCacheServerGroupConfig> serverGroupMap = new HashMap<ServerGroup, EVCacheServerGroupConfig>();
-            final Property<Boolean> useBatchPort = props.get(appName + ".use.batch.port", Boolean.class)
-                    .orElseGet("evcache.use.batch.port").orElse(false);
             final int securePort = Integer.parseInt(props.get("evcache.secure.port", String.class)
                     .orElse(EVCacheClientPool.DEFAULT_SECURE_PORT).get());
 
@@ -148,21 +145,12 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
                 final JSONObject instanceMetadataObj = instanceObj.getJSONObject("metadata");
                 final String evcachePortString = instanceMetadataObj.optString("evcache.port",
                         EVCacheClientPool.DEFAULT_PORT);
-                final String rendPortString = instanceMetadataObj.optString("rend.port", "0");
-                final String rendBatchPortString = instanceMetadataObj.optString("rend.batch.port", "0");
-                final int rendPort = Integer.parseInt(rendPortString);
-                final int rendBatchPort = Integer.parseInt(rendBatchPortString);
-                final String rendMemcachedPortString = instanceMetadataObj.optString("rend.memcached.port", "0");
-                final String rendMementoPortString = instanceMetadataObj.optString("rend.memento.port", "0");
                 final int evcachePort = Integer.parseInt(evcachePortString);
-                final int port = isSecure ? securePort : rendPort == 0 ?
-                        evcachePort : ((useBatchPort.get().booleanValue()) ?
-                        rendBatchPort : rendPort);
+                final int port = isSecure ? securePort : evcachePort;
 
                 EVCacheServerGroupConfig config = serverGroupMap.get(rSet);
                 if(config == null) {
-                    config = new EVCacheServerGroupConfig(rSet, new HashSet<InetSocketAddress>(), Integer.parseInt(rendPortString), 
-                            Integer.parseInt(rendMemcachedPortString), Integer.parseInt(rendMementoPortString));
+                    config = new EVCacheServerGroupConfig(rSet, new HashSet<InetSocketAddress>());
                     serverGroupMap.put(rSet, config);
 //                    final ArrayList<Tag> tags = new ArrayList<Tag>(2);
 //                    tags.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
@@ -187,7 +175,10 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
 
                 }
             }
+            final List<Tag> tagList = new ArrayList<Tag>(2);
+            EVCacheMetricsFactory.getInstance().addAppNameTags(tagList, appName);
             if (log.isDebugEnabled()) log.debug("Total Time to execute " + url + " " + (System.currentTimeMillis() - start) + " msec.");
+            EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_BOOTSTRAP_EUREKA, tagList, Duration.ofMillis(100)).record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS);
         }
         return Collections.<ServerGroup, EVCacheServerGroupConfig> emptyMap();
     }
@@ -205,7 +196,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
                 final StringTokenizer instanceTokenizer = new StringTokenizer(instanceToken, ",");
                 final Set<InetSocketAddress> instanceList = new HashSet<InetSocketAddress>();
                 final ServerGroup rSet = new ServerGroup(replicaSetToken, replicaSetToken);
-                final EVCacheServerGroupConfig config = new EVCacheServerGroupConfig(rSet, instanceList, 0, 0, 0);
+                final EVCacheServerGroupConfig config = new EVCacheServerGroupConfig(rSet, instanceList);
                 instancesSpecific.put(rSet, config);
                 while (instanceTokenizer.hasMoreTokens()) {
                     final String instance = instanceTokenizer.nextToken();
