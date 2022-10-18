@@ -56,6 +56,7 @@ public class SimpleEVCacheTest extends Base {
         Logger.getLogger(EVCacheClientPool.class).setLevel(Level.DEBUG);
 
         final Properties props = getProps();
+        props.setProperty(APP_NAME + ".EVCacheClientPool.zoneAffinity", "false");
         props.setProperty(APP_NAME + ".use.simple.node.list.provider", "true");
         props.setProperty(APP_NAME + ".EVCacheClientPool.readTimeout", "1000");
         props.setProperty(APP_NAME + ".EVCacheClientPool.bulkReadTimeout", "1000");
@@ -100,9 +101,9 @@ public class SimpleEVCacheTest extends Base {
             boolean flag = true;
             while (flag) {
                 try {
-//                    testAdd();
+//                  testAdd();
                     testInsert();
-//                    testAppend();
+//                  testAppend();
                     testGet();
                     testGetWithPolicy();
 //                    testGetObservable();
@@ -123,13 +124,13 @@ public class SimpleEVCacheTest extends Base {
             log.error(e);
         }
     }
-
+    
     public void testGetForKey(String key) throws Exception {
         String value = evCache.<String>get(key);
         if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
     }
 
-
+    
 
     @BeforeSuite
     public void setupEnv() {
@@ -241,7 +242,7 @@ public class SimpleEVCacheTest extends Base {
             String val = vals.get(key);
         }
     }
-
+    
     public void testAppendOrAdd() throws Exception {
         for (int i = 0; i < 10; i++) {
             assertTrue(appendOrAdd(i, evCache));
@@ -306,7 +307,7 @@ public class SimpleEVCacheTest extends Base {
             deleteLatch(i, "EVCACHE");
         }
     }
-
+    
     public void testGetObservable() throws Exception {
         for (int i = 0; i < 10; i++) {
             final String val = getObservable(i, evCache, Schedulers.computation());
@@ -314,7 +315,7 @@ public class SimpleEVCacheTest extends Base {
 //            obs.doOnNext(new OnNextHandler(key)).doOnError(new OnErrorHandler(key)).subscribe();
         }
     }
-
+    
 
     class StatusChecker implements Runnable {
         Future<Boolean>[] status;
