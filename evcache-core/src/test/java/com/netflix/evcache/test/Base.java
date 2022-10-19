@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
@@ -219,6 +220,23 @@ public abstract class Base  {
         return value;
     }
 
+    public String completableFutureGet(int i, EVCache gCache) throws Exception {
+        String key = "key_" + i;
+        gCache.<String>getAsync(key).handle((data, ex) -> {
+            System.out.println(data);
+            return data;
+        });
+        /*
+        String val =  value.get();
+        if(log.isDebugEnabled()) log.debug("get : key : " + key
+                + " completableFuture value = " + value
+                + " actual value = " + val);
+        return val;
+
+         */
+        return null;
+    }
+
     public String getWithPolicy(int i, EVCache gCache, Policy policy) throws Exception {
         String key = "key_" + i;
         String value = gCache.<String>get(key, null, policy);
@@ -237,6 +255,12 @@ public abstract class Base  {
         final Map<String, String> value = gCache.<String>getBulk(keys);
         if(log.isDebugEnabled()) log.debug("getBulk : keys : " + Arrays.toString(keys) + "; values = " + value);
         return value;
+    }
+
+    public Map<String, String> getAsyncBulk(String keys[], EVCache gCache) throws Exception {
+        final CompletableFuture<Map<String, String>> value = gCache.<String>getAsyncBulk(keys);
+        if(log.isDebugEnabled()) log.debug("getBulk : keys : " + Arrays.toString(keys) + "; values = " + value);
+        return value.get();
     }
 
     public Map<String, String> getBulkAndTouch(String keys[], EVCache gCache, int ttl) throws Exception {

@@ -106,12 +106,14 @@ public class SimpleEVCacheTest extends Base {
 //                  testAppend();
                     testGet();
                     testGetWithPolicy();
-//                  testGetObservable();
-//                  testGetAndTouch();
-//                  testBulk();
-//                  testBulkAndTouch();
-//                  testAppendOrAdd();
-//                  if(i++ % 5 == 0) testDelete();
+//                    testGetObservable();
+//                    testGetAndTouch();
+//                    testBulk();
+//                    testBulkAndTouch();
+//                    testAppendOrAdd();
+//                   testCompletableFutureGet();
+//                   testCompletableFutureBulk();
+//                    if(i++ % 5 == 0) testDelete();
                     //Thread.sleep(3000);
                 } catch (Exception e) {
                     log.error(e);
@@ -173,6 +175,16 @@ public class SimpleEVCacheTest extends Base {
         }
     }
 
+
+    @Test(dependsOnMethods = { "testInsert" })
+    public void testCompletableFutureGet() throws Exception {
+        for (int i = 0; i < 1000; i++) {
+            final String val = completableFutureGet(i, evCache);
+            //assertNotNull(val);
+        }
+
+    }
+
     @Test(dependsOnMethods = { "testGet" })
     public void testGetWithPolicy() throws Exception {
         for (int i = 0; i < 10; i++) {
@@ -196,6 +208,20 @@ public class SimpleEVCacheTest extends Base {
             keys[i] = "key_" + i;
         }
         Map<String, String> vals = getBulk(keys, evCache);
+        assertTrue(!vals.isEmpty());
+        for (int i = 0; i < vals.size(); i++) {
+            String key = "key_" + i;
+            String val = vals.get(key);
+        }
+    }
+
+    @Test(dependsOnMethods = { "testGetAndTouch" })
+    public void testCompletableFutureBulk() throws Exception {
+        final String[] keys = new String[12];
+        for (int i = 0; i < keys.length; i++) {
+            keys[i] = "key_" + i;
+        }
+        Map<String, String> vals = getAsyncBulk(keys, evCache);
         assertTrue(!vals.isEmpty());
         for (int i = 0; i < vals.size(); i++) {
             String key = "key_" + i;

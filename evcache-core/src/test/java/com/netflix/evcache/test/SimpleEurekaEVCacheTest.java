@@ -39,7 +39,7 @@ public class SimpleEurekaEVCacheTest extends Base {
 
     @BeforeSuite
     public void setProps() {
-        
+
         org.apache.log4j.Logger.getLogger(SimpleEurekaEVCacheTest.class).setLevel(Level.DEBUG);
         org.apache.log4j.Logger.getLogger(Base.class).setLevel(Level.DEBUG);
         org.apache.log4j.Logger.getLogger(EVCacheImpl.class).setLevel(Level.ERROR);
@@ -70,7 +70,7 @@ public class SimpleEurekaEVCacheTest extends Base {
     public void setupClusterDetails() {
         manager = EVCacheClientPoolManager.getInstance();
     }
-    
+
     public void testAll() {
         try {
             setupClusterDetails();
@@ -91,6 +91,8 @@ public class SimpleEurekaEVCacheTest extends Base {
                     testBulk();
                     testBulkAndTouch();
                     testAppendOrAdd();
+                    testCompletableFutureGet();
+                    testCompletableFutureBulk();
                     if(i++ % 5 == 0) testDelete();
                     Thread.sleep(1000);
                     if (i > 100) break;
@@ -105,13 +107,13 @@ public class SimpleEurekaEVCacheTest extends Base {
         }
         shutdown();
     }
-    
+
     public void testGetForKey(String key) throws Exception {
         String value = evCache.<String>get(key);
         if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
     }
 
-    
+
 
     @BeforeSuite
     public void setupEnv() {
@@ -155,6 +157,29 @@ public class SimpleEurekaEVCacheTest extends Base {
         }
     }
 
+    @Test(dependsOnMethods = { "testInsert" })
+    public void testCompletableFutureGet() throws Exception {
+        for (int i = 0; i < 1000; i++) {
+            final String val = completableFutureGet(i, evCache);
+            assertNotNull(val);
+        }
+
+    }
+
+    @Test(dependsOnMethods = { "testGetAndTouch" })
+    public void testCompletableFutureBulk() throws Exception {
+        final String[] keys = new String[12];
+        for (int i = 0; i < keys.length; i++) {
+            keys[i] = "key_" + i;
+        }
+        Map<String, String> vals = getAsyncBulk(keys, evCache);
+        assertTrue(!vals.isEmpty());
+        for (int i = 0; i < vals.size(); i++) {
+            String key = "key_" + i;
+            String val = vals.get(key);
+        }
+    }
+
     @Test(dependsOnMethods = { "testGet" })
     public void testGetAndTouch() throws Exception {
         for (int i = 0; i < 10; i++) {
@@ -190,7 +215,7 @@ public class SimpleEurekaEVCacheTest extends Base {
             String val = vals.get(key);
         }
     }
-    
+
     public void testAppendOrAdd() throws Exception {
         for (int i = 0; i < 10; i++) {
             assertTrue(appendOrAdd(i, evCache));
@@ -256,7 +281,7 @@ public class SimpleEurekaEVCacheTest extends Base {
             deleteLatch(i, "EVCACHE");
         }
     }
-    
+
     public void testGetObservable() throws Exception {
         for (int i = 0; i < 10; i++) {
             final String val = getObservable(i, evCache, Schedulers.computation());
@@ -264,7 +289,7 @@ public class SimpleEurekaEVCacheTest extends Base {
 //            obs.doOnNext(new OnNextHandler(key)).doOnError(new OnErrorHandler(key)).subscribe();
         }
     }
-    
+
 
     class StatusChecker implements Runnable {
         Future<Boolean>[] status;
@@ -291,5 +316,5 @@ public class SimpleEurekaEVCacheTest extends Base {
         pool.shutdown();
         super.shutdown();
     }
-    
+
 }

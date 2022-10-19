@@ -16,11 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
 
@@ -191,7 +187,7 @@ public class EVCacheClient {
         return this.maxHashLength.get();
     }
 
-    private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys, EVCache.Call call) throws EVCacheException {
+    private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys, EVCache.Call call) {
         if (evcacheMemcachedClient.getNodeLocator() == null) return canonicalKeys;
         final Collection<String> retKeys = new ArrayList<>(canonicalKeys.size());
         for (String key : canonicalKeys) {
@@ -865,6 +861,13 @@ public class EVCacheClient {
         return evcacheMemcachedClient.decr(key, by, defaultVal, timeToLive);
     }
 
+    public <T> CompletableFuture<T> getAsync(String key, Transcoder<T> tc) {
+        if(log.isDebugEnabled()) log.debug("fetching data getAsync {}", key);
+        return evcacheMemcachedClient
+                .asyncGet(key, tc, null)
+                .getAsync(readTimeout.get(), TimeUnit.MILLISECONDS);
+    }
+
     public <T> T get(String key, Transcoder<T> tc, boolean _throwException, boolean hasZF, boolean chunked) throws Exception {
         if (chunked) {
             return assembleChunks(key, false, 0, tc, hasZF);
@@ -980,6 +983,15 @@ public class EVCacheClient {
             return Collections.<String, T> emptyMap();
         }
         return returnVal;
+    }
+
+    public <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> _canonicalKeys, Transcoder<T> tc) {
+        final Collection<String> canonicalKeys = validateReadQueueSize(_canonicalKeys, Call.COMPLETABLE_FUTURE_GET_BULK);
+        if (tc == null) tc = (Transcoder<T>) getTranscoder();
+        return evcacheMemcachedClient
+                .asyncGetBulk(canonicalKeys, tc, null)
+                .getAsyncSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS);
+
     }
 
     public <T> Single<Map<String, T>> getBulk(Collection<String> _canonicalKeys, final Transcoder<T> transcoder, boolean _throwException,

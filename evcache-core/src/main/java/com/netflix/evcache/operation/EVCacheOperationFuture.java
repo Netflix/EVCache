@@ -1,19 +1,16 @@
 package com.netflix.evcache.operation;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
+import net.spy.memcached.ops.OperationState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,8 +50,27 @@ import rx.functions.Action0;
 @SuppressWarnings("restriction")
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings("EXS_EXCEPTION_SOFTENING_HAS_CHECKED")
 public class EVCacheOperationFuture<T> extends OperationFuture<T> {
-
     private static final Logger log = LoggerFactory.getLogger(EVCacheOperationFuture.class);
+
+    private static final class LazySharedExecutor {
+        private static final ScheduledThreadPoolExecutor executor =
+            new ScheduledThreadPoolExecutor(
+                1,
+                new ThreadFactoryBuilder()
+                    .setDaemon(true)
+                    .setNameFormat("evcache-timeout-%s")
+                    .setUncaughtExceptionHandler(
+                        (t, e) ->
+                            log.error(
+                                "{} timeout operation failed with exception: {}", t.getName(), e))
+                    .build());
+
+        static {
+            // We don't need to keep around all those cancellation tasks taking up memory once the
+            // initial caller completes.
+            executor.setRemoveOnCancelPolicy(true);
+        }
+    }
 
     private final CountDownLatch latch;
     private final AtomicReference<T> objRef;
@@ -138,67 +154,71 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     public T get(long duration, TimeUnit units, boolean throwException, boolean hasZF) throws InterruptedException, TimeoutException, ExecutionException {
         boolean status = latch.await(duration, units);
         if (!status) {
-            boolean gcPause = false;
-            final RuntimeMXBean runtimeBean = ManagementFactory.getRuntimeMXBean();
-            final long vmStartTime = runtimeBean.getStartTime();
-            final List<GarbageCollectorMXBean> gcMXBeans = ManagementFactory.getGarbageCollectorMXBeans();
-            for (GarbageCollectorMXBean gcMXBean : gcMXBeans) {
-                if (gcMXBean instanceof com.sun.management.GarbageCollectorMXBean) {
-                    final GcInfo lastGcInfo = ((com.sun.management.GarbageCollectorMXBean) gcMXBean).getLastGcInfo();
+            status = handleGCPauseForGet(duration, units, throwException, hasZF);
+        }
+        if (status)  MemcachedConnection.opSucceeded(op);// continuous timeout counter will be reset
+        return objRef.get();
+    }
 
-                    // If no GCs, there was no pause due to GC.
-                    if (lastGcInfo == null) {
-                        continue;
-                    }
+    private boolean handleGCPauseForGet(long duration, TimeUnit units, boolean throwException, boolean hasZF) throws InterruptedException, ExecutionException {
+        boolean status;
+        boolean gcPause = false;
+        final RuntimeMXBean runtimeBean = ManagementFactory.getRuntimeMXBean();
+        final long vmStartTime = runtimeBean.getStartTime();
+        final List<GarbageCollectorMXBean> gcMXBeans = ManagementFactory.getGarbageCollectorMXBeans();
+        for (GarbageCollectorMXBean gcMXBean : gcMXBeans) {
+            if (gcMXBean instanceof com.sun.management.GarbageCollectorMXBean) {
+                final GcInfo lastGcInfo = ((com.sun.management.GarbageCollectorMXBean) gcMXBean).getLastGcInfo();
 
-                    final long gcStartTime = lastGcInfo.getStartTime() + vmStartTime;
-                    if (gcStartTime > start) {
-                        gcPause = true;
-                        final long gcDuration = lastGcInfo.getDuration();
-                        final long pauseDuration = System.currentTimeMillis() - gcStartTime;
-                        if (log.isDebugEnabled()) {
-                            log.debug("Event Start Time = " + start + "; Last GC Start Time = " + gcStartTime + "; " + (gcStartTime - start) + " msec ago.\n"
-                                        + "\nTotal pause duration due for this event = " + pauseDuration + " msec.\nTotal GC duration = " + gcDuration + " msec.");
-                        }
-                        break;
-                    }
-                }
-            }
-            if (!gcPause && log.isDebugEnabled()) {
-                log.debug("Total pause duration due to NON-GC event = " + (System.currentTimeMillis() - start) + " msec.");
-            }
-            // redo the same op once more since there was a chance of gc pause
-            status = latch.await(duration, units);
-
-            if (log.isDebugEnabled()) log.debug("re-await status : " + status);
-            String statusString = EVCacheMetricsFactory.SUCCESS;
-            final long pauseDuration = System.currentTimeMillis() - start;
-            if (op != null && !status) {
-                // whenever timeout occurs, continuous timeout counter will increase by 1.
-                MemcachedConnection.opTimedOut(op);
-                op.timeOut();
-                ExecutionException t = null;
-                if(throwException && !hasZF) {
-                    if (op.isTimedOut()) { t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op)); statusString = EVCacheMetricsFactory.CHECKED_OP_TIMEOUT; }
-                    else if (op.isCancelled()  && throwException) { t = new ExecutionException(new CancellationException("Cancelled"));statusString = EVCacheMetricsFactory.CANCELLED; }
-                    else if (op.hasErrored() ) { t = new ExecutionException(op.getException());statusString = EVCacheMetricsFactory.ERROR; }
+                // If no GCs, there was no pause due to GC.
+                if (lastGcInfo == null) {
+                    continue;
                 }
 
-                if(t != null) throw t; //finally throw the exception if needed
+                final long gcStartTime = lastGcInfo.getStartTime() + vmStartTime;
+                if (gcStartTime > start) {
+                    gcPause = true;
+                    final long gcDuration = lastGcInfo.getDuration();
+                    final long pauseDuration = System.currentTimeMillis() - gcStartTime;
+                    if (log.isDebugEnabled()) {
+                        log.debug("Event Start Time = " + start + "; Last GC Start Time = " + gcStartTime + "; " + (gcStartTime - start) + " msec ago.\n"
+                                    + "\nTotal pause duration due for this event = " + pauseDuration + " msec.\nTotal GC duration = " + gcDuration + " msec.");
+                    }
+                    break;
+                }
+            }
+        }
+        if (!gcPause && log.isDebugEnabled()) {
+            log.debug("Total pause duration due to NON-GC event = " + (System.currentTimeMillis() - start) + " msec.");
+        }
+        // redo the same op once more since there was a chance of gc pause
+        status = latch.await(duration, units);
+
+        if (log.isDebugEnabled()) log.debug("re-await status : " + status);
+        String statusString = EVCacheMetricsFactory.SUCCESS;
+        final long pauseDuration = System.currentTimeMillis() - start;
+        if (op != null && !status) {
+            // whenever timeout occurs, continuous timeout counter will increase by 1.
+            MemcachedConnection.opTimedOut(op);
+            op.timeOut();
+            ExecutionException t = null;
+            if(throwException && !hasZF) {
+                if (op.isTimedOut()) { t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op)); statusString = EVCacheMetricsFactory.CHECKED_OP_TIMEOUT; }
+                else if (op.isCancelled()  && throwException) { t = new ExecutionException(new CancellationException("Cancelled"));statusString = EVCacheMetricsFactory.CANCELLED; }
+                else if (op.hasErrored() ) { t = new ExecutionException(op.getException());statusString = EVCacheMetricsFactory.ERROR; }
             }
 
-            final List<Tag> tagList = new ArrayList<Tag>(client.getTagList().size() + 4);
-            tagList.addAll(client.getTagList());
-            tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, EVCacheMetricsFactory.GET_OPERATION));
-            tagList.add(new BasicTag(EVCacheMetricsFactory.PAUSE_REASON, gcPause ? EVCacheMetricsFactory.GC:EVCacheMetricsFactory.SCHEDULE));
-            tagList.add(new BasicTag(EVCacheMetricsFactory.FETCH_AFTER_PAUSE, status ? EVCacheMetricsFactory.YES:EVCacheMetricsFactory.NO));
-            tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_STATUS, statusString));
-            EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList, Duration.ofMillis(EVCacheConfig.getInstance().getPropertyRepository().get(getApp() + ".max.write.duration.metric", Integer.class).orElseGet("evcache.max.write.duration.metric").orElse(50).get().intValue())).record(pauseDuration, TimeUnit.MILLISECONDS);
+            if(t != null) throw t; //finally throw the exception if needed
         }
 
-        if (status)  MemcachedConnection.opSucceeded(op);// continuous timeout counter will be reset
-
-        return objRef.get();
+        final List<Tag> tagList = new ArrayList<Tag>(client.getTagList().size() + 4);
+        tagList.addAll(client.getTagList());
+        tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, EVCacheMetricsFactory.GET_OPERATION));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.PAUSE_REASON, gcPause ? EVCacheMetricsFactory.GC:EVCacheMetricsFactory.SCHEDULE));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.FETCH_AFTER_PAUSE, status ? EVCacheMetricsFactory.YES:EVCacheMetricsFactory.NO));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.OPERATION_STATUS, statusString));
+        EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList, Duration.ofMillis(EVCacheConfig.getInstance().getPropertyRepository().get(getApp() + ".max.write.duration.metric", Integer.class).orElseGet("evcache.max.write.duration.metric").orElse(50).get().intValue())).record(pauseDuration, TimeUnit.MILLISECONDS);
+        return status;
     }
 
     public Single<T> observe() {
@@ -211,6 +231,134 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                 }
             })
         );
+    }
+
+    static <T> CompletableFuture<T> withTimeout(CompletableFuture<T> future,
+                                                long timeout,
+                                                TimeUnit unit) {
+        int timeoutSlots = getTimeoutSlots((int) timeout);
+        // [DABP-2005] split timeout to timeoutSlots slots to not timeout during GC.
+        long splitTimeout = Math.max(1, timeout / timeoutSlots);
+        CompletableFuture<Void> chain = CompletableFuture.completedFuture(null);
+        for (int i = 0; i < timeoutSlots; i++) {
+            final int j = i;
+            chain = chain.thenCompose(unused -> getNext(future, j, timeout, splitTimeout, unit, timeoutSlots));
+        }
+        return future;
+    }
+
+    private static int getTimeoutSlots(int timeout) {
+        if(log.isDebugEnabled()) log.debug("Timeout is {}", timeout);
+        int timeoutSlots;
+        int val = timeout /10;
+        if (val == 0 ) {
+            timeoutSlots = 1;
+        } else if (val >= 1 && val < 5) {
+            timeoutSlots = val;
+        } else {
+            timeoutSlots = 5;
+        }
+        if(log.isDebugEnabled()) log.debug("timeoutSlots is {}", timeoutSlots);
+        return timeoutSlots;
+    }
+
+    private static<T>  CompletableFuture<Void> getNext(CompletableFuture<T> future,
+                                                       final int j,
+                                                       long timeout,
+                                                       long splitTimeout,
+                                                       TimeUnit unit,
+                                                       int timeoutSlots) {
+        CompletableFuture<Void> next = new CompletableFuture<>();
+        if (future.isDone()) {
+            next.complete(null);
+        } else {
+            ScheduledFuture<?> scheduledTimeout;
+            if (j < timeoutSlots - 1) {
+                scheduledTimeout =
+                        LazySharedExecutor.executor.schedule(
+                                () -> {
+                                    if(log.isDebugEnabled()) log.debug("Completing now for loop {} and timeout slot {}", j, timeoutSlots);
+                                    next.complete(null);
+                                },
+                                splitTimeout,
+                                TimeUnit.MILLISECONDS);
+            } else {
+                scheduledTimeout =
+                        LazySharedExecutor.executor.schedule(
+                                () -> {
+                                    next.complete(null);
+                                    if (future.isDone()) {
+                                        return;
+                                    }
+                                    if(log.isDebugEnabled()) log.warn("Throwing timeout exception after {} {} with timeout slot {}",
+                                            timeout,
+                                            unit,
+                                            timeoutSlots);
+                                    future.completeExceptionally(new TimeoutException("Timeout after " + timeout));
+                                },
+                                splitTimeout,
+                                unit);
+            }
+            // If the completable future completes normally, don't bother timing it out.
+            // Also cleans the ref for GC.
+            future.whenComplete(
+                    (r, exp) -> {
+                        if (exp == null) {
+                            scheduledTimeout.cancel(false);
+                            if(log.isDebugEnabled()) log.debug("completing the future");
+                            next.complete(null);
+                        }
+                    });
+        }
+        return next;
+    }
+
+    public <U> CompletableFuture<U> makeFutureWithTimeout(long timeout, TimeUnit units) {
+        final CompletableFuture<U> future = new CompletableFuture<>();
+        return withTimeout(future, timeout, units);
+    }
+
+    private void handleException() {
+        if (log.isDebugEnabled()) log.debug("handling the timeout in handleTimeoutException");
+        if (op != null) {
+            MemcachedConnection.opTimedOut(op);
+            op.timeOut();
+            ExecutionException t = null;
+            if (op.isTimedOut()) {
+                if (log.isDebugEnabled()) log.debug("Checked Operation timed out with operation {}.", op);
+                t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op));
+            } else if (op.isCancelled()) {
+                if (log.isDebugEnabled()) log.debug("Cancelled with operation {}.", op);
+                t = new ExecutionException(new CancellationException("Cancelled"));
+            } else if (op.hasErrored()) {
+                if (log.isDebugEnabled()) log.debug("Other exception with operation {}.", op);
+                t = new ExecutionException(op.getException());
+            }
+            throw new RuntimeException(t);
+        }
+    }
+
+    public CompletableFuture<T> getAsync(long timeout, TimeUnit units) {
+        CompletableFuture<T> future = makeFutureWithTimeout(timeout, units);
+        doAsyncGet(future);
+        return future.handle((data, ex) -> {
+            if (ex != null) {
+                handleException();
+            }
+            return data;
+        });
+    }
+
+    private void doAsyncGet(CompletableFuture<T> cf) {
+        EVCacheGetOperationListener<T> listener = future -> {
+            try {
+                T result = future.get();
+                cf.complete(result);
+            } catch (Exception t) {
+                cf.completeExceptionally(t);
+            }
+        };
+        this.addListener(listener);
     }
 
     public Single<T> get(long duration, TimeUnit units, boolean throwException, boolean hasZF, Scheduler scheduler) {

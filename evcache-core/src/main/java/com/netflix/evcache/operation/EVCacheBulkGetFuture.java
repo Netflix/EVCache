@@ -12,13 +12,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
+import com.netflix.evcache.EVCacheGetOperationListener;
+import net.spy.memcached.internal.BulkGetCompletionListener;
+import net.spy.memcached.internal.CheckedOperationTimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -153,6 +151,17 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         }
     }
 
+    public CompletableFuture<Map<String, T>> getSomeCompletableFuture(long to, TimeUnit unit, boolean throwException, boolean hasZF) {
+        CompletableFuture<Map<String, T>> completableFuture = new CompletableFuture<>();
+       try {
+           Map<String, T> value = getSome(to, unit, throwException, hasZF);
+           completableFuture.complete(value);
+       } catch (Exception e) {
+            completableFuture.completeExceptionally(e);
+       }
+       return completableFuture;
+    }
+
     public Single<Map<String, T>> observe() {
         return Single.create(subscriber ->
             addListener(future -> {
@@ -163,6 +172,58 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                 }
             })
         );
+    }
+
+    public <U> CompletableFuture<U> makeFutureWithTimeout(long timeout, TimeUnit units) {
+        final CompletableFuture<U> future = new CompletableFuture<>();
+        return EVCacheOperationFuture.withTimeout(future, timeout, units);
+    }
+
+    public CompletableFuture<Map<String, T>> getAsyncSome(long timeout, TimeUnit units) {
+        CompletableFuture<Map<String, T>> future = makeFutureWithTimeout(timeout, units);
+        doAsyncGetSome(future);
+        return future.handle((data, ex) -> {
+            if (ex != null) {
+                handleBulkException();
+            }
+            return data;
+        });
+    }
+
+    public void handleBulkException() {
+        ExecutionException t = null;
+        for (Operation op : ops) {
+            if (op.getState() != OperationState.COMPLETE) {
+                if (op.isCancelled()) {
+                    throw new RuntimeException(new ExecutionException(new CancellationException("Cancelled")));
+                }
+                else if (op.hasErrored()) {
+                    throw new RuntimeException(new ExecutionException(op.getException()));
+                }
+                else {
+                    op.timeOut();
+                    MemcachedConnection.opTimedOut(op);
+                    t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op));
+                }
+            } else {
+                MemcachedConnection.opSucceeded(op);
+            }
+        }
+        throw new RuntimeException(t);
+    }
+    public void doAsyncGetSome(CompletableFuture<Map<String, T>> promise) {
+        this.addListener(future -> {
+            try {
+                Map<String, T> m = new HashMap<>();
+                Map<String, ?> result = future.get();
+                for (Map.Entry<String, ?> me : result.entrySet()) {
+                    m.put(me.getKey(), (T)me.getValue());
+                }
+                promise.complete(m);
+            } catch (Exception t) {
+                promise.completeExceptionally(t);
+            }
+        });
     }
 
     public Single<Map<String, T>> getSome(long to, TimeUnit units, boolean throwException, boolean hasZF, Scheduler scheduler) {
