@@ -1482,17 +1482,17 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     public void refreshPool(boolean async, boolean force) {
         if (log.isDebugEnabled()) log.debug("Refresh Pool : async : " + async + "; force : " + force);
         try {
-            if(async) {
-                asyncRefreshExecutor.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            refresh(force);
-                        } catch (Exception e) {
-                            log.error(e.getMessage(), e);
+            if(async && asyncRefreshExecutor.getQueue().size() == 0) {
+                    asyncRefreshExecutor.submit(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                refresh(force);
+                            } catch (Exception e) {
+                                log.error(e.getMessage(), e);
+                            }
                         }
-                    }
-                });
+                    });
             } else {
                 refresh(force);
             }
