@@ -43,6 +43,8 @@ dependencies {
         testCompile group:"com.beust",                name:"jcommander",                       version:"1.72"
         testCompile group:"org.mockito",              name:"mockito-all",                      version:"latest.release"	
         testCompile group:'org.assertj',              name:'assertj-core',                     version:'latest.release'
+        implementation group: 'com.squareup.okhttp3', name: 'okhttp'
+        implementation group:"com.squareup.okhttp3",           name:"logging-interceptor",             version:"3.11.0"
 }
 
 javadoc {

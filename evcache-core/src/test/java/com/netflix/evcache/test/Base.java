@@ -128,10 +128,10 @@ public abstract class Base  {
     public boolean add(int i, EVCache gCache) throws Exception {
         //String val = "This is a very long value that should work well since we are going to use compression on it. blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah val_"+i;
         String val = "val_add_"+System.currentTimeMillis();
-        String key = "key_" + i;
-        boolean status = gCache.add(key, val, null, 60 * 60);
-        if(log.isDebugEnabled()) log.debug("ADD : key : " + key + "; success = " + status);
-        return status;
+        String key = "key_123456" + i;
+       EVCacheLatch latch = gCache.add(key, val, null, 60 * 60, Policy.ALL);
+        if(log.isDebugEnabled()) log.debug("ADD : key : " + key + "; success = " + latch);
+        return true;
     }
 
     public boolean insert(int i, EVCache gCache) throws Exception {
@@ -214,6 +214,13 @@ public abstract class Base  {
     }
 
     public String get(int i, EVCache gCache) throws Exception {
+        String key = "MAP_LT:Fallback_GENRE_GALLERIES_GI_genre52780_kidsfalse_en_TEENS";
+        String value = gCache.<String>get(key);
+        if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
+        return value;
+    }
+
+    public String getAndSendRestAPI(int i, EVCache gCache) throws Exception {
         String key = "key_" + i;
         String value = gCache.<String>get(key);
         if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);

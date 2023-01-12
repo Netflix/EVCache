@@ -3,6 +3,7 @@ package com.netflix.evcache;
 import static com.netflix.evcache.util.Sneaky.sneakyThrow;
 
 import java.lang.management.ManagementFactory;
+import java.security.cert.CertificateException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,12 +25,14 @@ import java.util.stream.Collectors;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
+import javax.net.ssl.*;
 
 import com.netflix.evcache.dto.KeyMapDto;
 import com.netflix.evcache.util.EVCacheBulkDataDto;
 import com.netflix.evcache.util.KeyHasher;
 import com.netflix.evcache.util.RetryCount;
 import com.netflix.evcache.util.Sneaky;
+import okhttp3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -641,6 +644,91 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 });
     }
 
+    public static Request.Builder getRequestBuilder(String appName, int parts, String operation) {
+        final HashMap<String, Object> map = new HashMap<String, Object>(10);
+        final Request.Builder builder = new Request.Builder()
+                .addHeader("Netflix-DC-Region", "us-eas-1")
+                .addHeader("Netflix-Repl-CodeFlow", "CODE_FLOW")
+                .addHeader("Netflix-EVCache-App", appName)
+                .addHeader("Netflix-instance", "123445")
+                .addHeader("Netflix-EVCache-Parts", String.valueOf(parts))
+                .addHeader("Netflix-EVCache-Operation", operation)
+                .tag(HashMap.class, map);
+
+        final List<Tag> tagList = new ArrayList<Tag>(6);
+        tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
+        map.put("TagList", tagList);
+        return builder;
+    }
+
+    private static OkHttpClient getUnsafeOkHttpClient() {
+        try {
+            // Create a trust manager that does not validate certificate chains
+            final TrustManager[] trustAllCerts = new TrustManager[]{
+                    new X509TrustManager() {
+                        @Override
+                        public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
+                        }
+
+                        @Override
+                        public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
+                        }
+
+                        @Override
+                        public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                            return new java.security.cert.X509Certificate[]{};
+                        }
+                    }
+            };
+
+            // Install the all-trusting trust manager
+            final SSLContext sslContext = SSLContext.getInstance("SSL");
+            sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+            // Create an ssl socket factory with our all-trusting manager
+            final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
+            okhttp3.Credentials.basic("username", "password");
+            OkHttpClient.Builder builder = new OkHttpClient.Builder();
+            builder.sslSocketFactory(sslSocketFactory, new X509TrustManager() {
+                @Override
+                public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
+                }
+
+                @Override
+                public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
+                }
+
+                @Override
+                public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                    return new java.security.cert.X509Certificate[]{};
+                }
+            });
+            builder.hostnameVerifier(new HostnameVerifier() {
+                @Override
+                public boolean verify(String hostname, SSLSession session) {
+                    return true;
+                }
+            });
+
+            OkHttpClient okHttpClient = builder.build();
+            return okHttpClient;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    private static HttpUrl getHttpUrl(String pathSegment) {
+        final String host;
+        final HttpUrl httpUrl = new HttpUrl.Builder()
+                .scheme("http")
+                .host("127.0.0.1")
+                .port(7001)
+                .addPathSegments(pathSegment)
+                .build();
+        System.out.println(httpUrl);
+        return httpUrl;
+    }
     private <T> EVCacheClient buildEvCacheClient(boolean throwExc, Call callType, CompletableFuture<T> completableFuture) {
         EVCacheClient client = _pool.getEVCacheClientForRead();
         if (client == null) {
@@ -1226,7 +1314,31 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                         incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.GET.name(), EVCacheMetricsFactory.READ);
                         return null;
                     }
+
                     final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
+                    final MultipartBody.Builder builderNew = new MultipartBody.Builder().setType(MultipartBody.FORM);
+                    final String APPNAME = "testing_testing";
+                    builderNew.addFormDataPart("app", APPNAME);
+                    builderNew.addFormDataPart("key", evcKey.getKey());
+                    builderNew.addFormDataPart("evt", String.valueOf(0));
+                    builderNew.addFormDataPart("ttl", String.valueOf(0));
+                    builderNew.addFormDataPart("flg", String.valueOf(cd.getFlags()));
+                    builderNew.addFormDataPart("len", String.valueOf(cd.getData().length));
+                    builderNew.addFormDataPart("val", null, RequestBody.create(MediaType.parse("application/octet-stream"), cd.getData()));
+
+                    final MultipartBody requestBody = builderNew.build();
+
+                    Request request =  getRequestBuilder(APPNAME, 10, EVCacheMetricsFactory.SET_OPERATION)
+                            .url(getHttpUrl("ok/set"))
+                            .post(requestBody)
+                            .build();
+                    OkHttpClient httpClient = getUnsafeOkHttpClient();
+                    Response response = httpClient.newCall(request).execute();
+                    if (response.code() != 200) {
+                        final String failedKeys = response.body().string();
+
+                    }
+
                     return transcoder.decode(cd);
                 } else {
                     return null;

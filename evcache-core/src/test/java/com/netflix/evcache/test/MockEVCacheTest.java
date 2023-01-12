@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.Future;
 
+import com.netflix.evcache.EVCacheImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
@@ -48,7 +49,6 @@ public class MockEVCacheTest {
         }
         return true;
     }
-    
 
     public boolean delete(int i, EVCache gCache) throws Exception {
         String key = "key_" + i;

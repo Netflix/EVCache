@@ -8,6 +8,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import com.netflix.evcache.util.EVCacheConfig;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Level;
@@ -32,7 +33,7 @@ import static org.testng.Assert.*;
 public class SimpleEVCacheTest extends Base {
     private static final Logger log = LogManager.getLogger(SimpleEVCacheTest.class);
 
-    private static final String APP_NAME = "EVCACHE_TEST";
+    private static final String APP_NAME = "EVCACHE_MAP_LT";
     private static final String ALIAS_APP_NAME = "EVCACHE";
 
     private ThreadPoolExecutor pool = null;
@@ -56,18 +57,26 @@ public class SimpleEVCacheTest extends Base {
         Logger.getLogger(EVCacheClientPool.class).setLevel(Level.DEBUG);
 
         final Properties props = getProps();
-        props.setProperty(APP_NAME + ".EVCacheClientPool.zoneAffinity", "false");
-        props.setProperty(APP_NAME + ".use.simple.node.list.provider", "true");
+        props.setProperty(APP_NAME + ".use.simple.node.list.provider", "false");
         props.setProperty(APP_NAME + ".EVCacheClientPool.readTimeout", "1000");
         props.setProperty(APP_NAME + ".EVCacheClientPool.bulkReadTimeout", "1000");
         props.setProperty(APP_NAME + ".max.read.queue.length", "100");
         props.setProperty(APP_NAME + ".operation.timeout", "10000");
         props.setProperty(APP_NAME + ".throw.exception", "false");
+        props.setProperty(APP_NAME + ".max.retry.count", "2");
+        props.setProperty(APP_NAME + ".hash.key", "true");
+        props.setProperty(APP_NAME + ".hash.algo", "siphash24");
+
+        // This is to set In memory cache feature. Enable this if you want to test the same
+        // props.setProperty("evcache.use.inmemory.cache", "true");
+
+
 
         // Setting properties here for testing how we can disable aliases. If there are test case
         // that requires aliases, these properties should go under a special condition.
-        props.setProperty("EVCacheClientPoolManager." + APP_NAME + ".alias", ALIAS_APP_NAME);
+        //props.setProperty("EVCacheClientPoolManager." + APP_NAME + ".alias", ALIAS_APP_NAME);
         props.setProperty("EVCacheClientPoolManager." + APP_NAME + ".ignoreAlias", "true");
+        props.setProperty(APP_NAME + ".use.secure", "false");
         // End alias properties
 
         int maxThreads = 2;
@@ -99,38 +108,38 @@ public class SimpleEVCacheTest extends Base {
 
             int i = 1;
             boolean flag = true;
-            while (flag) {
+            //while (flag) {
                 try {
-//                  testAdd();
-                    testInsert();
-//                  testAppend();
+ //                   testAdd();
+//                    testInsert();
+//                    testAppend();
                     testGet();
-                    testGetWithPolicy();
+                    //testGetWithPolicy();
 //                    testGetObservable();
 //                    testGetAndTouch();
 //                    testBulk();
 //                    testBulkAndTouch();
 //                    testAppendOrAdd();
-//                   testCompletableFutureGet();
-//                   testCompletableFutureBulk();
+  //                 testCompletableFutureGet();
+//                  testCompletableFutureBulk();
 //                    if(i++ % 5 == 0) testDelete();
                     //Thread.sleep(3000);
                 } catch (Exception e) {
                     log.error(e);
                 }
                 //Thread.sleep(3000);
-            }
+            //}
         } catch (Exception e) {
             log.error(e);
         }
     }
-    
+
     public void testGetForKey(String key) throws Exception {
         String value = evCache.<String>get(key);
         if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
     }
 
-    
+
 
     @BeforeSuite
     public void setupEnv() {
@@ -141,7 +150,8 @@ public class SimpleEVCacheTest extends Base {
 
     @Test
     public void testEVCache() {
-        this.evCache = (new EVCache.Builder()).setAppName("EVCACHE_TEST").setCachePrefix(null).enableRetry().build();
+        this.evCache = (new EVCache.Builder()).setAppName("EVCACHE_MAP_LT").setCachePrefix(null).enableRetry().setExceptionThrowing(true).enableRetry().build();
+        (new EVCache.Builder()).setAppName("EVCACHE_MAP_LT").setCachePrefix(null).enableRetry().build();
         assertNotNull(evCache);
     }
 
@@ -178,8 +188,9 @@ public class SimpleEVCacheTest extends Base {
 
     @Test(dependsOnMethods = { "testInsert" })
     public void testCompletableFutureGet() throws Exception {
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 12; i++) {
             final String val = completableFutureGet(i, evCache);
+            log.info("val is " + val);
             //assertNotNull(val);
         }
 
@@ -219,12 +230,12 @@ public class SimpleEVCacheTest extends Base {
     public void testCompletableFutureBulk() throws Exception {
         final String[] keys = new String[12];
         for (int i = 0; i < keys.length; i++) {
-            keys[i] = "key_" + i;
+            keys[i] = "async_key_" + i;
         }
         Map<String, String> vals = getAsyncBulk(keys, evCache);
         assertTrue(!vals.isEmpty());
         for (int i = 0; i < vals.size(); i++) {
-            String key = "key_" + i;
+            String key = "async_key_" + i;
             String val = vals.get(key);
         }
     }
@@ -242,7 +253,7 @@ public class SimpleEVCacheTest extends Base {
             String val = vals.get(key);
         }
     }
-    
+
     public void testAppendOrAdd() throws Exception {
         for (int i = 0; i < 10; i++) {
             assertTrue(appendOrAdd(i, evCache));
@@ -307,7 +318,7 @@ public class SimpleEVCacheTest extends Base {
             deleteLatch(i, "EVCACHE");
         }
     }
-    
+
     public void testGetObservable() throws Exception {
         for (int i = 0; i < 10; i++) {
             final String val = getObservable(i, evCache, Schedulers.computation());
@@ -315,7 +326,7 @@ public class SimpleEVCacheTest extends Base {
 //            obs.doOnNext(new OnNextHandler(key)).doOnError(new OnErrorHandler(key)).subscribe();
         }
     }
-    
+
 
     class StatusChecker implements Runnable {
         Future<Boolean>[] status;

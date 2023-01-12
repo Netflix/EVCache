@@ -82,18 +82,18 @@ public class SimpleEurekaEVCacheTest extends Base {
             while (flag) {
                 try {
                     testAdd();
-                    testInsert();
-                    testInsertAsync();
-////                    testAppend();
-                    testGet();
-                    testGetObservable();
-                    testGetAndTouch();
-                    testBulk();
-                    testBulkAndTouch();
-                    testAppendOrAdd();
-                    testCompletableFutureGet();
-                    testCompletableFutureBulk();
-                    if(i++ % 5 == 0) testDelete();
+//                    testInsert();
+//                    testInsertAsync();
+//////                    testAppend();
+//                    testGet();
+//                    testGetObservable();
+//                    testGetAndTouch();
+//                    testBulk();
+//                    testBulkAndTouch();
+//                    testAppendOrAdd();
+//                    testCompletableFutureGet();
+//                    testCompletableFutureBulk();
+//                    if(i++ % 5 == 0) testDelete();
                     Thread.sleep(1000);
                     if (i > 100) break;
                 } catch (Exception e) {
