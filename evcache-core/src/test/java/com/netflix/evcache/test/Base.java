@@ -214,7 +214,7 @@ public abstract class Base  {
     }
 
     public String get(int i, EVCache gCache) throws Exception {
-        String key = "MAP_LT:Fallback_GENRE_GALLERIES_GI_genre52780_kidsfalse_en_TEENS";
+        String key = "MAP_LT:Fallback_GENRE_GALLERIES_FK_genre52843_kidsfalse_en_LITTLE_KIDS";
         String value = gCache.<String>get(key);
         if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
         return value;
