@@ -27,8 +27,8 @@ public class EVCacheNodeLocator implements NodeLocator {
     private TreeMap<Long, MemcachedNode> ketamaNodes;
     protected final EVCacheClient client;
 
-    private Property<Boolean> partialStringHash;
-    private Property<String> hashDelimiter;
+    private final Property<Boolean> partialStringHash;
+    private final Property<String> hashDelimiter;
 
     private final Collection<MemcachedNode> allNodes;
 
@@ -95,13 +95,13 @@ public class EVCacheNodeLocator implements NodeLocator {
             }
         }
 
-        final long _hash = hashingAlgorithm.hash(k);
-        Long hash = Long.valueOf(_hash);
-        hash = ketamaNodes.ceilingKey(hash);
-        if (hash == null) {
-            hash = ketamaNodes.firstKey();
+        final long hash = hashingAlgorithm.hash(k);
+
+        Map.Entry<Long, MemcachedNode> entry = ketamaNodes.ceilingEntry(hash);
+        if (entry == null) {
+            entry = ketamaNodes.firstEntry();
         }
-        return ketamaNodes.get(hash);
+        return entry.getValue();
     }
 
     /*
