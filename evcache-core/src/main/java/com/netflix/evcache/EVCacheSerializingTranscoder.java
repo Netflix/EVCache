@@ -201,14 +201,9 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     private void updateTimerWithCompressionRatio(long ratio_percentage) {
         if(timer == null) {
             final List<Tag> tagList = new ArrayList<Tag>(1);
-
+            tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, "gzip"));
             timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList, Duration.ofMillis(100));
         };
-
-//        if(serverGroup != null) {
-//            tagList.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
-//            tagList.add(new BasicTag(EVCacheMetricsFactory.ZONE, serverGroup.getZone()));
-//        }
 
         timer.record(ratio_percentage, TimeUnit.MILLISECONDS);
     }

@@ -251,7 +251,7 @@ public final class EVCacheMetricsFactory {
      */
     public static final String OVERALL_CALL                         = "evcache.client.call";
     public static final String OVERALL_KEYS_SIZE                    = "evcache.client.call.keys.size";
-    public static final String COMPRESSION_RATIO                    = "evcache.client.compression_ratio";
+    public static final String COMPRESSION_RATIO                    = "evcache.client.compression.ratio";
 
     /**
      * External IPC Metric Names
@@ -351,6 +351,7 @@ public final class EVCacheMetricsFactory {
     public static final String EVENT_STAGE                      = "evc.event.stage";
     public static final String CONNECTION                       = "evc.connection.type";
     public static final String TLS                              = "evc.connection.tls";
+    public static final String COMPRESSION_TYPE                 = "evc.compression.type";
 
     /**
      * Metric Tags Values  
