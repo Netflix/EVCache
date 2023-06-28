@@ -251,6 +251,7 @@ public final class EVCacheMetricsFactory {
      */
     public static final String OVERALL_CALL                         = "evcache.client.call";
     public static final String OVERALL_KEYS_SIZE                    = "evcache.client.call.keys.size";
+    public static final String COMPRESSION_RATIO                    = "evcache.client.compression_ratio";
 
     /**
      * External IPC Metric Names

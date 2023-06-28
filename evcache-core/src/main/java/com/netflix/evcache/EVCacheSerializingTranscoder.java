@@ -22,13 +22,24 @@
 
 package com.netflix.evcache;
 
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Tag;
+import com.netflix.spectator.api.Timer;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.BaseSerializingTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.transcoders.TranscoderUtils;
 import net.spy.memcached.util.StringUtils;
 
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -52,7 +63,10 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     static final int SPECIAL_DOUBLE = (7 << 8);
     static final int SPECIAL_BYTEARRAY = (8 << 8);
 
+    static final String COMPRESSION = "COMPRESSION_METRIC";
+
     private final TranscoderUtils tu = new TranscoderUtils(true);
+    private Timer timer;
 
     /**
      * Get a serializing transcoder with the default max data size.
@@ -178,7 +192,25 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
                 getLogger().info("Compression increased the size of %s from %d to %d",
                         o.getClass().getName(), b.length, compressed.length);
             }
+            long compression_ratio = (long) Math.ceil((double) compressed.length / b.length * 100);
+            updateTimerWithCompressionRatio(compression_ratio);
         }
         return new CachedData(flags, b, getMaxSize());
     }
+
+    private void updateTimerWithCompressionRatio(long ratio_percentage) {
+        if(timer == null) {
+            final List<Tag> tagList = new ArrayList<Tag>(1);
+
+            timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList, Duration.ofMillis(100));
+        };
+
+//        if(serverGroup != null) {
+//            tagList.add(new BasicTag(EVCacheMetricsFactory.SERVERGROUP, serverGroup.getName()));
+//            tagList.add(new BasicTag(EVCacheMetricsFactory.ZONE, serverGroup.getZone()));
+//        }
+
+        timer.record(ratio_percentage, TimeUnit.MILLISECONDS);
+    }
+
 }
