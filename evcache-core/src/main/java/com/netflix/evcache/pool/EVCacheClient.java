@@ -30,6 +30,7 @@ import com.netflix.evcache.EVCacheConnectException;
 import com.netflix.evcache.EVCacheException;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.EVCacheReadQueueException;
+import com.netflix.evcache.EVCacheSerializingTranscoder;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.operation.EVCacheFutures;
 import com.netflix.evcache.operation.EVCacheItem;
@@ -54,7 +55,6 @@ import net.spy.memcached.NodeLocator;
 import net.spy.memcached.internal.ListenableFuture;
 import net.spy.memcached.internal.OperationCompletionListener;
 import net.spy.memcached.internal.OperationFuture;
-import net.spy.memcached.transcoders.SerializingTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
 import rx.Scheduler;
 import rx.Single;
@@ -91,7 +91,7 @@ public class EVCacheClient {
     private final Property<String> encoderBase;
 
     private final ChunkTranscoder chunkingTranscoder;
-    private final SerializingTranscoder decodingTranscoder;
+    private final EVCacheSerializingTranscoder decodingTranscoder;
     private static final int SPECIAL_BYTEARRAY = (8 << 8);
     private final EVCacheClientPool pool;
 //    private Counter addCounter = null;
@@ -143,7 +143,7 @@ public class EVCacheClient {
         this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, this);
         this.evcacheMemcachedClient.addObserver(connectionObserver);
 
-        this.decodingTranscoder = new SerializingTranscoder(Integer.MAX_VALUE);
+        this.decodingTranscoder = new EVCacheSerializingTranscoder(Integer.MAX_VALUE);
         decodingTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
 
         this.hashKeyByServerGroup = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.key", Boolean.class).orElse(null);
@@ -1498,7 +1498,7 @@ public class EVCacheClient {
         return chunkingTranscoder;
     }
 
-    public SerializingTranscoder getDecodingTranscoder() {
+    public EVCacheSerializingTranscoder getDecodingTranscoder() {
         return decodingTranscoder;
     }
 

@@ -3,9 +3,8 @@ package com.netflix.evcache;
 import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.CachedData;
-import net.spy.memcached.transcoders.SerializingTranscoder;
 
-public class EVCacheTranscoder extends SerializingTranscoder {
+public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
 
     public EVCacheTranscoder() {
         this(EVCacheConfig.getInstance().getPropertyRepository().get("default.evcache.max.data.size", Integer.class).orElse(20 * 1024 * 1024).get());

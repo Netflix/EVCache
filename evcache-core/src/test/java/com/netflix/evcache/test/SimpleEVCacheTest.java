@@ -1,5 +1,6 @@
 package com.netflix.evcache.test;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
@@ -8,6 +9,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import com.netflix.evcache.EVCacheSerializingTranscoder;
+import net.spy.memcached.CachedData;
+import net.spy.memcached.transcoders.SerializingTranscoder;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Level;
@@ -106,6 +110,7 @@ public class SimpleEVCacheTest extends Base {
 //                  testAppend();
                     testGet();
                     testGetWithPolicy();
+                    testEVCacheTranscoder();
 //                    testGetObservable();
 //                    testGetAndTouch();
 //                    testBulk();
@@ -314,6 +319,21 @@ public class SimpleEVCacheTest extends Base {
 //            Observable<String> obs = evCache.<String> observeGet(key);
 //            obs.doOnNext(new OnNextHandler(key)).doOnError(new OnErrorHandler(key)).subscribe();
         }
+    }
+
+    @Test(dependsOnMethods = { "testInsert" })
+    public void testEVCacheTranscoder() throws Exception {
+        EVCacheSerializingTranscoder evcacheTranscoder = new EVCacheSerializingTranscoder();
+        SerializingTranscoder serializingTranscoder = new SerializingTranscoder();
+
+        // long string to trigger compression
+        String val = "val_01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789";
+
+        CachedData evCachedData = evcacheTranscoder.encode(val);
+        CachedData serializingCachedData = serializingTranscoder.encode(val);
+
+        assertTrue(Arrays.equals(evCachedData.getData(), serializingCachedData.getData()), "cacheData same" + evCachedData.toString());
+        if(log.isDebugEnabled()) log.debug("EVCacheTranscoder result equal to SerializingTranscoder: " + Arrays.equals(evCachedData.getData(), serializingCachedData.getData()));
     }
     
 
