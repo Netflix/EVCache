@@ -192,7 +192,8 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
                 getLogger().info("Compression increased the size of %s from %d to %d",
                         o.getClass().getName(), b.length, compressed.length);
             }
-            long compression_ratio = (long) Math.ceil((double) compressed.length / b.length * 100);
+
+            long compression_ratio = Math.round((double) compressed.length / b.length * 100);
             updateTimerWithCompressionRatio(compression_ratio);
         }
         return new CachedData(flags, b, getMaxSize());
