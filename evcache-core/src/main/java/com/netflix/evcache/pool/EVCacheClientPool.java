@@ -48,9 +48,7 @@ import net.spy.memcached.MemcachedNode;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "REC_CATCH_EXCEPTION", "MDM_THREAD_YIELD" })
 public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
-
     private static final Logger log = LoggerFactory.getLogger(EVCacheClientPool.class);
-
     private final String _appName;
     private final String _zone;
     private final EVCacheClientPoolManager manager;
@@ -113,7 +111,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                     .orElseGet(_appName + "." + serverGroup.getZone() + ".EVCacheClientPool.writeOnly").orElse(false);
             put(serverGroup, isServerGroupInWriteOnlyMode);
             return isServerGroupInWriteOnlyMode;
-        };
+        }
     };
 
     private final AtomicLong numberOfModOps = new AtomicLong(0);
@@ -1006,7 +1004,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
-    private synchronized void refresh(boolean force) throws IOException {
+    private synchronized void refresh(boolean force) {
         final long start = System.currentTimeMillis();
         if (log.isDebugEnabled()) log.debug("refresh APP : " + _appName + "; force : " + force);
         try {
@@ -1079,7 +1077,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                         EVCacheClient client;
                         try {
                             client = new EVCacheClient(_appName, zone, i, config, memcachedSAInServerGroup, maxQueueSize,
-                            		_maxReadQueueSize, _readTimeout, _bulkReadTimeout, _opQueueMaxBlockTime, _operationTimeout, this, isDuet);
+                            		_maxReadQueueSize, _readTimeout, _bulkReadTimeout, this, isDuet);
                             newClients.add(client);
                             final int id = client.getId();
                             if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup + "; intit : client.getId() : " + id);
