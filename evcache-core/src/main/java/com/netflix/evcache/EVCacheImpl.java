@@ -20,6 +20,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -3259,7 +3260,21 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     @Override
     public <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy) throws EVCacheException {
         EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
-        return this.add(key, value, tc, timeToLive, policy, clients, clients.length - _pool.getWriteOnlyEVCacheClients().length);
+        EVCacheClient[] writeOnlyClients = _pool.getWriteOnlyEVCacheClients();
+        // In case of adds , we skip adds to the pool if value is already present in the 1st client
+        // Sorting to make sure the 1st element of the list is a read/write client and not just write-only client
+        EVCacheClient[] sortedClients = sortClients(clients, writeOnlyClients);
+        return this.add(key, value, tc, timeToLive, policy, sortedClients, clients.length - _pool.getWriteOnlyEVCacheClients().length);
+    }
+
+    public EVCacheClient[] sortClients(EVCacheClient[] clients, EVCacheClient[] writeOnlyClients) {
+        List<EVCacheClient> writeOnlyClientsList = Arrays.asList(writeOnlyClients);
+        List<EVCacheClient> clientList = Arrays.stream(clients).sorted((s1, s2) -> {
+            if (writeOnlyClientsList.contains(s1))
+                return 1;
+            return -1;
+        }).collect(Collectors.toList());
+        return clientList.stream().toArray(EVCacheClient[]::new);
     }
 
     protected <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy, EVCacheClient[] clients, int latchCount) throws EVCacheException {
