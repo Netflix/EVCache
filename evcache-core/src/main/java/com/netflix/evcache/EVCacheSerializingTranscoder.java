@@ -77,6 +77,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     static final String COMPRESSION = "COMPRESSION_METRIC";
 
     private final TranscoderUtils tu = new TranscoderUtils(true);
+    private final String appName;
     private final Compressor compressor;
     private final String compressionAlgo;
     private final Integer compressionLevel;
@@ -96,6 +97,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     public EVCacheSerializingTranscoder(String appName, int max) {
         super(max);
         compressor = new Compressor();
+        this.appName = appName;
         this.compressionAlgo = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".compression.algo", String.class).orElse("gzip").get();
         this.compressionLevel = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".compression.level", Integer.class).orElse(3).get();
     }
@@ -207,7 +209,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         if (b.length > compressionThreshold) {
             byte[] compressed;
             try {
-                compressed = compressor.compress(b, compressionAlgo, compressionLevel);
+                compressed = compressor.compress(b, compressionAlgo, compressionLevel, appName);
             } catch (IOException e) {
                 getLogger().error("throwing exception in encoding due to compression {}", e);
                 throw new RuntimeException(e);
@@ -232,20 +234,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
                 getLogger().info("Compression increased the size of %s from %d to %d",
                         o.getClass().getName(), b.length, compressed.length);
             }
-
-            long compression_ratio = Math.round((double) compressed.length / b.length * 100);
-            updateTimerWithCompressionRatio(compression_ratio);
         }
         return new CachedData(flags, b, getMaxSize());
     }
-
-    private void updateTimerWithCompressionRatio(long ratio_percentage) {
-        if(timer == null) {
-            final List<Tag> tagList = new ArrayList<Tag>(1);
-            tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, compressionAlgo));
-            timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList, Duration.ofMillis(100));
-        };
-        timer.record(ratio_percentage, TimeUnit.MILLISECONDS);
-    }
-
 }

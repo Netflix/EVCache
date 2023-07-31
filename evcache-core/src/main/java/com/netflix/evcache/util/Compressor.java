@@ -8,6 +8,7 @@ import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
 import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.DistributionSummary;
 import net.jpountz.lz4.LZ4Compressor;
 import net.jpountz.lz4.LZ4Factory;
 import net.jpountz.lz4.LZ4SafeDecompressor;
@@ -16,10 +17,10 @@ import org.slf4j.LoggerFactory;
 import org.xerial.snappy.Snappy;
 import org.xerial.snappy.SnappyOutputStream;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
@@ -28,8 +29,16 @@ import com.netflix.spectator.api.Timer;
 
 public class Compressor {
     private static final Logger log = LoggerFactory.getLogger(Compressor.class);
+    public static final String CLIENT_ALGO = "client.algo";
+    public static final String CLIENT_COMP_RATIO = "Client_CompressionRatio";
+    public static final String ORIG_SIZE = "Client_UncompressedSize";
+    public static final String COMP_SIZE = "Client_CompressedSize";
+    public static final String APP_NAME = "Client.appName";
+    public Map<String, DistributionSummary> distributionSummaryCompRatioMap = new ConcurrentHashMap<>();
+    public Map<String, DistributionSummary> distributionSummaryOrigSizeMap = new ConcurrentHashMap<>();
+    public Map<String, DistributionSummary> distributionSummaryCompSizeMap = new ConcurrentHashMap<>();
     private static Timer timer;
-    public byte[] compress(byte[] data, String algorithm, int level) throws IOException {
+    public byte[] compress(byte[] data, String algorithm, int level, String appName) throws IOException {
         byte[] compressedData = null;
         switch (algorithm) {
             case "zstd":
@@ -56,32 +65,54 @@ public class Compressor {
                 snappyOut.close();
                 compressedData = snappyBaos.toByteArray();
                 break;
-            default:
+            case "gzip":
                 ByteArrayOutputStream gzipBaos = new ByteArrayOutputStream();
                 GZIPOutputStream gzipOut = new GZIPOutputStream(gzipBaos);
                 gzipOut.write(data);
                 gzipOut.close();
                 compressedData = gzipBaos.toByteArray();
                 break;
-        }
-        // higher ratio means better compressed and vice-versa
-        double ratio = (double) data.length / compressedData.length;
-        System.out.println("compression ratio: " + ratio);
-        log.info("compression ratio: " + ratio);
-        if (timer == null) {
-            final List<Tag> tagList = new ArrayList<Tag>(1);
-            tagList.add(new BasicTag("repl.algo", algorithm));
-            timer = EVCacheMetricsFactory.getInstance().getPercentileTimer("repl.ratio", tagList, Duration.ofMillis(100));
+            default:
+                throw new IllegalArgumentException("Invalid compression algorithm: " + algorithm);
         }
 
-        timer.record((long) ratio, TimeUnit.MILLISECONDS);
-        if (ratio > 1)
+        // higher ratio means better compressed and vice-versa
+        double ratio = (double) data.length / compressedData.length;
+        log.debug("compression ratio: " + ratio + "for app: " + appName);
+        final List<Tag> tagList = new ArrayList<Tag>(2);
+        tagList.add(new BasicTag(CLIENT_ALGO, algorithm));
+        tagList.add(new BasicTag(APP_NAME, appName));
+        DistributionSummary distributionSummaryCompRatio = this.distributionSummaryCompRatioMap.get(appName);
+        if (distributionSummaryCompRatio == null) {
+            distributionSummaryCompRatio = EVCacheMetricsFactory.getInstance().getDistributionSummary(CLIENT_COMP_RATIO, tagList);
+            this.distributionSummaryCompRatioMap.put(appName, distributionSummaryCompRatio);
+        }
+        distributionSummaryCompRatio.record((long) ratio);
+
+        final List<Tag> tagList2 = new ArrayList<Tag>(1);
+        tagList2.add(new BasicTag(APP_NAME, appName));
+        DistributionSummary distributionSummaryOrigSize =
+                this.distributionSummaryOrigSizeMap.get(appName);
+        if (distributionSummaryOrigSize == null) {
+            distributionSummaryOrigSize = EVCacheMetricsFactory.getInstance().getDistributionSummary(ORIG_SIZE, tagList2);
+            this.distributionSummaryOrigSizeMap.put(appName, distributionSummaryOrigSize);
+        }
+        distributionSummaryOrigSize.record(data.length);
+
+        DistributionSummary distributionSummaryCompSize = this.distributionSummaryCompSizeMap.get(appName);
+        if (distributionSummaryCompSize == null) {
+            distributionSummaryCompSize = EVCacheMetricsFactory.getInstance().getDistributionSummary(COMP_SIZE, tagList2);
+            this.distributionSummaryCompSizeMap.put(appName, distributionSummaryCompSize);
+        }
+        distributionSummaryCompSize.record(compressedData.length);
+        if (ratio > 1) {
             return compressedData;
+        }
         return data;
     }
 
 
-    public static byte[] decompress(byte[] data, String algorithm) throws IOException {
+    public byte[] decompress(byte[] data, String algorithm) throws IOException {
         byte[] decompressedData = null;
         int len;
         switch (algorithm) {
@@ -97,6 +128,7 @@ public class Compressor {
                 zstdIn.close();
                 baos.close();
                 break;
+
             case "lz4":
                 LZ4Factory factory = LZ4Factory.fastestInstance();
                 LZ4SafeDecompressor decompressor = factory.safeDecompressor();
@@ -104,11 +136,12 @@ public class Compressor {
                 decompressedData = new byte[decompressedLength];
                 decompressor.decompress(data, 0, data.length, decompressedData, 0);
                 break;
+
             case "snappy":
                 decompressedData = Snappy.uncompress(data);
                 break;
 
-            default:
+            case "gzip":
                 ByteArrayInputStream gzipBais = new ByteArrayInputStream(data);
                 GZIPInputStream gzipIn = new GZIPInputStream(gzipBais);
                 ByteArrayOutputStream gzipBaos = new ByteArrayOutputStream();
@@ -120,6 +153,8 @@ public class Compressor {
                 gzipIn.close();
                 gzipBaos.close();
                 break;
+            default:
+                throw new IllegalArgumentException("Invalid compression algorithm: " + algorithm);
         }
         return decompressedData;
     }
