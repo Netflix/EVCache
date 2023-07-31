@@ -39,6 +39,9 @@ dependencies {
         compile group:"joda-time",                    name:"joda-time",                        version:"latest.release"
         compile group:"javax.annotation",             name:"javax.annotation-api",             version:"latest.release"
         compile group:"com.github.fzakaria",          name:"ascii85",                          version:"latest.release"
+        implementation group: 'com.github.luben',     name: 'zstd-jni',                        version: '1.5.5-5'
+        implementation group: 'net.jpountz.lz4',      name: 'lz4',                             version: '1.2.0'
+        implementation group: 'org.xerial.snappy',    name: 'snappy-java',                     version: '1.1.10.3'
 
         testCompile group:"org.testng",               name:"testng",                           version:"7.5"
         testCompile group:"com.beust",                name:"jcommander",                       version:"1.72"

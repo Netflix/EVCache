@@ -115,7 +115,7 @@ public class BaseAsciiConnectionFactory extends DefaultConnectionFactory {
     }
 
     public Transcoder<Object> getDefaultTranscoder() {
-        return new EVCacheTranscoder();
+        return new EVCacheTranscoder(appName);
     }
 
     public FailureMode getFailureMode() {

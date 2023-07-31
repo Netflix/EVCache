@@ -323,7 +323,7 @@ public class SimpleEVCacheTest extends Base {
 
     @Test(dependsOnMethods = { "testInsert" })
     public void testEVCacheTranscoder() throws Exception {
-        EVCacheSerializingTranscoder evcacheTranscoder = new EVCacheSerializingTranscoder();
+        EVCacheSerializingTranscoder evcacheTranscoder = new EVCacheSerializingTranscoder("testApp");
         SerializingTranscoder serializingTranscoder = new SerializingTranscoder();
 
         // long string to trigger compression

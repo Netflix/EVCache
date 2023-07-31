@@ -125,6 +125,12 @@
             ],
             "locked": "1.2"
         },
+        "com.github.luben:zstd-jni": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.5.5-5"
+        },
         "com.google.code.findbugs:annotations": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
@@ -200,6 +206,12 @@
             ],
             "locked": "2.12.5"
         },
+        "net.jpountz.lz4:lz4": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.2.0"
+        },
         "net.spy:spymemcached": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
@@ -235,6 +247,12 @@
                 "com.netflix.evcache:evcache-core"
             ],
             "locked": "1.7.36"
+        },
+        "org.xerial.snappy:snappy-java": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.1.10.3"
         }
     },
     "testCompileClasspath": {
@@ -381,6 +399,12 @@
             ],
             "locked": "1.2"
         },
+        "com.github.luben:zstd-jni": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.5.5-5"
+        },
         "com.google.code.findbugs:annotations": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
@@ -459,6 +483,12 @@
             ],
             "locked": "2.12.5"
         },
+        "net.jpountz.lz4:lz4": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.2.0"
+        },
         "net.spy:spymemcached": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
@@ -503,6 +533,12 @@
         },
         "org.testng:testng": {
             "locked": "7.5"
+        },
+        "org.xerial.snappy:snappy-java": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.1.10.3"
         }
     }
 }

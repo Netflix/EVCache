@@ -3,6 +3,9 @@
         "com.github.fzakaria:ascii85": {
             "locked": "1.2"
         },
+        "com.github.luben:zstd-jni": {
+            "locked": "1.5.5-5"
+        },
         "com.google.code.findbugs:annotations": {
             "locked": "3.0.1"
         },
@@ -33,6 +36,9 @@
         "joda-time:joda-time": {
             "locked": "2.12.5"
         },
+        "net.jpountz.lz4:lz4": {
+            "locked": "1.2.0"
+        },
         "net.spy:spymemcached": {
             "locked": "2.11.4"
         },
@@ -50,12 +56,18 @@
         },
         "org.slf4j:slf4j-log4j12": {
             "locked": "1.7.36"
+        },
+        "org.xerial.snappy:snappy-java": {
+            "locked": "1.1.10.3"
         }
     },
     "runtimeClasspath": {
         "com.github.fzakaria:ascii85": {
             "locked": "1.2"
         },
+        "com.github.luben:zstd-jni": {
+            "locked": "1.5.5-5"
+        },
         "com.google.code.findbugs:annotations": {
             "locked": "3.0.1"
         },
@@ -86,6 +98,9 @@
         "joda-time:joda-time": {
             "locked": "2.12.5"
         },
+        "net.jpountz.lz4:lz4": {
+            "locked": "1.2.0"
+        },
         "net.spy:spymemcached": {
             "locked": "2.11.4"
         },
@@ -103,6 +118,9 @@
         },
         "org.slf4j:slf4j-log4j12": {
             "locked": "1.7.36"
+        },
+        "org.xerial.snappy:snappy-java": {
+            "locked": "1.1.10.3"
         }
     },
     "testCompileClasspath": {
@@ -112,6 +130,9 @@
         "com.github.fzakaria:ascii85": {
             "locked": "1.2"
         },
+        "com.github.luben:zstd-jni": {
+            "locked": "1.5.5-5"
+        },
         "com.google.code.findbugs:annotations": {
             "locked": "3.0.1"
         },
@@ -142,6 +163,9 @@
         "joda-time:joda-time": {
             "locked": "2.12.5"
         },
+        "net.jpountz.lz4:lz4": {
+            "locked": "1.2.0"
+        },
         "net.spy:spymemcached": {
             "locked": "2.11.4"
         },
@@ -168,6 +192,9 @@
         },
         "org.testng:testng": {
             "locked": "7.5"
+        },
+        "org.xerial.snappy:snappy-java": {
+            "locked": "1.1.10.3"
         }
     },
     "testRuntimeClasspath": {
@@ -177,6 +204,9 @@
         "com.github.fzakaria:ascii85": {
             "locked": "1.2"
         },
+        "com.github.luben:zstd-jni": {
+            "locked": "1.5.5-5"
+        },
         "com.google.code.findbugs:annotations": {
             "locked": "3.0.1"
         },
@@ -207,6 +237,9 @@
         "joda-time:joda-time": {
             "locked": "2.12.5"
         },
+        "net.jpountz.lz4:lz4": {
+            "locked": "1.2.0"
+        },
         "net.spy:spymemcached": {
             "locked": "2.11.4"
         },
@@ -233,6 +266,9 @@
         },
         "org.testng:testng": {
             "locked": "7.5"
+        },
+        "org.xerial.snappy:snappy-java": {
+            "locked": "1.1.10.3"
         }
     }
 }

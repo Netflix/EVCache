@@ -51,7 +51,7 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
         if (log.isDebugEnabled()) log.debug("map : " + map);
         if (log.isDebugEnabled()) log.debug("instancesWithNull : " + instancesWithNull);
         if(instancesWithNull.size() > 0 && map.size() > 0) {
-            final EVCacheTranscoder transcoder = new EVCacheTranscoder();
+            final EVCacheTranscoder transcoder = new EVCacheTranscoder(getAppName());
             String originalKey = null;
             for(CachedValues vals : map.values()) {
                 if (log.isDebugEnabled()) log.debug("vals : " + vals);

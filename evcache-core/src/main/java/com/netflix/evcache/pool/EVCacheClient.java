@@ -78,7 +78,6 @@ public class EVCacheClient {
     private final Property<Integer> maxDigestBytes;
     private final Property<Integer> maxHashLength;
     private final Property<String> encoderBase;
-    private final EVCacheSerializingTranscoder decodingTranscoder;
     private final Property<Integer> writeBlock;
     private final EVCacheClientPool pool;
     private final Property<Boolean> ignoreTouch;
@@ -123,8 +122,6 @@ public class EVCacheClient {
         this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, this);
         this.evcacheMemcachedClient.addObserver(connectionObserver);
 
-        this.decodingTranscoder = new EVCacheSerializingTranscoder(Integer.MAX_VALUE);
-        decodingTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
 
         this.hashKeyByServerGroup = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.key", Boolean.class).orElse(null);
         this.hashingAlgo = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.algo", String.class).orElseGet(appName + ".hash.algo").orElse("siphash24");
@@ -834,10 +831,6 @@ public class EVCacheClient {
 
     public Property<Integer> getMaxReadQueueSize() {
         return maxReadQueueSize;
-    }
-
-    public EVCacheSerializingTranscoder getDecodingTranscoder() {
-        return decodingTranscoder;
     }
 
     public EVCacheClientPool getPool() {

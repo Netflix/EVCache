@@ -22,17 +22,26 @@
 
 package com.netflix.evcache;
 
+import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdOutputStream;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.Compressor;
+import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
 import com.netflix.spectator.api.Timer;
+import net.jpountz.lz4.LZ4Compressor;
+import net.jpountz.lz4.LZ4Factory;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.BaseSerializingTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.transcoders.TranscoderUtils;
 import net.spy.memcached.util.StringUtils;
+import org.xerial.snappy.SnappyOutputStream;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Date;
@@ -51,7 +60,9 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     // General flags
     static final int SERIALIZED = 1;
     static final int COMPRESSED = 2;
-
+    static final int ZSTD_COMPRESSION = 3;
+    static final int LZ4_COMPRESSION = 4;
+    static final int SNAPPY_COMPRESSION = 5;
     // Special flags for specially handled types.
     private static final int SPECIAL_MASK = 0xff00;
     static final int SPECIAL_BOOLEAN = (1 << 8);
@@ -66,20 +77,27 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     static final String COMPRESSION = "COMPRESSION_METRIC";
 
     private final TranscoderUtils tu = new TranscoderUtils(true);
+    private final Compressor compressor;
+    private final String compressionAlgo;
+    private final Integer compressionLevel;
+
     private Timer timer;
 
     /**
      * Get a serializing transcoder with the default max data size.
      */
-    public EVCacheSerializingTranscoder() {
-        this(CachedData.MAX_SIZE);
+    public EVCacheSerializingTranscoder(String appName) {
+        this(appName, CachedData.MAX_SIZE);
     }
 
     /**
      * Get a serializing transcoder that specifies the max data size.
      */
-    public EVCacheSerializingTranscoder(int max) {
+    public EVCacheSerializingTranscoder(String appName, int max) {
         super(max);
+        compressor = new Compressor();
+        this.compressionAlgo = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".compression.algo", String.class).orElse("gzip").get();
+        this.compressionLevel = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".compression.level", Integer.class).orElse(3).get();
     }
 
     @Override
@@ -99,7 +117,12 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         byte[] data = d.getData();
         Object rv = null;
         if ((d.getFlags() & COMPRESSED) != 0) {
-            data = decompress(d.getData());
+            try {
+                data = compressor.decompress(d.getData(), compressionAlgo);
+            } catch (IOException e) {
+                getLogger().error("throwing exception in decoding due to compression {}", e);
+                throw new RuntimeException(e);
+            }
         }
         int flags = d.getFlags() & SPECIAL_MASK;
         if ((d.getFlags() & SERIALIZED) != 0 && data != null) {
@@ -182,12 +205,29 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         }
         assert b != null;
         if (b.length > compressionThreshold) {
-            byte[] compressed = compress(b);
+            byte[] compressed;
+            try {
+                compressed = compressor.compress(b, compressionAlgo, compressionLevel);
+            } catch (IOException e) {
+                getLogger().error("throwing exception in encoding due to compression {}", e);
+                throw new RuntimeException(e);
+            }
             if (compressed.length < b.length) {
                 getLogger().debug("Compressed %s from %d to %d",
                         o.getClass().getName(), b.length, compressed.length);
                 b = compressed;
                 flags |= COMPRESSED;
+                switch (compressionAlgo) {
+                    case "zstd":
+                        flags |= ZSTD_COMPRESSION;
+                        break;
+                    case "lz4":
+                        flags |= LZ4_COMPRESSION;
+                        break;
+                    case "snappy":
+                        flags |= SNAPPY_COMPRESSION;
+                        break;
+                }
             } else {
                 getLogger().info("Compression increased the size of %s from %d to %d",
                         o.getClass().getName(), b.length, compressed.length);
@@ -202,7 +242,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     private void updateTimerWithCompressionRatio(long ratio_percentage) {
         if(timer == null) {
             final List<Tag> tagList = new ArrayList<Tag>(1);
-            tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, "gzip"));
+            tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, compressionAlgo));
             timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList, Duration.ofMillis(100));
         };
         timer.record(ratio_percentage, TimeUnit.MILLISECONDS);
