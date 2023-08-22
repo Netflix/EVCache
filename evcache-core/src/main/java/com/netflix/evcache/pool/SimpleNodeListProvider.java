@@ -97,7 +97,7 @@ public class SimpleNodeListProvider implements EVCacheNodeList {
         
         if(env == null || region == null) return Collections.<ServerGroup, EVCacheServerGroupConfig> emptyMap();
 
-        final String url = "http://discoveryreadonly." + region + ".dyn" + env + ".netflix.net:7001/v2/apps/" + appName;
+        final String url = String.format("http://discoveryreadonly.cluster.%s.%s.cloud.netflix.net:7001/v2/apps/%s", region, env, appName);
         final CloseableHttpClient httpclient = HttpClients.createDefault();
         final long start = System.currentTimeMillis();
         PropertyRepository props = EVCacheConfig.getInstance().getPropertyRepository();
