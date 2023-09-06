@@ -189,7 +189,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
                 b = compressed;
                 flags |= COMPRESSED;
             } else {
-                getLogger().info("Compression increased the size of %s from %d to %d",
+                getLogger().debug("Compression increased the size of %s from %d to %d",
                         o.getClass().getName(), b.length, compressed.length);
             }
 

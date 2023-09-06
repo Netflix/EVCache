@@ -131,7 +131,11 @@ public final class EVCacheMetricsFactory {
                 if (counterMap.containsKey(name)) {
                     counter = counterMap.get(name);
                 } else {
-                    List<Tag> tagList = new ArrayList<Tag>(tags.size() + 1);
+                    int size = 1;
+                    if (tags != null) {
+                        size = tags.size()+1;
+                    }
+                    List<Tag> tagList = new ArrayList<Tag>(size);
                     tagList.addAll(tags);
                     final Id id = getId(cName, tagList);
                     counter = getRegistry().counter(id);
