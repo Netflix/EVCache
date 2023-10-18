@@ -10,6 +10,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import com.netflix.evcache.EVCacheSerializingTranscoder;
+import com.netflix.evcache.operation.EVCacheItem;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.SerializingTranscoder;
 import org.apache.log4j.BasicConfigurator;
@@ -36,7 +37,7 @@ import static org.testng.Assert.*;
 public class SimpleEVCacheTest extends Base {
     private static final Logger log = LogManager.getLogger(SimpleEVCacheTest.class);
 
-    private static final String APP_NAME = "EVCACHE_TEST";
+    private static final String APP_NAME = "EVCACHE_AXION_BIN";
     private static final String ALIAS_APP_NAME = "EVCACHE";
 
     private ThreadPoolExecutor pool = null;
@@ -97,15 +98,20 @@ public class SimpleEVCacheTest extends Base {
 
     public void testAll() {
         try {
+            log.debug("PK: calling initEVCache");
             EVCacheClientPoolManager.getInstance().initEVCache(APP_NAME);
-            testDisablingAlias();
-            testEVCache();
+            //testDisablingAlias();
+
+            log.debug("PK: calling axionGet");
+
+            testAxionGet();
+/*
 
             int i = 1;
             boolean flag = true;
             while (flag) {
                 try {
-//                  testAdd();
+                    testAdd();
                     testInsert();
 //                  testAppend();
                     testGet();
@@ -120,11 +126,15 @@ public class SimpleEVCacheTest extends Base {
 //                   testCompletableFutureBulk();
 //                    if(i++ % 5 == 0) testDelete();
                     //Thread.sleep(3000);
-                } catch (Exception e) {
+                    testMetaGet();
+
+        } catch (Exception e) {
                     log.error(e);
                 }
                 //Thread.sleep(3000);
             }
+
+ */
         } catch (Exception e) {
             log.error(e);
         }
@@ -146,7 +156,7 @@ public class SimpleEVCacheTest extends Base {
 
     @Test
     public void testEVCache() {
-        this.evCache = (new EVCache.Builder()).setAppName("EVCACHE_TEST").setCachePrefix(null).enableRetry().build();
+        this.evCache = (new EVCache.Builder()).setAppName("EVCACHE_AXION_BIN").setCachePrefix(null).enableRetry().build();
         assertNotNull(evCache);
     }
 
@@ -172,10 +182,31 @@ public class SimpleEVCacheTest extends Base {
         }
     }
 
+
+
+    public void testAxionGet() throws Exception {
+        this.evCache = (new EVCache.Builder()).setAppName("EVCACHE_AXION_BIN").setCachePrefix(null).enableRetry().build();
+        assertNotNull(evCache);
+        for (int i = 0; i < 10; i++) {
+            final String val = get("phs_2276c693f3c77cd305cdcaeb8d0bf5f0", evCache);
+            log.debug("PK: axionGet" + val);
+        }
+    }
+
+
     @Test(dependsOnMethods = { "testAppend" })
     public void testGet() throws Exception {
         for (int i = 0; i < 10; i++) {
             final String val = get(i, evCache);
+            assertNotNull(val);
+        }
+    }
+
+    @Test(dependsOnMethods = {"testInsert"})
+    public void testMetaGet() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            EVCacheItem val = metaGet(i, evCache);
+            log.debug("MetaGet : " + val.toString());
             assertNotNull(val);
         }
     }

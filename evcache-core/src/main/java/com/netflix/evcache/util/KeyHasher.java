@@ -145,7 +145,7 @@ And if CAS and client flags are present:
         BasicConfigurator.configure(new ConsoleAppender(new PatternLayout("%d{HH:mm:ss,SSS} [%t] %p %c %x - %m%n")));
         org.apache.log4j.Logger.getRootLogger().setLevel(Level.DEBUG);
 
-        String key = "MAP_LT:721af5a5-3452-4b62-86fb-5f31ccde8d99_187978153X28X2787347X1601330156682";
+        String key = "vh_c290664a33dd435984955f69fd5a7a22";
         System.out.println(getHashedKeyEncoded(key, HashingAlgorithm.murmur3, null, null));
     }
 

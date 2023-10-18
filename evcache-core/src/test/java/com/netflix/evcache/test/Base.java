@@ -9,6 +9,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import com.netflix.evcache.operation.EVCacheItem;
 import org.apache.log4j.Appender;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.ConsoleAppender;
@@ -68,11 +69,14 @@ public abstract class Base  {
             props.setProperty("eureka.validateInstanceId","true");
         }
 
-        props.setProperty("eureka.environment", "test");
+        props.setProperty("eureka.environment", "prod");
         props.setProperty("eureka.region", "us-east-1");
         props.setProperty("eureka.appid", "clatency");
         props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheNodeLocator", "ERROR");
         props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheClientUtil", "ERROR");
+        props.setProperty("EVCACHE_AXION_BIN.hash.algo", "murmur3");
+        props.setProperty("EVCACHE_AXION_BIN.hash.key", "true");
+
     }
 
     @BeforeSuite
@@ -213,10 +217,23 @@ public abstract class Base  {
         return true;
     }
 
+    public String get(String key, EVCache gCache) throws Exception {
+        String value = gCache.<String>get(key);
+        if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
+        return value;
+    }
+
     public String get(int i, EVCache gCache) throws Exception {
         String key = "key_" + i;
         String value = gCache.<String>get(key);
         if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
+        return value;
+    }
+
+    public EVCacheItem metaGet(int i, EVCache gCache) throws Exception {
+        String key = "key_" + i;
+        EVCacheItem value = gCache.<String>metaGet(key, null);
+        if(log.isDebugEnabled()) log.debug("metaget : key : " + key + " val = " + value);
         return value;
     }
 
