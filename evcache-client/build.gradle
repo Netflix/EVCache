@@ -24,9 +24,12 @@ dependencies {
         compile group:"com.netflix.governator",       name:"governator",                       version:"latest.release"
         compile group:"com.netflix.eureka",           name:"eureka-client",                    version:"1.10.18"
         compile group:"com.netflix.eureka",           name:"eureka-client-archaius2",          version:"1.10.18"
-        compile group:"com.netflix.spectator",        name:"spectator-api",                    version:"latest.release"
-        compile group:"com.netflix.spectator",        name:"spectator-nflx-plugin",            version:"latest.release"
-        compile group:"io.reactivex",                 name:"rxjava",                           version:"latest.release"
+        //compile group:"com.netflix.spectator",        name:"spectator-api",                    version:"latest.release"
+        compile(group:"com.netflix.spectator",        name:"spectator-nflx-plugin",            version:"latest.release") {
+            exclude module: "spectator-api"
+        }
+
+    compile group:"io.reactivex",                 name:"rxjava",                           version:"latest.release"
         compile group:"org.slf4j",                    name:"slf4j-log4j12",                    version:"1.7.+"
         compile group:"org.slf4j",                    name:"slf4j-api",                        version:"1.7.+"
         compile group:"org.json",                     name:"json",                             version:"20180813"

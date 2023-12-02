@@ -11,7 +11,9 @@ repositories {
 dependencies {
     compile project(':evcache-core')
     compile group:"io.zipkin.brave", name:"brave", version:"5.12.7"
-    testCompile group:"org.testng", name:"testng", version:"7.5"
+    testCompile(group:"org.testng", name:"testng", version:"7.5") {
+        exclude module: "slf4j-api"
+    }
     testCompile group:"org.mockito", name:"mockito-all", version:"latest.release"
 }
 
