@@ -15,31 +15,22 @@ configurations {
 }
 
 dependencies {
-        compile project(':evcache-core')
-        compile group:"net.spy",                      name:"spymemcached",                     version:"2.11.4"
+    implementation project(':evcache-core')
+    implementation group:"net.spy",                      name:"spymemcached",                     version:"2.11.4"
+    implementation group:"com.netflix.archaius",         name:"archaius2-api",                    version:"1.10.18"
+    implementation group:"com.netflix.archaius",         name:"archaius2-core",                   version:"1.10.18"
+    implementation group:"com.netflix.eureka",           name:"eureka-client",                    version:"1.10.18"
+    implementation group:"com.netflix.eureka",           name:"eureka-client-archaius2",          version:"1.10.18"
+    implementation group:"org.slf4j",                    name:"slf4j-log4j12",                    version:"1.7.32"
+    implementation group:"org.slf4j",                    name:"slf4j-api",                        version:"1.7.32"
 
-        compile group:"com.google.code.findbugs",     name:"annotations",                      version:"latest.release"
-        compile group:"com.netflix.archaius",         name:"archaius2-api",                    version:"1.10.18"
-        compile group:"com.netflix.archaius",         name:"archaius2-core",                   version:"1.10.18"
-        compile group:"com.netflix.governator",       name:"governator",                       version:"latest.release"
-        compile group:"com.netflix.eureka",           name:"eureka-client",                    version:"1.10.18"
-        compile group:"com.netflix.eureka",           name:"eureka-client-archaius2",          version:"1.10.18"
-        //compile group:"com.netflix.spectator",        name:"spectator-api",                    version:"latest.release"
-        compile(group:"com.netflix.spectator",        name:"spectator-nflx-plugin",            version:"latest.release") {
-            exclude module: "spectator-api"
-        }
-
-    compile group:"io.reactivex",                 name:"rxjava",                           version:"latest.release"
-        compile group:"org.slf4j",                    name:"slf4j-log4j12",                    version:"1.7.+"
-        compile group:"org.slf4j",                    name:"slf4j-api",                        version:"1.7.+"
-        compile group:"org.json",                     name:"json",                             version:"20180813"
-        
-
-        testCompile group:"org.testng",               name:"testng",                           version:"7.5"
-        testCompile group:"com.netflix.archaius",     name:"archaius2-guice",                  version:"latest.release"
-        testCompile group:"com.beust",                name:"jcommander",                       version:"1.72"
-        testCompile group:"org.mockito",              name:"mockito-all",                      version:"latest.release"
-        testCompile group:'org.assertj',              name:'assertj-core',                     version:'latest.release'
+    testImplementation group:"com.netflix.governator",       name:"governator",                       version:"1.17.13"
+    testImplementation(group:"com.netflix.spectator",        name:"spectator-nflx-plugin",            version:"latest.release") {
+        exclude module: "spectator-api"
+    }
+    testImplementation group:"org.testng",               name:"testng",                           version:"7.5.1"
+    testImplementation group:"com.netflix.archaius",     name:"archaius2-guice",                  version:"2.6.3"
+    testImplementation group:"org.mockito",              name:"mockito-all",                      version:"2.0.2-beta"
 }
 
 javadoc {

@@ -45,9 +45,6 @@
         "com.netflix.evcache:evcache-core": {
             "project": true
         },
-        "com.netflix.governator:governator": {
-            "locked": "1.17.13"
-        },
         "com.netflix.spectator:spectator-api": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
@@ -58,9 +55,6 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "1.7.3"
-        },
-        "com.netflix.spectator:spectator-nflx-plugin": {
             "locked": "1.7.3"
         },
         "io.reactivex:rxjava": {
@@ -135,7 +129,7 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "5.1.0"
+            "locked": "4.1.0"
         },
         "com.netflix.archaius:archaius2-api": {
             "locked": "2.6.3"
@@ -164,9 +158,6 @@
         "com.netflix.evcache:evcache-core": {
             "project": true
         },
-        "com.netflix.governator:governator": {
-            "locked": "1.17.13"
-        },
         "com.netflix.spectator:spectator-api": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
@@ -177,9 +168,6 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "1.7.3"
-        },
-        "com.netflix.spectator:spectator-nflx-plugin": {
             "locked": "1.7.3"
         },
         "io.reactivex:rxjava": {
@@ -238,9 +226,6 @@
         }
     },
     "testCompileClasspath": {
-        "com.beust:jcommander": {
-            "locked": "1.78"
-        },
         "com.github.fzakaria:ascii85": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
@@ -343,9 +328,6 @@
             ],
             "locked": "4.5.14"
         },
-        "org.assertj:assertj-core": {
-            "locked": "3.24.2"
-        },
         "org.json:json": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
@@ -368,13 +350,10 @@
             "locked": "1.7.36"
         },
         "org.testng:testng": {
-            "locked": "7.5"
+            "locked": "7.5.1"
         }
     },
     "testRuntimeClasspath": {
-        "com.beust:jcommander": {
-            "locked": "1.78"
-        },
         "com.github.fzakaria:ascii85": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
@@ -477,9 +456,6 @@
             ],
             "locked": "4.5.14"
         },
-        "org.assertj:assertj-core": {
-            "locked": "3.24.2"
-        },
         "org.json:json": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
@@ -502,7 +478,7 @@
             "locked": "1.7.36"
         },
         "org.testng:testng": {
-            "locked": "7.5"
+            "locked": "7.5.1"
         }
     }
 }

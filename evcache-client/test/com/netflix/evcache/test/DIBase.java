@@ -29,7 +29,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
-import rx.Scheduler;
 
 @SuppressWarnings("unused")
 public abstract class DIBase  {
@@ -80,7 +79,6 @@ public abstract class DIBase  {
         Properties props = getProps();
 
         try {
-
             LifecycleInjectorBuilder builder = LifecycleInjector.builder();
             builder.withModules(
                     new EurekaClientModule(),

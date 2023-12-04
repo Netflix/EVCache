@@ -8,7 +8,128 @@
         },
         "com.google.code.findbugs:annotations": {
             "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "3.0.1"
+        },
+        "com.google.inject:guice": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "4.1.0"
+        },
+        "com.netflix.archaius:archaius2-core": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "2.6.3"
+        },
+        "com.netflix.archaius:archaius2-persisted2": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "2.6.3"
+        },
+        "com.netflix.eureka:eureka-client-archaius2": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.9.8"
+        },
+        "com.netflix.evcache:evcache-client": {
+            "project": true
+        },
+        "com.netflix.evcache:evcache-core": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-zipkin-tracing"
+            ],
+            "project": true
+        },
+        "com.netflix.evcache:evcache-zipkin-tracing": {
+            "project": true
+        },
+        "com.netflix.spectator:spectator-api": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.7.3"
+        },
+        "com.netflix.spectator:spectator-ext-ipc": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.7.3"
+        },
+        "io.reactivex:rxjava": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.3.8"
+        },
+        "io.zipkin.brave:brave": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-zipkin-tracing"
+            ],
+            "locked": "5.12.7"
+        },
+        "javax.annotation:javax.annotation-api": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.3.2"
+        },
+        "joda-time:joda-time": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "2.12.5"
+        },
+        "net.spy:spymemcached": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "2.11.4"
+        },
+        "org.apache.commons:commons-lang3": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "3.12.0"
+        },
+        "org.apache.httpcomponents:httpclient": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "4.5.14"
+        },
+        "org.json:json": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "20231013"
+        },
+        "org.slf4j:slf4j-api": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.7.36"
+        },
+        "org.slf4j:slf4j-log4j12": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.7.36"
+        }
+    },
+    "runtimeClasspath": {
+        "com.github.fzakaria:ascii85": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.2"
+        },
+        "com.google.code.findbugs:annotations": {
+            "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
             "locked": "3.0.1"
@@ -64,12 +185,6 @@
         "com.netflix.evcache:evcache-zipkin-tracing": {
             "project": true
         },
-        "com.netflix.governator:governator": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client"
-            ],
-            "locked": "1.17.13"
-        },
         "com.netflix.spectator:spectator-api": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
@@ -82,15 +197,8 @@
             ],
             "locked": "1.7.3"
         },
-        "com.netflix.spectator:spectator-nflx-plugin": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client"
-            ],
-            "locked": "1.7.3"
-        },
         "io.reactivex:rxjava": {
             "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
                 "com.netflix.evcache:evcache-core"
             ],
             "locked": "1.3.8"
@@ -134,162 +242,6 @@
         },
         "org.json:json": {
             "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "20231013"
-        },
-        "org.slf4j:slf4j-api": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.7.36"
-        },
-        "org.slf4j:slf4j-log4j12": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.7.36"
-        }
-    },
-    "runtimeClasspath": {
-        "com.github.fzakaria:ascii85": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.2"
-        },
-        "com.google.code.findbugs:annotations": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "3.0.1"
-        },
-        "com.google.inject:guice": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "5.1.0"
-        },
-        "com.netflix.archaius:archaius2-api": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client"
-            ],
-            "locked": "2.6.3"
-        },
-        "com.netflix.archaius:archaius2-core": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "2.6.3"
-        },
-        "com.netflix.archaius:archaius2-persisted2": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "2.6.3"
-        },
-        "com.netflix.eureka:eureka-client": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client"
-            ],
-            "locked": "1.10.18"
-        },
-        "com.netflix.eureka:eureka-client-archaius2": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.10.18"
-        },
-        "com.netflix.evcache:evcache-client": {
-            "project": true
-        },
-        "com.netflix.evcache:evcache-core": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-zipkin-tracing"
-            ],
-            "project": true
-        },
-        "com.netflix.evcache:evcache-zipkin-tracing": {
-            "project": true
-        },
-        "com.netflix.governator:governator": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client"
-            ],
-            "locked": "1.17.13"
-        },
-        "com.netflix.spectator:spectator-api": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.7.3"
-        },
-        "com.netflix.spectator:spectator-ext-ipc": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.7.3"
-        },
-        "com.netflix.spectator:spectator-nflx-plugin": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client"
-            ],
-            "locked": "1.7.3"
-        },
-        "io.reactivex:rxjava": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.3.8"
-        },
-        "io.zipkin.brave:brave": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-zipkin-tracing"
-            ],
-            "locked": "5.12.7"
-        },
-        "javax.annotation:javax.annotation-api": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.3.2"
-        },
-        "joda-time:joda-time": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "2.12.5"
-        },
-        "net.spy:spymemcached": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "2.11.4"
-        },
-        "org.apache.commons:commons-lang3": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "3.12.0"
-        },
-        "org.apache.httpcomponents:httpclient": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "4.5.14"
-        },
-        "org.json:json": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
                 "com.netflix.evcache:evcache-core"
             ],
             "locked": "20231013"
@@ -318,7 +270,128 @@
         },
         "com.google.code.findbugs:annotations": {
             "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "3.0.1"
+        },
+        "com.google.inject:guice": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "4.1.0"
+        },
+        "com.netflix.archaius:archaius2-core": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "2.6.3"
+        },
+        "com.netflix.archaius:archaius2-persisted2": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "2.6.3"
+        },
+        "com.netflix.eureka:eureka-client-archaius2": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.9.8"
+        },
+        "com.netflix.evcache:evcache-client": {
+            "project": true
+        },
+        "com.netflix.evcache:evcache-core": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-zipkin-tracing"
+            ],
+            "project": true
+        },
+        "com.netflix.evcache:evcache-zipkin-tracing": {
+            "project": true
+        },
+        "com.netflix.spectator:spectator-api": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.7.3"
+        },
+        "com.netflix.spectator:spectator-ext-ipc": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.7.3"
+        },
+        "io.reactivex:rxjava": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.3.8"
+        },
+        "io.zipkin.brave:brave": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-zipkin-tracing"
+            ],
+            "locked": "5.12.7"
+        },
+        "javax.annotation:javax.annotation-api": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.3.2"
+        },
+        "joda-time:joda-time": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "2.12.5"
+        },
+        "net.spy:spymemcached": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "2.11.4"
+        },
+        "org.apache.commons:commons-lang3": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "3.12.0"
+        },
+        "org.apache.httpcomponents:httpclient": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "4.5.14"
+        },
+        "org.json:json": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "20231013"
+        },
+        "org.slf4j:slf4j-api": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.7.36"
+        },
+        "org.slf4j:slf4j-log4j12": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.7.36"
+        }
+    },
+    "testRuntimeClasspath": {
+        "com.github.fzakaria:ascii85": {
+            "firstLevelTransitive": [
+                "com.netflix.evcache:evcache-core"
+            ],
+            "locked": "1.2"
+        },
+        "com.google.code.findbugs:annotations": {
+            "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
             "locked": "3.0.1"
@@ -374,12 +447,6 @@
         "com.netflix.evcache:evcache-zipkin-tracing": {
             "project": true
         },
-        "com.netflix.governator:governator": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client"
-            ],
-            "locked": "1.17.13"
-        },
         "com.netflix.spectator:spectator-api": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
@@ -392,15 +459,8 @@
             ],
             "locked": "1.7.3"
         },
-        "com.netflix.spectator:spectator-nflx-plugin": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client"
-            ],
-            "locked": "1.7.3"
-        },
         "io.reactivex:rxjava": {
             "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
                 "com.netflix.evcache:evcache-core"
             ],
             "locked": "1.3.8"
@@ -444,162 +504,6 @@
         },
         "org.json:json": {
             "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "20231013"
-        },
-        "org.slf4j:slf4j-api": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.7.36"
-        },
-        "org.slf4j:slf4j-log4j12": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.7.36"
-        }
-    },
-    "testRuntimeClasspath": {
-        "com.github.fzakaria:ascii85": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.2"
-        },
-        "com.google.code.findbugs:annotations": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "3.0.1"
-        },
-        "com.google.inject:guice": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "5.1.0"
-        },
-        "com.netflix.archaius:archaius2-api": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client"
-            ],
-            "locked": "2.6.3"
-        },
-        "com.netflix.archaius:archaius2-core": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "2.6.3"
-        },
-        "com.netflix.archaius:archaius2-persisted2": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "2.6.3"
-        },
-        "com.netflix.eureka:eureka-client": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client"
-            ],
-            "locked": "1.10.18"
-        },
-        "com.netflix.eureka:eureka-client-archaius2": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.10.18"
-        },
-        "com.netflix.evcache:evcache-client": {
-            "project": true
-        },
-        "com.netflix.evcache:evcache-core": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-zipkin-tracing"
-            ],
-            "project": true
-        },
-        "com.netflix.evcache:evcache-zipkin-tracing": {
-            "project": true
-        },
-        "com.netflix.governator:governator": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client"
-            ],
-            "locked": "1.17.13"
-        },
-        "com.netflix.spectator:spectator-api": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.7.3"
-        },
-        "com.netflix.spectator:spectator-ext-ipc": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.7.3"
-        },
-        "com.netflix.spectator:spectator-nflx-plugin": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client"
-            ],
-            "locked": "1.7.3"
-        },
-        "io.reactivex:rxjava": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.3.8"
-        },
-        "io.zipkin.brave:brave": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-zipkin-tracing"
-            ],
-            "locked": "5.12.7"
-        },
-        "javax.annotation:javax.annotation-api": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "1.3.2"
-        },
-        "joda-time:joda-time": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "2.12.5"
-        },
-        "net.spy:spymemcached": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "2.11.4"
-        },
-        "org.apache.commons:commons-lang3": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "3.12.0"
-        },
-        "org.apache.httpcomponents:httpclient": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-core"
-            ],
-            "locked": "4.5.14"
-        },
-        "org.json:json": {
-            "firstLevelTransitive": [
-                "com.netflix.evcache:evcache-client",
                 "com.netflix.evcache:evcache-core"
             ],
             "locked": "20231013"
