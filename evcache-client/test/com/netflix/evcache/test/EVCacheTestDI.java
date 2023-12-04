@@ -215,24 +215,6 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         }
     }
 
-    @Test(dependsOnMethods = { "testInsert" })
-    public void testGetObservable() throws Exception {
-        for (int i = 0; i < loops; i++) {
-            final String val = getObservable(i, evCache, Schedulers.computation());
-            assertNotNull(val);
-            assertTrue(val.equals("val_" + i));
-        }
-    }
-
-    @Test(dependsOnMethods = { "testGetObservable" })
-    public void testGetAndTouchObservable() throws Exception {
-        for (int i = 0; i < loops; i++) {
-            final String val = getAndTouchObservable(i, evCache, Schedulers.computation());
-            assertNotNull(val);
-            assertTrue(val.equals("val_" + i));
-        }
-    }
-
     @Test(dependsOnMethods = { "testGetAndTouchObservable" })
     public void waitForCallbacks() throws Exception {
         Thread.sleep(1000);
@@ -452,8 +434,6 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
                     testGetAndTouch();
                     testBulk();
                     testBulkAndTouch();
-                    testGetObservable();
-                    testGetAndTouchObservable();
                     waitForCallbacks();
                     testAppendOrAdd();
                     testTouch();

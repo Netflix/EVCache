@@ -22,8 +22,6 @@ import com.netflix.evcache.operation.EVCacheItemMetaData;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 
 import net.spy.memcached.transcoders.Transcoder;
-import rx.Scheduler;
-import rx.Single;
 
 /**
  * An abstract interface for interacting with an Ephemeral Volatile Cache.
@@ -499,20 +497,6 @@ public interface EVCache {
      */
     <T> CompletableFuture<T> getAsync(String key) throws EVCacheException;
     /**
-     * Retrieve the value for the given key.
-     *
-     * @param key
-     *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 250 characters.
-     * @param scheduler
-     *            the {@link Scheduler} to perform subscription actions on
-     * @return the Value for the given key from the cache (null if there is
-     *         none).
-     */
-    <T> Single<T> get(String key, Scheduler scheduler);
-
-    /**
      * Retrieve the value for the given a key using the specified Transcoder for
      * deserialization.
      *
@@ -635,63 +619,6 @@ public interface EVCache {
      *             users.
      */
     <T> T get(String key, Transcoder<T> tc, Policy policy) throws EVCacheException;
-
-    /**
-     * Retrieve the value for the given a key using the specified Transcoder for
-     * deserialization.
-     *
-     * @param key
-     *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 200 characters.
-     * @param tc
-     *            the Transcoder to deserialize the data
-     * @param scheduler
-     *            the {@link Scheduler} to perform subscription actions on
-     * @return the Value for the given key from the cache (null if there is
-     *         none).
-     */
-    <T> Single<T> get(String key, Transcoder<T> tc, Scheduler scheduler);
-
-    /**
-     * Retrieve the value for the given a key using the default Transcoder for
-     * deserialization and reset its expiration using the passed timeToLive.
-     *
-     * @param key
-     *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 200 characters.
-     * @param timeToLive
-     *            the new expiration of this object i.e. less than 30 days in
-     *            seconds or the exact expiry time as UNIX time
-     * @param scheduler
-     *            the {@link Scheduler} to perform subscription actions on
-     * @return the Value for the given key from the cache (null if there is
-     *         none).
-     */
-    <T> Single<T> getAndTouch(String key, int timeToLive, Scheduler scheduler);
-
-    /**
-     * Retrieve the value for the given a key using the default Transcoder for
-     * deserialization and reset its expiration using the passed timeToLive.
-     *
-     * @param key
-     *            key to get. Ensure the key is properly encoded and does not
-     *            contain whitespace or control characters. The max length of the key (including prefix)
-     *            is 200 characters.
-     * @param timeToLive
-     *            the new expiration of this object i.e. less than 30 days in
-     *            seconds or the exact expiry time as UNIX time
-     * @param tc
-     *            the Transcoder to deserialize the data
-     * @param scheduler
-     *            the {@link Scheduler} to perform subscription actions on
-     * @return the Value for the given key from the cache (null if there is
-     *         none).
-     */
-    <T> Single<T> getAndTouch(String key, int timeToLive, Transcoder<T> tc, Scheduler scheduler);
-
-
 
     /**
      * Get with a single key and reset its expiration.
@@ -868,48 +795,6 @@ public interface EVCache {
             throws EVCacheException;
 
     /**
-     * Get the value for given key asynchronously and deserialize it with the
-     * default transcoder.
-     *
-     * @param key
-     *            the key for which we need the value. Ensure the key is
-     *            properly encoded and does not contain whitespace or control
-     *            characters. The max length of the key (including prefix)
-     *            is 200 characters.
-     * @return the Futures containing the Value or null.
-     * @throws EVCacheException
-     *             in the circumstance where queue is too full to accept any
-     *             more requests or issues during deserialization or timeout
-     *             retrieving the value or any IO Related issues
-     *
-     * @deprecated This is a sub-optimal operation does not support Retries, Fast Failures, FIT, GC Detection, etc.
-     *             Will be removed in a subsequent release
-     */
-    <T> Future<T> getAsynchronous(String key) throws EVCacheException;
-
-    /**
-     * Get the value for given key asynchronously and deserialize it with the
-     * given transcoder.
-     *
-     * @param key
-     *            the key for which we need the value. Ensure the key is
-     *            properly encoded and does not contain whitespace or control
-     *            characters. The max length of the key (including prefix)
-     *            is 200 characters.
-     * @param tc
-     *            the transcoder to use for deserialization
-     * @return the Futures containing the Value or null.
-     * @throws EVCacheException
-     *             in the circumstance where queue is too full to accept any
-     *             more requests or issues during deserialization or timeout
-     *             retrieving the value or any IO Related issues
-     *
-     * @deprecated This is a sub-optimal operation does not support Retries, Fast Failures, FIT, GC Detection, etc.
-     *             Will be removed in a subsequent release
-     */
-    <T> Future<T> getAsynchronous(String key, Transcoder<T> tc) throws EVCacheException;
-
-    /**
      * Increment the given counter, returning the new value.
      *
      * @param key
@@ -1004,36 +889,6 @@ public interface EVCache {
      *             Related issues
      */
     <T> Future<Boolean>[] append(String key, T value, int timeToLive) throws EVCacheException;
-
-    /**
-     * @deprecated Please use {@link #<T> EVCacheLatch add(String, T, Transcoder<T> , int, Policy) throws EVCacheException;}
-     * 
-     * Add the given value to EVCache. You cannot add if the key already exist in EVCache.
-     *
-     * @param key
-     *            the key which this object should be added to. Ensure the
-     *            key is properly encoded and does not contain whitespace or
-     *            control characters. The max length of the key (including prefix)
-     *            is 200 characters.
-     * @param T
-     *            the value to be added
-     * @param tc
-     *            the transcoder the will be used for serialization
-     * @param timeToLive
-     *            the expiration of this object i.e. less than 30 days in
-     *            seconds or the exact expiry time as UNIX time
-     *
-     * @return boolean which indicates if the add was successful or not.
-     * 			The operation will fail with a false response if the data already exists in EVCache.
-     *
-     * @throws EVCacheException
-     *             in the rare circumstance where queue is too full to accept
-     *             any more requests or issues Serializing the value or any IO
-     *             Related issues
-     */
-    <T> boolean add(String key, T value, Transcoder<T> tc, int timeToLive) throws EVCacheException;
-
-
 
     /**
      * Add the given value to EVCache. You cannot add if the key already exist in EVCache.

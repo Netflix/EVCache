@@ -84,9 +84,7 @@ public class SimpleEurekaEVCacheTest extends Base {
                     testAdd();
                     testInsert();
                     testInsertAsync();
-////                    testAppend();
                     testGet();
-                    testGetObservable();
                     testGetAndTouch();
                     testBulk();
                     testBulkAndTouch();
@@ -281,15 +279,6 @@ public class SimpleEurekaEVCacheTest extends Base {
             deleteLatch(i, "EVCACHE");
         }
     }
-
-    public void testGetObservable() throws Exception {
-        for (int i = 0; i < 10; i++) {
-            final String val = getObservable(i, evCache, Schedulers.computation());
-//            Observable<String> obs = evCache.<String> observeGet(key);
-//            obs.doOnNext(new OnNextHandler(key)).doOnError(new OnErrorHandler(key)).subscribe();
-        }
-    }
-
 
     class StatusChecker implements Runnable {
         Future<Boolean>[] status;

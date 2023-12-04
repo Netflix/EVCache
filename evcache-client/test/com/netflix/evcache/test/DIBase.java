@@ -148,7 +148,8 @@ public abstract class DIBase  {
         //String val = "This is a very long value that should work well since we are going to use compression on it. blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah val_"+i;
         String val = "val_add_"+i;
         String key = "key_" + i;
-        boolean status = gCache.add(key, val, null, 60 * 60);
+        EVCacheLatch latch = gCache.add(key, val, null, 60 * 60, Policy.ALL_MINUS_1);
+        boolean status = latch.await(2000, TimeUnit.MILLISECONDS);
         if(log.isDebugEnabled()) log.debug("ADD : key : " + key + "; success = " + status);
         return status;
     }
@@ -257,21 +258,6 @@ public abstract class DIBase  {
         if(log.isDebugEnabled()) log.debug("getBulk : keys : " + Arrays.toString(keys) + "; values = " + value);
         return value;
     }
-
-    public String getObservable(int i, EVCache gCache, Scheduler scheduler) throws Exception {
-        String key = "key_" + i;
-        String value = gCache.<String>get(key, scheduler).toBlocking().value();
-        if(log.isDebugEnabled()) log.debug("get : key : " + key + " val = " + value);
-        return value;
-    }
-
-    public String getAndTouchObservable(int i, EVCache gCache, Scheduler scheduler) throws Exception {
-        String key = "key_" + i;
-        String value = gCache.<String>getAndTouch(key, 60 * 60, scheduler).toBlocking().value();
-        if(log.isDebugEnabled()) log.debug("getAndTouch : key : " + key + " val = " + value);
-        return value;
-    }
-
     class RemoteCaller implements Runnable {
         EVCache gCache;
         public RemoteCaller(EVCache c) {

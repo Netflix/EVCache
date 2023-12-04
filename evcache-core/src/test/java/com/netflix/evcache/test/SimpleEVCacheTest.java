@@ -312,14 +312,7 @@ public class SimpleEVCacheTest extends Base {
             deleteLatch(i, "EVCACHE");
         }
     }
-    
-    public void testGetObservable() throws Exception {
-        for (int i = 0; i < 10; i++) {
-            final String val = getObservable(i, evCache, Schedulers.computation());
-//            Observable<String> obs = evCache.<String> observeGet(key);
-//            obs.doOnNext(new OnNextHandler(key)).doOnError(new OnErrorHandler(key)).subscribe();
-        }
-    }
+
 
     @Test(dependsOnMethods = { "testInsert" })
     public void testEVCacheTranscoder() throws Exception {
