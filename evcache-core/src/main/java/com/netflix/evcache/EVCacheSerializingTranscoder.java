@@ -184,12 +184,12 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         if (b.length > compressionThreshold) {
             byte[] compressed = compress(b);
             if (compressed.length < b.length) {
-                getLogger().debug("Compressed %s from %d to %d",
+                getLogger().trace("Compressed %s from %d to %d",
                         o.getClass().getName(), b.length, compressed.length);
                 b = compressed;
                 flags |= COMPRESSED;
             } else {
-                getLogger().info("Compression increased the size of %s from %d to %d",
+                getLogger().trace("Compression increased the size of %s from %d to %d",
                         o.getClass().getName(), b.length, compressed.length);
             }
 
