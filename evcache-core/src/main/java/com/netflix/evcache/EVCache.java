@@ -1236,12 +1236,12 @@ public interface EVCache {
         }
 
         public Builder withConfigurationProperties(
-            final EVCacheClientPoolConfigurationProperties configurationProperties) {
-          return this
-              .setCachePrefix(configurationProperties.getKeyPrefix())
-              .setDefaultTTL(configurationProperties.getTimeToLive())
-              .setRetry(configurationProperties.getRetryEnabled())
-              .setExceptionThrowing(configurationProperties.getExceptionThrowingEnabled());
+                final EVCacheClientPoolConfigurationProperties configurationProperties) {
+            return this
+                    .setCachePrefix(configurationProperties.getKeyPrefix())
+                    .setDefaultTTL(configurationProperties.getTimeToLive())
+                    .setRetry(configurationProperties.getRetryEnabled())
+                    .setExceptionThrowing(configurationProperties.getExceptionThrowingEnabled());
         }
 
         /**
@@ -1304,15 +1304,15 @@ public interface EVCache {
             return this;
         }
 
-      /**
-       * The default Time To Live (TTL) for items in {@link EVCache} in
-       * seconds. You can override the value by passing the desired TTL with
-       * {@link EVCache#set(String, Object, int)} operations.
-       *
-       * @param ttl. Default is 900 seconds.
-       * @return this {@code Builder} object
-       */
-      public Builder setDefaultTTL(@Nullable final Duration ttl) {
+        /**
+         * The default Time To Live (TTL) for items in {@link EVCache} in
+         * seconds. You can override the value by passing the desired TTL with
+         * {@link EVCache#set(String, Object, int)} operations.
+         *
+         * @param ttl. Default is 900 seconds.
+         * @return this {@code Builder} object
+         */
+        public Builder setDefaultTTL(@Nullable final Duration ttl) {
             if (ttl == null) {
                 return this;
             }
@@ -1322,7 +1322,7 @@ public interface EVCache {
 
         @VisibleForTesting
         Transcoder<?> getTranscoder() {
-          return this._transcoder;
+            return this._transcoder;
         }
 
         /**
@@ -1349,18 +1349,18 @@ public interface EVCache {
             return this;
         }
 
-      /**
-       * Will enable or disable retry across Server Group for cache misses and exceptions
-       * if there are multiple Server Groups for the given EVCache App and
-       * data is replicated across them. This ensures the Hit Rate continues
-       * to be unaffected whenever a server group loses instances.
-       *
-       * By Default retry is enabled.
-       *
-       * @param enableRetry whether retries are to be enabled
-       * @return this {@code Builder} object
-       */
-      public Builder setRetry(boolean enableRetry) {
+        /**
+         * Will enable or disable retry across Server Group for cache misses and exceptions
+         * if there are multiple Server Groups for the given EVCache App and
+         * data is replicated across them. This ensures the Hit Rate continues
+         * to be unaffected whenever a server group loses instances.
+         *
+         * By Default retry is enabled.
+         *
+         * @param enableRetry whether retries are to be enabled
+         * @return this {@code Builder} object
+         */
+        public Builder setRetry(boolean enableRetry) {
             this._serverGroupRetry = enableRetry;
 
             return this;
@@ -1404,15 +1404,15 @@ public interface EVCache {
             return this;
         }
 
-      /**
-       * By Default exceptions are not propagated and null values are
-       * returned. By enabling exception propagation we return the
-       * {@link EVCacheException} whenever the operations experience them.
-       *
-       * @param enableExceptionThrowing whether exception throwing is to be enabled
-       * @return this {@code Builder} object
-       */
-      public Builder setExceptionThrowing(boolean enableExceptionThrowing) {
+        /**
+         * By Default exceptions are not propagated and null values are
+         * returned. By enabling exception propagation we return the
+         * {@link EVCacheException} whenever the operations experience them.
+         *
+         * @param enableExceptionThrowing whether exception throwing is to be enabled
+         * @return this {@code Builder} object
+         */
+        public Builder setExceptionThrowing(boolean enableExceptionThrowing) {
             this._enableExceptionThrowing = enableExceptionThrowing;
 
             return this;
@@ -1430,12 +1430,12 @@ public interface EVCache {
             return this;
         }
 
-      /**
-       * Adds customizers to be applied by {@code customize}.
-       *
-       * @param customizers List of {@code Customizer}s
-       * @return this {@code Builder} object
-       */
+        /**
+         * Adds customizers to be applied by {@code customize}.
+         *
+         * @param customizers List of {@code Customizer}s
+         * @return this {@code Builder} object
+         */
         public Builder addCustomizers(@Nullable final List<Customizer> customizers) {
             this._customizers.addAll(customizers);
 
@@ -1443,33 +1443,43 @@ public interface EVCache {
         }
 
 
-      /**
-       * Applies {@code Customizer}s added through {@code addCustomizers} to {@this}.
-       *
-       * @return this {@code Builder} object
-       */
-      public Builder customize() {
-        _customizers.forEach(customizer -> {
-          customizeWith(customizer);
-        });
+        /**
+         * Applies {@code Customizer}s added through {@code addCustomizers} to {@this}.
+         *
+         * @return this {@code Builder} object
+         */
+        public Builder customize() {
+            _customizers.forEach(customizer -> {
+                customizeWith(customizer);
+            });
 
-        return this;
-      }
+            return this;
+        }
 
-      /**
-       * Customizes {@this} with the {@code customizer}.
-       *
-       * @param customizer {@code Customizer} or {@code Consumer<String, Builder>} to be applied to {@code this}.
-       * @return this {@code Builder} object
-       */
-      public Builder customizeWith(final Customizer customizer) {
+        /**
+         * Customizes {@this} with the {@code customizer}.
+         *
+         * @param customizer {@code Customizer} or {@code Consumer<String, Builder>} to be applied to {@code this}.
+         * @return this {@code Builder} object
+         */
+        public Builder customizeWith(final Customizer customizer) {
             customizer.customize(this._appName, this);
 
             return this;
         }
 
+        /**
+         * The EVCache pool manager that will be used by this {@code EVCache}.
+         * @param poolManager
+         * @return this {@code Builder} object
+         */
+        public Builder setPoolManager(EVCacheClientPoolManager poolManager) {
+            _poolManager = poolManager;
+            return this;
+        }
+
         protected EVCache newImpl(String appName, String cachePrefix, int ttl, Transcoder<?> transcoder, boolean serverGroupRetry, boolean enableExceptionThrowing, EVCacheClientPoolManager poolManager) {
-          return new EVCacheImpl(appName, cachePrefix, ttl, transcoder, serverGroupRetry, enableExceptionThrowing, poolManager);
+            return new EVCacheImpl(appName, cachePrefix, ttl, transcoder, serverGroupRetry, enableExceptionThrowing, poolManager);
         }
 
         /**
