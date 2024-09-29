@@ -2,6 +2,11 @@ buildscript {
   repositories {
     mavenCentral()
   }
+  configurations.all {
+    resolutionStrategy {
+      force 'org.ajoberstar.grgit:grgit-core:4.1.1'
+    }
+  }
 }
 
 plugins {
