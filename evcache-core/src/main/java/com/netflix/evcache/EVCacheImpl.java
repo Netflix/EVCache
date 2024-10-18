@@ -30,7 +30,6 @@ import com.netflix.evcache.util.EVCacheBulkDataDto;
 import com.netflix.evcache.util.KeyHasher;
 import com.netflix.evcache.util.RetryCount;
 import com.netflix.evcache.util.Sneaky;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -120,7 +119,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         this._appName = appName;
         this._cacheName = cacheName;
 
-        if(StringUtils.isNotEmpty(_cacheName)) {
+        if(_cacheName != null && _cacheName.length() > 0) {
             for(int i = 0; i < cacheName.length(); i++) {
                 if(Character.isWhitespace(cacheName.charAt(i))){
                     throw new IllegalArgumentException("Cache Prefix ``" + cacheName  + "`` contains invalid character at position " + i );
@@ -135,11 +134,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
         tags = new ArrayList<Tag>(3);
         EVCacheMetricsFactory.getInstance().addAppNameTags(tags, _appName);
-        if(StringUtils.isNotEmpty(_cacheName)) {
-            tags.add(new BasicTag(EVCacheMetricsFactory.PREFIX, _cacheName));
-        }
+        if(_cacheName != null && _cacheName.length() > 0) tags.add(new BasicTag(EVCacheMetricsFactory.PREFIX, _cacheName));
 
-        final String _metricName = StringUtils.isEmpty(_cacheName) ? _appName : _appName + "." + _cacheName;
+        final String _metricName = (_cacheName == null) ? _appName : _appName + "." + _cacheName;
         _metricPrefix = _appName + "-";
         this._poolManager = poolManager;
         this._pool = poolManager.getEVCacheClientPool(_appName);
@@ -148,7 +145,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         _zoneFallbackFP = propertyRepository.get(_metricName + ".fallback.zone", Boolean.class).orElseGet(_appName + ".fallback.zone").orElse(true);
         _bulkZoneFallbackFP = propertyRepository.get(_appName + ".bulk.fallback.zone", Boolean.class).orElse(true);
         _bulkPartialZoneFallbackFP = propertyRepository.get(_appName+ ".bulk.partial.fallback.zone", Boolean.class).orElse(true);
-        if(StringUtils.isEmpty(_cacheName)) {
+        if(_cacheName == null) {
             _useInMemoryCache = propertyRepository.get(_appName + ".use.inmemory.cache", Boolean.class).orElseGet("evcache.use.inmemory.cache").orElse(false);
         } else {
             _useInMemoryCache = propertyRepository.get(_appName + "." + _cacheName + ".use.inmemory.cache", Boolean.class).orElseGet(_appName + ".use.inmemory.cache").orElseGet("evcache.use.inmemory.cache").orElse(false);
@@ -210,7 +207,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
 
         final String canonicalKey;
-        if (StringUtils.isEmpty(this._cacheName)) {
+        if (this._cacheName == null) {
             canonicalKey = key;
         } else {
             final int keyLength = _cacheName.length() + 1 + key.length();
