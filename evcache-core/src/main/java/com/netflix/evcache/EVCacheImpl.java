@@ -215,7 +215,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
 
         if (canonicalKey.length() > this.maxKeyLength.get() && !hashKey.get() && !autoHashKeys.get()) {
-            throw new IllegalArgumentException("Key is too long (maxlen = " + this.maxKeyLength.get() + ')');
+            final String errMsg = "CanonicalKey ``" + canonicalKey + "`` is too long (maxLen = " + this.maxKeyLength.get() + ", keyLen = " + key.length() + ", canonicalKeyLen = " + canonicalKey.length() + ')';
+            log.error(errMsg);
+            throw new IllegalArgumentException(errMsg);
         }
 
         boolean shouldHashKeyAtAppLevel = hashKey.get() || (canonicalKey.length() > this.maxKeyLength.get() && autoHashKeys.get());
