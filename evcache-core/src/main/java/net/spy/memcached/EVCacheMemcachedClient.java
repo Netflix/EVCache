@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiPredicate;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -192,6 +193,13 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys,
                                                     final Transcoder<T> tc,
                                                     EVCacheGetOperationListener<T> listener) {
+        return asyncGetBulk(keys, tc, listener, (node, key) -> true);
+    }
+
+    public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys,
+                                                    final Transcoder<T> tc,
+                                                    EVCacheGetOperationListener<T> listener,
+                                                    BiPredicate<MemcachedNode, String> nodeValidator) {
         final Map<String, Future<T>> m = new ConcurrentHashMap<String, Future<T>>();
 
         // Break the gets down into groups by key
@@ -202,7 +210,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         for (String key : keys) {
             StringUtils.validateKey(key, opFact instanceof BinaryOperationFactory);
             final MemcachedNode primaryNode = locator.getPrimary(key);
-            if (primaryNode.isActive()) {
+            if (primaryNode.isActive() && nodeValidator.test(primaryNode, key)) {
                 Collection<String> ks = chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>());
                 ks.add(key);
             }
