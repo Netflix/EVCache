@@ -7,11 +7,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Function;
 
 import com.netflix.archaius.api.Property;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.netflix.evcache.pool.HashRingAlgorithm.SimpleHashRingAlgorithm;
+import com.netflix.evcache.pool.HashRingAlgorithm.KetamaMd5HashRingAlgorithm;
+import com.netflix.evcache.pool.NodeLocatorLookup.TreeMapNodeLocatorLookup;
 import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.DefaultHashAlgorithm;
@@ -24,15 +28,17 @@ import net.spy.memcached.util.KetamaNodeLocatorConfiguration;
 public class EVCacheNodeLocator implements NodeLocator {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheNodeLocator.class);
-    private TreeMap<Long, MemcachedNode> ketamaNodes;
+    private TreeMap<Long, MemcachedNode> ketamaNodesTreeMap;
+    private NodeLocatorLookup<MemcachedNode> ketamaNodes;
     protected final EVCacheClient client;
+    private final Function<TreeMap<Long, MemcachedNode>, NodeLocatorLookup<MemcachedNode>> lookupFactory;
 
     private final Property<Boolean> partialStringHash;
     private final Property<String> hashDelimiter;
 
     private final Collection<MemcachedNode> allNodes;
 
-    private final HashAlgorithm hashingAlgorithm;
+    private final HashRingAlgorithm hashRingAlgorithm;
     private final KetamaNodeLocatorConfiguration config;
 
     /**
@@ -47,12 +53,13 @@ public class EVCacheNodeLocator implements NodeLocator {
      *            consistent hash continuum
      * @param conf
      */
-    public EVCacheNodeLocator(EVCacheClient client, List<MemcachedNode> nodes, HashAlgorithm alg, KetamaNodeLocatorConfiguration conf) {
+    public EVCacheNodeLocator(EVCacheClient client, List<MemcachedNode> nodes, HashRingAlgorithm hashRingAlgorithm, KetamaNodeLocatorConfiguration conf, Function<TreeMap<Long, MemcachedNode>, NodeLocatorLookup<MemcachedNode>> lookupFactory) {
         super();
         this.allNodes = nodes;
-        this.hashingAlgorithm = alg;
+        this.hashRingAlgorithm = hashRingAlgorithm;
         this.config = conf;
         this.client = client;
+        this.lookupFactory = lookupFactory;
 
         this.partialStringHash = EVCacheConfig.getInstance().getPropertyRepository().get(client.getAppName() + "." + client.getServerGroupName() + ".hash.on.partial.key", Boolean.class)
                 .orElseGet(client.getAppName()+ ".hash.on.partial.key").orElse(false);
@@ -63,11 +70,22 @@ public class EVCacheNodeLocator implements NodeLocator {
         setKetamaNodes(nodes);
     }
 
-    private EVCacheNodeLocator(EVCacheClient client, TreeMap<Long, MemcachedNode> smn, Collection<MemcachedNode> an, HashAlgorithm alg, KetamaNodeLocatorConfiguration conf) {
+    public EVCacheNodeLocator(EVCacheClient client, List<MemcachedNode> nodes, HashAlgorithm alg, KetamaNodeLocatorConfiguration conf) {
+        this(client,
+                nodes,
+                alg == DefaultHashAlgorithm.KETAMA_HASH ? new KetamaMd5HashRingAlgorithm()
+                        : new SimpleHashRingAlgorithm(alg),
+                conf,
+                TreeMapNodeLocatorLookup::new);
+    }
+
+    private EVCacheNodeLocator(EVCacheClient client, TreeMap<Long, MemcachedNode> smn, Collection<MemcachedNode> an, HashRingAlgorithm hashRingAlgorithm, KetamaNodeLocatorConfiguration conf, Function<TreeMap<Long, MemcachedNode>, NodeLocatorLookup<MemcachedNode>> lookupFactory) {
         super();
-        this.ketamaNodes = smn;
+        this.ketamaNodes = lookupFactory.apply(smn);
+        this.lookupFactory = lookupFactory;
+        this.ketamaNodesTreeMap = smn;
         this.allNodes = an;
-        this.hashingAlgorithm = alg;
+        this.hashRingAlgorithm = hashRingAlgorithm;
         this.config = conf;
         this.client = client;
 
@@ -88,20 +106,17 @@ public class EVCacheNodeLocator implements NodeLocator {
      * @see net.spy.memcached.NodeLocator#getPrimary
      */
     public MemcachedNode getPrimary(String k) {
+        CharSequence key = k;
         if (partialStringHash.get()) {
             final int index = k.indexOf(hashDelimiter.get());
             if (index > 0) {
-                k = k.substring(0, index);
+                key = k.subSequence(0, index);
             }
         }
 
-        final long hash = hashingAlgorithm.hash(k);
+        final long hash = hashRingAlgorithm.hash(key);
 
-        Map.Entry<Long, MemcachedNode> entry = ketamaNodes.ceilingEntry(hash);
-        if (entry == null) {
-            entry = ketamaNodes.firstEntry();
-        }
-        return entry.getValue();
+        return ketamaNodes.wrappingCeilingValue(hash);
     }
 
     /*
@@ -114,12 +129,7 @@ public class EVCacheNodeLocator implements NodeLocator {
     public MemcachedNode getNodeForKey(long _hash) {
         long start = (log.isDebugEnabled()) ? System.nanoTime() : 0;
         try {
-            Long hash = Long.valueOf(_hash);
-            hash = ketamaNodes.ceilingKey(hash);
-            if (hash == null) {
-                hash = ketamaNodes.firstKey();
-            }
-            return ketamaNodes.get(hash);
+            return ketamaNodes.wrappingCeilingValue(_hash);
         } finally {
             if (log.isDebugEnabled()) {
                 final long end = System.nanoTime();
@@ -147,14 +157,14 @@ public class EVCacheNodeLocator implements NodeLocator {
             aNodes.add(new EVCacheMemcachedNodeROImpl(n));
         }
 
-        return new EVCacheNodeLocator(client, ketamaNaodes, aNodes, hashingAlgorithm, config);
+        return new EVCacheNodeLocator(client, ketamaNaodes, aNodes, hashRingAlgorithm, config, lookupFactory);
     }
 
     /**
      * @return the ketamaNodes
      */
     protected TreeMap<Long, MemcachedNode> getKetamaNodes() {
-        return ketamaNodes;
+        return ketamaNodesTreeMap;
     }
 
     /**
@@ -162,7 +172,7 @@ public class EVCacheNodeLocator implements NodeLocator {
      *         purposes
      */
     public Map<Long, MemcachedNode> getKetamaNodeMap() {
-        return Collections.<Long, MemcachedNode> unmodifiableMap(ketamaNodes);
+        return Collections.<Long, MemcachedNode> unmodifiableMap(ketamaNodesTreeMap);
     }
 
     /**
@@ -175,26 +185,13 @@ public class EVCacheNodeLocator implements NodeLocator {
     protected final void setKetamaNodes(List<MemcachedNode> nodes) {
         TreeMap<Long, MemcachedNode> newNodeMap = new TreeMap<Long, MemcachedNode>();
         final int numReps = config.getNodeRepetitions();
+        long[] parts = new long[hashRingAlgorithm.getCountHashParts()];
         for (MemcachedNode node : nodes) {
-            // Ketama does some special work with md5 where it reuses chunks.
-            if (hashingAlgorithm == DefaultHashAlgorithm.KETAMA_HASH) {
-                for (int i = 0; i < numReps / 4; i++) {
-                    final String hashString = config.getKeyForNode(node, i);
-                    byte[] digest = DefaultHashAlgorithm.computeMd5(hashString);
-                    if (log.isDebugEnabled()) log.debug("digest : " + digest);
-                    for (int h = 0; h < 4; h++) {
-                        long k = ((long) (digest[3 + h * 4] & 0xFF) << 24)
-                                | ((long) (digest[2 + h * 4] & 0xFF) << 16)
-                                | ((long) (digest[1 + h * 4] & 0xFF) << 8)
-                                | (digest[h * 4] & 0xFF);
-                        newNodeMap.put(Long.valueOf(k), node);
-                        if (log.isDebugEnabled()) log.debug("Key : " + hashString + " ; hash : " + k + "; node " + node );
-                    }
-                }
-            } else {
-                for (int i = 0; i < numReps; i++) {
-                    final Long hashL = Long.valueOf(hashingAlgorithm.hash(config.getKeyForNode(node, i)));
-                    newNodeMap.put(hashL, node);
+            for (int i = 0; i < numReps / 4; i++) {
+                final String hashString = config.getKeyForNode(node, i);
+                hashRingAlgorithm.getHashPartsInto(hashString, parts);
+                for (int h = 0; h < parts.length; h++) {
+                    newNodeMap.put(Long.valueOf(parts[h]), node);
                 }
             }
         }
@@ -204,7 +201,8 @@ public class EVCacheNodeLocator implements NodeLocator {
                 log.trace("Hash : " + key + "; Node : " + newNodeMap.get(key));
             }
         }
-        ketamaNodes = newNodeMap;
+        ketamaNodes = lookupFactory.apply(newNodeMap);
+        ketamaNodesTreeMap = newNodeMap;
     }
 
     @Override
@@ -215,7 +213,7 @@ public class EVCacheNodeLocator implements NodeLocator {
     @Override
     public String toString() {
         return "EVCacheNodeLocator [ketamaNodes=" + ketamaNodes + ", EVCacheClient=" + client + ", partialStringHash=" + partialStringHash
-                + ", hashDelimiter=" + hashDelimiter + ", allNodes=" + allNodes + ", hashingAlgorithm=" + hashingAlgorithm + ", config=" + config + "]";
+                + ", hashDelimiter=" + hashDelimiter + ", allNodes=" + allNodes + ", hashRingAlgorithm=" + hashRingAlgorithm + ", config=" + config + "]";
     }
 
 }
