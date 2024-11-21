@@ -1,5 +1,6 @@
 package com.netflix.evcache.pool;
 
+import net.openhft.hashing.LongTupleHashFunction;
 import net.spy.memcached.DefaultHashAlgorithm;
 import net.spy.memcached.HashAlgorithm;
 
@@ -62,4 +63,31 @@ public interface HashRingAlgorithm {
         }
     }
 
+    static class KetamaMurmur3HashRingAlgorithm implements HashRingAlgorithm {
+        static final LongTupleHashFunction murmur3 = LongTupleHashFunction.murmur_3();
+
+        @Override
+        public long hash(CharSequence key) {
+            long[] results = new long[2];
+            murmur3.hashChars(key, results);
+            return results[1] & 0xffffffffL; /* Truncate to 32-bits */
+        }
+
+        @Override
+        public int getCountHashParts() {
+            return 4;
+        }
+
+        @Override
+        public void getHashPartsInto(CharSequence key, long[] parts) {
+            long[] results = new long[2];
+            murmur3.hashChars(key, results);
+
+            // Split the two 64-bit values into four 32-bit chunks
+            parts[0] = results[0] & 0xffffffffL; // Lower 32 bits of first long
+            parts[1] = (results[0] >>> 32) & 0xffffffffL; // Upper 32 bits of first long
+            parts[2] = results[1] & 0xffffffffL; // Lower 32 bits of second long
+            parts[3] = (results[1] >>> 32) & 0xffffffffL; // Upper 32 bits of second long
+        }
+    }
 }

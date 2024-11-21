@@ -1,5 +1,10 @@
+plugins {
+    id "me.champeau.jmh" version "0.6.6"
+}
+
 apply plugin: 'java'
 apply plugin: 'eclipse'
+apply plugin: 'me.champeau.jmh'
 
 sourceSets.main.java.srcDir 'src/main/java'
 sourceSets.main.resources.srcDir 'src/main/resources'
@@ -39,6 +44,7 @@ dependencies {
         compile group:"joda-time",                    name:"joda-time",                        version:"latest.release"
         compile group:"javax.annotation",             name:"javax.annotation-api",             version:"latest.release"
         compile group:"com.github.fzakaria",          name:"ascii85",                          version:"latest.release"
+        compile group:"net.openhft",                  name:"zero-allocation-hashing",          version:"latest.release"
 
         testCompile group:"org.testng",               name:"testng",                           version:"7.5"
         testCompile group:"com.beust",                name:"jcommander",                       version:"1.72"
@@ -48,4 +54,13 @@ dependencies {
 
 javadoc {
     failOnError = false
+}
+
+jmh {
+    jmhVersion = '1.35'
+    warmupIterations = 2
+    iterations = 2
+    fork = 1
+    zip64 = true
+    profilers = ['gc', 'stack']
 }
