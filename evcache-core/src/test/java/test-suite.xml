@@ -1,5 +1,10 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
 <suite name="evcache-client-tests">
+  <test name="UnitTests">
+    <classes>
+      <class name="com.netflix.evcache.pool.NodeLocatorLookupTest" />
+    </classes>
+  </test>
   <test name="MockTests">
     <classes>
       <class name="com.netflix.evcache.test.MockEVCacheTest" />
