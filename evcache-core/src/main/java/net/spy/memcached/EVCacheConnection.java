@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedSelectorException;
+import java.nio.channels.Selector;
 import java.util.Collection;
 import java.util.ConcurrentModificationException;
 import java.util.List;
@@ -76,10 +77,32 @@ public class EVCacheConnection extends MemcachedConnection {
 
     @Override
     public void addOperations(Map<MemcachedNode, Operation> ops) {
-        super.addOperations(ops);
-        for (MemcachedNode node : ops.keySet()) {
+        // directly inline this operation, copied down from parent implementation
+        final String OVERALL_REQUEST_METRIC = "[MEM] Request Rate: All";
+        net.spy.memcached.compat.log.Logger log = getLogger();
+
+        for (Map.Entry<MemcachedNode, Operation> me : ops.entrySet()) {
+            MemcachedNode node = me.getKey();
+            Operation o = me.getValue();
+
+            if (!node.isAuthenticated()) {
+                retryOperation(o);
+                continue;
+            }
+
+            o.setHandlingNode(node);
+            o.initialize();
+            node.addOp(o);
+            addedQueue.offer(node);
+
             ((EVCacheNode) node).incrOps();
+            metrics.markMeter(OVERALL_REQUEST_METRIC);
+            log.debug("Added %s to %s", o, node);
         }
+
+        // do a single wakeup after all operations are added
+        Selector s = selector.wakeup();
+        assert s == selector : "Wakeup returned the wrong selector.";
     }
 
     @Override
