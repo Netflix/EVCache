@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.*;
+import java.util.function.BiPredicate;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
 
@@ -187,39 +188,36 @@ public class EVCacheClient {
         return this.maxHashLength.get();
     }
 
-    private Collection<String> validateReadQueueSize(Collection<String> canonicalKeys, EVCache.Call call) {
-        if (evcacheMemcachedClient.getNodeLocator() == null) return canonicalKeys;
-        final Collection<String> retKeys = new ArrayList<>(canonicalKeys.size());
-        for (String key : canonicalKeys) {
-            final MemcachedNode node = evcacheMemcachedClient.getNodeLocator().getPrimary(key);
-            if (node instanceof EVCacheNode) {
-                final EVCacheNode evcNode = (EVCacheNode) node;
-                if (!evcNode.isAvailable(call)) {
-                    continue;
-                }
+    private boolean validateReadQueueSize(MemcachedNode node, String key, EVCache.Call call) {
+        if (!(node instanceof EVCacheNode)) {
+            return true;
+        }
 
-                final int size = evcNode.getReadQueueSize();
-                final boolean canAddToOpQueue = size < (maxReadQueueSize.get() * 2);
-                // if (log.isDebugEnabled()) log.debug("Bulk Current Read Queue
-                // Size - " + size + " for app " + appName + " & zone " + zone +
-                // " ; node " + node);
-                if (!canAddToOpQueue) {
-                    final String hostName;
-                    if(evcNode.getSocketAddress() instanceof InetSocketAddress) {
-                        hostName = ((InetSocketAddress)evcNode.getSocketAddress()).getHostName();
-                    } else {
-                        hostName = evcNode.getSocketAddress().toString();
-                    }
+        final EVCacheNode evcNode = (EVCacheNode) node;
+        if (!evcNode.isAvailable(call)) {
+            return false;
+        }
 
-                    incrementFailure(EVCacheMetricsFactory.READ_QUEUE_FULL, call, hostName);
-                    if (log.isDebugEnabled()) log.debug("Read Queue Full on Bulk Operation for app : " + appName
-                            + "; zone : " + zone + "; Current Size : " + size + "; Max Size : " + maxReadQueueSize.get() * 2);
-                } else {
-                    retKeys.add(key);
-                }
+        final int size = evcNode.getReadQueueSize();
+        final boolean canAddToOpQueue = size < (maxReadQueueSize.get() * 2);
+
+        if (!canAddToOpQueue) {
+            final String hostName;
+            if (evcNode.getSocketAddress() instanceof InetSocketAddress) {
+                hostName = ((InetSocketAddress) evcNode.getSocketAddress()).getHostName();
+            } else {
+                hostName = evcNode.getSocketAddress().toString();
+            }
+
+            incrementFailure(EVCacheMetricsFactory.READ_QUEUE_FULL, call, hostName);
+            if (log.isDebugEnabled()) {
+                log.debug("Read Queue Full on Bulk Operation for app : " + appName
+                        + "; zone : " + zone + "; Current Size : " + size
+                        + "; Max Size : " + maxReadQueueSize.get() * 2);
             }
         }
-        return retKeys;
+
+        return canAddToOpQueue;
     }
 
     private void incrementFailure(String metric, EVCache.Call call) {
@@ -966,16 +964,16 @@ public class EVCacheClient {
         }
     }
 
-    public <T> Map<String, T> getBulk(Collection<String> _canonicalKeys, Transcoder<T> tc, boolean _throwException,
+    public <T> Map<String, T> getBulk(Collection<String> canonicalKeys, Transcoder<T> tc, boolean _throwException,
             boolean hasZF) throws Exception {
-        final Collection<String> canonicalKeys = validateReadQueueSize(_canonicalKeys, Call.BULK);
         final Map<String, T> returnVal;
         try {
             if (tc == null) tc = (Transcoder<T>) getTranscoder();
             if (enableChunking.get()) {
-                returnVal = assembleChunks(_canonicalKeys, tc, hasZF);
+                returnVal = assembleChunks(canonicalKeys, tc, hasZF);
             } else {
-                returnVal = evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null)
+                final BiPredicate<MemcachedNode, String> validator = (node, key) -> validateReadQueueSize(node, key, Call.BULK);
+                returnVal = evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null, validator)
                         .getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
             }
         } catch (Exception e) {
@@ -985,24 +983,24 @@ public class EVCacheClient {
         return returnVal;
     }
 
-    public <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> _canonicalKeys, Transcoder<T> tc) {
-        final Collection<String> canonicalKeys = validateReadQueueSize(_canonicalKeys, Call.COMPLETABLE_FUTURE_GET_BULK);
+    public <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> canonicalKeys, Transcoder<T> tc) {
+        final BiPredicate<MemcachedNode, String> validator = (node, key) -> validateReadQueueSize(node, key, Call.COMPLETABLE_FUTURE_GET_BULK);
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
         return evcacheMemcachedClient
-                .asyncGetBulk(canonicalKeys, tc, null)
+                .asyncGetBulk(canonicalKeys, tc, null, validator)
                 .getAsyncSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS);
 
     }
 
-    public <T> Single<Map<String, T>> getBulk(Collection<String> _canonicalKeys, final Transcoder<T> transcoder, boolean _throwException,
+    public <T> Single<Map<String, T>> getBulk(Collection<String> canonicalKeys, final Transcoder<T> transcoder, boolean _throwException,
             boolean hasZF, Scheduler scheduler) {
         try {
-            final Collection<String> canonicalKeys = validateReadQueueSize(_canonicalKeys, Call.BULK);
             final Transcoder<T> tc = (transcoder == null) ? (Transcoder<T>) getTranscoder() : transcoder;
             if (enableChunking.get()) {
-                return assembleChunks(_canonicalKeys, tc, hasZF, scheduler);
+                return assembleChunks(canonicalKeys, tc, hasZF, scheduler);
             } else {
-                return evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null)
+                final BiPredicate<MemcachedNode, String> validator = (node, key) -> validateReadQueueSize(node, key, Call.BULK);
+                return evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null, validator)
                     .getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF, scheduler);
             }
         } catch (Throwable e) {
