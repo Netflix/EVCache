@@ -1173,9 +1173,38 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             for (Entry<ServerGroup, List<EVCacheClient>> entry : allServers.entrySet()) {
                 final List<EVCacheClient> listOfClients = entry.getValue();
                 for (EVCacheClient client : listOfClients) {
-                    final Map<SocketAddress, String> versions = client.getVersions();
-                    for (Entry<SocketAddress, String> vEntry : versions.entrySet()) {
-                        if (log.isDebugEnabled()) log.debug("Host : " + vEntry.getKey() + " : " + vEntry.getValue());
+
+                    int maxRetries = 10;
+                    long retryDelayMs = 1000;
+                    for (int i = 0; i < maxRetries; i++) {
+                        final Map<SocketAddress, String> versions = client.getVersions();
+                        boolean allNodesOk = true;
+
+                        for (Entry<SocketAddress, String> vEntry : versions.entrySet()) {
+                            String version = vEntry.getValue();
+                            // Only accept version in format like "1.6.15"
+                            if (!version.matches("\\d+\\.\\d+\\.\\d+")) {
+                                allNodesOk = false;
+                                log.warn("Node not ready or invalid version: {}, response: {}, attempt {}",
+                                        vEntry.getKey(), version, i + 1);
+                                break;
+                            }
+                        }
+
+                        if (allNodesOk) {
+                            if (log.isDebugEnabled()) {
+                                for (Entry<SocketAddress, String> vEntry : versions.entrySet()) {
+                                    log.debug("Host : {} Version : {}", vEntry.getKey(), vEntry.getValue());
+                                }
+                            }
+                            break;
+                        }
+
+                        if (i < maxRetries - 1) {
+                            Thread.sleep(retryDelayMs);
+                        } else {
+                            log.error("Some nodes not ready after max retries for client: {}", client);
+                        }
                     }
                 }
             }
