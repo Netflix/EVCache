@@ -613,7 +613,6 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Error while building and starting the event");
             return errorFuture;
         }
-        errorFuture.cancel(false);
 
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         StringBuilder status = new StringBuilder(EVCacheMetricsFactory.SUCCESS);
@@ -2375,8 +2374,6 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Error while building and starting the event for doAsyncGetBulk");
             return errorFuture;
         }
-        if (log.isDebugEnabled() && shouldLog()) log.debug("Cancelling the error future");
-        errorFuture.cancel(false);
 
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         StringBuilder status = new StringBuilder(EVCacheMetricsFactory.SUCCESS);
