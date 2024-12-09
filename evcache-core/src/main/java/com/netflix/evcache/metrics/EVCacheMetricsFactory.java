@@ -288,6 +288,8 @@ public final class EVCacheMetricsFactory {
     public static final String INTERNAL_POOL_SG_CONFIG              = "internal.evc.client.pool.asg.config";
     public static final String INTERNAL_POOL_CONFIG                 = "internal.evc.client.pool.config";
     public static final String INTERNAL_POOL_REFRESH                = "internal.evc.client.pool.refresh";
+    public static final String INTERNAL_PING_SERVER                 = "internal.evc.client.ping.server";
+    public static final String INTERNAL_PING_SERVER_FAILURES        = "internal.evc.client.ping.server.failures";
 
     public static final String INTERNAL_BOOTSTRAP_EUREKA            = "internal.evc.client.pool.bootstrap.eureka";
 
@@ -308,7 +310,6 @@ public final class EVCacheMetricsFactory {
     public static final String POOL_REFRESH_QUEUE_FULL              = "refreshOnQueueFull";
     public static final String POOL_REFRESH_ASYNC                   = "refreshAsync";
     public static final String POOL_OPERATIONS                      = "operations";
-
 
     /**
      * Metric Tags Names
