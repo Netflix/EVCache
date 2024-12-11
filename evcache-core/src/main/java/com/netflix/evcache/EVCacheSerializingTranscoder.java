@@ -202,7 +202,6 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
             tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, "gzip"));
             timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList, Duration.ofMillis(100));
         };
-
         timer.record(ratio_percentage, TimeUnit.MILLISECONDS);
     }
 
