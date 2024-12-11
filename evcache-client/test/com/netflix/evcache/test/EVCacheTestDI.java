@@ -94,6 +94,8 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
             } catch(Exception e) {
                 exceptionThrown = true;
                 if (log.isDebugEnabled()) log.debug("Check key length: " + longKey  + ": INVALID");
+                assertTrue(e.getMessage().contains(longKey), "Error message should include the invalid key.");
+                assertTrue(e.getMessage().contains(Integer.toString(longKey.length())), "Error message should include the key length of the invalid key.");
             }
             assertTrue(exceptionThrown);
         }
