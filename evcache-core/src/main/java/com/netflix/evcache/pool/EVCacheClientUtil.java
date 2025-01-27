@@ -1,9 +1,11 @@
 package com.netflix.evcache.pool;
 
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import com.netflix.evcache.EVCacheKey;
+import net.spy.memcached.MemcachedClientIF;
 import net.spy.memcached.transcoders.Transcoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +21,24 @@ public class EVCacheClientUtil {
     private final ChunkTranscoder ct = new ChunkTranscoder();
     private final String _appName;
     private final long _operationTimeout;
+
+    /**
+     * Maximum supported key length.
+     */
+    private static final int MAX_KEY_BYTES = MemcachedClientIF.MAX_KEY_LENGTH;
+
+    /**
+     * Exception thrown if the input key is too long.
+     */
+    private static final IllegalArgumentException KEY_TOO_LONG_EXCEPTION =
+            new IllegalArgumentException("Key is too long (maxlen = "
+                    + MAX_KEY_BYTES + ')');
+
+    /**
+     * Exception thrown if the input key is empty.
+     */
+    private static final IllegalArgumentException KEY_EMPTY_EXCEPTION =
+            new IllegalArgumentException("Key must contain at least one character.");
 
     public EVCacheClientUtil(String appName, long operationTimeout) {
         this._appName = appName;
@@ -85,4 +105,37 @@ public class EVCacheClientUtil {
         }
         return latch;
     }
+
+    /**
+     * Check if a given key is valid to transmit.
+     *
+     * @param key the key to check.
+     * @param binary if binary protocol is used.
+     */
+    public static void validateKey(final String key, final boolean binary) {
+        // This is a replica of the upstream StringUtils.validateKey from the
+        // memcached implementation, however we modify it to avoid the Charset
+        // lookup cost, which ends up the majority of the validation.
+
+        byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
+        int keyLength = keyBytes.length;
+
+        if (keyLength > MAX_KEY_BYTES) {
+            throw KEY_TOO_LONG_EXCEPTION;
+        }
+
+        if (keyLength == 0) {
+            throw KEY_EMPTY_EXCEPTION;
+        }
+
+        if(!binary) {
+            for (byte b : keyBytes) {
+                if (b == ' ' || b == '\n' || b == '\r' || b == 0) {
+                    throw new IllegalArgumentException(
+                            "Key contains invalid characters:  ``" + key + "''");
+                }
+            }
+        }
+    }
+
 }

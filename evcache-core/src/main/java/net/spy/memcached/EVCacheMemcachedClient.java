@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.netflix.evcache.pool.EVCacheClientUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -200,7 +201,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
         //Populate Node and key Map
         for (String key : keys) {
-            StringUtils.validateKey(key, opFact instanceof BinaryOperationFactory);
+            EVCacheClientUtil.validateKey(key, opFact instanceof BinaryOperationFactory);
             final MemcachedNode primaryNode = locator.getPrimary(key);
             if (primaryNode.isActive()) {
                 Collection<String> ks = chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>());
