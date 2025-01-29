@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.evcache.pool.HashRingAlgorithm.SimpleHashRingAlgorithm;
 import com.netflix.evcache.pool.HashRingAlgorithm.KetamaMd5HashRingAlgorithm;
-import com.netflix.evcache.pool.NodeLocatorLookup.TreeMapNodeLocatorLookup;
+import com.netflix.evcache.pool.NodeLocatorLookup.EytzingerNodeLocatorLookup;
 import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.DefaultHashAlgorithm;
@@ -76,7 +76,7 @@ public class EVCacheNodeLocator implements NodeLocator {
                 alg == DefaultHashAlgorithm.KETAMA_HASH ? new KetamaMd5HashRingAlgorithm()
                         : new SimpleHashRingAlgorithm(alg),
                 conf,
-                TreeMapNodeLocatorLookup::new);
+                EytzingerNodeLocatorLookup::new);
     }
 
     private EVCacheNodeLocator(EVCacheClient client, TreeMap<Long, MemcachedNode> smn, Collection<MemcachedNode> an, HashRingAlgorithm hashRingAlgorithm, KetamaNodeLocatorConfiguration conf, Function<TreeMap<Long, MemcachedNode>, NodeLocatorLookup<MemcachedNode>> lookupFactory) {
