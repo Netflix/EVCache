@@ -176,7 +176,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             this._pool = poolManager.getEVCacheClientPool(_appName);
         });
 
-        _pool.pingServers();
+        _pool.pingServers(true);
 
         setupMonitoring();
     }
