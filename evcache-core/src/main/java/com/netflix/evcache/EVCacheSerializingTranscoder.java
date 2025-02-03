@@ -149,9 +149,6 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         int flags = 0;
         if (o instanceof String) {
             b = encodeString((String) o);
-            if (StringUtils.isJsonObject((String) o)) {
-                return new CachedData(flags, b, getMaxSize());
-            }
         } else if (o instanceof Long) {
             b = tu.encodeLong((Long) o);
             flags |= SPECIAL_LONG;
@@ -184,7 +181,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         if (b.length > compressionThreshold) {
             byte[] compressed = compress(b);
             if (compressed.length < b.length) {
-                getLogger().debug("Compressed %s from %d to %d",
+                getLogger().trace("Compressed %s from %d to %d",
                         o.getClass().getName(), b.length, compressed.length);
                 b = compressed;
                 flags |= COMPRESSED;

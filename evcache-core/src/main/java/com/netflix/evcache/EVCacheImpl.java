@@ -215,7 +215,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         }
 
         if (canonicalKey.length() > this.maxKeyLength.get() && !hashKey.get() && !autoHashKeys.get()) {
-            throw new IllegalArgumentException("Key is too long (maxlen = " + this.maxKeyLength.get() + ')');
+            final String errMsg = String.format("CanonicalKey ``%s`` is too long (maxLen = %d, keyLen = %d, canonicalKeyLen = %d)", canonicalKey, this.maxKeyLength.get(), key.length(), canonicalKey.length());
+            log.warn(errMsg);
+            throw new IllegalArgumentException(errMsg);
         }
 
         boolean shouldHashKeyAtAppLevel = hashKey.get() || (canonicalKey.length() > this.maxKeyLength.get() && autoHashKeys.get());
@@ -613,7 +615,6 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Error while building and starting the event");
             return errorFuture;
         }
-        errorFuture.cancel(false);
 
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         StringBuilder status = new StringBuilder(EVCacheMetricsFactory.SUCCESS);
@@ -2375,8 +2376,6 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             if (log.isDebugEnabled() && shouldLog()) log.debug("Error while building and starting the event for doAsyncGetBulk");
             return errorFuture;
         }
-        if (log.isDebugEnabled() && shouldLog()) log.debug("Cancelling the error future");
-        errorFuture.cancel(false);
 
         final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
         StringBuilder status = new StringBuilder(EVCacheMetricsFactory.SUCCESS);
