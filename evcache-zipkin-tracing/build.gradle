@@ -21,6 +21,10 @@ javadoc {
 
 test {
     useTestNG()
+    jvmArgs += [
+            '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED'
+    ]
     minHeapSize = '1024m'
     maxHeapSize = '1536m'
     testLogging.displayGranularity = -1
