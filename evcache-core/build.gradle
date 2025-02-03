@@ -11,7 +11,11 @@ repositories {
 }
 
 test {
-        useTestNG() 
+        useTestNG()
+        jvmArgs += [
+                '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+                '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED'
+        ]
         options.suites('src/test/java/test-suite.xml')
         minHeapSize = '1024m'
         maxHeapSize = '1536m'
