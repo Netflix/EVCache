@@ -188,7 +188,7 @@ public class EVCacheClient {
         return this.maxHashLength.get();
     }
 
-    private boolean validateReadQueueSize(MemcachedNode node, String key, EVCache.Call call) {
+    private boolean validateReadQueueSize(MemcachedNode node, EVCache.Call call) {
         if (!(node instanceof EVCacheNode)) {
             return true;
         }
@@ -972,7 +972,7 @@ public class EVCacheClient {
             if (enableChunking.get()) {
                 returnVal = assembleChunks(canonicalKeys, tc, hasZF);
             } else {
-                final BiPredicate<MemcachedNode, String> validator = (node, key) -> validateReadQueueSize(node, key, Call.BULK);
+                final BiPredicate<MemcachedNode, String> validator = (node, key) -> validateReadQueueSize(node, Call.BULK);
                 returnVal = evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null, validator)
                         .getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
             }
@@ -984,7 +984,7 @@ public class EVCacheClient {
     }
 
     public <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> canonicalKeys, Transcoder<T> tc) {
-        final BiPredicate<MemcachedNode, String> validator = (node, key) -> validateReadQueueSize(node, key, Call.COMPLETABLE_FUTURE_GET_BULK);
+        final BiPredicate<MemcachedNode, String> validator = (node, key) -> validateReadQueueSize(node, Call.COMPLETABLE_FUTURE_GET_BULK);
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
         return evcacheMemcachedClient
                 .asyncGetBulk(canonicalKeys, tc, null, validator)
@@ -999,7 +999,7 @@ public class EVCacheClient {
             if (enableChunking.get()) {
                 return assembleChunks(canonicalKeys, tc, hasZF, scheduler);
             } else {
-                final BiPredicate<MemcachedNode, String> validator = (node, key) -> validateReadQueueSize(node, key, Call.BULK);
+                final BiPredicate<MemcachedNode, String> validator = (node, key) -> validateReadQueueSize(node, Call.BULK);
                 return evcacheMemcachedClient.asyncGetBulk(canonicalKeys, tc, null, validator)
                     .getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF, scheduler);
             }
