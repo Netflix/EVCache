@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
-import net.spy.memcached.ops.OperationState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -141,10 +140,10 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
      *            amount of time to wait
      * @param units
      *            unit of time to wait
-     * @param if
-     *            exeception needs to be thrown of null returned on a failed
+     * @param throwException
+     *            exception needs to be thrown of null returned on a failed
      *            operation
-     * @param has
+     * @param hasZF
      *            zone fallback
      * @return the operation results of this OperationFuture
      * @throws InterruptedException
@@ -366,13 +365,9 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
             // whenever timeout occurs, continuous timeout counter will increase by 1.
             MemcachedConnection.opTimedOut(op);
             if (op != null) op.timeOut();
-            //if (!hasZF) EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-get-CheckedOperationTimeout", DataSourceType.COUNTER).increment();
             if (throwException) {
                 subscriber.onError(new CheckedOperationTimeoutException("Timed out waiting for operation", op));
             } else {
-                if (isCancelled()) {
-                    //if (hasZF) EVCacheMetricsFactory.getCounter(appName, null, serverGroup.getName(), appName + "-get-Cancelled", DataSourceType.COUNTER).increment();
-                }
                 subscriber.onSuccess(objRef.get());
             }
         }), scheduler).doAfterTerminate(new Action0() {
