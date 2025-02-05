@@ -13,10 +13,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 import com.netflix.evcache.EVCacheGetOperationListener;
+import com.netflix.evcache.util.Pair;
 import net.spy.memcached.internal.BulkGetCompletionListener;
 import net.spy.memcached.internal.CheckedOperationTimeoutException;
+import net.spy.memcached.ops.GetOperation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,6 +54,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
     private final CountDownLatch latch;
     private final long start;
     private final EVCacheClient client;
+    private AtomicReferenceArray<SingleOperationState> operationStates;
 
     public EVCacheBulkGetFuture(Map<String, Future<T>> m, Collection<Operation> getOps, CountDownLatch l, ExecutorService service, EVCacheClient client) {
         super(m, getOps, l, service);
@@ -59,19 +63,21 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         latch = l;
         this.start = System.currentTimeMillis();
         this.client = client;
+        this.operationStates = null;
     }
 
     public Map<String, T> getSome(long to, TimeUnit unit, boolean throwException, boolean hasZF)
             throws InterruptedException, ExecutionException {
-        boolean status = latch.await(to, unit);
+        assert operationStates != null;
+
+        boolean allCompleted = latch.await(to, unit);
         if(log.isDebugEnabled()) log.debug("Took " + (System.currentTimeMillis() - start)+ " to fetch " + rvMap.size() + " keys from " + client);
         long pauseDuration = -1;
         List<Tag> tagList = null;
-        Collection<Operation> timedoutOps = null;
         String statusString = EVCacheMetricsFactory.SUCCESS;
 
         try {
-            if (!status) {
+            if (!allCompleted) {
                 boolean gcPause = false;
                 tagList = new ArrayList<Tag>(7);
                 tagList.addAll(client.getTagList());
@@ -98,10 +104,10 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                 }
                 // redo the same op once more since there was a chance of gc pause
                 if (gcPause) {
-                    status = latch.await(to, unit);
+                    allCompleted = latch.await(to, unit);
                     tagList.add(new BasicTag(EVCacheMetricsFactory.PAUSE_REASON, EVCacheMetricsFactory.GC));
-                    if (log.isDebugEnabled()) log.debug("Retry status : " + status);
-                    if (status) {
+                    if (log.isDebugEnabled()) log.debug("Retry status : " + allCompleted);
+                    if (allCompleted) {
                         tagList.add(new BasicTag(EVCacheMetricsFactory.FETCH_AFTER_PAUSE, EVCacheMetricsFactory.YES));
                     } else {
                         tagList.add(new BasicTag(EVCacheMetricsFactory.FETCH_AFTER_PAUSE, EVCacheMetricsFactory.NO));
@@ -113,29 +119,28 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                 if (log.isDebugEnabled()) log.debug("Total duration due to gc event = " + (System.currentTimeMillis() - start) + " msec.");
             }
 
-            for (Operation op : ops) {
-                if (op.getState() != OperationState.COMPLETE) {
-                    if (!status) {
-                        MemcachedConnection.opTimedOut(op);
-                        if(timedoutOps == null) timedoutOps = new HashSet<Operation>();
-                        timedoutOps.add(op);
-                    } else {
-                        MemcachedConnection.opSucceeded(op);
-                    }
+            boolean hadTimedoutOp = false;
+            for (int i = 0; i < operationStates.length(); i++) {
+                SingleOperationState state = operationStates.get(i);
+                if (!state.completed && !allCompleted) {
+                    MemcachedConnection.opTimedOut(state.op);
+                    hadTimedoutOp = true;
                 } else {
-                    MemcachedConnection.opSucceeded(op);
+                    MemcachedConnection.opSucceeded(state.op);
                 }
             }
 
-            if (!status && !hasZF && (timedoutOps != null && timedoutOps.size() > 0)) statusString = EVCacheMetricsFactory.TIMEOUT;
+            if (!allCompleted && !hasZF && hadTimedoutOp) statusString = EVCacheMetricsFactory.TIMEOUT;
 
-            for (Operation op : ops) {
-                if(op.isCancelled()) {
+            for (int i = 0; i < operationStates.length(); i++) {
+                SingleOperationState state = operationStates.get(i);
+                if (state.cancelled) {
                     if (hasZF) statusString = EVCacheMetricsFactory.CANCELLED;
                     if (throwException) throw new ExecutionException(new CancellationException("Cancelled"));
                 }
-                if (op.hasErrored() && throwException) throw new ExecutionException(op.getException());
+                if (state.errored && throwException) throw new ExecutionException(state.op.getException());
             }
+
             Map<String, T> m = new HashMap<String, T>();
             for (Map.Entry<String, Future<T>> me : rvMap.entrySet()) {
                 m.put(me.getKey(), me.getValue().get());
@@ -148,6 +153,28 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                 EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.INTERNAL_PAUSE, tagList, Duration.ofMillis(EVCacheConfig.getInstance().getPropertyRepository().get(getApp() + ".max.read.duration.metric", Integer.class)
                         .orElseGet("evcache.max.read.duration.metric").orElse(20).get().intValue())).record(pauseDuration, TimeUnit.MILLISECONDS);
             }
+        }
+    }
+
+    public void setExpectedCount(int size) {
+        assert operationStates == null;
+
+        operationStates = new AtomicReferenceArray<>(size);
+    }
+
+    // a lot of hoops we go through to avoid hitting the lock
+    static class SingleOperationState {
+        final Operation op;
+        final boolean completed;
+        final boolean cancelled;
+        final boolean errored;
+        final boolean timedOut;
+        public SingleOperationState(Operation op) {
+            this.op = op;
+            this.completed = op.getState() == OperationState.COMPLETE;
+            this.cancelled = op.isCancelled();
+            this.errored = op.hasErrored();
+            this.timedOut = op.isTimedOut();
         }
     }
 
@@ -192,25 +219,26 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
 
     public void handleBulkException() {
         ExecutionException t = null;
-        for (Operation op : ops) {
-            if (op.getState() != OperationState.COMPLETE) {
-                if (op.isCancelled()) {
+        for (int i = 0; i < operationStates.length(); i++) {
+            SingleOperationState state = operationStates.get(i);
+            if (!state.completed) {
+                if (state.cancelled) {
                     throw new RuntimeException(new ExecutionException(new CancellationException("Cancelled")));
-                }
-                else if (op.hasErrored()) {
-                    throw new RuntimeException(new ExecutionException(op.getException()));
-                }
-                else {
-                    op.timeOut();
-                    MemcachedConnection.opTimedOut(op);
-                    t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op));
+                } else if (state.errored) {
+                    throw new RuntimeException(new ExecutionException(state.op.getException()));
+                } else {
+                    state.op.timeOut();
+                    MemcachedConnection.opTimedOut(state.op);
+                    t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", state.op));
                 }
             } else {
-                MemcachedConnection.opSucceeded(op);
+                MemcachedConnection.opSucceeded(state.op);
             }
         }
+
         throw new RuntimeException(t);
     }
+
     public void doAsyncGetSome(CompletableFuture<Map<String, T>> promise) {
         this.addListener(future -> {
             try {
@@ -229,26 +257,26 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
     public Single<Map<String, T>> getSome(long to, TimeUnit units, boolean throwException, boolean hasZF, Scheduler scheduler) {
         return observe().timeout(to, units, Single.create(subscriber -> {
             try {
-                final Collection<Operation> timedoutOps = new HashSet<Operation>();
-                for (Operation op : ops) {
-                    if (op.getState() != OperationState.COMPLETE) {
-                        MemcachedConnection.opTimedOut(op);
-                        timedoutOps.add(op);
+                for (int i = 0; i < operationStates.length(); i++) {
+                    SingleOperationState state = operationStates.get(i);
+                    if (!state.completed) {
+                        MemcachedConnection.opTimedOut(state.op);
                     } else {
-                        MemcachedConnection.opSucceeded(op);
+                        MemcachedConnection.opSucceeded(state.op);
                     }
                 }
 
-                //if (!hasZF && timedoutOps.size() > 0) EVCacheMetricsFactory.getInstance().increment(client.getAppName() + "-getSome-CheckedOperationTimeout", client.getTagList());
-
-                for (Operation op : ops) {
-                    if (op.isCancelled() && throwException) throw new ExecutionException(new CancellationException("Cancelled"));
-                    if (op.hasErrored() && throwException) throw new ExecutionException(op.getException());
+                for (int i = 0; i < operationStates.length(); i++) {
+                    SingleOperationState state = operationStates.get(i);
+                    if (state.cancelled && throwException) throw new ExecutionException(new CancellationException("Cancelled"));
+                    if (state.errored && throwException) throw new ExecutionException(state.op.getException());
                 }
+
                 Map<String, T> m = new HashMap<String, T>();
                 for (Map.Entry<String, Future<T>> me : rvMap.entrySet()) {
                     m.put(me.getKey(), me.getValue().get());
                 }
+
                 subscriber.onSuccess(m);
             } catch (Throwable e) {
                 subscriber.onError(e);
@@ -274,6 +302,10 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
 
     public void signalComplete() {
         super.signalComplete();
+    }
+
+    public void signalSingleOpComplete(int sequenceNo, GetOperation op) {
+        this.operationStates.set(sequenceNo, new SingleOperationState(op));
     }
 
     public boolean cancel(boolean ign) {
