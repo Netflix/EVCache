@@ -21,6 +21,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import com.netflix.archaius.api.PropertyRepository;
+import com.netflix.evcache.util.Pair;
 import net.spy.memcached.transcoders.TranscodeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,6 +83,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private final Property<Integer> maxReadDuration, maxWriteDuration;
     private final Property<Boolean> enableDebugLogsOnWrongKey;
 
+    private volatile boolean alwaysDecodeSync;
+
     public EVCacheMemcachedClient(ConnectionFactory cf, List<InetSocketAddress> addrs,
                                   Property<Integer> readTimeout, EVCacheClient client) throws IOException {
         super(cf, addrs);
@@ -88,9 +92,18 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         this.readTimeout = readTimeout;
         this.client = client;
         this.appName = client.getAppName();
-        this.maxWriteDuration = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".max.write.duration.metric", Integer.class).orElseGet("evcache.max.write.duration.metric").orElse(50);
-        this.maxReadDuration = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".max.read.duration.metric", Integer.class).orElseGet("evcache.max.read.duration.metric").orElse(20);
-        this.enableDebugLogsOnWrongKey = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".enable.debug.logs.on.wrongkey", Boolean.class).orElse(false);
+        final PropertyRepository props = EVCacheConfig.getInstance().getPropertyRepository();
+        this.maxWriteDuration = props.get(appName + ".max.write.duration.metric", Integer.class).orElseGet("evcache.max.write.duration.metric").orElse(50);
+        this.maxReadDuration = props.get(appName + ".max.read.duration.metric", Integer.class).orElseGet("evcache.max.read.duration.metric").orElse(20);
+        this.enableDebugLogsOnWrongKey = props.get(appName + ".enable.debug.logs.on.wrongkey", Boolean.class).orElse(false);
+
+        // TODO in future remove this flag so that decode does not block the IO loop
+        // the default/legacy behavior (true) is effectively to decode on the IO loop, set to false to use the transcode threads
+        this.alwaysDecodeSync = true;
+        props.get(appName + ".get.alwaysDecodeSync", Boolean.class)
+                .orElseGet("evcache.get.alwaysDecodeSync")
+                .orElse(true)
+                .subscribe(v -> alwaysDecodeSync = v);
     }
 
     public NodeLocator getNodeLocator() {
@@ -130,82 +143,97 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         // we should only complete the latch when decode AND complete have completed
         final CountDownLatch latch = new CountDownLatch(2);
 
-        final EVCacheOperationFuture<T> rv = new EVCacheOperationFuture<>(key, latch, new AtomicReference<T>(null), readTimeout.get(), executorService, client);
+        final EVCacheOperationFuture<T> rv = new EVCacheOperationFuture<>(
+                key, latch, new AtomicReference<T>(null), readTimeout.get(), executorService, client);
+
         final DistributionSummary dataSizeDS = getDataSizeDistributionSummary(
                 EVCacheMetricsFactory.GET_OPERATION,
                 EVCacheMetricsFactory.READ,
                 EVCacheMetricsFactory.IPC_SIZE_INBOUND);
 
-        final Operation op = opFact.get(key, new GetOperation.Callback() {
-            private volatile boolean decodingData = false;
-            private volatile OperationStatus status = null;
-            private final AtomicReference<T> valueHolder = new AtomicReference<>(null);
+        @SuppressWarnings("unchecked")
+        final Transcoder<T> transcoder = (tc == null) ? (Transcoder<T>) getTranscoder() : tc;
+        final boolean shouldLog = log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName);
 
-            @SuppressWarnings("unchecked")
+        final Operation op = opFact.get(key, new GetOperation.Callback() {
+            // not volatile since only ever used from memcached loop callbacks
+            private boolean asyncDecodeIssued = false;
+
+            // both volatile to ensure sync across transcode threads and memcached loop
+            private volatile T value;
+            private volatile OperationStatus status = null;
+
             public void gotData(String k, int flags, byte[] data) {
-                decodingData = true;
                 if (isWrongKeyReturned(key, k)) {
-                    latch.countDown();
                     return;
                 }
 
-                boolean shouldLog = log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName);
-                boolean alwaysSync = false;
+                if (shouldLog) {
+                    log.debug("Read data : key {}; flags : {}; data : {}", key, flags, data);
+                    if (data != null) {
+                        log.debug("Key : {}; val size : {}", key, data.length);
+                    } else {
+                        log.debug("Key : {}; val is null", key);
+                    }
+                }
 
-                if (shouldLog) log.debug("Read data : key {}; flags : {}; data : {}", key, flags, data);
                 if (data != null)  {
-
-                    if (shouldLog) log.debug("Key : {}; val size : {}", key, data.length);
                     dataSizeDS.record(data.length);
-                    Transcoder<T> transcoder = (tc == null) ? (Transcoder<T>) getTranscoder() : tc;
+
                     if (tcService == null) {
                         log.error("tcService is null, will not be able to decode");
                         throw new RuntimeException("TranscoderSevice is null. Not able to decode");
                     }
-                    CachedData chunk = new CachedData(flags, data, transcoder.getMaxSize());
 
-                    if (alwaysSync) {
-                        T decoded = transcoder.decode(chunk);
-                        valueHolder.set(decoded);
-                        rv.set(decoded, this.status);
-                        latch.countDown();
+                    CachedData chunk = new CachedData(flags, data, transcoder.getMaxSize());
+                    boolean doSync = alwaysDecodeSync || (!transcoder.asyncDecode(chunk));
+
+                    if (doSync) {
+                        value = transcoder.decode(chunk);
+                        rv.set(value, status);
                     } else {
-                        if (transcoder.asyncDecode(chunk)) {
-                            transcoder = decodeAndThen(transcoder, (d) -> {
-                                valueHolder.set(d);
-                                rv.set(valueHolder.get(), this.status);
-                                latch.countDown();
-                            });
-                            tcService.decode(transcoder, chunk);
-                        } else {
-                            try {
-                                valueHolder.set(tcService.decode(transcoder, chunk).get());
-                            } catch (InterruptedException | ExecutionException e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                latch.countDown();
-                            }
-                        }
+                        asyncDecodeIssued = true;
+                        final Transcoder<T> wrappedTranscoder = decodeAndThen(transcoder, (decoded) -> {
+                            value = decoded;
+                            rv.set(decoded, status);
+                            latch.countDown();
+                        });
+                        tcService.decode(wrappedTranscoder, chunk);
                     }
-                } else {
-                    if (shouldLog) log.debug("Key : {}; val is null", key);
-                    latch.countDown();
                 }
             }
 
             public void receivedStatus(OperationStatus status) {
                 this.status = status;
-                rv.set(valueHolder.get(), status);
+
+                // On rare occasion, it might be possible that transcoder finishes and starts to call rv.set(),
+                // at the exact time that receivedStatus here does a set(). This means that through unlucky timing
+                // here we might drop the decoded value that was set by the transcoder.
+                //
+                // We add a simple if check to see if the transcode thread has changed the value after we did rv.set(),
+                // and if it has, we will do it again. Since value is only set once (after decode), we need only a single
+                // check here. It is important that it is a separate volatile read from value.
+
+                T before = value;
+                rv.set(before, status);
+                T after = value;
+
+                if (after != before) {
+                    rv.set(after, status);
+                }
             }
 
             public void complete() {
-                if (!decodingData) {
+                // if an async decode was never issued, issue an extra countdown, since 2 latch values were set
+                if (!asyncDecodeIssued) {
                     latch.countDown();
                 }
 
                 latch.countDown();
+
+                final String metricHit = (asyncDecodeIssued || value != null) ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO;
                 final String host = ((rv.getStatus().getStatusCode().equals(StatusCode.TIMEDOUT) && rv.getOperation() != null) ? getHostName(rv.getOperation().getHandlingNode().getSocketAddress()) : null);
-                getTimer(EVCacheMetricsFactory.GET_OPERATION, EVCacheMetricsFactory.READ, rv.getStatus(), (decodingData ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO), host, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
+                getTimer(EVCacheMetricsFactory.GET_OPERATION, EVCacheMetricsFactory.READ, rv.getStatus(), metricHit, host, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
                 rv.signalComplete();
             }
         });
@@ -215,6 +243,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return rv;
     }
 
+    // A Transcode wrapper to allow an action to be performed after decode has completed.
     static <T> Transcoder<T> decodeAndThen(Transcoder<T> transcoder, Consumer<T> completed) {
         return new Transcoder<T>() {
             @Override
