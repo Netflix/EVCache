@@ -222,7 +222,27 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         final CountDownLatch latch = new CountDownLatch(initialLatchCount);
         final Collection<Operation> ops = new ArrayList<Operation>(chunks.size());
         final EVCacheBulkGetFuture<T> rv = new EVCacheBulkGetFuture<T>(m, ops, latch, executorService, client);
-        GetOperation.Callback cb = new GetOperation.Callback() {
+        rv.setExpectedCount(chunks.size());
+
+        final DistributionSummary dataSizeDS = getDataSizeDistributionSummary(
+                        EVCacheMetricsFactory.BULK_OPERATION,
+                        EVCacheMetricsFactory.READ,
+                        EVCacheMetricsFactory.IPC_SIZE_INBOUND);
+
+        class EVCacheBulkGetSingleFutureCallback implements GetOperation.Callback {
+            final int thisOpId;
+            GetOperation op = null;
+            public EVCacheBulkGetSingleFutureCallback(int thisOpId) {
+                this.thisOpId = thisOpId;
+            }
+
+            void bindOp(GetOperation op) {
+                assert this.op == null;
+                assert op != null;
+
+                this.op = op;
+            }
+
             @Override
             public void receivedStatus(OperationStatus status) {
                 if (log.isDebugEnabled()) log.debug("GetBulk Keys : " + keys + "; Status : " + status.getStatusCode().name() + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
@@ -232,13 +252,16 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             @Override
             public void gotData(String k, int flags, byte[] data) {
                 if (data != null)  {
-                    getDataSizeDistributionSummary(EVCacheMetricsFactory.BULK_OPERATION, EVCacheMetricsFactory.READ, EVCacheMetricsFactory.IPC_SIZE_INBOUND).record(data.length);
+                    dataSizeDS.record(data.length);
                 }
                 m.put(k, tcService.decode(tc, new CachedData(flags, data, tc.getMaxSize())));
             }
 
             @Override
             public void complete() {
+                assert op != null;
+
+                rv.signalSingleOpComplete(thisOpId, op);
                 if (pendingChunks.decrementAndGet() <= 0) {
                     latch.countDown();
                     getTimer(EVCacheMetricsFactory.BULK_OPERATION, EVCacheMetricsFactory.READ, rv.getStatus(), (m.size() == keys.size() ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO), null, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
@@ -250,10 +273,14 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         // Now that we know how many servers it breaks down into, and the latch
         // is all set up, convert all of these strings collections to operations
         final Map<MemcachedNode, Operation> mops = new HashMap<MemcachedNode, Operation>();
+        int thisOpId = 0;
         for (Map.Entry<MemcachedNode, Collection<String>> me : chunks.entrySet()) {
-            Operation op = opFact.get(me.getValue(), cb);
+            EVCacheBulkGetSingleFutureCallback cb = new EVCacheBulkGetSingleFutureCallback(thisOpId);
+            GetOperation op = opFact.get(me.getValue(), cb);
+            cb.bindOp(op);
             mops.put(me.getKey(), op);
             ops.add(op);
+            thisOpId++;
         }
         assert mops.size() == chunks.size();
         mconn.checkState();
