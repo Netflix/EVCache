@@ -99,11 +99,12 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
         // TODO in future remove this flag so that decode does not block the IO loop
         // the default/legacy behavior (true) is effectively to decode on the IO loop, set to false to use the transcode threads
-        this.alwaysDecodeSync = true;
-        props.get(appName + ".get.alwaysDecodeSync", Boolean.class)
+        Property<Boolean> alwaysDecodeSyncProperty = props
+                .get(appName + ".get.alwaysDecodeSync", Boolean.class)
                 .orElseGet("evcache.get.alwaysDecodeSync")
-                .orElse(true)
-                .subscribe(v -> alwaysDecodeSync = v);
+                .orElse(true);
+        this.alwaysDecodeSync = alwaysDecodeSyncProperty.get();
+        alwaysDecodeSyncProperty.subscribe(v -> alwaysDecodeSync = v);
     }
 
     public NodeLocator getNodeLocator() {
