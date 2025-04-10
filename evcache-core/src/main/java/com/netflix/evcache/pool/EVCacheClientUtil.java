@@ -49,7 +49,7 @@ public class EVCacheClientUtil {
     /**
      * TODO : once metaget is available we need to get the remaining ttl from an existing entry and use it
      */
-    public EVCacheLatch add(EVCacheKey evcKey, final CachedData cd, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy, final EVCacheClient[] clients, int latchCount, boolean fixMissing) throws Exception {
+    public EVCacheLatch add(EVCacheKey evcKey, final CachedData cd, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy, final EVCacheClient[] clients, int latchCount, boolean fixMissing, boolean bypassAddOpt) throws Exception {
         if (cd == null) return null;
 
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, latchCount, _appName);
@@ -73,7 +73,7 @@ public class EVCacheClientUtil {
             if(fixMissing) {
                 boolean status = f.get().booleanValue();
                 if(!status) { // most common case
-                    if(firstStatus == null) {
+                    if(firstStatus == null && !bypassAddOpt) {
                         for(int i = 0; i < clients.length; i++) {
                             latch.countDown();
                         }
