@@ -73,12 +73,20 @@ public class EVCacheClientUtil {
             if(fixMissing) {
                 boolean status = f.get().booleanValue();
                 if(!status) { // most common case
-                    if(firstStatus == null && !bypassAddOpt) {
-                        for(int i = 0; i < clients.length; i++) {
-                            latch.countDown();
+                    if(firstStatus == null) {
+                        if (log.isDebugEnabled()) log.debug("Add failed at first client. key: " + key + ", client : " + client);
+                        if(!bypassAddOpt) {
+                            if (log.isDebugEnabled()) log.debug("Short circuiting due to optimization!!");
+                            for (int i = 0; i < clients.length; i++) {
+                                latch.countDown();
+                            }
+                            return latch;
                         }
-                        return latch;
+                        else {
+                            return fixup(client, clients, evcKey, timeToLive, policy);
+                        }
                     } else {
+                        if (log.isDebugEnabled()) log.debug("Add failed after first client. key: " + key + ", client : " + client);
                         return fixup(client, clients, evcKey, timeToLive, policy);
                     }
                 }
@@ -89,6 +97,7 @@ public class EVCacheClientUtil {
     }
 
     private EVCacheLatch fixup(EVCacheClient sourceClient, EVCacheClient[] destClients, EVCacheKey evcKey, int timeToLive, Policy policy) {
+        if (log.isDebugEnabled()) log.debug("Trying to fix up!! destClient count = " + destClients.length);
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, destClients.length, _appName);
         try {
             final CachedData readData = sourceClient.get(evcKey.getDerivedKey(sourceClient.isDuetClient(), sourceClient.getHashingAlgorithm(), sourceClient.shouldEncodeHashKey(), sourceClient.getMaxDigestBytes(), sourceClient.getMaxHashLength(), sourceClient.getBaseEncoder()), ct, false, false);
