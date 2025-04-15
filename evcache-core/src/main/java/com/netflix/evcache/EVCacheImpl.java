@@ -117,6 +117,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private final Property<Boolean> bypassAddOpt;
     private final Property<Boolean> bypassFixup;
     private final Property<Boolean> fixupAsFail;
+    private final Property<Boolean> fixupVer2;
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
             boolean throwException, EVCacheClientPoolManager poolManager) {
@@ -175,9 +176,10 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         this.maxKeyLength = propertyRepository.get(_appName + ".max.key.length", Integer.class).orElseGet("evcache.max.key.length").orElse(200);
 
         // bypass short-circuit optimization
-        this.bypassAddOpt = propertyRepository.get(_appName + ".bypass.add.opt", Boolean.class).orElse(false);
-        this.bypassFixup = propertyRepository.get(_appName + ".bypass.fixup", Boolean.class).orElse(false);
-        this.fixupAsFail = propertyRepository.get(_appName + ".fixup.as.fail", Boolean.class).orElse(false);
+        this.bypassAddOpt = propertyRepository.get(_appName + ".add.bypass.opt", Boolean.class).orElse(false);
+        this.bypassFixup = propertyRepository.get(_appName + ".add.bypass.fixup", Boolean.class).orElse(false);
+        this.fixupAsFail = propertyRepository.get(_appName + "add.fixup.as.fail", Boolean.class).orElse(false);
+        this.fixupVer2 = propertyRepository.get(_appName + ".add.fixup.ver2", Boolean.class).orElse(false);
 
         // if alias changes, refresh my pool to point to the correct alias app
         this.alias = propertyRepository.get("EVCacheClientPoolManager." + appName + ".alias", String.class);
@@ -3331,7 +3333,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 cd = _pool.getEVCacheClientForRead().getTranscoder().encode(value);
             }
             if (clientUtil == null) clientUtil = new EVCacheClientUtil(_appName, _pool.getOperationTimeout().get());
-            latch = clientUtil.add(evcKey, cd, evcacheValueTranscoder, timeToLive, policy, clients, latchCount, fixup, bypassAddOpt.get(), fixupAsFail.get());
+            latch = clientUtil.add(evcKey, cd, evcacheValueTranscoder, timeToLive, policy, clients, latchCount, fixup, bypassAddOpt.get(), fixupAsFail.get(), fixupVer2.get());
             if (event != null) {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);

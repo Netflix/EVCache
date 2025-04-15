@@ -5,6 +5,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import com.netflix.evcache.EVCacheKey;
+import com.netflix.evcache.operation.EVCacheItem;
 import net.spy.memcached.MemcachedClientIF;
 import net.spy.memcached.transcoders.Transcoder;
 import org.slf4j.Logger;
@@ -49,7 +50,7 @@ public class EVCacheClientUtil {
     /**
      * TODO : once metaget is available we need to get the remaining ttl from an existing entry and use it
      */
-    public EVCacheLatch add(EVCacheKey evcKey, final CachedData cd, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy, final EVCacheClient[] clients, int latchCount, boolean fixMissing, boolean bypassAddOpt, boolean fixupAsFail) throws Exception {
+    public EVCacheLatch add(EVCacheKey evcKey, final CachedData cd, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy, final EVCacheClient[] clients, int latchCount, boolean fixMissing, boolean bypassAddOpt, boolean fixupAsFail, boolean newFixup) throws Exception {
         if (cd == null) return null;
 
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, latchCount, _appName);
@@ -83,11 +84,11 @@ public class EVCacheClientUtil {
                             return latch;
                         }
                         else {
-                            return fixup(client, clients, evcKey, timeToLive, policy, latch, fixupAsFail);
+                            return fixup(client, clients, evcKey, timeToLive, policy, latch, fixupAsFail, newFixup);
                         }
                     } else {
                         if (log.isDebugEnabled()) log.debug("Add failed after first client. key: " + key + ", client : " + client);
-                        return fixup(client, clients, evcKey, timeToLive, policy, latch, fixupAsFail);
+                        return fixup(client, clients, evcKey, timeToLive, policy, latch, fixupAsFail, newFixup);
                     }
                 }
                 if(firstStatus == null) firstStatus = Boolean.valueOf(status);
@@ -96,16 +97,28 @@ public class EVCacheClientUtil {
         return latch;
     }
 
-    private EVCacheLatch fixup(EVCacheClient sourceClient, EVCacheClient[] destClients, EVCacheKey evcKey, int timeToLive, Policy policy, EVCacheLatchImpl prevLatch, boolean fixupAsFail) {
+    private EVCacheLatch fixup(EVCacheClient sourceClient, EVCacheClient[] destClients, EVCacheKey evcKey, int timeToLive, Policy policy, EVCacheLatchImpl prevLatch, boolean fixupAsFail, boolean newFixup) {
         if (log.isDebugEnabled()) log.debug("Trying to fix up!! destClient count = " + destClients.length);
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, destClients.length, _appName);
         try {
-            final CachedData readData = sourceClient.get(evcKey.getDerivedKey(sourceClient.isDuetClient(), sourceClient.getHashingAlgorithm(), sourceClient.shouldEncodeHashKey(), sourceClient.getMaxDigestBytes(), sourceClient.getMaxHashLength(), sourceClient.getBaseEncoder()), ct, false, false);
+            CachedData readData = null;
+            int ttlToSet = timeToLive;
+            if (newFixup) {
+                final EVCacheItem<CachedData> obj = sourceClient.metaGet(evcKey.getDerivedKey(sourceClient.isDuetClient(), sourceClient.getHashingAlgorithm(), sourceClient.shouldEncodeHashKey(), sourceClient.getMaxDigestBytes(), sourceClient.getMaxHashLength(), sourceClient.getBaseEncoder()), ct, false, false);
+                if (obj != null) {
+                    readData = obj.getData();
+                    ttlToSet = (int) obj.getItemMetaData().getSecondsLeftToExpire();
+                    if (log.isDebugEnabled()) log.debug("Applying new fixup. ttlToSet = " + ttlToSet);
+                }
+            }
+            else {
+                 readData = sourceClient.get(evcKey.getDerivedKey(sourceClient.isDuetClient(), sourceClient.getHashingAlgorithm(), sourceClient.shouldEncodeHashKey(), sourceClient.getMaxDigestBytes(), sourceClient.getMaxHashLength(), sourceClient.getBaseEncoder()), ct, false, false);
+            }
 
             if(readData != null) {
-                sourceClient.touch(evcKey.getDerivedKey(sourceClient.isDuetClient(), sourceClient.getHashingAlgorithm(), sourceClient.shouldEncodeHashKey(), sourceClient.getMaxDigestBytes(), sourceClient.getMaxHashLength(), sourceClient.getBaseEncoder()), timeToLive);
+                sourceClient.touch(evcKey.getDerivedKey(sourceClient.isDuetClient(), sourceClient.getHashingAlgorithm(), sourceClient.shouldEncodeHashKey(), sourceClient.getMaxDigestBytes(), sourceClient.getMaxHashLength(), sourceClient.getBaseEncoder()), ttlToSet);
                 for(EVCacheClient destClient : destClients) {
-                    destClient.set(evcKey.getDerivedKey(destClient.isDuetClient(), destClient.getHashingAlgorithm(), destClient.shouldEncodeHashKey(), destClient.getMaxDigestBytes(), destClient.getMaxHashLength(), destClient.getBaseEncoder()), readData, timeToLive, latch);
+                    destClient.set(evcKey.getDerivedKey(destClient.isDuetClient(), destClient.getHashingAlgorithm(), destClient.shouldEncodeHashKey(), destClient.getMaxDigestBytes(), destClient.getMaxHashLength(), destClient.getBaseEncoder()), readData, ttlToSet, latch);
                 }
             }
             latch.await(_operationTimeout, TimeUnit.MILLISECONDS);
