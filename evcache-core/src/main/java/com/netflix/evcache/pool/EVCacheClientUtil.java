@@ -49,7 +49,7 @@ public class EVCacheClientUtil {
     /**
      * TODO : once metaget is available we need to get the remaining ttl from an existing entry and use it
      */
-    public EVCacheLatch add(EVCacheKey evcKey, final CachedData cd, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy, final EVCacheClient[] clients, int latchCount, boolean fixMissing, boolean bypassAddOpt) throws Exception {
+    public EVCacheLatch add(EVCacheKey evcKey, final CachedData cd, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy, final EVCacheClient[] clients, int latchCount, boolean fixMissing, boolean bypassAddOpt, boolean fixupAsFail) throws Exception {
         if (cd == null) return null;
 
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, latchCount, _appName);
@@ -83,11 +83,11 @@ public class EVCacheClientUtil {
                             return latch;
                         }
                         else {
-                            return fixup(client, clients, evcKey, timeToLive, policy);
+                            return fixup(client, clients, evcKey, timeToLive, policy, latch, fixupAsFail);
                         }
                     } else {
                         if (log.isDebugEnabled()) log.debug("Add failed after first client. key: " + key + ", client : " + client);
-                        return fixup(client, clients, evcKey, timeToLive, policy);
+                        return fixup(client, clients, evcKey, timeToLive, policy, latch, fixupAsFail);
                     }
                 }
                 if(firstStatus == null) firstStatus = Boolean.valueOf(status);
@@ -96,7 +96,7 @@ public class EVCacheClientUtil {
         return latch;
     }
 
-    private EVCacheLatch fixup(EVCacheClient sourceClient, EVCacheClient[] destClients, EVCacheKey evcKey, int timeToLive, Policy policy) {
+    private EVCacheLatch fixup(EVCacheClient sourceClient, EVCacheClient[] destClients, EVCacheKey evcKey, int timeToLive, Policy policy, EVCacheLatchImpl prevLatch, boolean fixupAsFail) {
         if (log.isDebugEnabled()) log.debug("Trying to fix up!! destClient count = " + destClients.length);
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, destClients.length, _appName);
         try {
@@ -110,7 +110,16 @@ public class EVCacheClientUtil {
             }
             latch.await(_operationTimeout, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
-            log.error("Error reading the data", e);
+            log.error("Error fixing up the data.", e);
+        }
+
+        // We still do our best to fixup, but client should know the key exist before the Add
+        if (fixupAsFail) {
+            for (int i = 0; i < destClients.length; i++) {
+                prevLatch.countDown();
+            }
+            if (log.isDebugEnabled()) log.debug("Fixup treated as fail. latchSuccess = " + prevLatch.getSuccessCount() + ", latchExpected = " + prevLatch.getExpectedSuccessCount());
+            return prevLatch;
         }
         return latch;
     }

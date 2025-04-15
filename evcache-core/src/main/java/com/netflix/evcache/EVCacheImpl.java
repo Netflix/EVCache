@@ -116,6 +116,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private final Property<Boolean> bypassAddOpt;
     private final Property<Boolean> bypassFixup;
+    private final Property<Boolean> fixupAsFail;
 
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
             boolean throwException, EVCacheClientPoolManager poolManager) {
@@ -176,6 +177,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         // bypass short-circuit optimization
         this.bypassAddOpt = propertyRepository.get(_appName + ".bypass.add.opt", Boolean.class).orElse(false);
         this.bypassFixup = propertyRepository.get(_appName + ".bypass.fixup", Boolean.class).orElse(false);
+        this.fixupAsFail = propertyRepository.get(_appName + ".fixup.as.fail", Boolean.class).orElse(false);
 
         // if alias changes, refresh my pool to point to the correct alias app
         this.alias = propertyRepository.get("EVCacheClientPoolManager." + appName + ".alias", String.class);
@@ -3329,7 +3331,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 cd = _pool.getEVCacheClientForRead().getTranscoder().encode(value);
             }
             if (clientUtil == null) clientUtil = new EVCacheClientUtil(_appName, _pool.getOperationTimeout().get());
-            latch = clientUtil.add(evcKey, cd, evcacheValueTranscoder, timeToLive, policy, clients, latchCount, fixup, bypassAddOpt.get());
+            latch = clientUtil.add(evcKey, cd, evcacheValueTranscoder, timeToLive, policy, clients, latchCount, fixup, bypassAddOpt.get(), fixupAsFail.get());
             if (event != null) {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);
