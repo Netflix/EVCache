@@ -3290,12 +3290,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     protected <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy, EVCacheClient[] clients, int latchCount) throws EVCacheException {
-        // Just for testing
-        boolean fixup = true;
-        if (bypassFixup.get() || (partialFixup.get() && timeToLive == 30)) {
-            fixup = false;
-        }
-        return add(key, value, tc, timeToLive, policy, clients, latchCount, fixup);
+        return add(key, value, tc, timeToLive, policy, clients, latchCount, !bypassFixup.get());
     }
 
     protected <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy, EVCacheClient[] clients, int latchCount, boolean fixup) throws EVCacheException {
@@ -3340,7 +3335,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 cd = _pool.getEVCacheClientForRead().getTranscoder().encode(value);
             }
             if (clientUtil == null) clientUtil = new EVCacheClientUtil(_appName, _pool.getOperationTimeout().get());
-            latch = clientUtil.add(evcKey, cd, evcacheValueTranscoder, timeToLive, policy, clients, latchCount, fixup, bypassAddOpt.get(), fixupAsFail.get(), fixupVer2.get());
+            latch = clientUtil.add(evcKey, cd, evcacheValueTranscoder, timeToLive, policy, clients, latchCount, fixup, bypassAddOpt.get(), fixupAsFail.get(), fixupVer2.get(), partialFixup.get());
             if (event != null) {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);

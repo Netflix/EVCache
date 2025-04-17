@@ -50,7 +50,7 @@ public class EVCacheClientUtil {
     /**
      * TODO : once metaget is available we need to get the remaining ttl from an existing entry and use it
      */
-    public EVCacheLatch add(EVCacheKey evcKey, final CachedData cd, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy, final EVCacheClient[] clients, int latchCount, boolean fixMissing, boolean bypassAddOpt, boolean fixupAsFail, boolean newFixup) throws Exception {
+    public EVCacheLatch add(EVCacheKey evcKey, final CachedData cd, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy, final EVCacheClient[] clients, int latchCount, boolean fixMissing, boolean bypassAddOpt, boolean fixupAsFail, boolean newFixup, boolean partialFixup) throws Exception {
         if (cd == null) return null;
 
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, latchCount, _appName);
@@ -74,6 +74,16 @@ public class EVCacheClientUtil {
             if(fixMissing) {
                 boolean status = f.get().booleanValue();
                 if(!status) { // most common case
+                    // fast fail if it matches noFixup condition.
+                    boolean noFixupCond = (timeToLive == 30);
+                    if(partialFixup && noFixupCond) {
+                        if (log.isDebugEnabled()) log.debug("Fast fail! isFirstClient = " + (firstStatus==null));
+                        for (int i = 0; i < clients.length; i++) {
+                            latch.countDown();
+                        }
+                        return latch;
+                    }
+
                     if(firstStatus == null) {
                         if (log.isDebugEnabled()) log.debug("Add failed at first client. key: " + key + ", client : " + client);
                         if(!bypassAddOpt) {
