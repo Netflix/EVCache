@@ -116,6 +116,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private final Property<Boolean> bypassAddOpt;
     private final Property<Boolean> bypassFixup;
+    private final Property<Boolean> partialFixup;
     private final Property<Boolean> fixupAsFail;
     private final Property<Boolean> fixupVer2;
 
@@ -178,7 +179,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         // bypass short-circuit optimization
         this.bypassAddOpt = propertyRepository.get(_appName + ".add.bypass.opt", Boolean.class).orElse(false);
         this.bypassFixup = propertyRepository.get(_appName + ".add.bypass.fixup", Boolean.class).orElse(false);
-        this.fixupAsFail = propertyRepository.get(_appName + "add.fixup.as.fail", Boolean.class).orElse(false);
+        this.partialFixup = propertyRepository.get(_appName + ".add.partial.fixup", Boolean.class).orElse(false);
+        this.fixupAsFail = propertyRepository.get(_appName + ".add.fixup.as.fail", Boolean.class).orElse(false);
         this.fixupVer2 = propertyRepository.get(_appName + ".add.fixup.ver2", Boolean.class).orElse(false);
 
         // if alias changes, refresh my pool to point to the correct alias app
@@ -3288,7 +3290,12 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     protected <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy, EVCacheClient[] clients, int latchCount) throws EVCacheException {
-        return add(key, value, tc, timeToLive, policy, clients, latchCount, !bypassFixup.get());
+        // Just for testing
+        boolean fixup = true;
+        if (bypassFixup.get() || (partialFixup.get() && timeToLive == 30)) {
+            fixup = false;
+        }
+        return add(key, value, tc, timeToLive, policy, clients, latchCount, fixup);
     }
 
     protected <T> EVCacheLatch add(String key, T value, Transcoder<T> tc, int timeToLive, Policy policy, EVCacheClient[] clients, int latchCount, boolean fixup) throws EVCacheException {
