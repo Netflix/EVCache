@@ -114,6 +114,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private final Property<String> alias;
     private final Property<String> encoderBase;
 
+    private final Property<Boolean> fixupWithMetaGet;
+
     EVCacheImpl(String appName, String cacheName, int timeToLive, Transcoder<?> transcoder, boolean enableZoneFallback,
             boolean throwException, EVCacheClientPoolManager poolManager) {
         this._appName = appName;
@@ -169,6 +171,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         // default max key length is 200, instead of using what is defined in MemcachedClientIF.MAX_KEY_LENGTH (250). This is to accommodate
         // auto key prepend with appname for duet feature.
         this.maxKeyLength = propertyRepository.get(_appName + ".max.key.length", Integer.class).orElseGet("evcache.max.key.length").orElse(200);
+
+        this.fixupWithMetaGet = propertyRepository.get(_appName + ".add.fixup.metaget", Boolean.class).orElseGet("evcache.add.fixup.metaget").orElse(false);
 
         // if alias changes, refresh my pool to point to the correct alias app
         this.alias = propertyRepository.get("EVCacheClientPoolManager." + appName + ".alias", String.class);
@@ -3322,7 +3326,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 cd = _pool.getEVCacheClientForRead().getTranscoder().encode(value);
             }
             if (clientUtil == null) clientUtil = new EVCacheClientUtil(_appName, _pool.getOperationTimeout().get());
-            latch = clientUtil.add(evcKey, cd, evcacheValueTranscoder, timeToLive, policy, clients, latchCount, fixup);
+            latch = clientUtil.add(evcKey, cd, evcacheValueTranscoder, timeToLive, policy, clients, latchCount, fixup, fixupWithMetaGet.get());
             if (event != null) {
                 event.setTTL(timeToLive);
                 event.setCachedData(cd);

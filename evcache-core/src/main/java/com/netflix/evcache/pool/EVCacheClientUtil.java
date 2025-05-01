@@ -5,6 +5,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import com.netflix.evcache.EVCacheKey;
+import com.netflix.evcache.operation.EVCacheItem;
 import net.spy.memcached.MemcachedClientIF;
 import net.spy.memcached.transcoders.Transcoder;
 import org.slf4j.Logger;
@@ -47,9 +48,9 @@ public class EVCacheClientUtil {
 
     //TODO: Remove this todo. This method has been made hashing agnostic.
     /**
-     * TODO : once metaget is available we need to get the remaining ttl from an existing entry and use it
+     * TODO : once metaget is available we need to get the remaining ttl from an existing entry and use it --> fixupWithMetaGet
      */
-    public EVCacheLatch add(EVCacheKey evcKey, final CachedData cd, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy, final EVCacheClient[] clients, int latchCount, boolean fixMissing) throws Exception {
+    public EVCacheLatch add(EVCacheKey evcKey, final CachedData cd, Transcoder evcacheValueTranscoder, int timeToLive, Policy policy, final EVCacheClient[] clients, int latchCount, boolean fixMissing, boolean shouldFixupWithMetaGet) throws Exception {
         if (cd == null) return null;
 
         final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, latchCount, _appName);
@@ -74,10 +75,17 @@ public class EVCacheClientUtil {
                 boolean status = f.get().booleanValue();
                 if(!status) { // most common case
                     if(firstStatus == null) {
+                        // We need short circuit mechanism here to prevent below:
+                        // 1st req --> Add client1 succeeded
+                        // 2nd req --> Add client1 failed
+                        // 2nd req --> fixup client2
+                        // 1st req --> Add client1 should succeed, but fail
                         for(int i = 0; i < clients.length; i++) {
                             latch.countDown();
                         }
                         return latch;
+                    } else if (shouldFixupWithMetaGet) {
+                        return fixupWithMetaGet(client, clients, evcKey, policy, latch);
                     } else {
                         return fixup(client, clients, evcKey, timeToLive, policy);
                     }
@@ -101,9 +109,36 @@ public class EVCacheClientUtil {
             }
             latch.await(_operationTimeout, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
-            log.error("Error reading the data", e);
+            log.error("Error fixing up the data", e);
         }
         return latch;
+    }
+
+    private EVCacheLatch fixupWithMetaGet(EVCacheClient sourceClient, EVCacheClient[] destClients, EVCacheKey evcKey, Policy policy, EVCacheLatchImpl prevLatch) {
+        try {
+            final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy, destClients.length, _appName);
+            final EVCacheItem<CachedData> obj = sourceClient.metaGet(evcKey.getDerivedKey(sourceClient.isDuetClient(), sourceClient.getHashingAlgorithm(), sourceClient.shouldEncodeHashKey(), sourceClient.getMaxDigestBytes(), sourceClient.getMaxHashLength(), sourceClient.getBaseEncoder()), ct, false, false);
+            if (obj != null) {
+                CachedData readData = obj.getData();
+                int ttlToSet = (int) obj.getItemMetaData().getSecondsLeftToExpire();
+
+                if(readData != null) {
+                    if (log.isDebugEnabled()) log.debug("Fixup with MetaGet. ttlToSet = " + ttlToSet);
+                    for(EVCacheClient destClient : destClients) {
+                        destClient.set(evcKey.getDerivedKey(destClient.isDuetClient(), destClient.getHashingAlgorithm(), destClient.shouldEncodeHashKey(), destClient.getMaxDigestBytes(), destClient.getMaxHashLength(), destClient.getBaseEncoder()), readData, ttlToSet, latch);
+                    }
+                }
+                latch.await(_operationTimeout, TimeUnit.MILLISECONDS);
+            }
+        } catch (Exception e) {
+            log.error("Error fixing up the data", e);
+        }
+
+        // We do our best to fixup, but client should know the Add call has failed regardless of the fixup result.
+        for(int i = 0; i < destClients.length; i++) {
+            prevLatch.countDown();
+        }
+        return prevLatch;
     }
 
     /**
