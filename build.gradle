@@ -29,5 +29,12 @@ subprojects {
     configurations.all {
         exclude group: 'com.netflix.rxjava'
     }
+
+    tasks.withType(ProcessResources).configureEach {
+        duplicatesStrategy = 'exclude'
+    }
+    tasks.withType(Jar).configureEach {
+        duplicatesStrategy = 'exclude'
+    }
 }
 

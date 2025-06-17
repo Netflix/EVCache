@@ -1,4 +1,4 @@
-apply plugin: 'java'
+apply plugin: 'java-library'
 
 sourceSets.main.java.srcDir 'src/main/java'
 sourceSets.test.java.srcDir 'src/test/java'
@@ -9,10 +9,10 @@ repositories {
 }
 
 dependencies {
-    compile project(':evcache-core')
-    compile group:"io.zipkin.brave", name:"brave", version:"5.12.7"
-    testCompile group:"org.testng", name:"testng", version:"7.5"
-    testCompile group:"org.mockito", name:"mockito-all", version:"latest.release"
+    api project(':evcache-core')
+    api group:"io.zipkin.brave", name:"brave", version:"5.12.7"
+    testImplementation group:"org.testng", name:"testng", version:"7.5"
+    testImplementation group:"org.mockito", name:"mockito-all", version:"latest.release"
 }
 
 javadoc {
