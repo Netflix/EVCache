@@ -1,4 +1,4 @@
-apply plugin: 'java'
+apply plugin: 'java-library'
 
 repositories {
     mavenCentral()
@@ -12,9 +12,9 @@ configurations.all {
 }
 
 dependencies {
-    compile project(':evcache-core')
-    compile project(':evcache-client')
-    compile project(':evcache-zipkin-tracing')
+    api project(':evcache-core')
+    api project(':evcache-client')
+    api project(':evcache-zipkin-tracing')
 }
 
 task (runSample , dependsOn: 'classes' , type:JavaExec) {
