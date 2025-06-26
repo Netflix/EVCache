@@ -86,6 +86,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     private final Property<Boolean> _pingServers;
 
+    private final Property<Integer> _sgDisabledTimeoutOnShutdown;
+
     private final Property<Boolean> refreshConnectionOnReadQueueFull;
     private final Property<Integer> refreshConnectionOnReadQueueFullSize;
 
@@ -149,6 +151,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this._bulkReadTimeout = config.getPropertyRepository().get(appName + ".EVCacheClientPool.bulkReadTimeout", Integer.class).orElse(_readTimeout.get());
         this._bulkReadTimeout.subscribe(callback);
 
+        this._sgDisabledTimeoutOnShutdown = config.getPropertyRepository().get(appName + ".EVCacheClientPool.sgDisabled.timeoutOnShutdown", Integer.class).orElseGet("EVCacheClientPool.sgDisabled.timeoutOnShutdown").orElse(30);
         this.refreshConnectionOnReadQueueFull = config.getPropertyRepository().get(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull", Boolean.class).orElseGet("EVCacheClientPool.refresh.connection.on.readQueueFull").orElse(false);
         this.refreshConnectionOnReadQueueFullSize = config.getPropertyRepository().get(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull.size", Integer.class).orElseGet("EVCacheClientPool.refresh.connection.on.readQueueFull.size").orElse(100);
 
@@ -1253,6 +1256,10 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     public void serverGroupDisabled(final ServerGroup serverGroup) {
+        serverGroupDisabled(serverGroup, 30);
+    }
+
+    public void serverGroupDisabled(final ServerGroup serverGroup, final long timeoutSeconds) {
         if (memcachedInstancesByServerGroup.containsKey(serverGroup)) {
             if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                     + " has no active servers. Cleaning up this ServerGroup.");
@@ -1262,13 +1269,13 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             setupAllEVCacheWriteClientsArray();
             for (EVCacheClient client : clients) {
                 if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
-                        + "\n\tClient : " + client + " will be shutdown in 30 seconds.");
-                client.shutdown(30, TimeUnit.SECONDS);
+                        + "\n\tClient : " + client + " will be shutdown in " + timeoutSeconds + " seconds.");
+                client.shutdown(timeoutSeconds, TimeUnit.SECONDS);
                 client.getConnectionObserver().shutdown();
             }
         }
         if (duetClientPool != null)
-            duetClientPool.serverGroupDisabled(serverGroup);
+            duetClientPool.serverGroupDisabled(serverGroup, timeoutSeconds);
     }
 
     public void refreshAsync(MemcachedNode node) {
@@ -1300,7 +1307,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         
         for(ServerGroup serverGroup : memcachedInstancesByServerGroup.keySet()) {
             if (log.isDebugEnabled()) log.debug("\nSHUTDOWN\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup);
-            serverGroupDisabled(serverGroup);
+            serverGroupDisabled(serverGroup, _sgDisabledTimeoutOnShutdown.get());
         }
         setupMonitoring();
     }
