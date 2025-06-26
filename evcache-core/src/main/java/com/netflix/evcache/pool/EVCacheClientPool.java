@@ -86,6 +86,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     private final Property<Boolean> _pingServers;
 
+    private final Property<Integer> _sgDisabledTimeoutOnShutdown;
+
     private final Property<Boolean> refreshConnectionOnReadQueueFull;
     private final Property<Integer> refreshConnectionOnReadQueueFullSize;
 
@@ -149,6 +151,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this._bulkReadTimeout = config.getPropertyRepository().get(appName + ".EVCacheClientPool.bulkReadTimeout", Integer.class).orElse(_readTimeout.get());
         this._bulkReadTimeout.subscribe(callback);
 
+        this._sgDisabledTimeoutOnShutdown = config.getPropertyRepository().get(appName + ".EVCacheClientPool.sgDisabled.timeoutOnShutdown", Integer.class).orElseGet("EVCacheClientPool.sgDisabled.timeoutOnShutdown").orElse(30);
         this.refreshConnectionOnReadQueueFull = config.getPropertyRepository().get(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull", Boolean.class).orElseGet("EVCacheClientPool.refresh.connection.on.readQueueFull").orElse(false);
         this.refreshConnectionOnReadQueueFullSize = config.getPropertyRepository().get(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull.size", Integer.class).orElseGet("EVCacheClientPool.refresh.connection.on.readQueueFull.size").orElse(100);
 
@@ -1304,7 +1307,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         
         for(ServerGroup serverGroup : memcachedInstancesByServerGroup.keySet()) {
             if (log.isDebugEnabled()) log.debug("\nSHUTDOWN\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup);
-            serverGroupDisabled(serverGroup, 0);
+            serverGroupDisabled(serverGroup, _sgDisabledTimeoutOnShutdown.get());
         }
         setupMonitoring();
     }
