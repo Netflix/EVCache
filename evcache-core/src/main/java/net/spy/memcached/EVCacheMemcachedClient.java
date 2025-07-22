@@ -1,7 +1,6 @@
 package net.spy.memcached;
 
 import java.io.IOException;
-import java.lang.ref.WeakReference;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.time.Duration;
@@ -108,14 +107,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 .orElse(true);
         this.alwaysDecodeSync = alwaysDecodeSyncProperty.get();
 
-        // Use weak reference to avoid memory leak
-        WeakReference<EVCacheMemcachedClient> clientRef = new WeakReference<>(this);
-        this.alwaysDecodeSyncSubscription = alwaysDecodeSyncProperty.subscribe(v -> {
-            EVCacheMemcachedClient theClient = clientRef.get();
-            if (theClient != null) {
-                theClient.alwaysDecodeSync = v;
-            }
-        });
+        // Subscription is maintained so that we can release the subscription on shutdown,
+        // otherwise it will retain a reference to this instance and prevent garbage collection.
+        this.alwaysDecodeSyncSubscription = alwaysDecodeSyncProperty.subscribe(v -> alwaysDecodeSync = v);
     }
 
     @Override
@@ -123,9 +117,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         try {
             return super.shutdown(timeout, unit);
         } finally {
-            // Unsubscribe from the alwaysDecodeSync property to avoid memory leaks
-            if (this.alwaysDecodeSyncSubscription != null) {
-                this.alwaysDecodeSyncSubscription.unsubscribe();
+            if (alwaysDecodeSyncSubscription != null) {
+                alwaysDecodeSyncSubscription.unsubscribe();
             }
         }
     }
