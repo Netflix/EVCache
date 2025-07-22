@@ -1,6 +1,7 @@
 package net.spy.memcached;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.time.Duration;
@@ -104,7 +105,15 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 .orElseGet("evcache.get.alwaysDecodeSync")
                 .orElse(true);
         this.alwaysDecodeSync = alwaysDecodeSyncProperty.get();
-        alwaysDecodeSyncProperty.subscribe(v -> alwaysDecodeSync = v);
+
+        // Use weak reference to avoid memory leak
+        WeakReference<EVCacheMemcachedClient> clientRef = new WeakReference<>(this);
+        alwaysDecodeSyncProperty.subscribe(v -> {
+            EVCacheMemcachedClient theClient = clientRef.get();
+            if (theClient != null) {
+                theClient.alwaysDecodeSync = v;
+            }
+        });
     }
 
     public NodeLocator getNodeLocator() {
