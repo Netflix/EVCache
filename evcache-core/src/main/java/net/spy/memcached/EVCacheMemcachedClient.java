@@ -28,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.netflix.archaius.api.Property;
+import com.netflix.archaius.api.Property.Subscription;
 import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
@@ -85,6 +86,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private final Property<Boolean> enableDebugLogsOnWrongKey;
 
     private volatile boolean alwaysDecodeSync;
+    private final Subscription alwaysDecodeSyncSubscription;
 
     public EVCacheMemcachedClient(ConnectionFactory cf, List<InetSocketAddress> addrs,
                                   Property<Integer> readTimeout, EVCacheClient client) throws IOException {
@@ -108,12 +110,24 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
         // Use weak reference to avoid memory leak
         WeakReference<EVCacheMemcachedClient> clientRef = new WeakReference<>(this);
-        alwaysDecodeSyncProperty.subscribe(v -> {
+        this.alwaysDecodeSyncSubscription = alwaysDecodeSyncProperty.subscribe(v -> {
             EVCacheMemcachedClient theClient = clientRef.get();
             if (theClient != null) {
                 theClient.alwaysDecodeSync = v;
             }
         });
+    }
+
+    @Override
+    public boolean shutdown(long timeout, TimeUnit unit) {
+        try {
+            return super.shutdown(timeout, unit);
+        } finally {
+            // Unsubscribe from the alwaysDecodeSync property to avoid memory leaks
+            if (this.alwaysDecodeSyncSubscription != null) {
+                this.alwaysDecodeSyncSubscription.unsubscribe();
+            }
+        }
     }
 
     public NodeLocator getNodeLocator() {
