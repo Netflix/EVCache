@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.netflix.archaius.api.Property;
+import com.netflix.archaius.api.Property.Subscription;
 import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
@@ -84,6 +85,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private final Property<Boolean> enableDebugLogsOnWrongKey;
 
     private volatile boolean alwaysDecodeSync;
+    private final Subscription alwaysDecodeSyncSubscription;
 
     public EVCacheMemcachedClient(ConnectionFactory cf, List<InetSocketAddress> addrs,
                                   Property<Integer> readTimeout, EVCacheClient client) throws IOException {
@@ -104,7 +106,21 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 .orElseGet("evcache.get.alwaysDecodeSync")
                 .orElse(true);
         this.alwaysDecodeSync = alwaysDecodeSyncProperty.get();
-        alwaysDecodeSyncProperty.subscribe(v -> alwaysDecodeSync = v);
+
+        // Subscription is maintained so that we can release the subscription on shutdown,
+        // otherwise it will retain a reference to this instance and prevent garbage collection.
+        this.alwaysDecodeSyncSubscription = alwaysDecodeSyncProperty.subscribe(v -> alwaysDecodeSync = v);
+    }
+
+    @Override
+    public boolean shutdown(long timeout, TimeUnit unit) {
+        try {
+            return super.shutdown(timeout, unit);
+        } finally {
+            if (alwaysDecodeSyncSubscription != null) {
+                alwaysDecodeSyncSubscription.unsubscribe();
+            }
+        }
     }
 
     public NodeLocator getNodeLocator() {
