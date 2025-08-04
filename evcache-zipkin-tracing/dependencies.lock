@@ -22,13 +22,13 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "2.5.0"
+            "locked": "2.8.6"
         },
         "com.netflix.archaius:archaius2-persisted2": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "2.5.0"
+            "locked": "2.8.6"
         },
         "com.netflix.eureka:eureka-client-archaius2": {
             "firstLevelTransitive": [
@@ -43,13 +43,13 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "1.6.6"
+            "locked": "1.8.16"
         },
         "com.netflix.spectator:spectator-ext-ipc": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "1.6.6"
+            "locked": "1.8.16"
         },
         "io.reactivex:rxjava": {
             "firstLevelTransitive": [
@@ -70,7 +70,7 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "2.12.5"
+            "locked": "2.14.0"
         },
         "net.spy:spymemcached": {
             "firstLevelTransitive": [
@@ -94,7 +94,7 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "20230618"
+            "locked": "20250517"
         },
         "org.slf4j:slf4j-api": {
             "firstLevelTransitive": [
@@ -132,13 +132,13 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "2.5.0"
+            "locked": "2.8.6"
         },
         "com.netflix.archaius:archaius2-persisted2": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "2.5.0"
+            "locked": "2.8.6"
         },
         "com.netflix.eureka:eureka-client-archaius2": {
             "firstLevelTransitive": [
@@ -153,13 +153,13 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "1.6.6"
+            "locked": "1.8.16"
         },
         "com.netflix.spectator:spectator-ext-ipc": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "1.6.6"
+            "locked": "1.8.16"
         },
         "io.reactivex:rxjava": {
             "firstLevelTransitive": [
@@ -180,7 +180,7 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "2.12.5"
+            "locked": "2.14.0"
         },
         "net.spy:spymemcached": {
             "firstLevelTransitive": [
@@ -204,7 +204,7 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "20230618"
+            "locked": "20250517"
         },
         "org.slf4j:slf4j-api": {
             "firstLevelTransitive": [
@@ -242,13 +242,13 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "2.5.0"
+            "locked": "2.8.6"
         },
         "com.netflix.archaius:archaius2-persisted2": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "2.5.0"
+            "locked": "2.8.6"
         },
         "com.netflix.eureka:eureka-client-archaius2": {
             "firstLevelTransitive": [
@@ -263,13 +263,13 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "1.6.6"
+            "locked": "1.8.16"
         },
         "com.netflix.spectator:spectator-ext-ipc": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "1.6.6"
+            "locked": "1.8.16"
         },
         "io.reactivex:rxjava": {
             "firstLevelTransitive": [
@@ -290,7 +290,7 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "2.12.5"
+            "locked": "2.14.0"
         },
         "net.spy:spymemcached": {
             "firstLevelTransitive": [
@@ -314,7 +314,7 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "20230618"
+            "locked": "20250517"
         },
         "org.mockito:mockito-all": {
             "locked": "2.0.2-beta"
@@ -358,13 +358,13 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "2.5.0"
+            "locked": "2.8.6"
         },
         "com.netflix.archaius:archaius2-persisted2": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "2.5.0"
+            "locked": "2.8.6"
         },
         "com.netflix.eureka:eureka-client-archaius2": {
             "firstLevelTransitive": [
@@ -379,13 +379,13 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "1.6.6"
+            "locked": "1.8.16"
         },
         "com.netflix.spectator:spectator-ext-ipc": {
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "1.6.6"
+            "locked": "1.8.16"
         },
         "io.reactivex:rxjava": {
             "firstLevelTransitive": [
@@ -406,7 +406,7 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "2.12.5"
+            "locked": "2.14.0"
         },
         "net.spy:spymemcached": {
             "firstLevelTransitive": [
@@ -430,7 +430,7 @@
             "firstLevelTransitive": [
                 "com.netflix.evcache:evcache-core"
             ],
-            "locked": "20230618"
+            "locked": "20250517"
         },
         "org.mockito:mockito-all": {
             "locked": "2.0.2-beta"
