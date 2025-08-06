@@ -43,6 +43,22 @@ public class EVCacheItemMetaData {
     public int slabClass;
     public int sizeInBytes;
 
+    public boolean stale;
+    public boolean itemWonRecache;
+    public boolean itemLostRecache;
+
+    public void setStale(boolean stale) {
+        this.stale = stale;
+    }
+
+    public void setItemWonRecache(boolean itemWonRecache) {
+        this.itemWonRecache = itemWonRecache;
+    }
+
+    public void setItemLostRecache(boolean itemLostRecache) {
+        this.itemLostRecache = itemLostRecache;
+    }
+
     public EVCacheItemMetaData() {
         super();
     }
