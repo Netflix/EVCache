@@ -37,6 +37,7 @@ import com.netflix.evcache.operation.EVCacheFutures;
 import com.netflix.evcache.operation.EVCacheItem;
 import com.netflix.evcache.operation.EVCacheItemMetaData;
 import com.netflix.evcache.operation.EVCacheLatchImpl;
+import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.evcache.util.KeyHasher;
@@ -1760,6 +1761,36 @@ public class EVCacheClient {
         return obj;
     }
 
+
+    public EVCacheOperationFuture<Boolean> metaDelete(net.spy.memcached.protocol.ascii.MetaDeleteOperation.Builder builder, EVCacheLatchImpl latch) throws Exception {
+        final String key = builder.getKey();
+        final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
+        if (!ensureWriteQueueSize(node, key, Call.DELETE)) {
+            if (log.isInfoEnabled()) log.info("Node : " + node + " is not active. Failing fast and dropping the meta delete event.");
+            final net.spy.memcached.internal.ListenableFuture<Boolean, net.spy.memcached.internal.OperationCompletionListener> defaultFuture = (net.spy.memcached.internal.ListenableFuture<Boolean, net.spy.memcached.internal.OperationCompletionListener>) getDefaultFuture();
+            if (latch != null && !isInWriteOnly()) latch.addFuture(defaultFuture);
+            return (EVCacheOperationFuture<Boolean>) defaultFuture;
+        }
+
+        return evcacheMemcachedClient.metaDelete(builder, latch);
+    }
+
+    public EVCacheOperationFuture<Boolean> metaSet(net.spy.memcached.protocol.ascii.MetaSetOperation.Builder builder, EVCacheLatchImpl latch) throws Exception {
+        final String key = builder.getKey();
+        final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
+        if (!ensureWriteQueueSize(node, key, Call.SET)) {
+            if (log.isInfoEnabled()) log.info("Node : " + node + " is not active. Failing fast and dropping the meta set event.");
+            final net.spy.memcached.internal.ListenableFuture<Boolean, net.spy.memcached.internal.OperationCompletionListener> defaultFuture = (net.spy.memcached.internal.ListenableFuture<Boolean, net.spy.memcached.internal.OperationCompletionListener>) getDefaultFuture();
+            if (latch != null && !isInWriteOnly()) latch.addFuture(defaultFuture);
+            return (EVCacheOperationFuture<Boolean>) defaultFuture;
+        }
+
+        return evcacheMemcachedClient.metaSet(builder, latch);
+    }
+
+    public EVCacheOperationFuture<Map<String, EVCacheItem<Object>>> metaGetBulk(net.spy.memcached.protocol.ascii.MetaGetBulkOperation.Config config) throws Exception {
+        return evcacheMemcachedClient.metaGetBulk(config);
+    }
 
     public void addTag(String tagName, String tagValue) {
         final Tag tag = new BasicTag(tagName, tagValue);
