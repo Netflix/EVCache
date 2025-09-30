@@ -636,7 +636,12 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                         }
                     } else {
                         handleFinally(data, status, retryCount.get(), client, cacheOperation, start, Call.COMPLETABLE_FUTURE_GET);
-                        handleData(data, event, evcKey, client, cacheOperation);
+                        // Fix: Check if data is null before determining hit/miss
+                        if (data != null) {
+                            handleData(data, event, evcKey, client, cacheOperation);  // HIT
+                        } else {
+                            handleMissData(event, evcKey, client, cacheOperation);    // MISS
+                        }
                         return data;
                     }
                 });
