@@ -1778,6 +1778,7 @@ public class EVCacheClient {
     public EVCacheOperationFuture<Boolean> metaSet(net.spy.memcached.protocol.ascii.MetaSetOperation.Builder builder, EVCacheLatchImpl latch) throws Exception {
         final String key = builder.getKey();
         final MemcachedNode node = evcacheMemcachedClient.getEVCacheNode(key);
+
         if (!ensureWriteQueueSize(node, key, Call.SET)) {
             if (log.isInfoEnabled()) log.info("Node : " + node + " is not active. Failing fast and dropping the meta set event.");
             final net.spy.memcached.internal.ListenableFuture<Boolean, net.spy.memcached.internal.OperationCompletionListener> defaultFuture = (net.spy.memcached.internal.ListenableFuture<Boolean, net.spy.memcached.internal.OperationCompletionListener>) getDefaultFuture();

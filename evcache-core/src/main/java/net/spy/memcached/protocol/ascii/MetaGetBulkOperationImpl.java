@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import com.netflix.evcache.operation.EVCacheItem;
 import com.netflix.evcache.operation.EVCacheItemMetaData;
+import net.spy.memcached.CachedData;
 import net.spy.memcached.ops.OperationState;
 import net.spy.memcached.ops.OperationStatus;
 import net.spy.memcached.ops.StatusCode;
@@ -37,6 +38,7 @@ public class MetaGetBulkOperationImpl extends EVCacheOperationImpl implements Me
     private AtomicInteger totalKeys = new AtomicInteger(0);
     private AtomicInteger foundKeys = new AtomicInteger(0);
     private AtomicInteger notFoundKeys = new AtomicInteger(0);
+    private AtomicInteger responsesReceived = new AtomicInteger(0);
 
     public MetaGetBulkOperationImpl(Config config, MetaGetBulkOperation.Callback cb) {
         super(cb);
@@ -50,79 +52,115 @@ public class MetaGetBulkOperationImpl extends EVCacheOperationImpl implements Me
         if (log.isDebugEnabled()) {
             log.debug("meta get bulk returned: {}", line);
         }
-        
-        if (line.length() == 0 || line.equals("EN")) {
-            // End of bulk operation
+
+        // Note: Individual mg commands don't send "EN" - each response is independent
+        // We need to track responses and complete when we've received all of them
+
+        if (line.startsWith("VA ")) {
+            // Value with metadata: VA <size> [metadata_flags...]
+            parseBulkValue(line);
+            setReadType(OperationReadType.DATA);
+        } else if (line.startsWith("HD")) {
+            // Hit without data (metadata only): HD [metadata_flags...]
+            parseBulkHit(line);
+            checkAndCompleteIfDone();
+        } else if (line.startsWith("EN")) {
+            // Miss/End for this key: EN k<keyname>
+            parseBulkMiss(line);
+            checkAndCompleteIfDone();
+        } else if (line.length() == 0) {
+            // Empty line - ignore
+        }
+    }
+
+    private void checkAndCompleteIfDone() {
+        int received = responsesReceived.get();
+        int total = totalKeys.get();
+
+        if (received >= total) {
             cb.bulkComplete(totalKeys.get(), foundKeys.get(), notFoundKeys.get());
             getCallback().receivedStatus(END);
             transitionState(OperationState.COMPLETE);
-        } else if (line.startsWith("VA ")) {
-            // Value with metadata: VA <size> <key> [metadata_flags...]
-            parseBulkValue(line);
-            setReadType(OperationReadType.DATA);
-        } else if (line.startsWith("HD ")) {
-            // Hit without data (metadata only): HD <key> [metadata_flags...]
-            parseBulkHit(line);
-        } else if (line.startsWith("NF ") || line.startsWith("MS ")) {
-            // Not found or miss: NF <key> or MS <key>
-            parseBulkMiss(line);
         }
     }
 
     private void parseBulkValue(String line) {
         String[] parts = line.split(" ");
-        if (parts.length < 3) return;
-        
+        if (parts.length < 2) return;
+
+        // Format: VA <size> k<key> [other_flags...]
+        // The 'k' flag causes the key to be in the response
         int size = Integer.parseInt(parts[1]);
-        currentKey = parts[2];
         currentData = new byte[size];
         readOffset = 0;
         lookingFor = '\0';
         currentMetaData = new EVCacheItemMetaData();
-        
-        // Parse metadata flags
-        parseMetadata(currentKey, parts, 3);
+        currentKey = null;
+
+        // Parse metadata flags starting from index 2
+        // The key will be in a flag like "kmy_key_name"
+        parseMetadata(null, parts, 2);
         foundKeys.incrementAndGet();
     }
 
     private void parseBulkHit(String line) {
         String[] parts = line.split(" ");
-        if (parts.length < 2) return;
-        
-        currentKey = parts[1];
+        if (parts.length < 1) return;
+
+        // Format: HD k<key> [other_flags...]
+        currentKey = null;
         currentMetaData = new EVCacheItemMetaData();
-        parseMetadata(currentKey, parts, 2);
-        
+        parseMetadata(null, parts, 1);
+
         // Create EVCacheItem with null data for metadata-only hit
         EVCacheItem<Object> item = new EVCacheItem<>();
         item.setData(null);
         item.setFlag(currentFlags);
         copyMetadata(item.getItemMetaData(), currentMetaData);
-        
-        cb.gotData(currentKey, item);
+
+        if (currentKey != null) {
+            cb.gotData(currentKey, item);
+        }
         foundKeys.incrementAndGet();
+        responsesReceived.incrementAndGet();
     }
 
     private void parseBulkMiss(String line) {
+        // EN means not found for this mg command
+        // Format: EN k<keyname> [other_flags...]
         String[] parts = line.split(" ");
-        if (parts.length < 2) return;
-        
-        String key = parts[1];
-        cb.keyNotFound(key);
+
+        String key = null;
+        // Parse the key from the response (it's in the k flag)
+        for (int i = 1; i < parts.length; i++) {
+            if (parts[i].length() > 0 && parts[i].charAt(0) == 'k') {
+                key = parts[i].substring(1);
+                break;
+            }
+        }
+
+        if (key != null) {
+            cb.keyNotFound(key);
+        }
         notFoundKeys.incrementAndGet();
+        responsesReceived.incrementAndGet();
     }
 
     private void parseMetadata(String key, String[] parts, int startIndex) {
         currentFlags = 0;
         currentCas = 0;
-        
+
         for (int i = startIndex; i < parts.length; i++) {
             if (parts[i].length() > 0) {
                 char flag = parts[i].charAt(0);
                 String value = parts[i].substring(1);
-                
+
                 // Parse commonly used metadata into EVCacheItemMetaData
                 switch (flag) {
+                    case 'k':
+                        // Key returned in response
+                        currentKey = value;
+                        break;
                     case 'f':
                         currentFlags = Integer.parseInt(value);
                         break;
@@ -173,12 +211,15 @@ public class MetaGetBulkOperationImpl extends EVCacheOperationImpl implements Me
         // Check if we've read all data
         if (readOffset == currentData.length && lookingFor == '\0') {
             // Create EVCacheItem with data and metadata
+            // Wrap data in CachedData so EVCacheImpl can decode it properly
             EVCacheItem<Object> item = new EVCacheItem<>();
-            item.setData(currentData);
+            CachedData cachedData = new CachedData(currentFlags, currentData, Integer.MAX_VALUE);
+            item.setData(cachedData);
             item.setFlag(currentFlags);
             copyMetadata(item.getItemMetaData(), currentMetaData);
-            
+
             cb.gotData(currentKey, item);
+            responsesReceived.incrementAndGet();
             lookingFor = '\r';
         }
         
@@ -207,6 +248,8 @@ public class MetaGetBulkOperationImpl extends EVCacheOperationImpl implements Me
                 currentMetaData = null;
                 readOffset = 0;
                 setReadType(OperationReadType.LINE);
+                // Check if we're done after processing this response
+                checkAndCompleteIfDone();
             }
         }
     }
@@ -227,40 +270,44 @@ public class MetaGetBulkOperationImpl extends EVCacheOperationImpl implements Me
         // Meta get supports multiple keys in single command: mg <key1> <key2> ... <flags>*\r\n
         List<String> flags = new ArrayList<>();
         
+        // IMPORTANT: Always add 'k' flag first to return the key in the response
+        // This is critical for bulk operations to match responses to keys
+        flags.add("k");  // Return key in response
+
         // Add metadata flags based on config
-        if (config.isIncludeTtl()) flags.add("t");         // Return TTL
         if (config.isIncludeCas()) flags.add("c");         // Return CAS token
-        if (config.isIncludeSize()) flags.add("s");        // Return item size  
+        if (config.isIncludeTtl()) flags.add("t");         // Return TTL
+        if (config.isIncludeSize()) flags.add("s");        // Return item size
         if (config.isIncludeLastAccess()) flags.add("l");  // Return last access time
-        
+
         // Add behavioral flags per meta protocol spec
         if (config.isServeStale()) {
             flags.add("R" + config.getMaxStaleTime());      // Recache flag with TTL threshold
         }
-        
+
         // Always include client flags and value
         flags.add("f");  // Return client flags
-        flags.add("v");  // Return value data
+        flags.add("v");  // Return value
         
-        // Build command: mg key1 key2 key3 f v c t s\r\n
+        // Build commands: mg sends ONE command PER KEY, not multiple keys in one command
+        // Format: mg <key> <flags>\r\n for EACH key
         StringBuilder cmdBuilder = new StringBuilder();
-        cmdBuilder.append("mg");
-        
-        // Add all keys
+
         for (String key : config.getKeys()) {
-            cmdBuilder.append(" ").append(key);
+            cmdBuilder.append("mg ").append(key);
+
+            // Add flags for this key
+            for (String flag : flags) {
+                cmdBuilder.append(" ").append(flag);
+            }
+            cmdBuilder.append("\r\n");
         }
-        
-        // Add flags
-        for (String flag : flags) {
-            cmdBuilder.append(" ").append(flag);
-        }
-        cmdBuilder.append("\r\n");
-        
-        byte[] cmdBytes = cmdBuilder.toString().getBytes();
+
+        String fullCommand = cmdBuilder.toString();
+        byte[] cmdBytes = fullCommand.getBytes();
         ByteBuffer b = ByteBuffer.allocate(cmdBytes.length);
         b.put(cmdBytes);
-        
+
         b.flip();
         setBuffer(b);
     }

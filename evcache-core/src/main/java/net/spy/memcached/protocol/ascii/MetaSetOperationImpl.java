@@ -41,23 +41,23 @@ public class MetaSetOperationImpl extends EVCacheOperationImpl implements MetaSe
         if (log.isDebugEnabled()) {
             log.debug("meta set of {} returned {}", builder.getKey(), line);
         }
-        
+
         if (line.equals("HD")) {
             stored = true;
-            cb.setComplete(builder.getKey(), returnedCas, true);
             getCallback().receivedStatus(STORED);
+            cb.setComplete(builder.getKey(), returnedCas, true);
             transitionState(OperationState.COMPLETE);
         } else if (line.equals("NS")) {
-            cb.setComplete(builder.getKey(), returnedCas, false);
             getCallback().receivedStatus(NOT_STORED);
+            cb.setComplete(builder.getKey(), returnedCas, false);
             transitionState(OperationState.COMPLETE);
         } else if (line.equals("EX")) {
-            cb.setComplete(builder.getKey(), returnedCas, false);
             getCallback().receivedStatus(EXISTS);
+            cb.setComplete(builder.getKey(), returnedCas, false);
             transitionState(OperationState.COMPLETE);
         } else if (line.equals("NF")) {
-            cb.setComplete(builder.getKey(), returnedCas, false);
             getCallback().receivedStatus(NOT_FOUND);
+            cb.setComplete(builder.getKey(), returnedCas, false);
             transitionState(OperationState.COMPLETE);
         } else if (line.startsWith("HD ") || line.startsWith("NS ") || line.startsWith("EX ") || line.startsWith("NF ")) {
             // Parse metadata returned with response
@@ -88,34 +88,41 @@ public class MetaSetOperationImpl extends EVCacheOperationImpl implements MetaSe
     public void initialize() {
         // Meta set command syntax: ms <key> <datalen> <flags>*\r\n<data>\r\n
         List<String> flags = new ArrayList<>();
-        
-        // Add mode flag (S=set, N=add, R=replace, A=append, P=prepend)
+
+        // Add mode flag (MS=set, ME=add, MR=replace, MA=append, MP=prepend)
         flags.add(builder.getMode().getFlag());
         
         // Add CAS if specified (C<token>)
         if (builder.getCas() > 0) {
             flags.add("C" + builder.getCas());
         }
-        
-        // Add client flags if non-zero (F<flags>)  
+
+        // Add recasid (E flag) if provided by client for multi-zone consistency
+        // E flag sets the CAS value explicitly (requires memcached 1.6.21+ with meta commands)
+        // If your memcached version doesn't support E flag, leave recasid = 0
+        long recasidToUse = builder.getRecasid();
+        if (recasidToUse > 0) {
+            flags.add("E" + recasidToUse);
+            if (log.isDebugEnabled()) {
+                log.debug("Using explicit recasid (E flag) for key {}: {}", builder.getKey(), recasidToUse);
+            }
+        }
+
+        // Add client flags if non-zero (F<flags>)
         if (builder.getFlags() != 0) {
             flags.add("F" + builder.getFlags());
         }
-        
+
         // Add TTL if specified (T<ttl>)
         if (builder.getExpiration() > 0) {
             flags.add("T" + builder.getExpiration());
         }
-        
-        // Request metadata returns
-        if (builder.isReturnCas()) {
-            flags.add("c"); // Return CAS token
-        }
-        
-        if (builder.isReturnTtl()) {
-            flags.add("t"); // Return TTL
-        }
-        
+
+        // NOTE: The 'ms' command does not support returning CAS or TTL in the response.
+        // These return flags (c, t) are only valid for 'mg' (meta get) commands.
+        // The builder.isReturnCas() and builder.isReturnTtl() are ignored for ms operations.
+        // To get CAS after a set, you need to perform a separate meta get operation.
+
         // Mark as stale if requested (I - invalidate/mark stale)
         if (builder.isMarkStale()) {
             flags.add("I");
@@ -126,13 +133,13 @@ public class MetaSetOperationImpl extends EVCacheOperationImpl implements MetaSe
         byte[] valueBytes = builder.getValue();
         StringBuilder cmdBuilder = new StringBuilder();
         cmdBuilder.append("ms ").append(builder.getKey()).append(" ").append(valueBytes.length);
-        
+
         // Add flags
         for (String flag : flags) {
             cmdBuilder.append(" ").append(flag);
         }
         cmdBuilder.append("\r\n");
-        
+
         byte[] cmdBytes = cmdBuilder.toString().getBytes();
         int totalSize = cmdBytes.length + valueBytes.length + 2; // +2 for final \r\n
         

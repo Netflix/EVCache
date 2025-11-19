@@ -36,12 +36,12 @@ public interface MetaSetOperation extends Operation {
      * Meta set mode for different set behaviors.
      */
     public enum SetMode {
-        SET("S"),           // Standard set
-        ADD("N"),           // Only add if not exists  
-        REPLACE("R"),       // Only replace if exists
-        APPEND("A"),        // Append to existing value
-        PREPEND("P");       // Prepend to existing value
-        
+        SET("MS"),          // Standard set (Mode Set)
+        ADD("ME"),          // Only add if not exists (Mode Exclusive)
+        REPLACE("MR"),      // Only replace if exists (Mode Replace)
+        APPEND("MA"),       // Append to existing value (Mode Append)
+        PREPEND("MP");      // Prepend to existing value (Mode Prepend)
+
         private final String flag;
         
         SetMode(String flag) {
@@ -62,6 +62,7 @@ public interface MetaSetOperation extends Operation {
         private int flags = 0;
         private int expiration = 0;
         private long cas = 0;
+        private long recasid = 0;  // E flag: client-provided CAS to set after operation
         private SetMode mode = SetMode.SET;
         private boolean returnCas = false;
         private boolean returnTtl = false;
@@ -91,7 +92,12 @@ public interface MetaSetOperation extends Operation {
             this.cas = cas;
             return this;
         }
-        
+
+        public Builder recasid(long recasid) {
+            this.recasid = recasid;
+            return this;
+        }
+
         public Builder mode(SetMode mode) {
             this.mode = mode;
             return this;
@@ -117,6 +123,7 @@ public interface MetaSetOperation extends Operation {
         public int getFlags() { return flags; }
         public int getExpiration() { return expiration; }
         public long getCas() { return cas; }
+        public long getRecasid() { return recasid; }
         public SetMode getMode() { return mode; }
         public boolean isReturnCas() { return returnCas; }
         public boolean isReturnTtl() { return returnTtl; }

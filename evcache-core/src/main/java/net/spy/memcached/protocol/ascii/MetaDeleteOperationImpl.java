@@ -40,20 +40,20 @@ public class MetaDeleteOperationImpl extends EVCacheOperationImpl implements Met
         if (log.isDebugEnabled()) {
             log.debug("meta delete of {} returned {}", builder.getKey(), line);
         }
-        
+
         if (line.equals("HD")) {
             deleted = true;
-            cb.deleteComplete(builder.getKey(), true);
             getCallback().receivedStatus(DELETED);
+            cb.deleteComplete(builder.getKey(), true);
             transitionState(OperationState.COMPLETE);
         } else if (line.equals("NF")) {
-            cb.deleteComplete(builder.getKey(), false);
             getCallback().receivedStatus(NOT_FOUND);
+            cb.deleteComplete(builder.getKey(), false);
             transitionState(OperationState.COMPLETE);
         } else if (line.equals("EX")) {
             // CAS mismatch - item exists but CAS doesn't match
-            cb.deleteComplete(builder.getKey(), false);
             getCallback().receivedStatus(EXISTS);
+            cb.deleteComplete(builder.getKey(), false);
             transitionState(OperationState.COMPLETE);
         } else if (line.startsWith("HD ") || line.startsWith("NF ") || line.startsWith("EX ")) {
             // Parse metadata returned with response
@@ -74,8 +74,8 @@ public class MetaDeleteOperationImpl extends EVCacheOperationImpl implements Met
                 }
             }
             
-            cb.deleteComplete(builder.getKey(), deleted);
             getCallback().receivedStatus(deleted ? DELETED : NOT_FOUND);
+            cb.deleteComplete(builder.getKey(), deleted);
             transitionState(OperationState.COMPLETE);
         }
     }
@@ -94,7 +94,18 @@ public class MetaDeleteOperationImpl extends EVCacheOperationImpl implements Met
         if (builder.getCas() > 0) {
             flags.add("C" + builder.getCas());
         }
-        
+
+        // Add recasid (E flag) if provided by client for multi-zone consistency
+        // E flag sets the tombstone CAS value explicitly (requires memcached 1.6.21+ with meta commands)
+        // If your memcached version doesn't support E flag, leave recasid = 0
+        long recasidToUse = builder.getRecasid();
+        if (recasidToUse > 0) {
+            flags.add("E" + recasidToUse);
+            if (log.isDebugEnabled()) {
+                log.debug("Using explicit recasid (E flag) for delete of key {}: {}", builder.getKey(), recasidToUse);
+            }
+        }
+
         // Request metadata returns
         if (builder.isReturnCas()) {
             flags.add("c"); // Return CAS token
@@ -117,13 +128,13 @@ public class MetaDeleteOperationImpl extends EVCacheOperationImpl implements Met
         byte[] keyBytes = KeyUtil.getKeyBytes(builder.getKey());
         StringBuilder cmdBuilder = new StringBuilder();
         cmdBuilder.append("md ").append(builder.getKey());
-        
+
         // Add flags
         for (String flag : flags) {
             cmdBuilder.append(" ").append(flag);
         }
         cmdBuilder.append("\r\n");
-        
+
         byte[] cmdBytes = cmdBuilder.toString().getBytes();
         ByteBuffer b = ByteBuffer.allocate(cmdBytes.length);
         b.put(cmdBytes);

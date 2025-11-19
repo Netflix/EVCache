@@ -55,6 +55,7 @@ public interface MetaDeleteOperation extends Operation {
     public static class Builder {
         private String key;
         private long cas = 0;
+        private long recasid = 0;  // E flag: client-provided CAS to set after operation
         private DeleteMode mode = DeleteMode.DELETE;
         private boolean returnCas = false;
         private boolean returnTtl = false;
@@ -70,7 +71,12 @@ public interface MetaDeleteOperation extends Operation {
             this.cas = cas;
             return this;
         }
-        
+
+        public Builder recasid(long recasid) {
+            this.recasid = recasid;
+            return this;
+        }
+
         public Builder mode(DeleteMode mode) {
             this.mode = mode;
             return this;
@@ -98,6 +104,7 @@ public interface MetaDeleteOperation extends Operation {
         
         public String getKey() { return key; }
         public long getCas() { return cas; }
+        public long getRecasid() { return recasid; }
         public DeleteMode getMode() { return mode; }
         public boolean isReturnCas() { return returnCas; }
         public boolean isReturnTtl() { return returnTtl; }

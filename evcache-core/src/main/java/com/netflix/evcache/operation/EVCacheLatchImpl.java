@@ -68,9 +68,31 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     public boolean await(long timeout, TimeUnit unit) throws InterruptedException {
         if (log.isDebugEnabled()) log.debug("Current Latch Count = " + latch.getCount() + "; await for "+ timeout + " " + unit.name() + " appName : " + appName);
         final long start = log.isDebugEnabled() ? System.currentTimeMillis() : 0;
-        final boolean awaitSuccess = latch.await(timeout, unit);
-        if (log.isDebugEnabled()) log.debug("await success = " + awaitSuccess + " after " + (System.currentTimeMillis() - start) + " msec." + " appName : " + appName + ((evcacheEvent != null) ? " keys : " + evcacheEvent.getEVCacheKeys() : ""));
-        return awaitSuccess;
+        final boolean countdownFinished = latch.await(timeout, unit);
+        if (log.isDebugEnabled()) log.debug("countdown finished = " + countdownFinished + " after " + (System.currentTimeMillis() - start) + " msec." + " appName : " + appName + ((evcacheEvent != null) ? " keys : " + evcacheEvent.getEVCacheKeys() : ""));
+
+        // Check if enough operations succeeded (not just completed)
+        if (!countdownFinished) {
+            return false;  // Timed out
+        }
+
+        // Count how many operations succeeded
+        int successCount = 0;
+        for (Future<Boolean> future : futures) {
+            try {
+                if (future.isDone() && future.get().equals(Boolean.TRUE)) {
+                    successCount++;
+                }
+            } catch (Exception e) {
+                // Exception means failure
+                if (log.isDebugEnabled()) log.debug("Future failed with exception", e);
+            }
+        }
+
+        // Return true only if enough operations succeeded according to policy
+        final boolean policyMet = successCount >= expectedCompleteCount;
+        if (log.isDebugEnabled()) log.debug("Policy check: successCount=" + successCount + ", required=" + expectedCompleteCount + ", policyMet=" + policyMet);
+        return policyMet;
     }
 
     /*
@@ -201,11 +223,15 @@ public class EVCacheLatchImpl implements EVCacheLatch, Runnable {
     @Override
     public void onComplete(OperationFuture<?> future) throws Exception {
         if (log.isDebugEnabled()) log.debug("BEGIN : onComplete - Calling Countdown. Completed Future = " + future + "; App : " + appName);
+
         countDown();
         completeCount++;
+
         if(evcacheEvent != null) {
             if (log.isDebugEnabled()) log.debug(";App : " + evcacheEvent.getAppName() + "; Call : " + evcacheEvent.getCall() + "; Keys : " + evcacheEvent.getEVCacheKeys() + "; completeCount : " + completeCount + "; totalFutureCount : " + totalFutureCount +"; failureCount : " + failureCount);
             try {
+                Object result = future.isDone() ? future.get() : null;
+
                 if(future.isDone() && future.get().equals(Boolean.FALSE)) {
                     failureCount++;
                     if(failReason == null) failReason = EVCacheMetricsFactory.getInstance().getStatusCode(future.getStatus().getStatusCode());

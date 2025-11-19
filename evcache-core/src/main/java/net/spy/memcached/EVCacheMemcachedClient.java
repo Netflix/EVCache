@@ -1018,25 +1018,25 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         
         if(opFact instanceof EVCacheAsciiOperationFactory) {
             final Operation op = ((EVCacheAsciiOperationFactory)opFact).metaSet(builder, new net.spy.memcached.protocol.ascii.MetaSetOperation.Callback() {
-                
+
                 @Override
                 public void setComplete(String k, long cas, boolean stored) {
                     if (log.isDebugEnabled()) log.debug("Meta Set Key : " + k + "; stored : " + stored + "; cas : " + cas);
                     rv.set(stored, rv.getStatus());
                 }
-                
+
                 @Override
                 public void gotMetaData(String k, char flag, String data) {
                     if (log.isDebugEnabled()) log.debug("Meta Set metadata - Key : " + k + "; flag : " + flag + "; data : " + data);
                 }
-                
+
                 @Override
                 public void receivedStatus(net.spy.memcached.ops.OperationStatus status) {
-                    if (log.isDebugEnabled()) log.debug("Meta Set Key : " + key + "; Status : " + status.getStatusCode().name() 
-                            + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
+                    if (log.isDebugEnabled()) log.debug("Meta Set Key : " + key + "; Status : " + status.getStatusCode().name()
+                            + "; Message : " + status.getMessage() + "; Success: " + status.isSuccess() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
                     rv.set(status.isSuccess(), status);
                 }
-                
+
                 @Override
                 public void complete() {
                     countLatch.countDown();
@@ -1045,59 +1045,121 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     rv.signalComplete();
                 }
             });
-            
+
             rv.setOperation(op);
-            if (latch != null && !client.isInWriteOnly()) latch.addFuture(rv);
+            if (latch != null && !client.isInWriteOnly()) {
+                if (log.isDebugEnabled()) log.debug("Adding meta set future to latch for key: " + key);
+                latch.addFuture(rv);
+            }
+            if (log.isDebugEnabled()) log.debug("Enqueuing meta set operation for key: " + key);
             mconn.enqueueOperation(key, op);
         }
         return rv;
     }
 
     public EVCacheOperationFuture<Map<String, com.netflix.evcache.operation.EVCacheItem<Object>>> metaGetBulk(net.spy.memcached.protocol.ascii.MetaGetBulkOperation.Config config) {
-        final CountDownLatch countLatch = new CountDownLatch(1);
         final Map<String, com.netflix.evcache.operation.EVCacheItem<Object>> result = new ConcurrentHashMap<>();
         final String keysStr = config.getKeys().toString();
-        final EVCacheOperationFuture<Map<String, com.netflix.evcache.operation.EVCacheItem<Object>>> rv = 
-            new EVCacheOperationFuture<Map<String, com.netflix.evcache.operation.EVCacheItem<Object>>>(keysStr, countLatch, new AtomicReference<Map<String, com.netflix.evcache.operation.EVCacheItem<Object>>>(result), operationTimeout, executorService, client);
-        
+
         if(opFact instanceof EVCacheAsciiOperationFactory) {
-            final Operation op = ((EVCacheAsciiOperationFactory)opFact).metaGetBulk(config, new net.spy.memcached.protocol.ascii.MetaGetBulkOperation.Callback() {
-                
-                @Override
-                public void gotData(String k, com.netflix.evcache.operation.EVCacheItem<Object> item) {
-                    if (log.isDebugEnabled()) log.debug("Meta Get Bulk Key : " + k + "; item : " + item);
-                    result.put(k, item);
+            // Break the gets down into groups by key (same as regular bulk get)
+            final Map<MemcachedNode, Collection<String>> chunks = new HashMap<MemcachedNode, Collection<String>>();
+            final NodeLocator locator = mconn.getLocator();
+
+            // Populate Node and key Map
+            for (String key : config.getKeys()) {
+                EVCacheClientUtil.validateKey(key, opFact instanceof BinaryOperationFactory);
+                final MemcachedNode primaryNode = locator.getPrimary(key);
+                if (primaryNode.isActive()) {
+                    Collection<String> ks = chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>());
+                    ks.add(key);
                 }
-                
-                @Override
-                public void keyNotFound(String k) {
-                    if (log.isDebugEnabled()) log.debug("Meta Get Bulk Key not found : " + k);
-                }
-                
-                @Override
-                public void bulkComplete(int totalRequested, int found, int notFound) {
-                    if (log.isDebugEnabled()) log.debug("Meta Get Bulk complete - total: " + totalRequested + ", found: " + found + ", not found: " + notFound);
-                }
-                
-                @Override
-                public void receivedStatus(net.spy.memcached.ops.OperationStatus status) {
-                    if (log.isDebugEnabled()) log.debug("Meta Get Bulk Status : " + status.getStatusCode().name() 
-                            + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
-                    rv.set(result, status);
-                }
-                
-                @Override
-                public void complete() {
-                    countLatch.countDown();
-                    final String host = ((rv.getStatus().getStatusCode().equals(StatusCode.TIMEDOUT) && rv.getOperation() != null) ? getHostName(rv.getOperation().getHandlingNode().getSocketAddress()) : null);
-                    getTimer(EVCacheMetricsFactory.BULK_OPERATION, EVCacheMetricsFactory.READ, rv.getStatus(), null, host, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
-                    rv.signalComplete();
-                }
-            });
-            
-            rv.setOperation(op);
-            mconn.enqueueOperation(keysStr, op);
+            }
+
+            final AtomicInteger pendingChunks = new AtomicInteger(chunks.size());
+            int initialLatchCount = chunks.isEmpty() ? 0 : 1;
+            final CountDownLatch latch = new CountDownLatch(initialLatchCount);
+            final Collection<Operation> ops = new ArrayList<Operation>(chunks.size());
+            final AtomicReference<Map<String, com.netflix.evcache.operation.EVCacheItem<Object>>> objRef = new AtomicReference<>(result);
+            final EVCacheOperationFuture<Map<String, com.netflix.evcache.operation.EVCacheItem<Object>>> rv =
+                new EVCacheOperationFuture<Map<String, com.netflix.evcache.operation.EVCacheItem<Object>>>(keysStr, latch, objRef, operationTimeout, executorService, client);
+
+            // Convert chunks to operations (one operation per node)
+            final Map<MemcachedNode, Operation> mops = new HashMap<MemcachedNode, Operation>();
+
+            for (Map.Entry<MemcachedNode, Collection<String>> entry : chunks.entrySet()) {
+                final MemcachedNode node = entry.getKey();
+                final Collection<String> nodeKeys = entry.getValue();
+
+                // Create a new config for this node with only its keys
+                final net.spy.memcached.protocol.ascii.MetaGetBulkOperation.Config nodeConfig =
+                    new net.spy.memcached.protocol.ascii.MetaGetBulkOperation.Config(nodeKeys)
+                        .includeCas(config.isIncludeCas())
+                        .includeTtl(config.isIncludeTtl())
+                        .includeSize(config.isIncludeSize())
+                        .includeLastAccess(config.isIncludeLastAccess())
+                        .serveStale(config.isServeStale())
+                        .maxStaleTime(config.getMaxStaleTime());
+
+                final Operation op = ((EVCacheAsciiOperationFactory)opFact).metaGetBulk(nodeConfig, new net.spy.memcached.protocol.ascii.MetaGetBulkOperation.Callback() {
+
+                    @Override
+                    public void gotData(String k, com.netflix.evcache.operation.EVCacheItem<Object> item) {
+                        if (log.isDebugEnabled()) log.debug("Meta Get Bulk Key : " + k + "; item : " + item);
+                        result.put(k, item);
+                    }
+
+                    @Override
+                    public void keyNotFound(String k) {
+                        if (log.isDebugEnabled()) log.debug("Meta Get Bulk Key not found : " + k);
+                    }
+
+                    @Override
+                    public void bulkComplete(int totalRequested, int found, int notFound) {
+                        if (log.isDebugEnabled()) log.debug("Meta Get Bulk complete - total: " + totalRequested + ", found: " + found + ", not found: " + notFound);
+                    }
+
+                    @Override
+                    public void receivedStatus(net.spy.memcached.ops.OperationStatus status) {
+                        if (log.isDebugEnabled()) log.debug("Meta Get Bulk Status : " + status.getStatusCode().name()
+                                + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
+                    }
+
+                    @Override
+                    public void complete() {
+                        if (pendingChunks.decrementAndGet() <= 0) {
+                            latch.countDown();
+
+                            // Record metrics with SUCCESS status (no single host for multi-node bulk get)
+                            final net.spy.memcached.ops.OperationStatus successStatus = new net.spy.memcached.ops.OperationStatus(true, "END", StatusCode.SUCCESS);
+                            getTimer(EVCacheMetricsFactory.BULK_OPERATION, EVCacheMetricsFactory.READ, successStatus, null, null, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
+                            rv.signalComplete();
+                        }
+                    }
+                });
+
+                mops.put(node, op);
+                ops.add(op);
+            }
+
+            mconn.checkState();
+            mconn.addOperations(mops);
+
+            // Associate the first operation with the future to prevent NPE in isCancelled()
+            // The future doesn't use the operation for data retrieval (callbacks handle that),
+            // but it needs it for cancellation checks
+            if (!ops.isEmpty()) {
+                rv.setOperation(ops.iterator().next());
+            }
+
+            return rv;
         }
+
+        // Fallback if not using ASCII operation factory
+        final CountDownLatch countLatch = new CountDownLatch(1);
+        final EVCacheOperationFuture<Map<String, com.netflix.evcache.operation.EVCacheItem<Object>>> rv =
+            new EVCacheOperationFuture<Map<String, com.netflix.evcache.operation.EVCacheItem<Object>>>(keysStr, countLatch, new AtomicReference<Map<String, com.netflix.evcache.operation.EVCacheItem<Object>>>(result), operationTimeout, executorService, client);
+        countLatch.countDown();
         return rv;
     }
 }
