@@ -915,6 +915,18 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     getDataSizeDistributionSummary(EVCacheMetricsFactory.META_GET_OPERATION, EVCacheMetricsFactory.READ, EVCacheMetricsFactory.INTERNAL_TTL).record(ttlLeft);
                     break;
 
+                case 'X':
+                    evItem.getItemMetaData().setStale(true);
+                    break;
+
+                case 'W':
+                    evItem.getItemMetaData().setItemWonRecache(true);
+                    break;
+
+                case 'Z':
+                    evItem.getItemMetaData().setItemLostRecache(true);
+                    break;
+
                 default:
                     break;
                 }
