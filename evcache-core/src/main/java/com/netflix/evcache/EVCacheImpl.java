@@ -2946,8 +2946,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         } finally {
             final long duration = this.clock.monotonicTime()- start;
             getTimer(Call.INCR.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.NANOSECONDS);
-            if (log.isDebugEnabled() && shouldLog()) log.debug("INCR : APP " + _appName + ", Took " + TimeUnit.NANOSECONDS.toMillis(duration)
-                    + " milliSec for key : " + key + " with value as " + currentValue);
+            if (log.isDebugEnabled() && shouldLog())
+                log.debug("INCR : status {} for APP {}, Took {} milliSec for key : {} with value as {}", status, _appName, TimeUnit.NANOSECONDS.toMillis(duration), key, currentValue);
         }
     }
 
@@ -3033,7 +3033,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         } finally {
             final long duration = this.clock.monotonicTime()- start;
             getTimer(Call.DECR.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.NANOSECONDS);
-            if (log.isDebugEnabled() && shouldLog()) log.debug("DECR : APP " + _appName + ", Took " + TimeUnit.NANOSECONDS.toMillis(duration) + " milliSec for key : " + key + " with value as " + currentValue);
+            if (log.isDebugEnabled() && shouldLog())
+                log.debug("DECR : status {} for APP {}, Took {} milliSec for key : {} with value as {}", status, _appName, TimeUnit.NANOSECONDS.toMillis(duration), key, currentValue);
         }
     }
 
