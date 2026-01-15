@@ -3009,7 +3009,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                 + currentValue + " for key : " + key);
                         clients[i].decr(evcKey.getDerivedKey(clients[i].isDuetClient(), clients[i].getHashingAlgorithm(), clients[i].shouldEncodeHashKey(), clients[i].getMaxDigestBytes(), clients[i].getMaxHashLength(), clients[i].getBaseEncoder()), 0, currentValue, timeToLive);
                     } else if (vals[i] != currentValue) {
-                        if(cd == null) cd = clients[i].getTranscoder().encode(currentValue);
+                        if(cd == null) cd = clients[i].getTranscoder().encode(String.valueOf(currentValue));
                         if (log.isDebugEnabled()) log.debug("DECR : APP " + _appName + "; Zone " + clients[i].getZone()
                                 + " had a value of " + vals[i]
                                         + " so setting it to current value = " + currentValue + " for key : " + key);
