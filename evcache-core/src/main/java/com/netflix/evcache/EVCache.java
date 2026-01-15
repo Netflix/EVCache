@@ -65,10 +65,11 @@ import rx.Single;
  *
  * @author smadappa
  */
-public interface EVCache {
+public interface EVCache extends EVCacheMetaOperations {
     // TODO: Remove Async methods (Project rx) and rename  COMPLETABLE_* with ASYNC_*
     public static enum Call {
         GET, GETL, GET_AND_TOUCH, ASYNC_GET, BULK, SET, DELETE, INCR, DECR, TOUCH, APPEND, PREPEND, REPLACE, ADD, APPEND_OR_ADD, GET_ALL, META_GET, META_SET, META_DEBUG,
+        META_GET_BULK, META_DELETE,
         COMPLETABLE_FUTURE_GET, COMPLETABLE_FUTURE_GET_BULK
     };
 

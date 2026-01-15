@@ -60,6 +60,9 @@ import com.netflix.spectator.api.Timer;
 
 import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.Transcoder;
+import net.spy.memcached.protocol.ascii.MetaSetOperation;
+import net.spy.memcached.protocol.ascii.MetaGetBulkOperation;
+import net.spy.memcached.protocol.ascii.MetaDeleteOperation;
 import rx.Observable;
 import rx.Scheduler;
 import rx.Single;
@@ -77,6 +80,11 @@ import rx.Single;
 public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheImpl.class);
+
+    // Atomic counter to ensure E flag (recasid) uniqueness within the same millisecond
+    // Format: timestamp (milliseconds) + sequence number
+    // This prevents multiple threads from getting identical E flags when calling within the same ms
+    private static final java.util.concurrent.atomic.AtomicLong recasidSequence = new java.util.concurrent.atomic.AtomicLong(0);
 
     private final String _appName;
     private final String _cacheName;
@@ -3407,6 +3415,372 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     protected List<Tag> getTags() {
         return tags;
+    }
+
+    // Meta Protocol Operations Implementation
+
+    /**
+     * Generates a unique recasid (E flag) value for CAS synchronization across zones.
+     * Uses timestamp + atomic sequence to ensure uniqueness even when called within the same millisecond.
+     *
+     * Format: (timestamp_ms << 10) | sequence
+     * - Upper 54 bits: timestamp in milliseconds (supports ~570 years from epoch)
+     * - Lower 10 bits: sequence number (0-1023, wraps every 1024 operations)
+     *
+     * This allows up to 1024 unique CAS values per millisecond while keeping values compact.
+     * Fits within 64-bit CAS token used by memcached.
+     */
+    private static long generateUniqueRecasid() {
+        long timestamp = System.currentTimeMillis();
+        long sequence = recasidSequence.incrementAndGet() & 0x3FF; // Mask to 10 bits (0-1023)
+        return (timestamp << 10) | sequence;
+    }
+
+    @Override
+    public EVCacheLatch metaSet(MetaSetOperation.Builder builder, Policy policy) throws EVCacheException {
+        if (builder == null) throw new IllegalArgumentException("Builder cannot be null");
+
+        // Policy enforcement based on operation type:
+        // 1. ADD mode (leases/locks) - REQUIRES Policy.ONE to avoid distributed race conditions
+        // 2. Regular SET - REQUIRES Policy.ALL for E flag synchronization
+        // 3. CAS validation - User chooses (depends on whether they hold a lease)
+        boolean isAddMode = builder.build().getMode() == MetaSetOperation.SetMode.ADD;
+        boolean hasCasValidation = builder.build().getCas() > 0;
+
+        if (isAddMode && policy != Policy.ONE) {
+            // ADD mode (leases/locks) requires Policy.ONE
+            // - Policy.QUORUM can result in 2+ winners (each client gets quorum in different zones)
+            // - Policy.ALL results in no winners (distributed race - each succeeds in 1 zone, fails in others)
+            // - Policy.ONE guarantees exactly 1 winner (first to any zone wins)
+            if (log.isInfoEnabled()) {
+                log.info("META_SET: ADD mode requires Policy.ONE for proper lease semantics. " +
+                         "Overriding policy from {} to Policy.ONE for app: {}",
+                         policy, _appName);
+            }
+            policy = Policy.ONE;
+        } else if (!isAddMode && !hasCasValidation && policy != Policy.ALL) {
+            // Regular SET (no ADD, no CAS) requires Policy.ALL
+            // E flag is ALWAYS auto-generated for multi-zone CAS synchronization
+            // Therefore, Policy.ALL is REQUIRED to guarantee all zones have the same CAS
+            if (log.isInfoEnabled()) {
+                log.info("META_SET: E flag requires Policy.ALL for CAS synchronization. " +
+                         "Overriding policy from {} to Policy.ALL for app: {} (mode: {})",
+                         policy, _appName, builder.build().getMode());
+            }
+            policy = Policy.ALL;
+        }
+        // CAS validation: No enforcement - user chooses Policy based on whether they hold a lease
+        // - WITH lease (mutual exclusion): Use Policy.ALL
+        // - WITHOUT lease (competitive): Use Policy.QUORUM
+        // We cannot detect if user has lease (it's a different key), so user must choose correctly
+
+        final boolean throwExc = doThrowException();
+        final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
+        if (clients.length == 0) {
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.META_SET);
+            if (throwExc) throw new EVCacheException("Could not find a client to perform meta set");
+            return new EVCacheLatchImpl(policy, 0, _appName);
+        }
+
+        final String key = builder.build().getKey();
+        final EVCacheKey evcKey = getEVCacheKey(key);
+        final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.META_SET);
+        if (event != null) {
+            event.setEVCacheKeys(Arrays.asList(evcKey));
+            try {
+                if (shouldThrottle(event)) {
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.META_SET);
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return new EVCacheLatchImpl(policy, 0, _appName);
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.META_SET);
+                return null;
+            }
+            startEvent(event);
+        }
+
+        final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
+        String status = EVCacheMetricsFactory.SUCCESS;
+        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy,
+                                                            clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
+
+        // Auto-generate recasid (E flag) for multi-zone CAS synchronization
+        // E flag sets CAS explicitly (requires memcached 1.6.21+ with meta commands)
+        // Client ALWAYS generates CAS token to ensure all zones have identical CAS values
+        long recasidToUse = builder.build().getRecasid();
+        if (recasidToUse <= 0) {
+            // Auto-generate unique timestamp-based CAS token if not explicitly provided
+            // Format: (timestamp_ms << 10) | sequence
+            // This provides ~1000 unique values per millisecond for concurrent operations
+            long timestamp = System.currentTimeMillis();
+            long sequence = recasidSequence.incrementAndGet() & 0x3FF; // 10 bits (0-1023)
+            recasidToUse = (timestamp << 10) | sequence;
+            if (log.isDebugEnabled() && shouldLog()) {
+                log.debug("META_SET: Auto-generated recasid for multi-zone CAS sync: {} (ts={}, seq={}) for key: {}",
+                         recasidToUse, timestamp, sequence, key);
+            }
+        } else {
+            if (log.isDebugEnabled() && shouldLog()) {
+                log.debug("META_SET: Using explicit recasid for multi-zone CAS sync: {} for key: {}",
+                         recasidToUse, key);
+            }
+        }
+
+        try {
+            for (EVCacheClient client : clients) {
+                final String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
+
+                if (log.isDebugEnabled() && shouldLog()) {
+                    log.debug("META_SET : APP " + _appName + ", key : " + canonicalKey);
+                }
+
+                // Create builder with canonical key for this client
+                final MetaSetOperation.Builder clientBuilder = new MetaSetOperation.Builder()
+                    .key(canonicalKey)
+                    .value(builder.build().getValue())
+                    .mode(builder.build().getMode())
+                    .expiration(builder.build().getExpiration())
+                    .cas(builder.build().getCas())
+                    .recasid(recasidToUse)  // Use the SAME recasid for all zones!
+                    .returnCas(builder.build().isReturnCas())
+                    .returnTtl(builder.build().isReturnTtl())
+                    .markStale(builder.build().isMarkStale());
+
+                final EVCacheOperationFuture<Boolean> future = client.metaSet(clientBuilder, latch);
+            }
+            if (event != null) endEvent(event);
+        } catch (Exception ex) {
+            status = EVCacheMetricsFactory.ERROR;
+            if (log.isDebugEnabled() && shouldLog()) log.debug("Exception setting the data for APP " + _appName + ", key : " + evcKey, ex);
+            if (event != null) eventError(event, ex);
+            if (!throwExc) return latch;
+            throw new EVCacheException("Exception setting data for APP " + _appName + ", key : " + evcKey, ex);
+        } finally {
+            final long end = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
+            final long duration = end - start;
+            // Track meta set operation metrics
+            getTimer(Call.META_SET.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
+        }
+        return latch;
+    }
+
+    @Override
+    public <T> Map<String, EVCacheItem<T>> metaGetBulk(Collection<String> keys, Transcoder<T> tc) throws EVCacheException {
+        return metaGetBulk(keys, new MetaGetBulkOperation.Config(keys), tc);
+    }
+
+    @Override
+    public <T> Map<String, EVCacheItem<T>> metaGetBulk(Collection<String> keys, MetaGetBulkOperation.Config config, Transcoder<T> tc) throws EVCacheException {
+        if (null == keys) throw new IllegalArgumentException("Keys cannot be null");
+        if (keys.isEmpty()) return Collections.<String, EVCacheItem<T>>emptyMap();
+        
+        final boolean throwExc = doThrowException();
+        final EVCacheClient client = _pool.getEVCacheClientForRead();
+        if (client == null) {
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.META_GET_BULK);
+            if (throwExc) throw new EVCacheException("Could not find a client to perform meta get bulk");
+            return Collections.<String, EVCacheItem<T>>emptyMap();
+        }
+
+        final Map<String, EVCacheItem<T>> decanonicalR = new HashMap<String, EVCacheItem<T>>((keys.size() * 4) / 3 + 1);
+        final Collection<EVCacheKey> evcKeys = new ArrayList<EVCacheKey>();
+        final Collection<String> canonicalKeys = new ArrayList<String>();
+        
+        /* Canonicalize keys */
+        for (String k : keys) {
+            final EVCacheKey evcKey = getEVCacheKey(k);
+            evcKeys.add(evcKey);
+            canonicalKeys.add(evcKey.getCanonicalKey(client.isDuetClient()));
+        }
+
+        final EVCacheEvent event = createEVCacheEvent(Arrays.asList(client), Call.META_GET_BULK);
+        if (event != null) {
+            event.setEVCacheKeys(evcKeys);
+            try {
+                if (shouldThrottle(event)) {
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.META_GET_BULK);
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & keys " + keys);
+                    return Collections.<String, EVCacheItem<T>>emptyMap();
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.META_GET_BULK);
+                return Collections.<String, EVCacheItem<T>>emptyMap();
+            }
+            startEvent(event);
+        }
+
+        final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
+        String status = EVCacheMetricsFactory.SUCCESS;
+        
+        try {
+            // Update config with canonical keys
+            final MetaGetBulkOperation.Config canonicalConfig = new MetaGetBulkOperation.Config(canonicalKeys)
+                .includeCas(config.isIncludeCas())
+                .includeTtl(config.isIncludeTtl())
+                .includeSize(config.isIncludeSize())
+                .includeLastAccess(config.isIncludeLastAccess())
+                .serveStale(config.isServeStale())
+                .maxStaleTime(config.getMaxStaleTime());
+
+            final EVCacheOperationFuture<Map<String, EVCacheItem<Object>>> future = client.metaGetBulk(canonicalConfig);
+            final Map<String, EVCacheItem<Object>> canonicalResult = future.get();
+
+            // Convert canonical keys back to original keys and decode values
+            int loopIndex = 0;
+            for (String originalKey : keys) {
+                final String canonicalKey = ((ArrayList<String>) canonicalKeys).get(loopIndex);
+
+                if (canonicalResult.containsKey(canonicalKey)) {
+                    final EVCacheItem<Object> canonicalItem = canonicalResult.get(canonicalKey);
+                    final EVCacheItem<T> item = new EVCacheItem<T>();
+
+                    // Decode the data using transcoder
+                    if (canonicalItem.getData() != null && canonicalItem.getData() instanceof CachedData) {
+                        final CachedData cd = (CachedData) canonicalItem.getData();
+                        // Use same transcoder fallback logic as regular get() method
+                        final Transcoder<T> transcoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
+                        item.setData(transcoder.decode(cd));
+                    } else {
+                        item.setData((T) canonicalItem.getData());
+                    }
+
+                    item.setFlag(canonicalItem.getFlag());
+                    item.getItemMetaData().copyFrom(canonicalItem.getItemMetaData());
+                    decanonicalR.put(originalKey, item);
+                }
+                loopIndex++;
+            }
+            
+            if (event != null) endEvent(event);
+        } catch (Exception ex) {
+            status = EVCacheMetricsFactory.ERROR;
+            if (log.isDebugEnabled() && shouldLog()) log.debug("Exception getting bulk data for APP " + _appName + ", keys : " + keys, ex);
+            if (event != null) eventError(event, ex);
+            if (throwExc) throw new EVCacheException("Exception getting bulk data for APP " + _appName + ", keys : " + keys, ex);
+        } finally {
+            final long end = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
+            final long duration = end - start;
+            // Track meta get bulk operation metrics
+            getTimer(Call.META_GET_BULK.name(), EVCacheMetricsFactory.READ, EVCacheMetricsFactory.YES, status, 1, maxReadDuration.get().intValue(), client.getServerGroup()).record(duration, TimeUnit.MILLISECONDS);
+        }
+        
+        return decanonicalR;
+    }
+
+    @Override
+    public <T> Map<String, EVCacheItem<T>> metaGetBulk(String... keys) throws EVCacheException {
+        return metaGetBulk(Arrays.asList(keys), (Transcoder<T>) _transcoder);
+    }
+
+    @Override
+    public <T> Map<String, EVCacheItem<T>> metaGetBulk(Transcoder<T> tc, String... keys) throws EVCacheException {
+        return metaGetBulk(Arrays.asList(keys), tc);
+    }
+
+    @Override
+    public EVCacheLatch metaDelete(MetaDeleteOperation.Builder builder, Policy policy) throws EVCacheException {
+        if (builder == null) throw new IllegalArgumentException("Builder cannot be null");
+
+        // E flag is ALWAYS auto-generated for multi-zone CAS synchronization
+        // Therefore, Policy.ALL is REQUIRED to guarantee all zones have the same tombstone CAS
+        if (policy != Policy.ALL) {
+            if (log.isInfoEnabled()) {
+                log.info("META_DELETE: E flag requires Policy.ALL for CAS synchronization. " +
+                         "Overriding policy from {} to Policy.ALL for app: {}",
+                         policy, _appName);
+            }
+            policy = Policy.ALL;
+        }
+
+        final boolean throwExc = doThrowException();
+        final EVCacheClient[] clients = _pool.getEVCacheClientForWrite();
+        if (clients.length == 0) {
+            incrementFastFail(EVCacheMetricsFactory.NULL_CLIENT, Call.META_DELETE);
+            if (throwExc) throw new EVCacheException("Could not find a client to perform meta delete");
+            return new EVCacheLatchImpl(policy, 0, _appName);
+        }
+
+        final String key = builder.build().getKey();
+        final EVCacheKey evcKey = getEVCacheKey(key);
+        final EVCacheEvent event = createEVCacheEvent(Arrays.asList(clients), Call.META_DELETE);
+        if (event != null) {
+            event.setEVCacheKeys(Arrays.asList(evcKey));
+            try {
+                if (shouldThrottle(event)) {
+                    incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.META_DELETE);
+                    if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + key);
+                    return new EVCacheLatchImpl(policy, 0, _appName);
+                }
+            } catch(EVCacheException ex) {
+                if(throwExc) throw ex;
+                incrementFastFail(EVCacheMetricsFactory.THROTTLED, Call.META_DELETE);
+                return null;
+            }
+            startEvent(event);
+        }
+
+        final long start = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
+        String status = EVCacheMetricsFactory.SUCCESS;
+        final EVCacheLatchImpl latch = new EVCacheLatchImpl(policy == null ? Policy.ALL_MINUS_1 : policy,
+                                                            clients.length - _pool.getWriteOnlyEVCacheClients().length, _appName);
+
+        // Auto-generate recasid (E flag) for multi-zone tombstone CAS synchronization
+        // E flag sets tombstone CAS explicitly (requires memcached 1.6.21+ with meta commands)
+        // Client ALWAYS generates CAS token to ensure all zones have identical tombstone CAS values
+        long recasidToUse = builder.build().getRecasid();
+        if (recasidToUse <= 0) {
+            // Auto-generate unique timestamp-based CAS token if not explicitly provided
+            // Format: (timestamp_ms << 10) | sequence
+            // This provides ~1000 unique values per millisecond for concurrent operations
+            long timestamp = System.currentTimeMillis();
+            long sequence = recasidSequence.incrementAndGet() & 0x3FF; // 10 bits (0-1023)
+            recasidToUse = (timestamp << 10) | sequence;
+            if (log.isDebugEnabled() && shouldLog()) {
+                log.debug("META_DELETE: Auto-generated recasid for multi-zone tombstone CAS sync: {} (ts={}, seq={}) for key: {}",
+                         recasidToUse, timestamp, sequence, key);
+            }
+        } else {
+            if (log.isDebugEnabled() && shouldLog()) {
+                log.debug("META_DELETE: Using explicit recasid for multi-zone tombstone CAS sync: {} for key: {}",
+                         recasidToUse, key);
+            }
+        }
+
+        try {
+            for (EVCacheClient client : clients) {
+                final String canonicalKey = evcKey.getCanonicalKey(client.isDuetClient());
+
+                if (log.isDebugEnabled() && shouldLog()) {
+                    log.debug("META_DELETE : APP " + _appName + ", key : " + canonicalKey);
+                }
+
+                // Create builder with canonical key for this client
+                final MetaDeleteOperation.Builder clientBuilder = new MetaDeleteOperation.Builder()
+                    .key(canonicalKey)
+                    .mode(builder.build().getMode())
+                    .cas(builder.build().getCas())
+                    .recasid(recasidToUse)  // Use the SAME recasid for all zones!
+                    .returnTtl(builder.build().isReturnTtl());
+
+                final EVCacheOperationFuture<Boolean> future = client.metaDelete(clientBuilder, latch);
+            }
+            if (event != null) endEvent(event);
+        } catch (Exception ex) {
+            status = EVCacheMetricsFactory.ERROR;
+            if (log.isDebugEnabled() && shouldLog()) log.debug("Exception deleting the data for APP " + _appName + ", key : " + evcKey, ex);
+            if (event != null) eventError(event, ex);
+            if (!throwExc) return latch;
+            throw new EVCacheException("Exception deleting data for APP " + _appName + ", key : " + evcKey, ex);
+        } finally {
+            final long end = EVCacheMetricsFactory.getInstance().getRegistry().clock().wallTime();
+            final long duration = end - start;
+            incrementFastFail(status, Call.META_DELETE);
+            getTimer(Call.META_DELETE.name(), EVCacheMetricsFactory.WRITE, null, status, 1, maxWriteDuration.get().intValue(), null).record(duration, TimeUnit.MILLISECONDS);
+        }
+        return latch;
     }
 
 }

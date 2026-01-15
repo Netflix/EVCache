@@ -68,7 +68,7 @@ public abstract class Base  {
             props.setProperty("eureka.validateInstanceId","true");
         }
 
-        props.setProperty("eureka.environment", "test");
+        props.setProperty("eureka.environment", "prod");
         props.setProperty("eureka.region", "us-east-1");
         props.setProperty("eureka.appid", "clatency");
         props.setProperty("log4j.logger.com.netflix.evcache.pool.EVCacheNodeLocator", "ERROR");

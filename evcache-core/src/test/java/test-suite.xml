@@ -10,6 +10,13 @@
       <class name="com.netflix.evcache.test.MockEVCacheTest" />
     </classes>
   </test>
+  <test name="MetaOperationsTests">
+    <classes>
+      <class name="com.netflix.evcache.test.MetaOperationsConflictResolutionTest" />
+      <class name="com.netflix.evcache.test.MetaOperationsLeaseTest" />
+      <class name="com.netflix.evcache.test.MetaOperationsIntegrationTest" />
+    </classes>
+  </test>
   <!-- Uncomment this if EVCacheServer based Tests need to be run. Needs Eureka and EVCache clusters
   <test name="EurekaTests">
     <classes>
