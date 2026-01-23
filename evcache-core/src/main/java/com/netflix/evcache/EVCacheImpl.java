@@ -2,6 +2,35 @@ package com.netflix.evcache;
 
 import static com.netflix.evcache.util.Sneaky.sneakyThrow;
 
+import com.netflix.archaius.api.Property;
+import com.netflix.archaius.api.PropertyRepository;
+import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
+import com.netflix.evcache.EVCacheLatch.Policy;
+import com.netflix.evcache.dto.KeyMapDto;
+import com.netflix.evcache.event.EVCacheEvent;
+import com.netflix.evcache.event.EVCacheEventListener;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.operation.EVCacheFuture;
+import com.netflix.evcache.operation.EVCacheItem;
+import com.netflix.evcache.operation.EVCacheItemMetaData;
+import com.netflix.evcache.operation.EVCacheLatchImpl;
+import com.netflix.evcache.operation.EVCacheOperationFuture;
+import com.netflix.evcache.pool.ChunkTranscoder;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheClientPool;
+import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.evcache.pool.EVCacheClientUtil;
+import com.netflix.evcache.pool.EVCacheValue;
+import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.EVCacheBulkDataDto;
+import com.netflix.evcache.util.KeyHasher;
+import com.netflix.evcache.util.RetryCount;
+import com.netflix.evcache.util.Sneaky;
+import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Counter;
+import com.netflix.spectator.api.DistributionSummary;
+import com.netflix.spectator.api.Tag;
+import com.netflix.spectator.api.Timer;
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -21,45 +50,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
-
-import com.netflix.evcache.dto.KeyMapDto;
-import com.netflix.evcache.util.EVCacheBulkDataDto;
-import com.netflix.evcache.util.KeyHasher;
-import com.netflix.evcache.util.RetryCount;
-import com.netflix.evcache.util.Sneaky;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.netflix.archaius.api.Property;
-import com.netflix.archaius.api.PropertyRepository;
-import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
-import com.netflix.evcache.EVCacheLatch.Policy;
-import com.netflix.evcache.event.EVCacheEvent;
-import com.netflix.evcache.event.EVCacheEventListener;
-import com.netflix.evcache.metrics.EVCacheMetricsFactory;
-import com.netflix.evcache.operation.EVCacheFuture;
-import com.netflix.evcache.operation.EVCacheItem;
-import com.netflix.evcache.operation.EVCacheItemMetaData;
-import com.netflix.evcache.operation.EVCacheLatchImpl;
-import com.netflix.evcache.operation.EVCacheOperationFuture;
-import com.netflix.evcache.pool.ChunkTranscoder;
-import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.evcache.pool.EVCacheClientPool;
-import com.netflix.evcache.pool.EVCacheClientPoolManager;
-import com.netflix.evcache.pool.EVCacheClientUtil;
-import com.netflix.evcache.pool.EVCacheValue;
-import com.netflix.evcache.pool.ServerGroup;
-import com.netflix.spectator.api.BasicTag;
-import com.netflix.spectator.api.Counter;
-import com.netflix.spectator.api.DistributionSummary;
-import com.netflix.spectator.api.Tag;
-import com.netflix.spectator.api.Timer;
-
 import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.Transcoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.Observable;
 import rx.Scheduler;
 import rx.Single;
@@ -1899,33 +1895,71 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private <T> CompletableFuture<Map<EVCacheKey, T>> getAsyncBulkData(EVCacheClient client,
                                                                        List<EVCacheKey> evcacheKeys,
                                                                        Transcoder<T> tc) {
-        KeyMapDto keyMapDto = buildKeyMap(client, evcacheKeys);
-        final Map<String, EVCacheKey> keyMap = keyMapDto.getKeyMap();
-        boolean hasHashedKey = keyMapDto.isKeyHashed();
-        if (hasHashedKey) {
-            if (log.isDebugEnabled() && shouldLog()) {
-                log.debug("fetching bulk data with hashedKey {} ",evcacheKeys);
-            }
-            return client.getAsyncBulk(keyMap.keySet(), evcacheValueTranscoder)
-                    .thenApply(data -> buildHashedKeyValueResult(data, tc, client, keyMap))
-                    .exceptionally(t -> handleBulkException(t, evcacheKeys));
-        } else {
-            final Transcoder<T> tcCopy;
-            if (tc == null && _transcoder != null) {
-                tcCopy = (Transcoder<T>) _transcoder;
+        // Split keys into hashed and non-hashed to use appropriate transcoder for each
+        final Map<String, EVCacheKey> hashedKeyMap = new HashMap<>();
+        final Map<String, EVCacheKey> nonHashedKeyMap = new HashMap<>();
+
+        for (EVCacheKey evcKey : evcacheKeys) {
+            String key = evcKey.getCanonicalKey(client.isDuetClient());
+            String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(),
+                                                client.shouldEncodeHashKey(), client.getMaxDigestBytes(),
+                                                client.getMaxHashLength(), client.getBaseEncoder());
+            if (hashKey != null) {
+                hashedKeyMap.put(hashKey, evcKey);
             } else {
-                tcCopy = tc;
+                nonHashedKeyMap.put(key, evcKey);
             }
-            if (log.isDebugEnabled() && shouldLog()) {
-                log.debug("fetching bulk data with non hashedKey {} ",keyMap.keySet());
-            }
-            return client.getAsyncBulk(keyMap.keySet(), tcCopy )
-                    .thenApply(data -> buildNonHashedKeyValueResult(data, keyMap))
-                    .exceptionally(t -> handleBulkException(t, evcacheKeys));
         }
+
+        final Transcoder<T> tcCopy = (tc == null && _transcoder != null) ? (Transcoder<T>) _transcoder : tc;
+
+        // Create futures for hashed and non-hashed keys
+
+        CompletableFuture<Map<EVCacheKey, T>> nonHashedFuture;
+        if (!nonHashedKeyMap.isEmpty()) {
+            if (log.isDebugEnabled() && shouldLog()) {
+                log.debug("fetching bulk data with non hashedKey {} ", nonHashedKeyMap.keySet());
+            }
+            nonHashedFuture = client.getAsyncBulk(nonHashedKeyMap.keySet(), tcCopy)
+                    .thenApply(data -> buildNonHashedKeyValueResult(data, nonHashedKeyMap));
+        } else {
+            nonHashedFuture = CompletableFuture.completedFuture(new HashMap<>());
+        }
+
+        CompletableFuture<Map<EVCacheKey, T>> hashedFuture;
+        if (!hashedKeyMap.isEmpty()) {
+            if (log.isDebugEnabled() && shouldLog()) {
+                log.debug("fetching bulk data with hashedKey {} ", hashedKeyMap.keySet());
+            }
+            hashedFuture = client.getAsyncBulk(hashedKeyMap.keySet(), evcacheValueTranscoder)
+                    .thenApply(data -> buildHashedKeyValueResult(data, tcCopy, client, hashedKeyMap));
+        } else {
+            hashedFuture = CompletableFuture.completedFuture(new HashMap<>());
+        }
+
+        // Combine results from both hashed and non-hashed keys
+        return hashedFuture.thenCombine(nonHashedFuture, (hashedResults, nonHashedResults) -> {
+                    try {
+                        Map<EVCacheKey, T> result = new HashMap<>();
+                        if (hashedResults != null) {
+                            result.putAll(hashedResults);
+                        }
+                        if (nonHashedResults != null) {
+                            result.putAll(nonHashedResults);
+                        }
+                        return result;
+                    } catch (Exception e) {
+                        log.error("SNAP: {}", e);
+                        throw new RuntimeException(e);
+                    }
+
+                })
+                .exceptionally(t -> handleBulkException(t, evcacheKeys));
     }
 
     private <T> Map<EVCacheKey, T> handleBulkException(Throwable t, Collection<EVCacheKey> evCacheKeys) {
+        System.out.println("SNAP: " + t);
+        log.error("SNAP: {}", t);
         if (log.isDebugEnabled() && shouldLog())
             log.debug("Exception while getBulk data for APP " + _appName + ", key : " + evCacheKeys, t);
         throw Sneaky.sneakyThrow(t);

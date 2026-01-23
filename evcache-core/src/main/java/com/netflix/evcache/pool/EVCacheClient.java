@@ -988,7 +988,7 @@ public class EVCacheClient {
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
         return evcacheMemcachedClient
                 .asyncGetBulk(canonicalKeys, tc, null, validator)
-                .getAsyncSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS);
+                .getAsyncSome(bulkReadTimeout.get() * 1000, TimeUnit.MILLISECONDS);// SNAP: TODO:
 
     }
 

@@ -1,5 +1,12 @@
 package com.netflix.evcache.operation;
 
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Tag;
+import com.sun.management.GcInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
@@ -8,33 +15,25 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceArray;
-
-import com.netflix.evcache.EVCacheGetOperationListener;
-import com.netflix.evcache.util.Pair;
-import net.spy.memcached.internal.BulkGetCompletionListener;
-import net.spy.memcached.internal.CheckedOperationTimeoutException;
-import net.spy.memcached.ops.GetOperation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.netflix.evcache.metrics.EVCacheMetricsFactory;
-import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.evcache.pool.ServerGroup;
-import com.netflix.evcache.util.EVCacheConfig;
-import com.netflix.spectator.api.BasicTag;
-import com.netflix.spectator.api.Tag;
-import com.sun.management.GcInfo;
-
 import net.spy.memcached.MemcachedConnection;
 import net.spy.memcached.internal.BulkGetFuture;
+import net.spy.memcached.internal.CheckedOperationTimeoutException;
+import net.spy.memcached.ops.GetOperation;
 import net.spy.memcached.ops.Operation;
 import net.spy.memcached.ops.OperationState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.Scheduler;
 import rx.Single;
 
@@ -211,6 +210,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         doAsyncGetSome(future);
         return future.handle((data, ex) -> {
             if (ex != null) {
+                log.error("SNAP: ", ex);
                 handleBulkException();
             }
             return data;
@@ -219,8 +219,12 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
 
     public void handleBulkException() {
         ExecutionException t = null;
+        Operation[] opsArray = ops.toArray(new Operation[0]);
         for (int i = 0; i < operationStates.length(); i++) {
             SingleOperationState state = operationStates.get(i);
+            if (state == null) {
+                throw new RuntimeException("An operation in bulk get terminated without a state- either timed out, or cancelled, or some other error");
+            }
             if (!state.completed) {
                 if (state.cancelled) {
                     throw new RuntimeException(new ExecutionException(new CancellationException("Cancelled")));
@@ -248,8 +252,9 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                     m.put(me.getKey(), (T)me.getValue());
                 }
                 promise.complete(m);
-            } catch (Exception t) {
-                promise.completeExceptionally(t);
+            } catch (Exception e) {
+                log.error("SNAP: ", e);
+                promise.completeExceptionally(e);
             }
         });
     }

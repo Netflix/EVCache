@@ -293,7 +293,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
                                             timeout,
                                             unit,
                                             timeoutSlots);
-                                    future.completeExceptionally(new TimeoutException("Timeout after " + timeout));
+                                    future.completeExceptionally(new TimeoutException("Timeout after " + timeout + "ms"));
                                 },
                                 splitTimeout,
                                 unit);
