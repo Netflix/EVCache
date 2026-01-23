@@ -51,7 +51,6 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
     private static final Logger log = LoggerFactory.getLogger(EVCacheBulkGetFuture.class);
     private final Map<String, Future<T>> rvMap;
     private final Collection<Operation> ops;
-    private final Operation[] opsArray;
     private final CountDownLatch latch;
     private final long start;
     private final EVCacheClient client;
@@ -61,7 +60,6 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         super(m, getOps, l, service);
         rvMap = m;
         ops = getOps;
-        opsArray = ops.toArray(new Operation[0]);
         latch = l;
         this.start = System.currentTimeMillis();
         this.client = client;
@@ -73,7 +71,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         assert operationStates != null;
 
         // Note: The latch here is counterintuitive. Based on the implementation in EVCacheMemcachedClient.asyncGetBulk(),
-        //       the latch count is set to 1 no matter the chunk size and only decrement when pendingChunks counts down to 0.
+        //       the latch count is set to 1 no matter the chunk size (when > 0) and only decrement when pendingChunks counts down to 0.
         boolean allCompleted = latch.await(to, unit);
         if(log.isDebugEnabled()) log.debug("Took " + (System.currentTimeMillis() - start)+ " to fetch " + rvMap.size() + " keys from " + client);
         long pauseDuration = -1;
@@ -124,6 +122,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
             }
 
             boolean hadTimedoutOp = false;
+            Operation[] opsArray = ops.toArray(new Operation[0]);
             for (int i = 0; i < operationStates.length(); i++) {
                 SingleOperationState state = operationStates.get(i);
 
@@ -241,6 +240,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
 
     public void handleBulkException() {
         ExecutionException t = null;
+        Operation[] opsArray = ops.toArray(new Operation[0]);
         for (int i = 0; i < operationStates.length(); i++) {
             SingleOperationState state = operationStates.get(i);
 
@@ -285,11 +285,12 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
     public Single<Map<String, T>> getSome(long to, TimeUnit units, boolean throwException, boolean hasZF, Scheduler scheduler) {
         return observe().timeout(to, units, Single.create(subscriber -> {
             try {
+                Operation[] opsArray = ops.toArray(new Operation[0]);
                 for (int i = 0; i < operationStates.length(); i++) {
                     SingleOperationState state = operationStates.get(i);
-                    Operation op = opsArray[i];
 
                     if (state == null) {
+                        Operation op = opsArray[i];
                         op.timeOut();
                         MemcachedConnection.opTimedOut(op);
                         // Should we throw when timeout?
@@ -305,7 +306,6 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
 
                 for (int i = 0; i < operationStates.length(); i++) {
                     SingleOperationState state = operationStates.get(i);
-                    Operation op = opsArray[i];
 
                     // state == null always means timed out and was handled.
                     if (state != null) {
