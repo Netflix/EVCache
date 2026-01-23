@@ -1,5 +1,26 @@
 package com.netflix.evcache.pool;
 
+import com.netflix.archaius.api.Property;
+import com.netflix.evcache.EVCache;
+import com.netflix.evcache.EVCache.Call;
+import com.netflix.evcache.EVCacheConnectException;
+import com.netflix.evcache.EVCacheException;
+import com.netflix.evcache.EVCacheLatch;
+import com.netflix.evcache.EVCacheReadQueueException;
+import com.netflix.evcache.EVCacheSerializingTranscoder;
+import com.netflix.evcache.EVCacheTranscoder;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.operation.EVCacheFutures;
+import com.netflix.evcache.operation.EVCacheItem;
+import com.netflix.evcache.operation.EVCacheItemMetaData;
+import com.netflix.evcache.operation.EVCacheLatchImpl;
+import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
+import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.evcache.util.KeyHasher;
+import com.netflix.evcache.util.KeyHasher.HashingAlgorithm;
+import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Counter;
+import com.netflix.spectator.api.Tag;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -16,47 +37,28 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BiPredicate;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.netflix.archaius.api.Property;
-import com.netflix.evcache.EVCache;
-import com.netflix.evcache.EVCache.Call;
-import com.netflix.evcache.EVCacheConnectException;
-import com.netflix.evcache.EVCacheException;
-import com.netflix.evcache.EVCacheLatch;
-import com.netflix.evcache.EVCacheReadQueueException;
-import com.netflix.evcache.EVCacheSerializingTranscoder;
-import com.netflix.evcache.metrics.EVCacheMetricsFactory;
-import com.netflix.evcache.operation.EVCacheFutures;
-import com.netflix.evcache.operation.EVCacheItem;
-import com.netflix.evcache.operation.EVCacheItemMetaData;
-import com.netflix.evcache.operation.EVCacheLatchImpl;
-import com.netflix.evcache.pool.observer.EVCacheConnectionObserver;
-import com.netflix.evcache.util.EVCacheConfig;
-import com.netflix.evcache.util.KeyHasher;
-import com.netflix.evcache.util.KeyHasher.HashingAlgorithm;
-import com.netflix.spectator.api.BasicTag;
-import com.netflix.spectator.api.Counter;
-import com.netflix.spectator.api.Tag;
-
 import net.spy.memcached.CASValue;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.ConnectionFactory;
 import net.spy.memcached.EVCacheMemcachedClient;
 import net.spy.memcached.EVCacheNode;
-import net.spy.memcached.MemcachedClient;
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.NodeLocator;
 import net.spy.memcached.internal.ListenableFuture;
 import net.spy.memcached.internal.OperationCompletionListener;
 import net.spy.memcached.internal.OperationFuture;
 import net.spy.memcached.transcoders.Transcoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.Scheduler;
 import rx.Single;
 
@@ -988,6 +990,15 @@ public class EVCacheClient {
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
         return evcacheMemcachedClient
                 .asyncGetBulk(canonicalKeys, tc, null, validator)
+                .getAsyncSome(bulkReadTimeout.get() * 1000, TimeUnit.MILLISECONDS);// SNAP: TODO:
+
+    }
+
+    public <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> hashedKeys, EVCacheTranscoder evCacheTranscoder, Collection<String> unHashedKeys, Transcoder<T> tc) {
+        final BiPredicate<MemcachedNode, String> validator = (node, key) -> validateReadQueueSize(node, Call.COMPLETABLE_FUTURE_GET_BULK);
+        if (tc == null) tc = (Transcoder<T>) getTranscoder();
+        return evcacheMemcachedClient
+                .asyncGetBulk(hashedKeys, evCacheTranscoder, unHashedKeys, tc, null, validator)
                 .getAsyncSome(bulkReadTimeout.get() * 1000, TimeUnit.MILLISECONDS);// SNAP: TODO:
 
     }

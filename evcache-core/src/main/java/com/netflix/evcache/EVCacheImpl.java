@@ -1895,91 +1895,69 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private <T> CompletableFuture<Map<EVCacheKey, T>> getAsyncBulkData(EVCacheClient client,
                                                                        List<EVCacheKey> evcacheKeys,
                                                                        Transcoder<T> tc) {
-        // Split keys into hashed and non-hashed to use appropriate transcoder for each
-        final Map<String, EVCacheKey> hashedKeyMap = new HashMap<>();
-        final Map<String, EVCacheKey> nonHashedKeyMap = new HashMap<>();
+        KeyMapDto keyMapDto = buildKeyMap(client, evcacheKeys);
+        Map<String, EVCacheKey> hashedKeyMap = keyMapDto.getHashedKeyMap();
+        Map<String, EVCacheKey> unHashedKeyMap = keyMapDto.getNonHashedKeyMap();
 
-        for (EVCacheKey evcKey : evcacheKeys) {
-            String key = evcKey.getCanonicalKey(client.isDuetClient());
-            String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(),
-                                                client.shouldEncodeHashKey(), client.getMaxDigestBytes(),
-                                                client.getMaxHashLength(), client.getBaseEncoder());
-            if (hashKey != null) {
-                hashedKeyMap.put(hashKey, evcKey);
+        if (!unHashedKeyMap.isEmpty() && hashedKeyMap.isEmpty()) { // all keys are non-hashed
+            final Transcoder<T> tcCopy;
+            if (tc == null && _transcoder != null) {
+                tcCopy = (Transcoder<T>) _transcoder;
             } else {
-                nonHashedKeyMap.put(key, evcKey);
+                tcCopy = tc;
             }
-        }
-
-        final Transcoder<T> tcCopy = (tc == null && _transcoder != null) ? (Transcoder<T>) _transcoder : tc;
-
-        // Create futures for hashed and non-hashed keys
-
-        CompletableFuture<Map<EVCacheKey, T>> nonHashedFuture;
-        if (!nonHashedKeyMap.isEmpty()) {
             if (log.isDebugEnabled() && shouldLog()) {
-                log.debug("fetching bulk data with non hashedKey {} ", nonHashedKeyMap.keySet());
+                log.debug("fetching bulk data with un-hashed keys {}", unHashedKeyMap.keySet());
             }
-            nonHashedFuture = client.getAsyncBulk(nonHashedKeyMap.keySet(), tcCopy)
-                    .thenApply(data -> buildNonHashedKeyValueResult(data, nonHashedKeyMap));
-        } else {
-            nonHashedFuture = CompletableFuture.completedFuture(new HashMap<>());
-        }
-
-        CompletableFuture<Map<EVCacheKey, T>> hashedFuture;
-        if (!hashedKeyMap.isEmpty()) {
+            return client.getAsyncBulk(unHashedKeyMap.keySet(), tcCopy )
+                    .thenApply(data -> buildNonHashedKeyValueResult(data, unHashedKeyMap))
+                    .exceptionally(t -> handleBulkException(t, evcacheKeys));
+        } else if (!hashedKeyMap.isEmpty() && unHashedKeyMap.isEmpty()) { // all keys are hashed
             if (log.isDebugEnabled() && shouldLog()) {
-                log.debug("fetching bulk data with hashedKey {} ", hashedKeyMap.keySet());
+                log.debug("fetching bulk data with hashed keys {} : {}", hashedKeyMap.keySet());
             }
-            hashedFuture = client.getAsyncBulk(hashedKeyMap.keySet(), evcacheValueTranscoder)
-                    .thenApply(data -> buildHashedKeyValueResult(data, tcCopy, client, hashedKeyMap));
-        } else {
-            hashedFuture = CompletableFuture.completedFuture(new HashMap<>());
+            return client.getAsyncBulk(hashedKeyMap.keySet(), evcacheValueTranscoder)
+                    .thenApply(data -> buildHashedKeyValueResult(data, tc, client, hashedKeyMap))
+                    .exceptionally(t -> handleBulkException(t, evcacheKeys));
+        } else { // a mix of hashed and un-hashed keys
+            final Transcoder<T> tcCopy;
+            if (tc == null && _transcoder != null) {
+                tcCopy = (Transcoder<T>) _transcoder;
+            } else {
+                tcCopy = tc;
+            }
+            if (log.isDebugEnabled() && shouldLog()) {
+                log.debug("fetching bulk data with hashed keys: {} AND un-hashed keys {}", hashedKeyMap.keySet(), unHashedKeyMap.keySet());
+            }
+            return client.getAsyncBulk(hashedKeyMap.keySet(), evcacheValueTranscoder,
+                            unHashedKeyMap.keySet(), tcCopy)
+                    .thenApply(data -> buildHashedKeyValueResult(data, tc, client, hashedKeyMap))
+                    .exceptionally(t -> handleBulkException(t, evcacheKeys));
         }
-
-        // Combine results from both hashed and non-hashed keys
-        return hashedFuture.thenCombine(nonHashedFuture, (hashedResults, nonHashedResults) -> {
-                    try {
-                        Map<EVCacheKey, T> result = new HashMap<>();
-                        if (hashedResults != null) {
-                            result.putAll(hashedResults);
-                        }
-                        if (nonHashedResults != null) {
-                            result.putAll(nonHashedResults);
-                        }
-                        return result;
-                    } catch (Exception e) {
-                        log.error("SNAP: {}", e);
-                        throw new RuntimeException(e);
-                    }
-
-                })
-                .exceptionally(t -> handleBulkException(t, evcacheKeys));
     }
 
     private <T> Map<EVCacheKey, T> handleBulkException(Throwable t, Collection<EVCacheKey> evCacheKeys) {
-        System.out.println("SNAP: " + t);
-        log.error("SNAP: {}", t);
         if (log.isDebugEnabled() && shouldLog())
             log.debug("Exception while getBulk data for APP " + _appName + ", key : " + evCacheKeys, t);
         throw Sneaky.sneakyThrow(t);
     }
 
     private KeyMapDto buildKeyMap(EVCacheClient client, Collection<EVCacheKey> evcacheKeys) {
-        boolean hasHashedKey = false;
-        final Map<String, EVCacheKey> keyMap = new HashMap<String, EVCacheKey>(evcacheKeys.size() * 2);
+        final Map<String, EVCacheKey> hashedKeyMap = new HashMap<>();
+        final Map<String, EVCacheKey> nonHashedKeyMap = new HashMap<>();
+
         for (EVCacheKey evcKey : evcacheKeys) {
             String key = evcKey.getCanonicalKey(client.isDuetClient());
             String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder());
             if (hashKey != null) {
                 if (log.isDebugEnabled() && shouldLog())
                     log.debug("APP " + _appName + ", key [" + key + "], has been hashed [" + hashKey + "]");
-                key = hashKey;
-                hasHashedKey = true;
+                hashedKeyMap.put(hashKey, evcKey);
+            } else {
+                nonHashedKeyMap.put(key, evcKey);
             }
-            keyMap.put(key, evcKey);
         }
-        return new KeyMapDto(keyMap, hasHashedKey);
+        return new KeyMapDto(hashedKeyMap, nonHashedKeyMap);
     }
 
     private <T>  Map<EVCacheKey, T>  buildNonHashedKeyValueResult(Map<String, T> objMap,

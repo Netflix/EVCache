@@ -5,6 +5,7 @@ import com.netflix.archaius.api.Property.Subscription;
 import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.EVCacheLatch;
+import com.netflix.evcache.EVCacheTranscoder;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.operation.EVCacheAsciiOperationFactory;
 import com.netflix.evcache.operation.EVCacheBulkGetFuture;
@@ -292,6 +293,15 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                                                     final Transcoder<T> tc,
                                                     EVCacheGetOperationListener<T> listener,
                                                     BiPredicate<MemcachedNode, String> nodeValidator) {
+        return asyncGetBulk(keys, tc, new ArrayList<>(), null, listener, nodeValidator);
+    }
+
+    public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> unHashedKeys,
+                                                    final Transcoder<T> tc,
+                                                    Collection<String> hashedKeys,
+                                                    final EVCacheTranscoder evCacheTranscoder,
+                                                    EVCacheGetOperationListener<T> listener,
+                                                    BiPredicate<MemcachedNode, String> nodeValidator) {
         final Map<String, Future<T>> m = new ConcurrentHashMap<String, Future<T>>();
 
         // Break the gets down into groups by key
@@ -299,17 +309,20 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         final NodeLocator locator = mconn.getLocator();
 
         //Populate Node and key Map
-        for (String key : keys) {
+        for (String key : unHashedKeys) {// SNAP: TODO: is there a shorthand to iterating over both collections here?
             EVCacheClientUtil.validateKey(key, opFact instanceof BinaryOperationFactory);
             final MemcachedNode primaryNode = locator.getPrimary(key);
             if (primaryNode.isActive() && nodeValidator.test(primaryNode, key)) {
-                Collection<String> ks = chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>());
-                ks.add(key);
+                chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>());
             }
         }
-
-        // @SuppressWarnings("unchecked")
-        // final Transcoder<T> myTranscoder = (tc == null) ? (Transcoder<T>) getTranscoder() : tc;
+        for (String key : hashedKeys) {
+            EVCacheClientUtil.validateKey(key, opFact instanceof BinaryOperationFactory);
+            final MemcachedNode primaryNode = locator.getPrimary(key);
+            if (primaryNode.isActive() && nodeValidator.test(primaryNode, key)) {
+                chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>());
+            }
+        }
 
         final AtomicInteger pendingChunks = new AtomicInteger(chunks.size());
         int initialLatchCount = chunks.isEmpty() ? 0 : 1;
@@ -319,9 +332,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         rv.setExpectedCount(chunks.size());
 
         final DistributionSummary dataSizeDS = getDataSizeDistributionSummary(
-                        EVCacheMetricsFactory.BULK_OPERATION,
-                        EVCacheMetricsFactory.READ,
-                        EVCacheMetricsFactory.IPC_SIZE_INBOUND);
+                EVCacheMetricsFactory.BULK_OPERATION,
+                EVCacheMetricsFactory.READ,
+                EVCacheMetricsFactory.IPC_SIZE_INBOUND);
 
         class EVCacheBulkGetSingleFutureCallback implements GetOperation.Callback {
             final int thisOpId;
@@ -339,7 +352,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             @Override
             public void receivedStatus(OperationStatus status) {
-                if (log.isDebugEnabled()) log.debug("GetBulk Keys : " + keys + "; Status : " + status.getStatusCode().name() + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
+                if (log.isDebugEnabled()) log.debug("GetBulk Keys : " + unHashedKeys.addAll(hashedKeys) + "; Status : " + status.getStatusCode().name() + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
                 rv.setStatus(status);
             }
 
@@ -348,8 +361,13 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (data != null)  {
                     dataSizeDS.record(data.length);
                 }
-                // m.put(k, tcService.decode(myTranscoder, new CachedData(flags, data, myTranscoder.getMaxSize())));
-                m.put(k, tcService.decode(tc, new CachedData(flags, data, tc.getMaxSize())));
+                if (unHashedKeys.contains(k)) {
+                    m.put(k, tcService.decode(tc, new CachedData(flags, data, tc.getMaxSize())));
+                } else if (hashedKeys.contains(k)) {
+                    m.put(k, tcService.decode(evCacheTranscoder, new CachedData(flags, data, evCacheTranscoder.getMaxSize())));
+                } else {
+                    throw new IllegalStateException("// SNAP: TODO: key was in neither map");
+                }
             }
 
             @Override
@@ -359,7 +377,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 rv.signalSingleOpComplete(thisOpId, op);
                 if (pendingChunks.decrementAndGet() <= 0) {
                     latch.countDown();
-                    getTimer(EVCacheMetricsFactory.BULK_OPERATION, EVCacheMetricsFactory.READ, rv.getStatus(), (m.size() == keys.size() ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO), null, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
+                    getTimer(EVCacheMetricsFactory.BULK_OPERATION, EVCacheMetricsFactory.READ, rv.getStatus(), (m.size() == (unHashedKeys.size() + hashedKeys.size()) ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO), null, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
                     rv.signalComplete();
                 }
             }
@@ -367,7 +385,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
         // Now that we know how many servers it breaks down into, and the latch
         // is all set up, convert all of these strings collections to operations
-        final Map<MemcachedNode, Operation> mops = new HashMap<MemcachedNode, Operation>();
+        final Map<MemcachedNode, Operation> mops = new HashMap<>();
         int thisOpId = 0;
         for (Map.Entry<MemcachedNode, Collection<String>> me : chunks.entrySet()) {
             EVCacheBulkGetSingleFutureCallback cb = new EVCacheBulkGetSingleFutureCallback(thisOpId);
