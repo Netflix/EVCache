@@ -51,6 +51,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
     private static final Logger log = LoggerFactory.getLogger(EVCacheBulkGetFuture.class);
     private final Map<String, Future<T>> rvMap;
     private final Collection<Operation> ops;
+    private final Operation[] opsArray;
     private final CountDownLatch latch;
     private final long start;
     private final EVCacheClient client;
@@ -60,6 +61,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         super(m, getOps, l, service);
         rvMap = m;
         ops = getOps;
+        opsArray = ops.toArray(new Operation[0]);
         latch = l;
         this.start = System.currentTimeMillis();
         this.client = client;
@@ -70,6 +72,8 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
             throws InterruptedException, ExecutionException {
         assert operationStates != null;
 
+        // Note: The latch here is counterintuitive. Based on the implementation in EVCacheMemcachedClient.asyncGetBulk(),
+        //       the latch count is set to 1 no matter the chunk size and only decrement when pendingChunks counts down to 0.
         boolean allCompleted = latch.await(to, unit);
         if(log.isDebugEnabled()) log.debug("Took " + (System.currentTimeMillis() - start)+ " to fetch " + rvMap.size() + " keys from " + client);
         long pauseDuration = -1;
@@ -120,26 +124,18 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
             }
 
             boolean hadTimedoutOp = false;
-            Operation[] opsArray = ops.toArray(new Operation[0]);
             for (int i = 0; i < operationStates.length(); i++) {
                 SingleOperationState state = operationStates.get(i);
-                Operation op = opsArray[i];
-                
+
                 if (state == null) {
-                    // Operation never signaled completion, fall back to direct checking
-                    if (op.getState() != OperationState.COMPLETE) {
-                        if (!allCompleted) {
-                            MemcachedConnection.opTimedOut(op);
-                            hadTimedoutOp = true;
-                        } else {
-                            MemcachedConnection.opSucceeded(op);
-                        }
-                    } else {
-                        MemcachedConnection.opSucceeded(op);
-                    }
+                    // Operation not yet signaled completion (cancel should still trigger completion) ==> latch timed out
+                    // This also indicates allCompleted == false because the latch count wouldn't have drop to 0.
+                    Operation op = opsArray[i];
+                    op.timeOut();
+                    MemcachedConnection.opTimedOut(op);
+                    hadTimedoutOp = true;
                 } else {
-                    // Use pre-collected state for performance
-                    if (!state.completed && !allCompleted) {
+                    if (state.timedOut) {
                         MemcachedConnection.opTimedOut(state.op);
                         hadTimedoutOp = true;
                     } else {
@@ -148,26 +144,22 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                 }
             }
 
-            if (!allCompleted && !hasZF && hadTimedoutOp) statusString = EVCacheMetricsFactory.TIMEOUT;
+            if (hadTimedoutOp && !hasZF) statusString = EVCacheMetricsFactory.TIMEOUT;
+            // Should we throw when timeout?
 
             for (int i = 0; i < operationStates.length(); i++) {
                 SingleOperationState state = operationStates.get(i);
-                Operation op = opsArray[i];
-                
-                if (state == null) {
-                    // Fall back to direct operation checking
-                    if (op.isCancelled()) {
-                        if (hasZF) statusString = EVCacheMetricsFactory.CANCELLED;
-                        if (throwException) throw new ExecutionException(new CancellationException("Cancelled"));
-                    }
-                    if (op.hasErrored() && throwException) throw new ExecutionException(op.getException());
-                } else {
-                    // Use pre-collected state
+
+                // state == null always means timed out and was handled.
+                if (state != null) {
                     if (state.cancelled) {
                         if (hasZF) statusString = EVCacheMetricsFactory.CANCELLED;
                         if (throwException) throw new ExecutionException(new CancellationException("Cancelled"));
                     }
-                    if (state.errored && throwException) throw new ExecutionException(state.op.getException());
+                    if (state.errored) {
+                        if (hasZF) statusString = EVCacheMetricsFactory.ERROR;
+                        if (throwException) throw new ExecutionException(state.op.getException());
+                    }
                 }
             }
 
@@ -249,38 +241,23 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
 
     public void handleBulkException() {
         ExecutionException t = null;
-        Operation[] opsArray = ops.toArray(new Operation[0]);
         for (int i = 0; i < operationStates.length(); i++) {
             SingleOperationState state = operationStates.get(i);
-            Operation op = opsArray[i];
-            
+
             if (state == null) {
-                // Fall back to direct operation checking
-                if (op.getState() != OperationState.COMPLETE) {
-                    if (op.isCancelled()) {
-                        throw new RuntimeException(new ExecutionException(new CancellationException("Cancelled")));
-                    } else if (op.hasErrored()) {
-                        throw new RuntimeException(new ExecutionException(op.getException()));
-                    } else {
-                        op.timeOut();
-                        MemcachedConnection.opTimedOut(op);
-                        t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op));
-                    }
-                } else {
-                    MemcachedConnection.opSucceeded(op);
-                }
+                Operation op = opsArray[i];
+                op.timeOut();
+                MemcachedConnection.opTimedOut(op);
+                t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op));
             } else {
                 // Use pre-collected state
-                if (!state.completed) {
-                    if (state.cancelled) {
-                        throw new RuntimeException(new ExecutionException(new CancellationException("Cancelled")));
-                    } else if (state.errored) {
-                        throw new RuntimeException(new ExecutionException(state.op.getException()));
-                    } else {
-                        state.op.timeOut();
-                        MemcachedConnection.opTimedOut(state.op);
-                        t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", state.op));
-                    }
+                if (state.cancelled) {
+                    throw new RuntimeException(new ExecutionException(new CancellationException("Cancelled")));
+                } else if (state.errored) {
+                    throw new RuntimeException(new ExecutionException(state.op.getException()));
+                } else if (state.timedOut) {
+                    MemcachedConnection.opTimedOut(state.op);
+                    t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", state.op));
                 } else {
                     MemcachedConnection.opSucceeded(state.op);
                 }
@@ -308,22 +285,18 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
     public Single<Map<String, T>> getSome(long to, TimeUnit units, boolean throwException, boolean hasZF, Scheduler scheduler) {
         return observe().timeout(to, units, Single.create(subscriber -> {
             try {
-                Operation[] opsArray = ops.toArray(new Operation[0]);
                 for (int i = 0; i < operationStates.length(); i++) {
                     SingleOperationState state = operationStates.get(i);
                     Operation op = opsArray[i];
-                    
+
                     if (state == null) {
-                        // Fall back to direct operation checking
-                        if (op.getState() != OperationState.COMPLETE) {
-                            MemcachedConnection.opTimedOut(op);
-                        } else {
-                            MemcachedConnection.opSucceeded(op);
-                        }
+                        op.timeOut();
+                        MemcachedConnection.opTimedOut(op);
+                        // Should we throw when timeout?
                     } else {
-                        // Use pre-collected state
-                        if (!state.completed) {
+                        if (state.timedOut) {
                             MemcachedConnection.opTimedOut(state.op);
+                            // Should we throw when timeout?
                         } else {
                             MemcachedConnection.opSucceeded(state.op);
                         }
@@ -333,13 +306,9 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                 for (int i = 0; i < operationStates.length(); i++) {
                     SingleOperationState state = operationStates.get(i);
                     Operation op = opsArray[i];
-                    
-                    if (state == null) {
-                        // Fall back to direct operation checking
-                        if (op.isCancelled() && throwException) throw new ExecutionException(new CancellationException("Cancelled"));
-                        if (op.hasErrored() && throwException) throw new ExecutionException(op.getException());
-                    } else {
-                        // Use pre-collected state
+
+                    // state == null always means timed out and was handled.
+                    if (state != null) {
                         if (state.cancelled && throwException) throw new ExecutionException(new CancellationException("Cancelled"));
                         if (state.errored && throwException) throw new ExecutionException(state.op.getException());
                     }
