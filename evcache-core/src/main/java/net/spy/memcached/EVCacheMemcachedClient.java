@@ -302,7 +302,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                                                     final EVCacheTranscoder evCacheTranscoder,
                                                     EVCacheGetOperationListener<T> listener,
                                                     BiPredicate<MemcachedNode, String> nodeValidator) {
-        final Map<String, Future<T>> m = new ConcurrentHashMap<String, Future<T>>();
+        // Use Map<String, Future<Object>> to accept both T (from tc) and Object (from evCacheTranscoder)
+        final Map<String, Future<Object>> m = new ConcurrentHashMap<>();
 
         // Break the gets down into groups by key
         final Map<MemcachedNode, Collection<String>> chunks = new HashMap<MemcachedNode, Collection<String>>();
@@ -313,14 +314,14 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             EVCacheClientUtil.validateKey(key, opFact instanceof BinaryOperationFactory);
             final MemcachedNode primaryNode = locator.getPrimary(key);
             if (primaryNode.isActive() && nodeValidator.test(primaryNode, key)) {
-                chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>());
+                chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>()).add(key);
             }
         }
         for (String key : hashedKeys) {
             EVCacheClientUtil.validateKey(key, opFact instanceof BinaryOperationFactory);
             final MemcachedNode primaryNode = locator.getPrimary(key);
             if (primaryNode.isActive() && nodeValidator.test(primaryNode, key)) {
-                chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>());
+                chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>()).add(key);
             }
         }
 
@@ -328,7 +329,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         int initialLatchCount = chunks.isEmpty() ? 0 : 1;
         final CountDownLatch latch = new CountDownLatch(initialLatchCount);
         final Collection<Operation> ops = new ArrayList<Operation>(chunks.size());
-        final EVCacheBulkGetFuture<T> rv = new EVCacheBulkGetFuture<T>(m, ops, latch, executorService, client);
+        // Cast the map to Map<String, Future<T>> for EVCacheBulkGetFuture
+        // The map contains Object values which will be post-processed by the caller
+        @SuppressWarnings("unchecked")
+        final Map<String, Future<T>> castedMap = (Map<String, Future<T>>) (Map<?, ?>) m;
+        final EVCacheBulkGetFuture<T> rv = new EVCacheBulkGetFuture<T>(castedMap, ops, latch, executorService, client);
         rv.setExpectedCount(chunks.size());
 
         final DistributionSummary dataSizeDS = getDataSizeDistributionSummary(
@@ -352,21 +357,24 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             @Override
             public void receivedStatus(OperationStatus status) {
-                if (log.isDebugEnabled()) log.debug("GetBulk Keys : " + unHashedKeys.addAll(hashedKeys) + "; Status : " + status.getStatusCode().name() + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
+                if (log.isDebugEnabled()) log.debug("GetBulk Keys (unhashed): " + unHashedKeys + ", (hashed): " + hashedKeys + "; Status : " + status.getStatusCode().name() + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
                 rv.setStatus(status);
             }
 
             @Override
+            @SuppressWarnings("unchecked")
             public void gotData(String k, int flags, byte[] data) {
                 if (data != null)  {
                     dataSizeDS.record(data.length);
                 }
                 if (unHashedKeys.contains(k)) {
-                    m.put(k, tcService.decode(tc, new CachedData(flags, data, tc.getMaxSize())));
+                    // Cast Future<T> to Future<Object> for the map
+                    m.put(k, (Future<Object>) (Future<?>) tcService.decode(tc, new CachedData(flags, data, tc.getMaxSize())));
                 } else if (hashedKeys.contains(k)) {
+                    // evCacheTranscoder already returns Future<Object>, but cast for consistency
                     m.put(k, tcService.decode(evCacheTranscoder, new CachedData(flags, data, evCacheTranscoder.getMaxSize())));
                 } else {
-                    throw new IllegalStateException("// SNAP: TODO: key was in neither map");
+                    throw new IllegalStateException("Key was in neither unHashedKeys nor hashedKeys map");
                 }
             }
 
