@@ -219,6 +219,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
 
     public void handleBulkException() {
         ExecutionException t = null;
+        Operation[] opsArray = ops.toArray(new Operation[0]);
         for (int i = 0; i < operationStates.length(); i++) {
             SingleOperationState state = operationStates.get(i);
             if (state == null) {
