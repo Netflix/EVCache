@@ -999,7 +999,7 @@ public class EVCacheClient {
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
         return evcacheMemcachedClient
                 .asyncGetBulk(unHashedKeys, tc, hashedKeys, evCacheTranscoder, null, validator)
-                .getAsyncSome(bulkReadTimeout.get() * 10000, TimeUnit.MILLISECONDS);// SNAP: TODO:
+                .getAsyncSome(bulkReadTimeout.get() * 1000, TimeUnit.MILLISECONDS);// SNAP: TODO:
 
     }
 

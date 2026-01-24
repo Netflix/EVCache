@@ -296,6 +296,19 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return asyncGetBulk(keys, tc, new ArrayList<>(), null, listener, nodeValidator);
     }
 
+    private void populateChunks(Collection<String> keys,
+                                Map<MemcachedNode, Collection<String>> chunks,
+                                NodeLocator locator,
+                                BiPredicate<MemcachedNode, String> nodeValidator) {
+        for (String key : keys) {
+            EVCacheClientUtil.validateKey(key, opFact instanceof BinaryOperationFactory);
+            final MemcachedNode primaryNode = locator.getPrimary(key);
+            if (primaryNode.isActive() && nodeValidator.test(primaryNode, key)) {
+                chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>()).add(key);
+            }
+        }
+    }
+
     public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> unHashedKeys,
                                                     final Transcoder<T> tc,
                                                     Collection<String> hashedKeys,
@@ -309,21 +322,9 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         final Map<MemcachedNode, Collection<String>> chunks = new HashMap<MemcachedNode, Collection<String>>();
         final NodeLocator locator = mconn.getLocator();
 
-        //Populate Node and key Map
-        for (String key : unHashedKeys) {// SNAP: TODO: is there a shorthand to iterating over both collections here?
-            EVCacheClientUtil.validateKey(key, opFact instanceof BinaryOperationFactory);
-            final MemcachedNode primaryNode = locator.getPrimary(key);
-            if (primaryNode.isActive() && nodeValidator.test(primaryNode, key)) {
-                chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>()).add(key);
-            }
-        }
-        for (String key : hashedKeys) {
-            EVCacheClientUtil.validateKey(key, opFact instanceof BinaryOperationFactory);
-            final MemcachedNode primaryNode = locator.getPrimary(key);
-            if (primaryNode.isActive() && nodeValidator.test(primaryNode, key)) {
-                chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>()).add(key);
-            }
-        }
+        //Populate Node and key Map - using separate loops for efficiency (avoids Stream overhead in hot path)
+        populateChunks(unHashedKeys, chunks, locator, nodeValidator);
+        populateChunks(hashedKeys, chunks, locator, nodeValidator);
 
         final AtomicInteger pendingChunks = new AtomicInteger(chunks.size());
         int initialLatchCount = chunks.isEmpty() ? 0 : 1;

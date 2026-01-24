@@ -2021,12 +2021,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                                                Map<String, EVCacheKey> hashedKeyMap) {
         final Map<EVCacheKey, T> retMap = new HashMap<>((int) (objMap.size() / 0.75) + 1);
         for (Map.Entry<String, Object> i : objMap.entrySet()) {
-            EVCacheKey evcKey = hashedKeyMap.get(i.getKey());// SNAP: TODO: make final
+            final EVCacheKey evcKey = hashedKeyMap.getOrDefault(i.getKey(), unHashedKeyMap.get(i.getKey()));
             if (evcKey == null) {
-                evcKey = unHashedKeyMap.get(i.getKey());
-            }
-            if (evcKey == null) {
-                throw new IllegalStateException("Key not found anywhere"); // SNAP: TODO: handle this
+                throw new IllegalStateException("Key not found anywhere");
             }
             final Object obj = i.getValue();
             if (obj instanceof EVCacheValue) {
