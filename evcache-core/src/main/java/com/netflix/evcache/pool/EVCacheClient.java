@@ -990,16 +990,19 @@ public class EVCacheClient {
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
         return evcacheMemcachedClient
                 .asyncGetBulk(canonicalKeys, tc, null, validator)
-                .getAsyncSome(bulkReadTimeout.get() * 1000, TimeUnit.MILLISECONDS);// SNAP: TODO:
+                .getAsyncSome(bulkReadTimeout.get() * 10000, TimeUnit.MILLISECONDS);// SNAP: TODO:
 
     }
 
+    /**
+     * One bulk call for some hashed some unhashed keys (that require different transcoders)
+     */
     public <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> unHashedKeys, Transcoder<T> tc, Collection<String> hashedKeys, EVCacheTranscoder evCacheTranscoder) {
         final BiPredicate<MemcachedNode, String> validator = (node, key) -> validateReadQueueSize(node, Call.COMPLETABLE_FUTURE_GET_BULK);
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
         return evcacheMemcachedClient
                 .asyncGetBulk(unHashedKeys, tc, hashedKeys, evCacheTranscoder, null, validator)
-                .getAsyncSome(bulkReadTimeout.get() * 1000, TimeUnit.MILLISECONDS);// SNAP: TODO:
+                .getAsyncSome(bulkReadTimeout.get() * 10000, TimeUnit.MILLISECONDS);// SNAP: TODO:
 
     }
 

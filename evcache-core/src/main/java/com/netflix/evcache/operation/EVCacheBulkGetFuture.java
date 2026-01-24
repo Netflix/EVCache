@@ -223,7 +223,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
         for (int i = 0; i < operationStates.length(); i++) {
             SingleOperationState state = operationStates.get(i);
             if (state == null) {
-                throw new RuntimeException("An operation in bulk get terminated without a state- either timed out, or cancelled, or some other error");
+                throw new IllegalStateException("This is a temporary msg, Shih-hao has a PR that addresses this case"); //SNAP: TODO: remove 
             }
             if (!state.completed) {
                 if (state.cancelled) {
@@ -253,7 +253,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                 }
                 promise.complete(m);
             } catch (Exception e) {
-                log.error("SNAP: ", e);
+                log.error("SNAP: ", e); // SNAP: TODO: cleanup
                 promise.completeExceptionally(e);
             }
         });
