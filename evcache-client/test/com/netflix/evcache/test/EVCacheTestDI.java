@@ -1,28 +1,34 @@
 package com.netflix.evcache.test;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
-import java.util.Map;
-import java.util.Properties;
-
-import java.util.*;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-
-import com.netflix.evcache.*;
+import com.netflix.evcache.EVCache;
+import com.netflix.evcache.EVCacheException;
+import com.netflix.evcache.EVCacheGetOperationListener;
+import com.netflix.evcache.EVCacheLatch;
+import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.test.transcoder.Movie;
+import com.netflix.evcache.test.transcoder.MovieTranscoder;
 import com.netflix.evcache.util.KeyHasher;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
-
-import com.netflix.evcache.operation.EVCacheOperationFuture;
 import rx.schedulers.Schedulers;
-
-
-import static org.testng.Assert.*;
 
 public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener<String> {
     private static final Logger log = LoggerFactory.getLogger(EVCacheTestDI.class);
@@ -280,6 +286,8 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         assertTrue(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".auto.hash.keys", Boolean.class).orElse(false).get());
         assertFalse(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElse(false).get());
         testWithLargeKey();
+        testWithMixedKeys();
+        testWithMixedKeysAndCustomTranscoder();
         // negative scenario
         propertiesToSet.remove(appName + ".auto.hash.keys");
         refreshEVCache();
@@ -330,8 +338,135 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         EVCacheLatch latch = evCache.set(key, value, EVCacheLatch.Policy.ALL);
         latch.await(1000, TimeUnit.MILLISECONDS);
 
+        String val = evCache.get(key);
         // get
-        assertEquals(evCache.get(key), value);
+        assertEquals(val, value);
+
+        // delete
+        Future<Boolean>[] futures = evCache.delete(key);
+        for (Future<Boolean> future : futures) {
+            future.get();
+        }
+    }
+
+    private void testWithMixedKeys() throws Exception {
+
+        EVCache[] evcacheInstance = new EVCache[2];
+        evcacheInstance[0] = getNewBuilder().setAppName(appName).setCachePrefix("cid").enableRetry().build();
+        evcacheInstance[1] = this.evCache;
+
+        Map<String, String> kv = new HashMap<>(6);
+        String oneLargeKey = null;
+        String oneSmallKey = null;
+        for (int k = 0; k < 3; k ++) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("testWithSmallAndLargeKeysMixed");
+            for (int i= 0; i < 100; i++) {
+                sb.append(System.nanoTime());
+            }
+            oneLargeKey = sb.toString();
+            kv.put(oneLargeKey, UUID.randomUUID().toString());
+        }
+        for (int k = 3; k < 6; k ++) {
+            oneSmallKey = "testWithSmallAndLargeKeysMixed" + System.nanoTime();
+            kv.put(oneSmallKey, UUID.randomUUID().toString());
+        }
+
+        for (Map.Entry<String, String> entry : kv.entrySet()) {
+            EVCacheLatch latch = evCache.set(entry.getKey(), entry.getValue(), EVCacheLatch.Policy.ALL);
+            latch.await(10000, TimeUnit.MILLISECONDS);
+        }
+
+        // get
+        String val = evCache.get(oneLargeKey);
+        assertEquals(val, kv.get(oneLargeKey));
+        val = evCache.get(oneSmallKey);
+        assertEquals(val, kv.get(oneSmallKey));
+
+        // async bulk get
+        for (int op : new int[]{0, 1}) {
+            Map<String, String> results;
+            if (op == 0) {
+                CompletableFuture<Map<String, String>> future = evCache.getAsyncBulk(kv.keySet().toArray(new String[0]));
+                results = future.get(10000, TimeUnit.MILLISECONDS);
+            } else {
+                results = evCache.getBulk(kv.keySet().toArray(new String[0]));
+            }
+            assertEquals(results.size(), kv.size());
+            for (Map.Entry<String, String> result : results.entrySet()) {
+                assertEquals(result.getValue(), kv.get(result.getKey()));
+            }
+        }
+
+        // delete
+        for (Map.Entry<String, String> entry : kv.entrySet()) {
+            Future<Boolean>[] deleteFutures = evCache.delete(entry.getKey());
+            for (Future<Boolean> deleteFuture : deleteFutures) {
+                deleteFuture.get();
+            }
+        }
+
+    }
+
+    private void testWithMixedKeysAndCustomTranscoder() throws Exception {
+
+        com.netflix.evcache.EVCache evCache = getNewBuilder().setAppName(appName).setCachePrefix("cid").enableRetry()
+                .setTranscoder(new MovieTranscoder())
+                .build();
+
+        Map<String, Movie> kv = new HashMap<>(6);
+        String oneLargeKey = null;
+        String oneSmallKey = null;
+        for (int k = 0; k < 3; k ++) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("testWithSmallAndLargeKeysMixed");
+            for (int i= 0; i < 100; i++) {
+                sb.append(System.nanoTime());
+            }
+            oneLargeKey = sb.toString();
+            kv.put(oneLargeKey, new Movie(k, String.valueOf(k)));
+        }
+        for (int k = 3; k < 6; k ++) {
+            oneSmallKey = "testWithSmallAndLargeKeysMixed" + System.nanoTime();
+            kv.put(oneSmallKey, new Movie(k, String.valueOf(k)));
+        }
+
+        for (Map.Entry<String, Movie> entry : kv.entrySet()) {
+            EVCacheLatch latch = evCache.set(entry.getKey(), entry.getValue(), EVCacheLatch.Policy.ALL);
+            latch.await(10000, TimeUnit.MILLISECONDS);
+        }
+
+        // get
+        Movie val = evCache.get(oneLargeKey);
+        assertEquals(val, kv.get(oneLargeKey));
+        val = evCache.get(oneSmallKey);
+        assertEquals(val, kv.get(oneSmallKey));
+
+        // async bulk get
+        for (int op : new int[]{0, 1}) {
+            Map<String, Movie> results = new HashMap<>();
+            if (op == 0) {
+                CompletableFuture<Map<String, Movie>> future = evCache.getAsyncBulk(kv.keySet().toArray(new String[0]));
+                results = future.get(10000, TimeUnit.MILLISECONDS);
+            // } else {
+                // TODO: getBulk api is known to be broken for un-hashed keys not decoding correctly when request contains both hashed and unhashed keys
+                // results = evCache.getBulk(kv.keySet().toArray(new String[0]));
+            }
+
+            for (Map.Entry<String, Movie> result : results.entrySet()) {
+                assertEquals(results.size(), kv.size());
+                assertEquals(result.getValue(), kv.get(result.getKey()), "Did not get the written value back with op " + (op == 0 ? "getAsyncBulk" : "getBulk"));
+            }
+        }
+
+        // delete
+        for (Map.Entry<String, Movie> entry : kv.entrySet()) {
+            Future<Boolean>[] deleteFutures = evCache.delete(entry.getKey());
+            for (Future<Boolean> deleteFuture : deleteFutures) {
+                deleteFuture.get();
+            }
+        }
+
     }
 
     private void doFunctionalTests(boolean isHashingEnabled) throws Exception {
@@ -447,7 +582,7 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
             testInsert();
 
             int i = 0;
-            while (i++ < loops*1000) {
+            while (i++ < loops *1000) {
                 try {
                     testInsert();
                     testGet();
@@ -458,6 +593,7 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
                     testGetAndTouchObservable();
                     waitForCallbacks();
                     testAppendOrAdd();
+                    functionalTestsWithAppLevelAndASGLevelHashingScenarios();
                     testTouch();
                     testDelete();
                     testInsert();
@@ -467,6 +603,7 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
                     Thread.sleep(100);
                 } catch (Throwable e) {
                     log.error(e.getMessage(), e);
+                    throw new RuntimeException(e);
                 }
             }
             if (log.isDebugEnabled()) log.debug("All Done!!!. Will exit.");

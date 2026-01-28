@@ -1,5 +1,26 @@
 package net.spy.memcached;
 
+import com.netflix.archaius.api.Property;
+import com.netflix.archaius.api.Property.Subscription;
+import com.netflix.archaius.api.PropertyRepository;
+import com.netflix.evcache.EVCacheGetOperationListener;
+import com.netflix.evcache.EVCacheLatch;
+import com.netflix.evcache.EVCacheTranscoder;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.operation.EVCacheAsciiOperationFactory;
+import com.netflix.evcache.operation.EVCacheBulkGetFuture;
+import com.netflix.evcache.operation.EVCacheItem;
+import com.netflix.evcache.operation.EVCacheItemMetaData;
+import com.netflix.evcache.operation.EVCacheLatchImpl;
+import com.netflix.evcache.operation.EVCacheOperationFuture;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheClientUtil;
+import com.netflix.evcache.pool.EVCacheValue;
+import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.DistributionSummary;
+import com.netflix.spectator.api.Tag;
+import com.netflix.spectator.api.Timer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -11,9 +32,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -21,31 +42,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
-
-import com.netflix.archaius.api.PropertyRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.netflix.archaius.api.Property;
-import com.netflix.archaius.api.Property.Subscription;
-import com.netflix.evcache.EVCacheGetOperationListener;
-import com.netflix.evcache.EVCacheLatch;
-import com.netflix.evcache.metrics.EVCacheMetricsFactory;
-import com.netflix.evcache.operation.EVCacheAsciiOperationFactory;
-import com.netflix.evcache.operation.EVCacheBulkGetFuture;
-import com.netflix.evcache.operation.EVCacheItem;
-import com.netflix.evcache.operation.EVCacheItemMetaData;
-import com.netflix.evcache.operation.EVCacheLatchImpl;
-import com.netflix.evcache.operation.EVCacheOperationFuture;
-import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.evcache.pool.EVCacheClientUtil;
-import com.netflix.evcache.util.EVCacheConfig;
-import com.netflix.spectator.api.BasicTag;
-import com.netflix.spectator.api.DistributionSummary;
-import com.netflix.spectator.api.Tag;
-import com.netflix.spectator.api.Timer;
-import com.netflix.spectator.ipc.IpcStatus;
-
 import net.spy.memcached.internal.GetFuture;
 import net.spy.memcached.internal.OperationFuture;
 import net.spy.memcached.ops.ConcatenationType;
@@ -56,16 +52,16 @@ import net.spy.memcached.ops.Mutator;
 import net.spy.memcached.ops.Operation;
 import net.spy.memcached.ops.OperationCallback;
 import net.spy.memcached.ops.OperationStatus;
-import net.spy.memcached.ops.StatsOperation;
 import net.spy.memcached.ops.StatusCode;
 import net.spy.memcached.ops.StoreOperation;
 import net.spy.memcached.ops.StoreType;
-import net.spy.memcached.protocol.binary.BinaryOperationFactory;
-import net.spy.memcached.transcoders.Transcoder;
-import net.spy.memcached.util.StringUtils;
 import net.spy.memcached.protocol.ascii.ExecCmdOperation;
 import net.spy.memcached.protocol.ascii.MetaDebugOperation;
 import net.spy.memcached.protocol.ascii.MetaGetOperation;
+import net.spy.memcached.protocol.binary.BinaryOperationFactory;
+import net.spy.memcached.transcoders.Transcoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS",
 "SIC_INNER_SHOULD_BE_STATIC_ANON" })
@@ -291,24 +287,91 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         };
     }
 
+    /**
+     * Asynchronously retrieves multiple key-value pairs from memcached.
+     *
+     * @Deprecated This method does NOT support a mix of plain and hashed keys in {@code keys}. All keys are
+     * decoded exactly using the given transcoder (note that hashed keys require two step decoding).
+     * For supporting a mix of hashed and plain keys in the {@code keys} collection,
+     * use {@link #asyncGetBulk(Collection, Set, Transcoder, EVCacheTranscoder, BiPredicate, String, boolean, BiPredicate)}.
+     */
     public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys,
                                                     final Transcoder<T> tc,
                                                     EVCacheGetOperationListener<T> listener) {
         return asyncGetBulk(keys, tc, listener, (node, key) -> true);
     }
 
+    /**
+     * Asynchronously retrieves multiple key-value pairs from memcached with node validation.
+     *
+     * @Deprecated This method does NOT support a mix of plain and hashed keys in {@code keys}. All keys are
+     * decoded exactly using the given transcoder (note that hashed keys require two step decoding).
+     * For supporting a mix of hashed and plain keys in the {@code keys} collection,
+     * use {@link #asyncGetBulk(Collection, Set, Transcoder, EVCacheTranscoder, BiPredicate, String, boolean, BiPredicate)}.
+     */
+
     public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys,
                                                     final Transcoder<T> tc,
                                                     EVCacheGetOperationListener<T> listener,
                                                     BiPredicate<MemcachedNode, String> nodeValidator) {
-        final Map<String, Future<T>> m = new ConcurrentHashMap<String, Future<T>>();
+        return asyncGetBulk(keys, null, tc, null, nodeValidator, null, false, null);
+    }
+
+    /**
+     * Asynchronously retrieves multiple key-value pairs from memcached with support for hashed keys and collision detection.
+     *
+     * <p>This method performs bulk retrieval of cached values and supports a two-step decoding process for hashed keys:
+     * <ol>
+     *   <li>Unhashed keys are decoded directly using the valueTranscoder</li>
+     *   <li>Hashed keys undergo two-step decoding:
+     *     <ul>
+     *       <li>First decoded with envelopeTranscoder to unwrap the {@link EVCacheValue} envelope</li>
+     *       <li>Then decoded with valueTranscoder to extract the actual data payload</li>
+     *       <li>Hash collision detection is performed during unwrapping</li>
+     *     </ul>
+     *   </li>
+     * </ol>
+     *
+     * <p>The method validates node availability and read queue sizes before dispatching operations.
+     * Results are returned asynchronously via {@link EVCacheBulkGetFuture}.
+     *
+     * @param <T> the type of values to be retrieved
+     * @param plainKeys collection of plain keys to get - this is a Collection for backwards compatibility
+     * @param hashedKeys set of hashed keys, separately from plain keys because they require two-step decoding; may be null if no hashed keys - this is a Set for O(1) lookups
+     * @param valueTranscoder transcoder for decoding the actual data payload
+     * @param envelopeTranscoder transcoder for unwrapping the EVCacheValue envelope (required for hashed keys); may be null if no hashed keys
+     * @param nodeValidator predicate to validate if a node should be queried for a given key
+     * @param appName application name for logging and metrics
+     * @param shouldLog flag indicating whether debug logging should be performed
+     * @param collisionChecker predicate that checks for hash collisions by comparing hashed key with decoded canonical key;
+     *                         returns true if collision detected, false otherwise; required for hashed keys
+     * @return a future that completes with a map of successfully retrieved key-value pairs
+     * @throws IllegalStateException if envelopeTranscoder is null when processing hashed keys, or if envelope decoding
+     *                               does not yield an EVCacheValue instance
+     * @throws RuntimeException if decoding with envelopeTranscoder fails
+     */
+    public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> plainKeys,
+                                                    Set<String> hashedKeys,
+                                                    final Transcoder<T> valueTranscoder,
+                                                    final EVCacheTranscoder envelopeTranscoder,
+                                                    BiPredicate<MemcachedNode, String> nodeValidator,
+                                                    String appName,
+                                                    boolean shouldLog,
+                                                    BiPredicate<String, String> collisionChecker) {
+        final Map<String, Future<T>> m = new ConcurrentHashMap<>();
 
         // Break the gets down into groups by key
-        final Map<MemcachedNode, Collection<String>> chunks = new HashMap<MemcachedNode, Collection<String>>();
+        final Map<MemcachedNode, Collection<String>> chunks = new HashMap<>();
         final NodeLocator locator = mconn.getLocator();
 
-        //Populate Node and key Map
-        for (String key : keys) {
+        //Populate Node and key Map (from both plain and hashed key collections)
+        Iterator<String> iter1 = plainKeys != null ? plainKeys.iterator() : Collections.emptyIterator();
+        Iterator<String> iter2 = hashedKeys != null ? hashedKeys.iterator() : Collections.emptyIterator();
+        int plainKeysSize = plainKeys != null ? plainKeys.size() : 0;
+        int hashedKeysSize = hashedKeys != null ? hashedKeys.size() : 0;
+
+        while (iter1.hasNext() || iter2.hasNext()) {
+            String key = iter1.hasNext() ? iter1.next() : iter2.next();
             EVCacheClientUtil.validateKey(key, opFact instanceof BinaryOperationFactory);
             final MemcachedNode primaryNode = locator.getPrimary(key);
             if (primaryNode.isActive() && nodeValidator.test(primaryNode, key)) {
@@ -345,7 +408,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             @Override
             public void receivedStatus(OperationStatus status) {
-                if (log.isDebugEnabled()) log.debug("GetBulk Keys : " + keys + "; Status : " + status.getStatusCode().name() + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
+                if (log.isDebugEnabled()) log.debug("GetBulk Keys : plain[" + plainKeys + "], hashed [" + hashedKeys +
+                        "]; Status : " + status.getStatusCode().name() + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
                 rv.setStatus(status);
             }
 
@@ -354,7 +418,34 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 if (data != null)  {
                     dataSizeDS.record(data.length);
                 }
-                m.put(k, tcService.decode(tc, new CachedData(flags, data, tc.getMaxSize())));
+
+                if (hashedKeys != null && hashedKeys.contains(k)) {
+                    // hashed keys require 2 step decoding, first using envelopeTranscoder then using valueTranscoder
+                    if (envelopeTranscoder == null) throw new IllegalStateException("Both transcoders required for 2-step decode, failed on key " + k
+                            + " of bulk get for plain keys [" + plainKeys + "] and hashed keys [" + hashedKeys + "]");
+
+                    Object obj;
+                    try {
+                        obj = tcService.decode(envelopeTranscoder, new CachedData(flags, data, envelopeTranscoder.getMaxSize())).get();
+                    } catch (Exception e) {
+                        throw new RuntimeException("Failed to decode key " + k + " using evCacheValueTranscoder", e);
+                    }
+                    if (obj instanceof EVCacheValue) {
+                        if (log.isDebugEnabled() && shouldLog)
+                            log.debug("APP " + appName + ", The value for key [" + k + "] is EVCache Value");
+                        final EVCacheValue val = (EVCacheValue) obj;
+                        boolean collision = collisionChecker.test(k, val.getKey());
+                        if (!collision) {
+                            m.put(k, tcService.decode(valueTranscoder, new CachedData(val.getFlags(), val.getValue(), valueTranscoder.getMaxSize())));
+                        }
+                    } else {
+                        if (log.isDebugEnabled() && shouldLog)
+                            log.debug("Applying envelopeTranscoder to hashed key {} did not yield an instance of EVCacheValue, this could be due to collision", k);
+                    }
+                } else {
+                    // un hashed keys require this single step decode
+                    m.put(k, tcService.decode(valueTranscoder, new CachedData(flags, data, valueTranscoder.getMaxSize())));
+                }
             }
 
             @Override
@@ -364,7 +455,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 rv.signalSingleOpComplete(thisOpId, op);
                 if (pendingChunks.decrementAndGet() <= 0) {
                     latch.countDown();
-                    getTimer(EVCacheMetricsFactory.BULK_OPERATION, EVCacheMetricsFactory.READ, rv.getStatus(), (m.size() == keys.size() ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO), null, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
+                    getTimer(EVCacheMetricsFactory.BULK_OPERATION, EVCacheMetricsFactory.READ, rv.getStatus(), (m.size() == (plainKeysSize + hashedKeysSize) ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO), null, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
                     rv.signalComplete();
                 }
             }
