@@ -2,41 +2,11 @@ package com.netflix.evcache;
 
 import static com.netflix.evcache.util.Sneaky.sneakyThrow;
 
-import java.lang.management.ManagementFactory;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
-
-import com.netflix.evcache.dto.KeyMapDto;
-import com.netflix.evcache.util.EVCacheBulkDataDto;
-import com.netflix.evcache.util.KeyHasher;
-import com.netflix.evcache.util.RetryCount;
-import com.netflix.evcache.util.Sneaky;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.netflix.archaius.api.Property;
 import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
 import com.netflix.evcache.EVCacheLatch.Policy;
+import com.netflix.evcache.dto.KeyMapDto;
 import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.event.EVCacheEventListener;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
@@ -52,14 +22,42 @@ import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheClientUtil;
 import com.netflix.evcache.pool.EVCacheValue;
 import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.EVCacheBulkDataDto;
+import com.netflix.evcache.util.KeyHasher;
+import com.netflix.evcache.util.RetryCount;
+import com.netflix.evcache.util.Sneaky;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
 import com.netflix.spectator.api.DistributionSummary;
 import com.netflix.spectator.api.Tag;
 import com.netflix.spectator.api.Timer;
-
+import java.lang.management.ManagementFactory;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.BiPredicate;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.Transcoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.Observable;
 import rx.Scheduler;
 import rx.Single;
@@ -1900,27 +1898,39 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                                                                        List<EVCacheKey> evcacheKeys,
                                                                        Transcoder<T> tc) {
         KeyMapDto keyMapDto = buildKeyMap(client, evcacheKeys);
-        final Map<String, EVCacheKey> keyMap = keyMapDto.getKeyMap();
-        boolean hasHashedKey = keyMapDto.isKeyHashed();
-        if (hasHashedKey) {
+        final Map<String, EVCacheKey> allKeysMap = keyMapDto.getAllKeysMap();
+        final Set<String> hashedKeys = keyMapDto.getHashedKeysMap().keySet();
+        boolean hasHashedKeys = keyMapDto.hasHashedKeys();
+
+        if (hasHashedKeys) {
             if (log.isDebugEnabled() && shouldLog()) {
-                log.debug("fetching bulk data with hashedKey {} ",evcacheKeys);
+                log.debug("fetching bulk data with hashed key(s) {} ", evcacheKeys);
             }
-            return client.getAsyncBulk(keyMap.keySet(), evcacheValueTranscoder)
-                    .thenApply(data -> buildHashedKeyValueResult(data, tc, client, keyMap))
+            BiPredicate<String, String> collisionChecker = (hashedKey, decodedKey) -> {
+                final EVCacheKey evcKey = keyMapDto.getHashedKeysMap().get(hashedKey);
+                if (evcKey.getCanonicalKey(client.isDuetClient()).equals(decodedKey)) {
+                    if (log.isDebugEnabled() && shouldLog())
+                        log.debug("APP " + _appName + ", key [" + hashedKey + "] EVCacheKey " + evcKey);
+                } else {
+                    if (log.isDebugEnabled() && shouldLog())
+                        log.debug("CACHE COLLISION : APP " + _appName + ", key [" + hashedKey + "] EVCacheKey " + evcKey + " with decodedKey [" + decodedKey + "]");
+                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.COMPLETABLE_FUTURE_GET_BULK.name(), EVCacheMetricsFactory.READ);
+                    return true;
+                }
+                return false;
+            };
+
+            final Transcoder<T> valueTranscoder = tc != null ? tc : (Transcoder<T>) client.getTranscoder();
+            return client.getAsyncBulk(allKeysMap.keySet(), hashedKeys, valueTranscoder, evcacheValueTranscoder, _appName, shouldLog(), collisionChecker)
+                    .thenApply(data -> buildKeyValueResult(data, allKeysMap))
                     .exceptionally(t -> handleBulkException(t, evcacheKeys));
         } else {
-            final Transcoder<T> tcCopy;
-            if (tc == null && _transcoder != null) {
-                tcCopy = (Transcoder<T>) _transcoder;
-            } else {
-                tcCopy = tc;
-            }
+            final Transcoder<T> valueTranscoder = tc != null ? tc : (Transcoder<T>) _transcoder;
             if (log.isDebugEnabled() && shouldLog()) {
-                log.debug("fetching bulk data with non hashedKey {} ",keyMap.keySet());
+                log.debug("fetching bulk data with no hashed key(s) {} ", allKeysMap.keySet());
             }
-            return client.getAsyncBulk(keyMap.keySet(), tcCopy )
-                    .thenApply(data -> buildNonHashedKeyValueResult(data, keyMap))
+            return client.getAsyncBulk(allKeysMap.keySet(), valueTranscoder)
+                    .thenApply(data -> buildKeyValueResult(data, allKeysMap))
                     .exceptionally(t -> handleBulkException(t, evcacheKeys));
         }
     }
@@ -1932,68 +1942,32 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     }
 
     private KeyMapDto buildKeyMap(EVCacheClient client, Collection<EVCacheKey> evcacheKeys) {
-        boolean hasHashedKey = false;
-        final Map<String, EVCacheKey> keyMap = new HashMap<String, EVCacheKey>(evcacheKeys.size() * 2);
+        final Map<String, EVCacheKey> allKeysMap = new HashMap<>(evcacheKeys.size());
+        final Map<String, EVCacheKey> hashedKeysMap = new HashMap<>(evcacheKeys.size());
         for (EVCacheKey evcKey : evcacheKeys) {
             String key = evcKey.getCanonicalKey(client.isDuetClient());
             String hashKey = evcKey.getHashKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder());
             if (hashKey != null) {
                 if (log.isDebugEnabled() && shouldLog())
                     log.debug("APP " + _appName + ", key [" + key + "], has been hashed [" + hashKey + "]");
-                key = hashKey;
-                hasHashedKey = true;
+                hashedKeysMap.put(hashKey, evcKey);
+                allKeysMap.put(hashKey, evcKey);
+            } else {
+                allKeysMap.put(key, evcKey);
             }
-            keyMap.put(key, evcKey);
         }
-        return new KeyMapDto(keyMap, hasHashedKey);
+        return new KeyMapDto(allKeysMap, hashedKeysMap);
     }
 
-    private <T>  Map<EVCacheKey, T>  buildNonHashedKeyValueResult(Map<String, T> objMap,
-                                                                  Map<String, EVCacheKey> keyMap) {
+    private <T>  Map<EVCacheKey, T> buildKeyValueResult(Map<String, T> objMap,
+                                                        Map<String, EVCacheKey> keyMap) {
         final Map<EVCacheKey, T> retMap = new HashMap<>((int) (objMap.size() / 0.75) + 1);
         for (Map.Entry<String, T> i : objMap.entrySet()) {
+            final T val = i.getValue();
             final EVCacheKey evcKey = keyMap.get(i.getKey());
             if (log.isDebugEnabled() && shouldLog())
-                log.debug("APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
-            retMap.put(evcKey, i.getValue());
-        }
-        return retMap;
-    }
-
-    private <T>  Map<EVCacheKey, T>  buildHashedKeyValueResult(Map<String, Object> objMap,
-                                                               Transcoder<T> tc,
-                                                               EVCacheClient client,
-                                                               Map<String, EVCacheKey> keyMap) {
-        final Map<EVCacheKey, T> retMap = new HashMap<>((int) (objMap.size() / 0.75) + 1);
-        for (Map.Entry<String, Object> i : objMap.entrySet()) {
-            final Object obj = i.getValue();
-            if (obj instanceof EVCacheValue) {
-                if (log.isDebugEnabled() && shouldLog())
-                    log.debug("APP " + _appName + ", The value for key [" + i.getKey() + "] is EVCache Value");
-                final EVCacheValue val = (EVCacheValue) obj;
-                final CachedData cd = new CachedData(val.getFlags(), val.getValue(), CachedData.MAX_SIZE);
-                final T tVal;
-                if (tc == null) {
-                    tVal = (T) client.getTranscoder().decode(cd);
-                } else {
-                    tVal = tc.decode(cd);
-                }
-                final EVCacheKey evcKey = keyMap.get(i.getKey());
-                if (evcKey.getCanonicalKey(client.isDuetClient()).equals(val.getKey())) {
-                    if (log.isDebugEnabled() && shouldLog())
-                        log.debug("APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
-                    retMap.put(evcKey, tVal);
-                } else {
-                    if (log.isDebugEnabled() && shouldLog())
-                        log.debug("CACHE COLLISION : APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
-                    incrementFailure(EVCacheMetricsFactory.KEY_HASH_COLLISION, Call.COMPLETABLE_FUTURE_GET_BULK.name(), EVCacheMetricsFactory.READ);
-                }
-            } else {
-                final EVCacheKey evcKey = keyMap.get(i.getKey());
-                if (log.isDebugEnabled() && shouldLog())
-                    log.debug("APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey);
-                retMap.put(evcKey, (T) obj);
-            }
+                log.debug("APP " + _appName + ", key [" + i.getKey() + "] EVCacheKey " + evcKey + ", val [" + val + "]");
+            retMap.put(evcKey, val);
         }
         return retMap;
     }

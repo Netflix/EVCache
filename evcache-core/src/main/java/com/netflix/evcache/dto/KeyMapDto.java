@@ -1,23 +1,26 @@
 package com.netflix.evcache.dto;
 
 import com.netflix.evcache.EVCacheKey;
-
 import java.util.Map;
 
 public class KeyMapDto {
-    Map<String, EVCacheKey> keyMap;
-    boolean isKeyHashed;
+    Map<String, EVCacheKey> allKeysMap;
+    Map<String, EVCacheKey> hashedKeysMap;
 
-    public KeyMapDto(Map<String, EVCacheKey> keyMap, boolean isKeyHashed) {
-        this.keyMap = keyMap;
-        this.isKeyHashed = isKeyHashed;
+    public KeyMapDto(Map<String, EVCacheKey> allKeysMap, Map<String, EVCacheKey> hashedKeysMap) {
+        this.allKeysMap = allKeysMap;
+        this.hashedKeysMap = hashedKeysMap;
     }
 
-    public Map<String, EVCacheKey> getKeyMap() {
-        return keyMap;
+    public Map<String, EVCacheKey> getAllKeysMap() {
+        return allKeysMap;
     }
 
-    public boolean isKeyHashed() {
-        return isKeyHashed;
+    public Map<String, EVCacheKey> getHashedKeysMap() {
+        return hashedKeysMap;
+    }
+
+    public boolean hasHashedKeys() {
+        return !hashedKeysMap.isEmpty();
     }
 }
