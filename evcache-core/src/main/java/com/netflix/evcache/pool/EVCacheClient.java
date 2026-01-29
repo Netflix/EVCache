@@ -986,17 +986,24 @@ public class EVCacheClient {
         return returnVal;
     }
 
+    /**
+     * @Deprecated This method does NOT support a mix of plain and hashed keys in {@code keys}. All keys are
+     * decoded exactly using the given transcoder (note that hashed keys require two step decoding).
+     * For supporting a mix of hashed and plain keys in the {@code keys} collection,
+     * use {@link #getAsyncBulk(Collection, Set, Transcoder, EVCacheTranscoder, String, boolean, BiPredicate)}.
+     */
     public <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> keys, Transcoder<T> tc) {
         return getAsyncBulk(keys, null, tc, null, null, false, null);
 
     }
 
-    public <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> keys, Set<String> hashedKeys, Transcoder<T> tc, EVCacheTranscoder evcacheValueTranscoder,
+    public <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> plainKeys, Set<String> hashedKeys,
+                                                              Transcoder<T> tc, EVCacheTranscoder evcacheValueTranscoder,
                                                               String appName, boolean shouldLog, BiPredicate<String, String> collisionChecker) {
         final BiPredicate<MemcachedNode, String> validator = (node, key) -> validateReadQueueSize(node, Call.COMPLETABLE_FUTURE_GET_BULK);
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
         return evcacheMemcachedClient
-                .asyncGetBulk(keys, hashedKeys, tc, evcacheValueTranscoder, validator, appName, shouldLog, collisionChecker)
+                .asyncGetBulk(plainKeys, hashedKeys, tc, evcacheValueTranscoder, validator, appName, shouldLog, collisionChecker)
                 .getAsyncSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS);
 
     }

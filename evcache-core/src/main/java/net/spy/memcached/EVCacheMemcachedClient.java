@@ -28,6 +28,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -288,9 +289,10 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     /**
      * Asynchronously retrieves multiple key-value pairs from memcached.
      *
-     * <p><strong>Note:</strong> This method does NOT support hashed keys. All keys are treated as unhashed
-     * and decoded directly using the provided transcoder. For hashed key support with collision detection,
-     * use {@link #asyncGetBulk(Collection, Set, Transcoder, EVCacheTranscoder, EVCacheGetOperationListener, BiPredicate, String, boolean, BiPredicate)}.
+     * @Deprecated This method does NOT support a mix of plain and hashed keys in {@code keys}. All keys are
+     * decoded exactly using the given transcoder (note that hashed keys require two step decoding).
+     * For supporting a mix of hashed and plain keys in the {@code keys} collection,
+     * use {@link #asyncGetBulk(Collection, Set, Transcoder, EVCacheTranscoder, BiPredicate, String, boolean, BiPredicate)}.
      */
     public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys,
                                                     final Transcoder<T> tc,
@@ -301,11 +303,12 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     /**
      * Asynchronously retrieves multiple key-value pairs from memcached with node validation.
      *
-     * <p><strong>Note:</strong> This method does NOT support hashed keys. All keys are treated as unhashed
-     * and decoded directly using the provided transcoder. For hashed key support with collision detection,
-     * use {@link #asyncGetBulk(Collection, Set, Transcoder, EVCacheTranscoder, EVCacheGetOperationListener, BiPredicate, String, boolean, BiPredicate)}.
-     *
+     * @Deprecated This method does NOT support a mix of plain and hashed keys in {@code keys}. All keys are
+     * decoded exactly using the given transcoder (note that hashed keys require two step decoding).
+     * For supporting a mix of hashed and plain keys in the {@code keys} collection,
+     * use {@link #asyncGetBulk(Collection, Set, Transcoder, EVCacheTranscoder, BiPredicate, String, boolean, BiPredicate)}.
      */
+
     public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys,
                                                     final Transcoder<T> tc,
                                                     EVCacheGetOperationListener<T> listener,
@@ -332,8 +335,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
      * Results are returned asynchronously via {@link EVCacheBulkGetFuture}.
      *
      * @param <T> the type of values to be retrieved
-     * @param keys collection of cache keys to retrieve (may include both hashed and unhashed keys)
-     * @param hashedKeys set of keys that are hashed and require two-step decoding; may be null if no hashed keys
+     * @param plainKeys collection of plain keys to get - this is a Collection for backwards compatibility
+     * @param hashedKeys set of hashed keys, separately from plain keys because they require two-step decoding; may be null if no hashed keys - this is a Set for O(1) lookups
      * @param valueTranscoder transcoder for decoding the actual data payload
      * @param envelopeTranscoder transcoder for unwrapping the EVCacheValue envelope (required for hashed keys); may be null if no hashed keys
      * @param nodeValidator predicate to validate if a node should be queried for a given key
@@ -346,7 +349,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
      *                               does not yield an EVCacheValue instance
      * @throws RuntimeException if decoding with envelopeTranscoder fails
      */
-    public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys,
+    public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> plainKeys,
                                                     Set<String> hashedKeys,
                                                     final Transcoder<T> valueTranscoder,
                                                     final EVCacheTranscoder envelopeTranscoder,
@@ -360,8 +363,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         final Map<MemcachedNode, Collection<String>> chunks = new HashMap<>();
         final NodeLocator locator = mconn.getLocator();
 
-        //Populate Node and key Map
-        for (String key : keys) {
+        //Populate Node and key Map (from both plain and hashed key collections)
+        Iterator<String> iter1 = plainKeys.iterator();
+        Iterator<String> iter2 = hashedKeys.iterator();
+        if (iter1.hasNext() || iter2.hasNext()) {
+            String key = iter1.hasNext() ? iter1.next() : iter2.next();
             EVCacheClientUtil.validateKey(key, opFact instanceof BinaryOperationFactory);
             final MemcachedNode primaryNode = locator.getPrimary(key);
             if (primaryNode.isActive() && nodeValidator.test(primaryNode, key)) {
@@ -398,7 +404,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             @Override
             public void receivedStatus(OperationStatus status) {
-                if (log.isDebugEnabled()) log.debug("GetBulk Keys : " + keys + "; Status : " + status.getStatusCode().name() + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
+                if (log.isDebugEnabled()) log.debug("GetBulk Keys : plain[" + plainKeys + "], hashed [" + hashedKeys +
+                        "]; Status : " + status.getStatusCode().name() + "; Message : " + status.getMessage() + "; Elapsed Time - " + (System.currentTimeMillis() - rv.getStartTime()));
                 rv.setStatus(status);
             }
 
@@ -410,7 +417,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
                 if (hashedKeys != null && hashedKeys.contains(k)) {
                     // hashed keys require 2 step decoding, first using envelopeTranscoder then using valueTranscoder
-                    if (envelopeTranscoder == null) throw new IllegalStateException("Both transcoders required for 2-step decode, failed on key " + k + " of bulk get for keys " + keys);
+                    if (envelopeTranscoder == null) throw new IllegalStateException("Both transcoders required for 2-step decode, failed on key " + k
+                            + " of bulk get for plain keys [" + plainKeys + "] and hashed keys [" + hashedKeys + "]");
 
                     Object obj;
                     try {
@@ -443,7 +451,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 rv.signalSingleOpComplete(thisOpId, op);
                 if (pendingChunks.decrementAndGet() <= 0) {
                     latch.countDown();
-                    getTimer(EVCacheMetricsFactory.BULK_OPERATION, EVCacheMetricsFactory.READ, rv.getStatus(), (m.size() == keys.size() ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO), null, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
+                    getTimer(EVCacheMetricsFactory.BULK_OPERATION, EVCacheMetricsFactory.READ, rv.getStatus(), (m.size() == (plainKeys.size() + hashedKeys.size()) ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO), null, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
                     rv.signalComplete();
                 }
             }
