@@ -443,7 +443,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                             log.debug("Applying envelopeTranscoder to hashed key {} did not yield an instance of EVCacheValue, this could be due to collision", k);
                     }
                 } else {
-                    // un hashed key require this single step decode
+                    // un hashed keys require this single step decode
                     m.put(k, tcService.decode(valueTranscoder, new CachedData(flags, data, valueTranscoder.getMaxSize())));
                 }
             }

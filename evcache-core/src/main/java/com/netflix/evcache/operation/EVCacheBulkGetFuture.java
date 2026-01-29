@@ -207,7 +207,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
     }
 
     public CompletableFuture<Map<String, T>> getAsyncSome(long timeout, TimeUnit units) {
-        CompletableFuture<Map<String, T>> future = makeFutureWithTimeout(10000, units); // SNAP: TODO:
+        CompletableFuture<Map<String, T>> future = makeFutureWithTimeout(timeout, units);
         doAsyncGetSome(future);
         return future.handle((data, ex) -> {
             if (ex != null) {

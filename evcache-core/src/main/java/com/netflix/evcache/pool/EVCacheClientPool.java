@@ -157,7 +157,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
         this._opQueueMaxBlockTime = config.getPropertyRepository().get(appName + ".operation.QueueMaxBlockTime", Integer.class).orElse(10);
         this._opQueueMaxBlockTime.subscribe(callback);
-        this._operationTimeout = config.getPropertyRepository().get(appName + ".operation.timeout", Integer.class).orElseGet("evcache.operation.timeout").orElse(10000); // SNAP: TODO:
+        this._operationTimeout = config.getPropertyRepository().get(appName + ".operation.timeout", Integer.class).orElseGet("evcache.operation.timeout").orElse(2500);
         this._operationTimeout.subscribe(callback);
         this._maxReadQueueSize = config.getPropertyRepository().get(appName + ".max.read.queue.length", Integer.class).orElse(50);
         this._retryAcrossAllReplicas = config.getPropertyRepository().get(_appName + ".retry.all.copies", Boolean.class).orElse(false);
