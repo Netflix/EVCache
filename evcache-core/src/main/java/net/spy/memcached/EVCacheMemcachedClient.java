@@ -27,6 +27,7 @@ import java.net.SocketAddress;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -364,9 +365,12 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         final NodeLocator locator = mconn.getLocator();
 
         //Populate Node and key Map (from both plain and hashed key collections)
-        Iterator<String> iter1 = plainKeys.iterator();
-        Iterator<String> iter2 = hashedKeys.iterator();
-        if (iter1.hasNext() || iter2.hasNext()) {
+        Iterator<String> iter1 = plainKeys != null ? plainKeys.iterator() : Collections.emptyIterator();
+        Iterator<String> iter2 = hashedKeys != null ? hashedKeys.iterator() : Collections.emptyIterator();
+        int plainKeysSize = plainKeys != null ? plainKeys.size() : 0;
+        int hashedKeysSize = hashedKeys != null ? hashedKeys.size() : 0;
+
+        while (iter1.hasNext() || iter2.hasNext()) {
             String key = iter1.hasNext() ? iter1.next() : iter2.next();
             EVCacheClientUtil.validateKey(key, opFact instanceof BinaryOperationFactory);
             final MemcachedNode primaryNode = locator.getPrimary(key);
@@ -451,7 +455,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                 rv.signalSingleOpComplete(thisOpId, op);
                 if (pendingChunks.decrementAndGet() <= 0) {
                     latch.countDown();
-                    getTimer(EVCacheMetricsFactory.BULK_OPERATION, EVCacheMetricsFactory.READ, rv.getStatus(), (m.size() == (plainKeys.size() + hashedKeys.size()) ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO), null, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
+                    getTimer(EVCacheMetricsFactory.BULK_OPERATION, EVCacheMetricsFactory.READ, rv.getStatus(), (m.size() == (plainKeysSize + hashedKeysSize) ? EVCacheMetricsFactory.YES : EVCacheMetricsFactory.NO), null, getReadMetricMaxValue()).record((System.currentTimeMillis() - rv.getStartTime()), TimeUnit.MILLISECONDS);
                     rv.signalComplete();
                 }
             }
