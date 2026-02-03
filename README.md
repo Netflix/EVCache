@@ -12,6 +12,3 @@ EVCache is an abbreviation for:
 
 
 [![ScreenShot](http://image.slidesharecdn.com/evcacheatnetflix-160311224739/95/evcache-at-netflix-1-638.jpg?cb=1457769154)](http://www.slideshare.net/ShashiShekarMadappa/evcache-at-netflix)
-
-### Building
-Java 9+ required
