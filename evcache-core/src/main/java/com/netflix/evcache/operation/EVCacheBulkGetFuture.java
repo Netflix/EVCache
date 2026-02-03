@@ -134,7 +134,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                     MemcachedConnection.opTimedOut(op);
                     hadTimedoutOp = true;
                 } else {
-                    if (state.timedOut) {
+                    if (!state.completed && !allCompleted) {
                         MemcachedConnection.opTimedOut(state.op);
                         hadTimedoutOp = true;
                     } else {
@@ -143,8 +143,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                 }
             }
 
-            if (hadTimedoutOp && !hasZF) statusString = EVCacheMetricsFactory.TIMEOUT;
-            // Should we throw when timeout?
+            if (!allCompleted && !hasZF && hadTimedoutOp) statusString = EVCacheMetricsFactory.TIMEOUT;
 
             for (int i = 0; i < operationStates.length(); i++) {
                 SingleOperationState state = operationStates.get(i);
@@ -155,10 +154,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                         if (hasZF) statusString = EVCacheMetricsFactory.CANCELLED;
                         if (throwException) throw new ExecutionException(new CancellationException("Cancelled"));
                     }
-                    if (state.errored) {
-                        if (hasZF) statusString = EVCacheMetricsFactory.ERROR;
-                        if (throwException) throw new ExecutionException(state.op.getException());
-                    }
+                    if (state.errored && throwException) throw new ExecutionException(state.op.getException());
                 }
             }
 
@@ -246,18 +242,20 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
 
             if (state == null) {
                 Operation op = opsArray[i];
-                op.timeOut();
-                MemcachedConnection.opTimedOut(op);
-                t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op));
+                op.cancel();
+                MemcachedConnection.opSucceeded(op);
             } else {
-                // Use pre-collected state
-                if (state.cancelled) {
-                    throw new RuntimeException(new ExecutionException(new CancellationException("Cancelled")));
-                } else if (state.errored) {
-                    throw new RuntimeException(new ExecutionException(state.op.getException()));
-                } else if (state.timedOut) {
-                    MemcachedConnection.opTimedOut(state.op);
-                    t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", state.op));
+                if (!state.completed) {
+                    // Use pre-collected state
+                    if (state.cancelled) {
+                        throw new RuntimeException(new ExecutionException(new CancellationException("Cancelled")));
+                    } else if (state.errored) {
+                        throw new RuntimeException(new ExecutionException(state.op.getException()));
+                    } else {
+                        state.op.timeOut();
+                        MemcachedConnection.opTimedOut(state.op);
+                        t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", state.op));
+                    }
                 } else {
                     MemcachedConnection.opSucceeded(state.op);
                 }
@@ -293,11 +291,9 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
                         Operation op = opsArray[i];
                         op.timeOut();
                         MemcachedConnection.opTimedOut(op);
-                        // Should we throw when timeout?
                     } else {
-                        if (state.timedOut) {
+                        if (!state.completed) {
                             MemcachedConnection.opTimedOut(state.op);
-                            // Should we throw when timeout?
                         } else {
                             MemcachedConnection.opSucceeded(state.op);
                         }
