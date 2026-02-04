@@ -1,29 +1,5 @@
 package com.netflix.evcache.pool;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.*;
-import java.util.function.BiPredicate;
-import java.util.zip.CRC32;
-import java.util.zip.Checksum;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.netflix.archaius.api.Property;
 import com.netflix.evcache.EVCache;
 import com.netflix.evcache.EVCache.Call;
@@ -44,19 +20,44 @@ import com.netflix.evcache.util.KeyHasher.HashingAlgorithm;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
 import com.netflix.spectator.api.Tag;
-
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.BiPredicate;
+import java.util.zip.CRC32;
+import java.util.zip.Checksum;
 import net.spy.memcached.CASValue;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.ConnectionFactory;
 import net.spy.memcached.EVCacheMemcachedClient;
 import net.spy.memcached.EVCacheNode;
-import net.spy.memcached.MemcachedClient;
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.NodeLocator;
 import net.spy.memcached.internal.ListenableFuture;
 import net.spy.memcached.internal.OperationCompletionListener;
 import net.spy.memcached.internal.OperationFuture;
 import net.spy.memcached.transcoders.Transcoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.Scheduler;
 import rx.Single;
 
@@ -144,7 +145,8 @@ public class EVCacheClient {
         this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, this);
         this.evcacheMemcachedClient.addObserver(connectionObserver);
 
-        this.decodingTranscoder = new EVCacheSerializingTranscoder(Integer.MAX_VALUE);
+        boolean useCompactEvCacheValueSerialization = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".use.evcachevalue.serialization", Boolean.class).orElse(false).get();
+        this.decodingTranscoder = new EVCacheSerializingTranscoder(Integer.MAX_VALUE, useCompactEvCacheValueSerialization);
         decodingTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
 
         this.hashKeyByServerGroup = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".hash.key", Boolean.class).orElse(null);

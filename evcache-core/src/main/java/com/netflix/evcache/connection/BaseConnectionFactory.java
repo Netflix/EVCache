@@ -1,5 +1,13 @@
 package com.netflix.evcache.connection;
 
+import com.netflix.archaius.api.Property;
+import com.netflix.evcache.EVCacheTranscoder;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheClientPool;
+import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.evcache.pool.EVCacheKetamaNodeLocatorConfiguration;
+import com.netflix.evcache.pool.EVCacheNodeLocator;
+import com.netflix.evcache.util.EVCacheConfig;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -9,16 +17,6 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
-
-import com.netflix.archaius.api.Property;
-import com.netflix.evcache.EVCacheTranscoder;
-import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.evcache.pool.EVCacheClientPool;
-import com.netflix.evcache.pool.EVCacheClientPoolManager;
-import com.netflix.evcache.pool.EVCacheKetamaNodeLocatorConfiguration;
-import com.netflix.evcache.pool.EVCacheNodeLocator;
-import com.netflix.evcache.util.EVCacheConfig;
-
 import net.spy.memcached.BinaryConnectionFactory;
 import net.spy.memcached.ConnectionObserver;
 import net.spy.memcached.DefaultHashAlgorithm;
@@ -42,6 +40,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     protected final long startTime;
     protected final EVCacheClient client;
     protected final Property<String> failureMode;
+    private final boolean useCompactEvCacheValueSerialization;
 
     BaseConnectionFactory(EVCacheClient client, int len, Property<Integer> _operationTimeout, long opMaxBlockTime) {
         super(len, BinaryConnectionFactory.DEFAULT_READ_BUFFER_SIZE, DefaultHashAlgorithm.KETAMA_HASH);
@@ -52,7 +51,9 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
 
         this.appName = client.getAppName();
         this.failureMode = client.getPool().getEVCacheClientPoolManager().getEVCacheConfig().getPropertyRepository().get(this.client.getServerGroupName() + ".failure.mode", String.class).orElseGet(appName + ".failure.mode").orElse("Retry");
+
         this.name = appName + "-" + client.getServerGroupName() + "-" + client.getId();
+        this.useCompactEvCacheValueSerialization = client.getPool().getEVCacheClientPoolManager().getEVCacheConfig().getPropertyRepository().get(appName + ".use.evcachevalue.serialization", Boolean.class).orElse(false).get();
     }
 
     public NodeLocator createLocator(List<MemcachedNode> list) {
@@ -109,7 +110,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public Transcoder<Object> getDefaultTranscoder() {
-        return new EVCacheTranscoder();
+        return new EVCacheTranscoder(useCompactEvCacheValueSerialization);
     }
 
     public FailureMode getFailureMode() {

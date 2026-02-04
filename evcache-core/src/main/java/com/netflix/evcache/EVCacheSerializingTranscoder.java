@@ -23,23 +23,21 @@
 package com.netflix.evcache;
 
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
-import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.pool.EVCacheValue;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
 import com.netflix.spectator.api.Timer;
-import net.spy.memcached.CachedData;
-import net.spy.memcached.transcoders.BaseSerializingTranscoder;
-import net.spy.memcached.transcoders.Transcoder;
-import net.spy.memcached.transcoders.TranscoderUtils;
-import net.spy.memcached.util.StringUtils;
-
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import net.spy.memcached.CachedData;
+import net.spy.memcached.transcoders.BaseSerializingTranscoder;
+import net.spy.memcached.transcoders.Transcoder;
+import net.spy.memcached.transcoders.TranscoderUtils;
 
 
 /**
@@ -62,11 +60,22 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     static final int SPECIAL_FLOAT = (6 << 8);
     static final int SPECIAL_DOUBLE = (7 << 8);
     static final int SPECIAL_BYTEARRAY = (8 << 8);
+    static final int SPECIAL_EVCACHEVALUE = (9 << 8);
+
+    // EVCacheValue serialization version for schema evolution
+    // When adding new fields to EVCacheValue:
+    // 1. Define EVCACHEVALUE_VERSION_2 = 2
+    // 2. Update serializeEvCacheValue() to write version 2 format
+    // 3. Add deserializeEvCacheValueV2() method to read new format
+    // 4. Update deserializeEvCacheValue() switch to handle version 2
+    // 5. Keep deserializeEvCacheValueV1() for backwards compatibility
+    private static final byte EVCACHEVALUE_VERSION_1 = 1;
 
     static final String COMPRESSION = "COMPRESSION_METRIC";
 
     private final TranscoderUtils tu = new TranscoderUtils(true);
     private Timer timer;
+    private final boolean useCompactEvCacheValueSerialization;
 
     /**
      * Get a serializing transcoder with the default max data size.
@@ -79,7 +88,18 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
      * Get a serializing transcoder that specifies the max data size.
      */
     public EVCacheSerializingTranscoder(int max) {
+        this(max, false);
+    }
+
+    /**
+     * Get a serializing transcoder that specifies the max data size and EVCacheValue serialization mode.
+     * @param max Maximum data size
+     * @param useCompactEvCacheValueSerialization When false, uses Java object serialization for EVCacheValue (old format, backwards compatible).
+     *                                            When true, uses compact binary format for EVCacheValue (new format, more efficient).
+     */
+    public EVCacheSerializingTranscoder(int max, boolean useCompactEvCacheValueSerialization) {
         super(max);
+        this.useCompactEvCacheValueSerialization = useCompactEvCacheValueSerialization;
     }
 
     @Override
@@ -130,6 +150,23 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
                 case SPECIAL_BYTEARRAY:
                     rv = data;
                     break;
+                // TODO: Additional Backwards Compatibility Risks:
+                //
+                //  1. During a rolling deployment where some nodes have new code and some have old:
+                //  - New code writes EVCacheValue → uses SPECIAL_EVCACHEVALUE flag
+                //  - Old code reads it → FAILS (returns null)
+                //  - This creates runtime failures during the deployment window
+                //  - Even worse in a multi-region deployment with staggered rollouts
+                //
+                //  2. If you deploy new code then need to rollback:
+                //  - New code has written SPECIAL_EVCACHEVALUE entries to cache
+                //  - After rollback, old code can't read these entries
+                //  - Cache poisoning: cached data becomes unreadable until TTL expires
+                //  - May require manual cache invalidation
+                //
+                case SPECIAL_EVCACHEVALUE:
+                    rv = deserializeEvCacheValue(data);
+                    break;
                 default:
                     getLogger().warn("Undecodeable with flags %x", flags);
             }
@@ -173,6 +210,9 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         } else if (o instanceof byte[]) {
             b = (byte[]) o;
             flags |= SPECIAL_BYTEARRAY;
+        } else if (useCompactEvCacheValueSerialization && o instanceof EVCacheValue) {
+            b = serializeEvCacheValue((EVCacheValue) o);
+            flags |= SPECIAL_EVCACHEVALUE;
         } else {
             b = serialize(o);
             flags |= SERIALIZED;
@@ -194,6 +234,89 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
             updateTimerWithCompressionRatio(compression_ratio);
         }
         return new CachedData(flags, b, getMaxSize());
+    }
+
+    /**
+     * Serializes EVCacheValue to compact binary format with versioning for schema evolution.
+     *
+     * Current format (Version 1):
+     *   byte     version (1)
+     *   int      keyLen (-1 if null)
+     *   byte[]   key (UTF-8 encoded, omitted if null)
+     *   int      valueLen (-1 if null)
+     *   byte[]   value (omitted if null)
+     *   int      flags
+     *   long     ttl
+     *   long     createTimeUTC
+     *
+     * Future evolution example (Version 2):
+     *   To add a new field (e.g., lastAccessTimeUTC):
+     *   - Define EVCACHEVALUE_VERSION_2 = 2
+     *   - Update this method to write V2 format with new field at end
+     *   - Add deserializeEvCacheValueV2() to read V2 format
+     *   - Keep deserializeEvCacheValueV1() unchanged for backwards compatibility
+     *   - Update deserializeEvCacheValue() to dispatch based on version
+     */
+    private byte[] serializeEvCacheValue(EVCacheValue evCacheValue) {
+        String key = evCacheValue.getKey();
+        byte[] value = evCacheValue.getValue();
+        byte[] keyBytes = key != null ? key.getBytes(StandardCharsets.UTF_8) : null;
+
+        int keyLen = keyBytes != null ? keyBytes.length : -1;
+        int valueLen = value != null ? value.length : -1;
+
+        int size = 1 + 4 + (keyBytes != null ? keyBytes.length : 0)
+                 + 4 + (value != null ? value.length : 0)
+                 + 4 + 8 + 8;
+
+        ByteBuffer buf = ByteBuffer.allocate(size);
+        buf.put(EVCACHEVALUE_VERSION_1);
+        buf.putInt(keyLen);
+        if (keyBytes != null) {
+            buf.put(keyBytes);
+        }
+        buf.putInt(valueLen);
+        if (value != null) {
+            buf.put(value);
+        }
+        buf.putInt(evCacheValue.getFlags());
+        buf.putLong(evCacheValue.getTTL());
+        buf.putLong(evCacheValue.getCreateTimeUTC());
+        return buf.array();
+    }
+
+    private EVCacheValue deserializeEvCacheValue(byte[] data) {
+        ByteBuffer buf = ByteBuffer.wrap(data);
+        byte version = buf.get();
+
+        if (version == EVCACHEVALUE_VERSION_1) {
+            return deserializeEvCacheValueV1(buf);
+        } else {
+            // Future versions would be handled here
+            // For now, we can try to be forward compatible by reading V1 format
+            getLogger().warn("Unknown EVCacheValue version: %d, attempting V1 deserialization", version);
+            return deserializeEvCacheValueV1(buf);
+        }
+    }
+
+    private EVCacheValue deserializeEvCacheValueV1(ByteBuffer buf) {
+        int keyLength = buf.getInt();
+        String key = null;
+        if (keyLength >= 0) {
+            byte[] keyBytes = new byte[keyLength];
+            buf.get(keyBytes);
+            key = new String(keyBytes, StandardCharsets.UTF_8);
+        }
+        int valueLength = buf.getInt();
+        byte[] value = null;
+        if (valueLength >= 0) {
+            value = new byte[valueLength];
+            buf.get(value);
+        }
+        int flags = buf.getInt();
+        long ttl = buf.getLong();
+        long createTimeUTC = buf.getLong();
+        return new EVCacheValue(key, value, flags, ttl, createTimeUTC);
     }
 
     private void updateTimerWithCompressionRatio(long ratio_percentage) {

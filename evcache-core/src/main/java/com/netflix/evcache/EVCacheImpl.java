@@ -2,6 +2,36 @@ package com.netflix.evcache;
 
 import static com.netflix.evcache.util.Sneaky.sneakyThrow;
 
+import com.netflix.archaius.api.Property;
+import com.netflix.archaius.api.PropertyRepository;
+import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
+import com.netflix.evcache.EVCacheLatch.Policy;
+import com.netflix.evcache.dto.KeyMapDto;
+import com.netflix.evcache.event.EVCacheEvent;
+import com.netflix.evcache.event.EVCacheEventListener;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.operation.EVCacheFuture;
+import com.netflix.evcache.operation.EVCacheItem;
+import com.netflix.evcache.operation.EVCacheItemMetaData;
+import com.netflix.evcache.operation.EVCacheLatchImpl;
+import com.netflix.evcache.operation.EVCacheOperationFuture;
+import com.netflix.evcache.pool.ChunkTranscoder;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheClientPool;
+import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.evcache.pool.EVCacheClientUtil;
+import com.netflix.evcache.pool.EVCacheValue;
+import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.EVCacheBulkDataDto;
+import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.evcache.util.KeyHasher;
+import com.netflix.evcache.util.RetryCount;
+import com.netflix.evcache.util.Sneaky;
+import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.Counter;
+import com.netflix.spectator.api.DistributionSummary;
+import com.netflix.spectator.api.Tag;
+import com.netflix.spectator.api.Timer;
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -21,45 +51,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
-
-import com.netflix.evcache.dto.KeyMapDto;
-import com.netflix.evcache.util.EVCacheBulkDataDto;
-import com.netflix.evcache.util.KeyHasher;
-import com.netflix.evcache.util.RetryCount;
-import com.netflix.evcache.util.Sneaky;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.netflix.archaius.api.Property;
-import com.netflix.archaius.api.PropertyRepository;
-import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
-import com.netflix.evcache.EVCacheLatch.Policy;
-import com.netflix.evcache.event.EVCacheEvent;
-import com.netflix.evcache.event.EVCacheEventListener;
-import com.netflix.evcache.metrics.EVCacheMetricsFactory;
-import com.netflix.evcache.operation.EVCacheFuture;
-import com.netflix.evcache.operation.EVCacheItem;
-import com.netflix.evcache.operation.EVCacheItemMetaData;
-import com.netflix.evcache.operation.EVCacheLatchImpl;
-import com.netflix.evcache.operation.EVCacheOperationFuture;
-import com.netflix.evcache.pool.ChunkTranscoder;
-import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.evcache.pool.EVCacheClientPool;
-import com.netflix.evcache.pool.EVCacheClientPoolManager;
-import com.netflix.evcache.pool.EVCacheClientUtil;
-import com.netflix.evcache.pool.EVCacheValue;
-import com.netflix.evcache.pool.ServerGroup;
-import com.netflix.spectator.api.BasicTag;
-import com.netflix.spectator.api.Counter;
-import com.netflix.spectator.api.DistributionSummary;
-import com.netflix.spectator.api.Tag;
-import com.netflix.spectator.api.Timer;
-
 import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.Transcoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.Observable;
 import rx.Scheduler;
 import rx.Single;
@@ -163,7 +160,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         this.maxHashLength = propertyRepository.get(appName + ".max.hash.length", Integer.class).orElse(-1);
         this.encoderBase = propertyRepository.get(appName + ".hash.encoder", String.class).orElse("base64");
         this.autoHashKeys = propertyRepository.get(_appName + ".auto.hash.keys", Boolean.class).orElseGet("evcache.auto.hash.keys").orElse(false);
-        this.evcacheValueTranscoder = new EVCacheTranscoder();
+
+        boolean useCompactEvCacheValueSerialization = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".use.evcachevalue.serialization", Boolean.class).orElse(false).get();
+        this.evcacheValueTranscoder = new EVCacheTranscoder(useCompactEvCacheValueSerialization);
         evcacheValueTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
 
         // default max key length is 200, instead of using what is defined in MemcachedClientIF.MAX_KEY_LENGTH (250). This is to accommodate

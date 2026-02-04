@@ -1,15 +1,5 @@
 package com.netflix.evcache.connection;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.nio.channels.SocketChannel;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-
 import com.netflix.archaius.api.Property;
 import com.netflix.evcache.EVCacheTranscoder;
 import com.netflix.evcache.operation.EVCacheAsciiOperationFactory;
@@ -19,7 +9,15 @@ import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheKetamaNodeLocatorConfiguration;
 import com.netflix.evcache.pool.EVCacheNodeLocator;
 import com.netflix.evcache.util.EVCacheConfig;
-
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.nio.channels.SocketChannel;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 import net.spy.memcached.ConnectionObserver;
 import net.spy.memcached.DefaultConnectionFactory;
 import net.spy.memcached.DefaultHashAlgorithm;
@@ -29,9 +27,7 @@ import net.spy.memcached.HashAlgorithm;
 import net.spy.memcached.MemcachedConnection;
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.NodeLocator;
-import net.spy.memcached.OperationFactory;
 import net.spy.memcached.ops.Operation;
-import net.spy.memcached.protocol.ascii.AsciiOperationFactory;
 import net.spy.memcached.protocol.ascii.EVCacheAsciiNodeImpl;
 import net.spy.memcached.transcoders.Transcoder;
 
@@ -45,6 +41,7 @@ public class BaseAsciiConnectionFactory extends DefaultConnectionFactory {
     protected final long startTime;
     protected final EVCacheClient client;
     protected final Property<String> failureMode;
+    private final boolean useCompactEvCacheValueSerialization;
 
     BaseAsciiConnectionFactory(EVCacheClient client, int len, Property<Integer> _operationTimeout, long opMaxBlockTime) {
         super(len, DefaultConnectionFactory.DEFAULT_READ_BUFFER_SIZE, DefaultHashAlgorithm.KETAMA_HASH);
@@ -55,7 +52,10 @@ public class BaseAsciiConnectionFactory extends DefaultConnectionFactory {
 
         this.appName = client.getAppName();
         this.failureMode = client.getPool().getEVCacheClientPoolManager().getEVCacheConfig().getPropertyRepository().get(this.client.getServerGroupName() + ".failure.mode", String.class).orElseGet(appName + ".failure.mode").orElse("Retry");
+
         this.name = appName + "-" + client.getServerGroupName() + "-" + client.getId();
+
+        this.useCompactEvCacheValueSerialization = client.getPool().getEVCacheClientPoolManager().getEVCacheConfig().getPropertyRepository().get(appName + ".use.evcachevalue.serialization", Boolean.class).orElse(false).get();
     }
 
     public NodeLocator createLocator(List<MemcachedNode> list) {
@@ -115,7 +115,7 @@ public class BaseAsciiConnectionFactory extends DefaultConnectionFactory {
     }
 
     public Transcoder<Object> getDefaultTranscoder() {
-        return new EVCacheTranscoder();
+        return new EVCacheTranscoder(useCompactEvCacheValueSerialization);
     }
 
     public FailureMode getFailureMode() {

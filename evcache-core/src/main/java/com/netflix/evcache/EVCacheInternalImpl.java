@@ -7,16 +7,18 @@ import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
 import com.netflix.evcache.pool.EVCacheValue;
 import com.netflix.evcache.pool.ServerGroup;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.MemcachedNode;
 import net.spy.memcached.transcoders.Transcoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.net.InetSocketAddress;
-import java.util.*;
-import java.util.concurrent.Future;
-import java.util.stream.Collectors;
 
 /**
  * This class is for internal-use only by EVCache components, and is not recommended to be used for any other purpose. EVCache and EVCacheImpl are recommended instead.
@@ -51,7 +53,7 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
         if (log.isDebugEnabled()) log.debug("map : " + map);
         if (log.isDebugEnabled()) log.debug("instancesWithNull : " + instancesWithNull);
         if(instancesWithNull.size() > 0 && map.size() > 0) {
-            final EVCacheTranscoder transcoder = new EVCacheTranscoder();
+            final EVCacheTranscoder transcoder = new EVCacheTranscoder(); // only decodes, so don't need to set useCompactEvCacheValueSerialization
             String originalKey = null;
             for(CachedValues vals : map.values()) {
                 if (log.isDebugEnabled()) log.debug("vals : " + vals);
