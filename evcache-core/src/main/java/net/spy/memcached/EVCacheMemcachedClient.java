@@ -673,9 +673,26 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return rv;
     }
 
+    private String operationSuccessOrFail(OperationStatus status) {
+        if(status == null) {
+            return null;
+        }
+        if(status.getStatusCode() == StatusCode.SUCCESS || status.getStatusCode() == StatusCode.ERR_NOT_FOUND || status.getStatusCode() == StatusCode.ERR_EXISTS) {
+            return EVCacheMetricsFactory.SUCCESS;
+        }
+        return EVCacheMetricsFactory.FAIL;
+    }
+
     private Timer getTimer(String operation, String operationType, OperationStatus status, String hit, String host, long maxDuration) {
-        String name = ((status != null) ? operation + status.getMessage() : operation );
-        if(hit != null) name = name + hit;
+
+        StringBuilder sb = new StringBuilder(32);
+        sb.append(operation);
+        if(operationType != null) sb.append(operationType);
+        if(status != null) sb.append(operationSuccessOrFail(status));
+        if(status != null) sb.append(status.getStatusCode().name());
+        if(hit != null) sb.append(hit);
+        if(host != null) sb.append(host);
+        String name = sb.toString();
 
         Timer timer = timerMap.get(name);
         if(timer != null) return timer;
@@ -685,11 +702,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
         if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
         if(status != null) {
-            if(status.getStatusCode() == StatusCode.SUCCESS || status.getStatusCode() == StatusCode.ERR_NOT_FOUND || status.getStatusCode() == StatusCode.ERR_EXISTS) {
-                tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_RESULT, EVCacheMetricsFactory.SUCCESS));
-            } else {
-                tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_RESULT, EVCacheMetricsFactory.FAIL));
-            }
+            tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_RESULT, operationSuccessOrFail(status)));
             tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_STATUS, getStatusCode(status.getStatusCode())));
         }
         if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
