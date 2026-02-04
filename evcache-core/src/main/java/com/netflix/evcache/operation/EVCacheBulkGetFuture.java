@@ -242,8 +242,9 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
 
             if (state == null) {
                 Operation op = opsArray[i];
-                op.cancel();
-                MemcachedConnection.opSucceeded(op);
+                op.timeOut();
+                MemcachedConnection.opTimedOut(op);
+                t = new ExecutionException(new CheckedOperationTimeoutException("Checked Operation timed out.", op));
             } else {
                 if (!state.completed) {
                     // Use pre-collected state
