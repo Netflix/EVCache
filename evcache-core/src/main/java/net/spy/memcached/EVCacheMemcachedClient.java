@@ -1,33 +1,8 @@
 package net.spy.memcached;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiPredicate;
-import java.util.function.Consumer;
-
-import com.netflix.archaius.api.PropertyRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.netflix.archaius.api.Property;
 import com.netflix.archaius.api.Property.Subscription;
+import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.EVCacheLatch;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
@@ -44,8 +19,24 @@ import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.DistributionSummary;
 import com.netflix.spectator.api.Tag;
 import com.netflix.spectator.api.Timer;
-import com.netflix.spectator.ipc.IpcStatus;
-
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import net.spy.memcached.internal.GetFuture;
 import net.spy.memcached.internal.OperationFuture;
 import net.spy.memcached.ops.ConcatenationType;
@@ -56,16 +47,16 @@ import net.spy.memcached.ops.Mutator;
 import net.spy.memcached.ops.Operation;
 import net.spy.memcached.ops.OperationCallback;
 import net.spy.memcached.ops.OperationStatus;
-import net.spy.memcached.ops.StatsOperation;
 import net.spy.memcached.ops.StatusCode;
 import net.spy.memcached.ops.StoreOperation;
 import net.spy.memcached.ops.StoreType;
-import net.spy.memcached.protocol.binary.BinaryOperationFactory;
-import net.spy.memcached.transcoders.Transcoder;
-import net.spy.memcached.util.StringUtils;
 import net.spy.memcached.protocol.ascii.ExecCmdOperation;
 import net.spy.memcached.protocol.ascii.MetaDebugOperation;
 import net.spy.memcached.protocol.ascii.MetaGetOperation;
+import net.spy.memcached.protocol.binary.BinaryOperationFactory;
+import net.spy.memcached.transcoders.Transcoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS",
 "SIC_INNER_SHOULD_BE_STATIC_ANON" })
@@ -78,6 +69,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private final EVCacheClient client;
     private final Map<String, Timer> timerMap = new ConcurrentHashMap<String, Timer>();
     private final Map<String, DistributionSummary> distributionSummaryMap = new ConcurrentHashMap<String, DistributionSummary>();
+    private volatile boolean timerMapKeysLogged = false;
 
     private Property<Long> mutateOperationTimeout;
     private final ConnectionFactory connectionFactory;
@@ -579,10 +571,28 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         return rv;
     }
 
-    private Timer getTimer(String operation, String operationType, OperationStatus status, String hit, String host, long maxDuration) {
-        String name = ((status != null) ? operation + status.getMessage() : operation );
-        if(hit != null) name = name + hit;
+    private String operationSuccessOrFail(OperationStatus status) {
+        if(status == null) {
+            return null;
+        }
+        if(status.getStatusCode() == StatusCode.SUCCESS || status.getStatusCode() == StatusCode.ERR_NOT_FOUND || status.getStatusCode() == StatusCode.ERR_EXISTS) {
+            return EVCacheMetricsFactory.SUCCESS;
+        }
+        return EVCacheMetricsFactory.FAIL;
+    }
 
+    private Timer getTimer(String operation, String operationType, OperationStatus status, String hit, String host, long maxDuration) {
+
+        StringBuilder sb = new StringBuilder(32);
+        sb.append(operation);
+        if(operationType != null) sb.append(operationType);
+        if(status != null) sb.append(operationSuccessOrFail(status));
+        if(status != null) sb.append(status.getStatusCode().name());
+        if(hit != null) sb.append(hit);
+        if(host != null) sb.append(host);
+        String name = sb.toString();
+
+        // name needs operation, operation type, ipc result, ipc status, cache hit, failed host
         Timer timer = timerMap.get(name);
         if(timer != null) return timer;
 
@@ -591,11 +601,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         if(operation != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, operation));
         if(operationType != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, operationType));
         if(status != null) {
-            if(status.getStatusCode() == StatusCode.SUCCESS || status.getStatusCode() == StatusCode.ERR_NOT_FOUND || status.getStatusCode() == StatusCode.ERR_EXISTS) {
-                tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_RESULT, EVCacheMetricsFactory.SUCCESS));
-            } else {
-                tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_RESULT, EVCacheMetricsFactory.FAIL));
-            }
+            tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_RESULT, operationSuccessOrFail(status)));
             tagList.add(new BasicTag(EVCacheMetricsFactory.IPC_STATUS, getStatusCode(status.getStatusCode())));
         }
         if(hit != null) tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE_HIT, hit));
@@ -603,6 +609,21 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
         timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.IPC_CALL, tagList, Duration.ofMillis(maxDuration));
         timerMap.put(name, timer);
+
+        // Log timer map keys once if size exceeds threshold
+        int mapSize = timerMap.size();
+        if (mapSize > 100000 && !timerMapKeysLogged) {
+            synchronized (this) {
+                if (!timerMapKeysLogged) {
+                    timerMapKeysLogged = true;
+                    log.error("TimerMap size exceeded 100,000 entries. Current size: {}. Keys in map:", mapSize);
+                    for (String key : timerMap.keySet()) {
+                        log.error("  TimerMap key: {}", key);
+                    }
+                }
+            }
+        }
+
         return timer;
     }
     
