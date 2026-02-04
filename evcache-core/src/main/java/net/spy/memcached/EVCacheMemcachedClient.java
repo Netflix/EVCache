@@ -69,7 +69,6 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     private final EVCacheClient client;
     private final Map<String, Timer> timerMap = new ConcurrentHashMap<String, Timer>();
     private final Map<String, DistributionSummary> distributionSummaryMap = new ConcurrentHashMap<String, DistributionSummary>();
-    private volatile boolean timerMapKeysLogged = false;
 
     private Property<Long> mutateOperationTimeout;
     private final ConnectionFactory connectionFactory;
@@ -592,7 +591,6 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         if(host != null) sb.append(host);
         String name = sb.toString();
 
-        // name needs operation, operation type, ipc result, ipc status, cache hit, failed host
         Timer timer = timerMap.get(name);
         if(timer != null) return timer;
 
@@ -609,21 +607,6 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
         timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.IPC_CALL, tagList, Duration.ofMillis(maxDuration));
         timerMap.put(name, timer);
-
-        // Log timer map keys once if size exceeds threshold
-        int mapSize = timerMap.size();
-        if (mapSize > 100000 && !timerMapKeysLogged) {
-            synchronized (this) {
-                if (!timerMapKeysLogged) {
-                    timerMapKeysLogged = true;
-                    log.error("TimerMap size exceeded 100,000 entries. Current size: {}. Keys in map:", mapSize);
-                    for (String key : timerMap.keySet()) {
-                        log.error("  TimerMap key: {}", key);
-                    }
-                }
-            }
-        }
-
         return timer;
     }
     
