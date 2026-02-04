@@ -1,5 +1,17 @@
 package com.netflix.evcache.test;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
+
+import com.netflix.evcache.EVCache;
+import com.netflix.evcache.EVCacheImpl;
+import com.netflix.evcache.EVCacheLatch.Policy;
+import com.netflix.evcache.EVCacheSerializingTranscoder;
+import com.netflix.evcache.pool.EVCacheClient;
+import com.netflix.evcache.pool.EVCacheClientPool;
+import com.netflix.evcache.pool.EVCacheClientPoolManager;
+import com.netflix.evcache.pool.EVCacheValue;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Properties;
@@ -8,8 +20,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-
-import com.netflix.evcache.EVCacheSerializingTranscoder;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.SerializingTranscoder;
 import org.apache.log4j.BasicConfigurator;
@@ -20,17 +30,7 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
-
-import com.netflix.evcache.EVCache;
-import com.netflix.evcache.EVCacheImpl;
-import com.netflix.evcache.EVCacheLatch.Policy;
-import com.netflix.evcache.pool.EVCacheClient;
-import com.netflix.evcache.pool.EVCacheClientPool;
-import com.netflix.evcache.pool.EVCacheClientPoolManager;
-
 import rx.schedulers.Schedulers;
-
-import static org.testng.Assert.*;
 
 @SuppressWarnings({"unused","deprecation"})
 public class SimpleEVCacheTest extends Base {
@@ -105,6 +105,8 @@ public class SimpleEVCacheTest extends Base {
             boolean flag = true;
             while (flag) {
                 try {
+                    testEVCacheValueCompactSerialization();
+                    testEVCacheValueSerializationSizeScaling();
 //                  testAdd();
                     testInsert();
 //                  testAppend();
@@ -335,7 +337,108 @@ public class SimpleEVCacheTest extends Base {
         assertTrue(Arrays.equals(evCachedData.getData(), serializingCachedData.getData()), "cacheData same" + evCachedData.toString());
         if(log.isDebugEnabled()) log.debug("EVCacheTranscoder result equal to SerializingTranscoder: " + Arrays.equals(evCachedData.getData(), serializingCachedData.getData()));
     }
-    
+
+    @Test
+    public void testEVCacheValueCompactSerialization() {
+        // Create test EVCacheValue
+        String key = "k";
+        byte[] value = "v".getBytes();
+        int flags = 0;
+        long ttl = 3600;
+        long createTime = System.currentTimeMillis();
+
+        EVCacheValue evCacheValue = new EVCacheValue(key, value, flags, ttl, createTime);
+
+        // Test with compact serialization disabled (uses Java object serialization)
+        EVCacheSerializingTranscoder transcoderOldFormat = new EVCacheSerializingTranscoder(Integer.MAX_VALUE, false);
+        CachedData oldFormatData = transcoderOldFormat.encode(evCacheValue);
+        int oldFormatSize = oldFormatData.getData().length;
+
+        // Test with compact serialization enabled (uses compact binary format)
+        EVCacheSerializingTranscoder transcoderNewFormat = new EVCacheSerializingTranscoder(Integer.MAX_VALUE, true);
+        CachedData newFormatData = transcoderNewFormat.encode(evCacheValue);
+        int newFormatSize = newFormatData.getData().length;
+
+        // Verify both can deserialize correctly with their own transcoder
+        Object decodedOld = transcoderOldFormat.decode(oldFormatData);
+        Object decodedNew = transcoderNewFormat.decode(newFormatData);
+
+        assertTrue(decodedOld instanceof EVCacheValue, "Old format should deserialize to EVCacheValue");
+        assertTrue(decodedNew instanceof EVCacheValue, "New format should deserialize to EVCacheValue");
+
+        EVCacheValue decodedOldValue = (EVCacheValue) decodedOld;
+        EVCacheValue decodedNewValue = (EVCacheValue) decodedNew;
+
+        assertEquals(decodedOldValue, evCacheValue, "Old format deserialization should match original");
+        assertEquals(decodedNewValue, evCacheValue, "New format deserialization should match original");
+
+        // CRITICAL: Test backwards compatibility - new transcoder should read old format data
+        // This ensures that when rolling out the new code, it can still read cached data written by old code
+        Object decodedOldByNew = transcoderNewFormat.decode(oldFormatData);
+        assertTrue(decodedOldByNew instanceof EVCacheValue, "New transcoder should be able to read old format data");
+        EVCacheValue decodedOldByNewValue = (EVCacheValue) decodedOldByNew;
+        assertEquals(decodedOldByNewValue, evCacheValue, "New transcoder should correctly deserialize old format data");
+
+        log.info("Backwards compatibility verified: New transcoder can read old format data");
+
+        // Assert compact format is smaller
+        assertTrue(newFormatSize < oldFormatSize,
+            String.format("Compact format (%d bytes) should be smaller than Java serialization (%d bytes). Savings: %d bytes (%.1f%%)",
+                newFormatSize, oldFormatSize, oldFormatSize - newFormatSize,
+                100.0 * (oldFormatSize - newFormatSize) / oldFormatSize));
+
+        log.info(String.format("EVCacheValue serialization size comparison - Old format: %d bytes, Compact format: %d bytes, Savings: %d bytes (%.1f%%)",
+            oldFormatSize, newFormatSize, oldFormatSize - newFormatSize,
+            100.0 * (oldFormatSize - newFormatSize) / oldFormatSize));
+    }
+
+    @Test
+    public void testEVCacheValueSerializationSizeScaling() {
+        EVCacheSerializingTranscoder transcoderOldFormat = new EVCacheSerializingTranscoder(Integer.MAX_VALUE, false);
+        transcoderOldFormat.setCompressionThreshold(Integer.MAX_VALUE); // Disable compression
+
+        EVCacheSerializingTranscoder transcoderNewFormat = new EVCacheSerializingTranscoder(Integer.MAX_VALUE, true);
+        transcoderNewFormat.setCompressionThreshold(Integer.MAX_VALUE); // Disable compression
+
+        log.info("\n=== EVCacheValue Serialization Size Comparison (No Compression) ===");
+        log.info("DataSize(bytes)\tOldFormat(bytes)\tCompactFormat(bytes)\tSavings(bytes)\tSavings(%)");
+
+        int[] testSizes = new int[21];
+        for (int i=0; i<=20; i++) {
+            testSizes[i] = (int) Math.pow(2, i);
+        }
+
+        for (int dataSize : testSizes) {
+            // Create test data of specified size
+            String originalKey = generateString("k", 200); // for auto hashing
+            byte[] value = generateString("v", dataSize).getBytes();
+
+            EVCacheValue evCacheValue = new EVCacheValue(originalKey, value, 0, 3600, System.currentTimeMillis());
+
+            // Measure sizes
+            CachedData oldFormatData = transcoderOldFormat.encode(evCacheValue);
+            CachedData newFormatData = transcoderNewFormat.encode(evCacheValue);
+
+            int oldSize = oldFormatData.getData().length;
+            int newSize = newFormatData.getData().length;
+            int savings = oldSize - newSize;
+            double savingsPercent = 100.0 * savings / oldSize;
+
+            // Output data in tab-separated format for easy graphing
+            log.info(String.format("%d\t%d\t%d\t%d\t%.1f%%",
+                dataSize, oldSize, newSize, savings, savingsPercent));
+        }
+    }
+
+    private String generateString(String prefix, int targetLength) {
+        if (targetLength <= 0) return prefix;
+        StringBuilder sb = new StringBuilder(prefix);
+        while (sb.length() < targetLength) {
+            sb.append("abcdefghijklmnopqrstuvwxyz0123456789");
+        }
+        return sb.substring(0, Math.min(targetLength, sb.length()));
+    }
+
 
     class StatusChecker implements Runnable {
         Future<Boolean>[] status;
