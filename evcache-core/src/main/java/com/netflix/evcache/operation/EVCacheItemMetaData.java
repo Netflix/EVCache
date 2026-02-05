@@ -95,6 +95,22 @@ public class EVCacheItemMetaData {
         return sizeInBytes;
     }
 
+    /**
+     * Copy all metadata from another EVCacheItemMetaData instance.
+     * 
+     * @param source the source metadata to copy from
+     */
+    public void copyFrom(EVCacheItemMetaData source) {
+        if (source != null) {
+            this.secondsLeftToExpire = source.secondsLeftToExpire;
+            this.secondsSinceLastAccess = source.secondsSinceLastAccess;
+            this.cas = source.cas;
+            this.hasBeenFetchedAfterWrite = source.hasBeenFetchedAfterWrite;
+            this.slabClass = source.slabClass;
+            this.sizeInBytes = source.sizeInBytes;
+        }
+    }
+
     @Override
     public int hashCode() {
         final int prime = 31;
