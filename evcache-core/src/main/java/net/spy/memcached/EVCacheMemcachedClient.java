@@ -290,15 +290,15 @@ public class EVCacheMemcachedClient extends MemcachedClient {
     /**
      * Asynchronously retrieves multiple key-value pairs from memcached.
      *
-     * @Deprecated This method does NOT support a mix of plain and hashed keys in {@code keys}. All keys are
-     * decoded exactly using the given transcoder (note that hashed keys require two step decoding).
+     * @Deprecated This method does NOT support a mix of plain and hashed keys in {@code keys}, nor validation of read
+     * queue capacity. All keys are decoded exactly using the given transcoder (note that hashed keys require two step decoding).
      * For supporting a mix of hashed and plain keys in the {@code keys} collection,
      * use {@link #asyncGetBulk(Collection, Set, Transcoder, EVCacheTranscoder, BiPredicate, String, boolean, BiPredicate)}.
      */
     public <T> EVCacheBulkGetFuture<T> asyncGetBulk(Collection<String> keys,
                                                     final Transcoder<T> tc,
                                                     EVCacheGetOperationListener<T> listener) {
-        return asyncGetBulk(keys, tc, listener, (node, key) -> true);
+        return asyncGetBulk(keys, tc, listener, (node, k) -> node.isActive());
     }
 
     /**
@@ -374,7 +374,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             String key = iter1.hasNext() ? iter1.next() : iter2.next();
             EVCacheClientUtil.validateKey(key, opFact instanceof BinaryOperationFactory);
             final MemcachedNode primaryNode = locator.getPrimary(key);
-            if (primaryNode.isActive() && nodeValidator.test(primaryNode, key)) {
+            if (nodeValidator.test(primaryNode, key)) {
                 Collection<String> ks = chunks.computeIfAbsent(primaryNode, k -> new ArrayList<>());
                 ks.add(key);
             }
