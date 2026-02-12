@@ -240,7 +240,12 @@ public class EVCacheClient {
     }
         
     private void incrementFailure(String metric, EVCache.Call call, String host) {
-        Counter counter = counterMap.get(metric);
+        final StringBuilder sb = new StringBuilder(32);
+        sb.append(metric);
+        if (call != null) sb.append(call.name());
+        if (host != null) sb.append(host);
+        final String cacheKey = sb.toString();
+        Counter counter = counterMap.get(cacheKey);
         if(counter == null) {
             final List<Tag> tagList = new ArrayList<Tag>(6);
             tagList.addAll(tags);
@@ -263,7 +268,7 @@ public class EVCacheClient {
             tagList.add(new BasicTag(EVCacheMetricsFactory.FAILURE_REASON, metric));
             if(host != null) tagList.add(new BasicTag(EVCacheMetricsFactory.FAILED_HOST, host));
             counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_FAIL, tagList);
-            counterMap.put(metric, counter);
+            counterMap.put(cacheKey, counter);
         }
         counter.increment();
     }
