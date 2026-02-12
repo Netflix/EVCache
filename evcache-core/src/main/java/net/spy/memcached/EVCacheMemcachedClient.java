@@ -141,7 +141,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             final String returned_host = getHostNameByKey(returned_key);
             log.error("Wrong key returned. Key - " + original_key + " (Host: " + original_host + ") ; Returned Key "
                         + returned_key + " (Host: " + returned_host + ")", new Exception());
-            client.reportWrongKeyReturned(original_host);
+            client.reportWrongKeyReturned();
 
             // If we are configured to dynamically switch log levels to DEBUG on a wrong key error, do so here.
             if (enableDebugLogsOnWrongKey.get()) {

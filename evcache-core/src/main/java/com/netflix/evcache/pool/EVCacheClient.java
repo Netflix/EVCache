@@ -203,16 +203,10 @@ public class EVCacheClient {
             return NodeValidationResult.OK;
 
         final EVCacheNode evcNode = (EVCacheNode) node;
-        final String hostName;
-        if (evcNode.getSocketAddress() instanceof InetSocketAddress) {
-            hostName = ((InetSocketAddress) evcNode.getSocketAddress()).getHostName();
-        } else {
-            hostName = evcNode.getSocketAddress().toString();
-        }
 
         if (!evcNode.isAvailable(call)) {
-            incrementFailure(EVCacheMetricsFactory.INACTIVE_NODE, call, hostName);
-            if (log.isDebugEnabled()) log.debug("Inactive Node " + node + " on " + call + " operation for app : " + appName
+            incrementFailure(EVCacheMetricsFactory.INACTIVE_NODE, call);
+            if (log.isDebugEnabled()) log.debug("Inactive Node " + evcNode + " on " + call + " operation for app : " + appName
                     + "; zone : " + zone);
             return NodeValidationResult.INACTIVE_NODE;
         }
@@ -223,10 +217,10 @@ public class EVCacheClient {
             log.debug("Current Read Queue Size - " + size + " for app " + appName + " & zone " + zone + " and node : " + evcNode);
 
         if (!canAddToOpQueue) {
-            incrementFailure(EVCacheMetricsFactory.READ_QUEUE_FULL, call, hostName);
+            incrementFailure(EVCacheMetricsFactory.READ_QUEUE_FULL, call);
             if (log.isDebugEnabled()) {
                 log.debug("Read Queue Full on " + call + " operation for app : " + appName
-                        + "; zone : " + zone + "; Current Size : " + size
+                        + "; zone : " + zone + "; node : " + evcNode + "; Current Size : " + size
                         + "; Max Size Threshold: " + maxReadQueueSizeThreshold);
             }
             return NodeValidationResult.READ_QUEUE_FULL;
@@ -236,15 +230,7 @@ public class EVCacheClient {
     }
 
     private void incrementFailure(String metric, EVCache.Call call) {
-        incrementFailure(metric, call, null);
-    }
-        
-    private void incrementFailure(String metric, EVCache.Call call, String host) {
-        final StringBuilder sb = new StringBuilder(32);
-        sb.append(metric);
-        if (call != null) sb.append(call.name());
-        if (host != null) sb.append(host);
-        final String cacheKey = sb.toString();
+        final String cacheKey = metric + (call != null ? call.name() : "");
         Counter counter = counterMap.get(cacheKey);
         if(counter == null) {
             final List<Tag> tagList = new ArrayList<Tag>(6);
@@ -266,15 +252,19 @@ public class EVCacheClient {
                 }
             }
             tagList.add(new BasicTag(EVCacheMetricsFactory.FAILURE_REASON, metric));
-            if(host != null) tagList.add(new BasicTag(EVCacheMetricsFactory.FAILED_HOST, host));
             counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_FAIL, tagList);
             counterMap.put(cacheKey, counter);
         }
         counter.increment();
     }
 
+    @Deprecated
     public void reportWrongKeyReturned(String hostName) {
-        incrementFailure(EVCacheMetricsFactory.WRONG_KEY_RETURNED, null, hostName);
+        reportWrongKeyReturned();
+    }
+
+    public void reportWrongKeyReturned() {
+        incrementFailure(EVCacheMetricsFactory.WRONG_KEY_RETURNED, null);
     }
 
     private boolean ensureWriteQueueSize(MemcachedNode node, String key, EVCache.Call call) throws EVCacheException {
@@ -293,13 +283,7 @@ public class EVCacheClient {
                 }
 
                 if(i++ > 3) {
-                    final String hostName;
-                    if(evcNode.getSocketAddress() instanceof InetSocketAddress) {
-                        hostName = ((InetSocketAddress)evcNode.getSocketAddress()).getHostName();
-                    } else {
-                        hostName = evcNode.getSocketAddress().toString();
-                    }
-                    incrementFailure(EVCacheMetricsFactory.INACTIVE_NODE, call, hostName);
+                    incrementFailure(EVCacheMetricsFactory.INACTIVE_NODE, call);
                     if (log.isDebugEnabled()) log.debug("Node : " + evcNode + " for app : " + appName + "; zone : "
                             + zone + " is not active. Will Fail Fast and the write will be dropped for key : " + key);
                     evcNode.shutdown();
