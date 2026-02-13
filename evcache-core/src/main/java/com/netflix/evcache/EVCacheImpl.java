@@ -1918,13 +1918,13 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             return false;
         };
 
-        final Transcoder<T> valueTranscoder;
-        if (keyMapDto.getHashedKeysMap() != null && !keyMapDto.getHashedKeysMap().isEmpty()) {
-            if (log.isDebugEnabled() && shouldLog()) log.debug("fetching bulk data with set of keys containing hashed key(s) {} ", evcacheKeys);
-            valueTranscoder = tc != null ? tc : (Transcoder<T>) client.getTranscoder();
-        } else {
-            valueTranscoder = tc != null ? tc : (Transcoder<T>) _transcoder;
-            if (log.isDebugEnabled() && shouldLog()) log.debug("fetching bulk data with no hashed key(s) {} ", plainKeys);
+        final Transcoder<T> valueTranscoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
+        if (log.isDebugEnabled() && shouldLog()) {
+            if (!keyMapDto.getHashedKeysMap().isEmpty()) {
+                log.debug("fetching bulk data with set of keys containing hashed key(s) {} ", evcacheKeys);
+            } else {
+                log.debug("fetching bulk data with no hashed key(s) {} ", plainKeys);
+            }
         }
         return client.getAsyncBulk(plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, _appName, shouldLog(), collisionChecker)
                 .thenApply(data -> buildKeyValueResult(data, keyMapDto))
