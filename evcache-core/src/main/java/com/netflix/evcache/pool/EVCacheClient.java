@@ -1012,6 +1012,38 @@ public class EVCacheClient {
 
     }
 
+    public <T> Map<String, T> getBulk(Collection<String> plainKeys, Set<String> hashedKeys,
+                                      Transcoder<T> tc, EVCacheTranscoder evcacheValueTranscoder,
+                                      String appName, boolean shouldLog, BiPredicate<String, String> collisionChecker,
+                                      boolean _throwException, boolean hasZF) throws Exception {
+        final BiPredicate<MemcachedNode, String> validator = (node, key) -> {
+            NodeValidationResult result = validateNodeForRead(node, Call.BULK, 2 * maxReadQueueSize.get());
+            return result == NodeValidationResult.OK;
+        };
+        if (tc == null) tc = (Transcoder<T>) getTranscoder();
+        return evcacheMemcachedClient
+                .asyncGetBulk(plainKeys, hashedKeys, tc, evcacheValueTranscoder, validator, appName, shouldLog, collisionChecker)
+                .getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+    }
+
+    public <T> Single<Map<String, T>> getBulk(Collection<String> plainKeys, Set<String> hashedKeys,
+                                               Transcoder<T> tc, EVCacheTranscoder evcacheValueTranscoder,
+                                               String appName, boolean shouldLog, BiPredicate<String, String> collisionChecker,
+                                               boolean _throwException, boolean hasZF, Scheduler scheduler) {
+        try {
+            final BiPredicate<MemcachedNode, String> validator = (node, key) -> {
+                NodeValidationResult result = validateNodeForRead(node, Call.BULK, 2 * maxReadQueueSize.get());
+                return result == NodeValidationResult.OK;
+            };
+            if (tc == null) tc = (Transcoder<T>) getTranscoder();
+            return evcacheMemcachedClient
+                    .asyncGetBulk(plainKeys, hashedKeys, tc, evcacheValueTranscoder, validator, appName, shouldLog, collisionChecker)
+                    .getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF, scheduler);
+        } catch (Throwable e) {
+            return Single.error(e);
+        }
+    }
+
     public <T> Single<Map<String, T>> getBulk(Collection<String> canonicalKeys, final Transcoder<T> transcoder, boolean _throwException,
             boolean hasZF, Scheduler scheduler) {
         try {
