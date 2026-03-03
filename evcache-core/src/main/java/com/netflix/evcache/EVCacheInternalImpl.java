@@ -31,66 +31,17 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
     public Map<MemcachedNode, CachedValues> metaGetPerClient(String key, Transcoder<CachedData> tc, boolean isOriginalKeyHashed) throws EVCacheException {
         Map<MemcachedNode, CachedValues> map = new HashMap<>();
         final Map<ServerGroup, List<EVCacheClient>> instancesByZone = _pool.getAllInstancesByZone();
-        final Map<ServerGroup, EVCacheClient> instancesWithNull = new HashMap<ServerGroup, EVCacheClient>();
         final EVCacheKey evcKey = getEVCacheKey(key);
         for (ServerGroup sGroup : instancesByZone.keySet()) {
             try {
                 for (EVCacheClient client : instancesByZone.get(sGroup)) {
                     EVCacheItem<CachedData> item = getEVCacheItem(client, evcKey, tc, true, false, isOriginalKeyHashed, false);
-                    if (log.isDebugEnabled()) log.debug("client : " + client + "; item : " + item);
-                    if(item == null) {
-                        instancesWithNull.put(sGroup, client);
-                    } else {
-                        map.put(client.getNodeLocator().getPrimary(key), null == item ? null : new CachedValues(key, item.getData(), item.getItemMetaData()));
-                    }
+                    String derivedKey = isOriginalKeyHashed ? key : evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder());
+                    if (log.isDebugEnabled()) log.debug("client : " + client + "; derivedKey : " + derivedKey + "; item : " + item);
+                    map.put(client.getNodeLocator().getPrimary(derivedKey), null == item ? null : new CachedValues(key, item.getData(), item.getItemMetaData()));
                 }
             } catch (Exception e) {
                 log.error("Error getting meta data", e);
-            }
-        }
-        if (log.isDebugEnabled()) log.debug("map : " + map);
-        if (log.isDebugEnabled()) log.debug("instancesWithNull : " + instancesWithNull);
-        if(instancesWithNull.size() > 0 && map.size() > 0) {
-            final EVCacheTranscoder transcoder = new EVCacheTranscoder();
-            String originalKey = null;
-            for(CachedValues vals : map.values()) {
-                if (log.isDebugEnabled()) log.debug("vals : " + vals);
-                try {
-                    Object obj = transcoder.decode(vals.getData());
-                    if (log.isDebugEnabled()) log.debug("Obj : " + obj);
-                    if(obj instanceof EVCacheValue) {
-                        originalKey = ((EVCacheValue)obj).getKey();
-                        if (log.isDebugEnabled()) log.debug("original key: " + originalKey);
-                        break;
-                    }
-                } catch(Exception e) {
-                    log.error("Exception decoding", e);
-                }
-            }
-            if(originalKey != null) {
-                for(ServerGroup sGroup : instancesWithNull.keySet()) {
-                    if (log.isDebugEnabled()) log.debug("sGroup : " + sGroup);
-                    final EVCacheClient client = instancesWithNull.get(sGroup);
-                    if (log.isDebugEnabled()) log.debug("Client : " + client);
-                    EVCacheItem<CachedData> item;
-                    try {
-                        item = getEVCacheItem(client, getEVCacheKey(originalKey), tc, true, false, false, false);
-                        if (log.isDebugEnabled()) log.debug("item : " + item);
-                        map.put(client.getNodeLocator().getPrimary(originalKey), null == item ? null : new CachedValues(key, item.getData(), item.getItemMetaData()));
-                    } catch (Exception e) {
-                        log.error("Exception getting meta data using original key - " + originalKey, e);
-                    }
-                }
-            }
-        } else if(map.size() == 0) {
-            for (ServerGroup sGroup : instancesByZone.keySet()) {
-                try {
-                    for (EVCacheClient client : instancesByZone.get(sGroup)) {
-                        map.put(client.getNodeLocator().getPrimary(key), null);
-                    }
-                } catch (Exception e) {
-                    log.error("Error getting meta data", e);
-                }
             }
         }
 
@@ -110,7 +61,8 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
             try {
                 for (EVCacheClient client : instancesByZone.get(sGroup)) {
                     EVCacheItemMetaData itemMetaData = getEVCacheItemMetaData(client, evcKey, true, false, isOriginalKeyHashed);
-                    map.put(client.getNodeLocator().getPrimary(key), itemMetaData);
+                    String derivedKey = isOriginalKeyHashed ? key : evcKey.getDerivedKey(client.isDuetClient(), client.getHashingAlgorithm(), client.shouldEncodeHashKey(), client.getMaxDigestBytes(), client.getMaxHashLength(), client.getBaseEncoder());
+                    map.put(client.getNodeLocator().getPrimary(derivedKey), itemMetaData);
                 }
             } catch (Exception e) {
                 log.error("Error getting meta data", e);
