@@ -151,7 +151,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this._bulkReadTimeout = config.getPropertyRepository().get(appName + ".EVCacheClientPool.bulkReadTimeout", Integer.class).orElse(_readTimeout.get());
         this._bulkReadTimeout.subscribe(callback);
 
-        this._sgDisabledTimeoutOnShutdown = config.getPropertyRepository().get(appName + ".EVCacheClientPool.sgDisabled.timeoutOnShutdown", Integer.class).orElseGet("EVCacheClientPool.sgDisabled.timeoutOnShutdown").orElse(30);
+        this._sgDisabledTimeoutOnShutdown = config.getPropertyRepository().get(appName + ".EVCacheClientPool.sgDisabled.timeoutOnShutdown", Integer.class).orElseGet("EVCacheClientPool.sgDisabled.timeoutOnShutdown").orElse(5);
         this.refreshConnectionOnReadQueueFull = config.getPropertyRepository().get(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull", Boolean.class).orElseGet("EVCacheClientPool.refresh.connection.on.readQueueFull").orElse(false);
         this.refreshConnectionOnReadQueueFullSize = config.getPropertyRepository().get(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull.size", Integer.class).orElseGet("EVCacheClientPool.refresh.connection.on.readQueueFull.size").orElse(100);
 
@@ -1007,6 +1007,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     private synchronized void refresh(boolean force) throws IOException {
+        if (_shutdown) return;
         final long start = System.currentTimeMillis();
         if (log.isDebugEnabled()) log.debug("refresh APP : " + _appName + "; force : " + force);
         try {
@@ -1301,7 +1302,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         }
     }
 
-    void shutdown() {
+    synchronized void shutdown() {
         if (log.isDebugEnabled()) log.debug("EVCacheClientPool for App : " + _appName + " and Zone : " + _zone + " is being shutdown.");
         _shutdown = true;
         
