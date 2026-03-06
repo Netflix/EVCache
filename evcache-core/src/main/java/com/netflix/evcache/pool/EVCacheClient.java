@@ -270,6 +270,12 @@ public class EVCacheClient {
     private boolean ensureWriteQueueSize(MemcachedNode node, String key, EVCache.Call call) throws EVCacheException {
         if (node instanceof EVCacheNode) {
             final EVCacheNode evcNode = (EVCacheNode) node;
+            if (!evcNode.isAvailable(call)) {
+                incrementFailure(EVCacheMetricsFactory.INACTIVE_NODE, call);
+                if (log.isDebugEnabled()) log.debug("Inactive Node " + evcNode + " on " + call + " operation for app : " + appName
+                        + "; zone : " + zone + "; key : " + key);
+                return false;
+            }
             int i = 0;
             while (true) {
                 final int size = evcNode.getWriteQueueSize();
