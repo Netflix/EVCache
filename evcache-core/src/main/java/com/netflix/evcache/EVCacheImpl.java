@@ -2109,33 +2109,11 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             Map<EVCacheKey, T> retMap = getBulkData(client, evcKeys, tc, throwEx, hasZF);
             List<EVCacheClient> fbClients = null;
             if (hasZF) {
-                if (retMap == null || retMap.isEmpty()) {
-                    fbClients = _pool.getEVCacheClientsForReadExcluding(client.getServerGroup());
-                    if (fbClients != null && !fbClients.isEmpty()) {
-                        for (int i = 0; i < fbClients.size(); i++) {
-                            final EVCacheClient fbClient = fbClients.get(i);
-                            if(i >= fbClients.size() - 1) throwEx = throwExc;
-                            if (event != null) {
-                                try {
-                                    if (shouldThrottle(event)) {
-                                        status = EVCacheMetricsFactory.THROTTLED;
-                                        if (throwExc) throw new EVCacheException("Request Throttled for app " + _appName + " & key " + evcKeys);
-                                        return null;
-                                    }
-                                } catch(EVCacheException ex) {
-                                    if(throwExc) throw ex;
-                                    status = EVCacheMetricsFactory.THROTTLED;
-                                    return null;
-                                }
-                            }
-                            tries++;
-                            retMap = getBulkData(fbClient, evcKeys, tc, throwEx, (i < fbClients.size() - 1) ? true : false);
-                            if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + evcKeys + (log.isTraceEnabled() ? "], Value [" + retMap : "") + "], zone : " + fbClient.getZone());
-                            if (retMap != null && !retMap.isEmpty()) break;
-                        }
-                        //increment("BULK-FULL_RETRY-" + ((retMap == null || retMap.isEmpty()) ? "MISS" : "HIT"));
+                if (retMap == null || retMap.isEmpty() || (keys.size() > retMap.size() && _bulkPartialZoneFallbackFP.get())) {
+                    if (retMap == null) {
+                        retMap = new HashMap<>();
                     }
-                } else if (retMap != null && keys.size() > retMap.size() && _bulkPartialZoneFallbackFP.get()) {
+
                     final int initRetrySize = keys.size() - retMap.size();
                     List<EVCacheKey> retryEVCacheKeys = new ArrayList<EVCacheKey>(initRetrySize);
                     for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext();) {
@@ -2149,6 +2127,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                     if (fbClients != null && !fbClients.isEmpty()) {
                         for (int ind = 0; ind < fbClients.size(); ind++) {
                             final EVCacheClient fbClient = fbClients.get(ind);
+                            if(ind >= fbClients.size() - 1) throwEx = throwExc;
                             if (event != null) {
                                 try {
                                     if (shouldThrottle(event)) {
@@ -2164,19 +2143,21 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                             }
                             tries++;
 
-                            final Map<EVCacheKey, T> fbRetMap = getBulkData(fbClient, retryEVCacheKeys, tc, false, hasZF);
+                            final Map<EVCacheKey, T> fbRetMap = getBulkData(fbClient, retryEVCacheKeys, tc, throwEx, (ind < fbClients.size() - 1) ? true : false);
                             if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + retryEVCacheKeys + "], Fallback Server Group : " + fbClient .getServerGroup().getName());
-                            for (Map.Entry<EVCacheKey, T> i : fbRetMap.entrySet()) {
-                                retMap.put(i.getKey(), i.getValue());
-                                if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + i.getKey() + (log.isTraceEnabled() ? "], Value [" + i.getValue(): "]"));
-                            }
-                            if (retryEVCacheKeys.size() == fbRetMap.size()) break;
-                            if (ind < fbClients.size()) {
-                                retryEVCacheKeys = new ArrayList<EVCacheKey>(keys.size() - retMap.size());
-                                for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext();) {
-                                    final EVCacheKey key = keysItr.next();
-                                    if (!retMap.containsKey(key)) {
-                                        retryEVCacheKeys.add(key);
+                            if (fbRetMap != null && !fbRetMap.isEmpty()) {
+                                for (Map.Entry<EVCacheKey, T> i : fbRetMap.entrySet()) {
+                                    retMap.put(i.getKey(), i.getValue());
+                                    if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for APP " + _appName + ", key [" + i.getKey() + (log.isTraceEnabled() ? "], Value [" + i.getValue() : "]"));
+                                }
+                                if (retryEVCacheKeys.size() == fbRetMap.size()) break;
+                                if (ind < fbClients.size() - 1) {
+                                    retryEVCacheKeys = new ArrayList<EVCacheKey>(keys.size() - retMap.size());
+                                    for (Iterator<EVCacheKey> keysItr = evcKeys.iterator(); keysItr.hasNext(); ) {
+                                        final EVCacheKey key = keysItr.next();
+                                        if (!retMap.containsKey(key)) {
+                                            retryEVCacheKeys.add(key);
+                                        }
                                     }
                                 }
                             }
