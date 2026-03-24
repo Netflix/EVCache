@@ -389,6 +389,7 @@ public final class EVCacheMetricsFactory {
     public static final String CALLBACK                         = "callback";
     public static final String VERIFY                           = "verify";
     public static final String READ_QUEUE_FULL                  = "readQueueFull";
+    public static final String WRITE_QUEUE_FULL                 = "writeQueueFull";
     public static final String INACTIVE_NODE                    = "inactiveNode";
     public static final String IGNORE_INACTIVE_NODES            = "ignoreInactiveNode";
     public static final String INCORRECT_CHUNKS                 = "incorrectNumOfChunks";
