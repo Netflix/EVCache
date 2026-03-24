@@ -289,9 +289,9 @@ public class EVCacheClient {
                 }
 
                 if(i++ > 3) {
-                    incrementFailure(EVCacheMetricsFactory.INACTIVE_NODE, call);
+                    incrementFailure(EVCacheMetricsFactory.WRITE_QUEUE_FULL, call);
                     if (log.isDebugEnabled()) log.debug("Node : " + evcNode + " for app : " + appName + "; zone : "
-                            + zone + " is not active. Will Fail Fast and the write will be dropped for key : " + key);
+                            + zone + " write queue is full. Will Fail Fast and the write will be dropped for key : " + key);
                     evcNode.shutdown();
                     return false;
                 }
