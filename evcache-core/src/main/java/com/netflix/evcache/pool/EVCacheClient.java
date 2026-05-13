@@ -20,7 +20,10 @@ import com.netflix.evcache.util.KeyHasher;
 import com.netflix.evcache.util.KeyHasher.HashingAlgorithm;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Counter;
+import com.netflix.spectator.api.Id;
+import com.netflix.spectator.api.Registry;
 import com.netflix.spectator.api.Tag;
+import com.netflix.spectator.api.patterns.PolledMeter;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -102,6 +105,7 @@ public class EVCacheClient {
     private final Property<Boolean> ignoreTouch;
     private List<Tag> tags;
     private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
+    private final Id loopCpuUtilizationId;
     private final Property<String> hashingAlgo;
     protected final Counter operationsCounter;
     private final boolean isDuetClient;
@@ -133,6 +137,8 @@ public class EVCacheClient {
         tagList.add(new BasicTag(EVCacheMetricsFactory.STAT_NAME, EVCacheMetricsFactory.POOL_OPERATIONS));
         operationsCounter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.INTERNAL_STATS, tagList);
 
+        final Registry registry = EVCacheMetricsFactory.getInstance().getRegistry();
+
         this.enableChunking = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName()+ ".chunk.data", Boolean.class).orElseGet(appName + ".chunk.data").orElse(false);
         this.chunkSize = EVCacheConfig.getInstance().getPropertyRepository().get(this.serverGroup.getName() + ".chunk.size", Integer.class).orElseGet(appName + ".chunk.size").orElse(1180);
         this.writeBlock = EVCacheConfig.getInstance().getPropertyRepository().get(appName + "." + this.serverGroup.getName() + ".write.block.duration", Integer.class).orElseGet(appName + ".write.block.duration").orElse(25);
@@ -141,10 +147,14 @@ public class EVCacheClient {
         this.ignoreTouch = EVCacheConfig.getInstance().getPropertyRepository().get(appName + "." + this.serverGroup.getName() + ".ignore.touch", Boolean.class).orElseGet(appName + ".ignore.touch").orElse(false);
 
         this.connectionFactory = pool.getEVCacheClientPoolManager().getConnectionFactoryProvider().getConnectionFactory(this);
+        loopCpuUtilizationId = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_LOOP_CPU_UTILIZATION, this.tags);
         this.connectionObserver = new EVCacheConnectionObserver(this);
         this.ignoreInactiveNodes = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".ignore.inactive.nodes", Boolean.class).orElse(true);
 
         this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, this);
+        PolledMeter.using(registry)
+                .withId(loopCpuUtilizationId)
+                .monitorValue(this.evcacheMemcachedClient.getLoopProbe(), EVCacheLoopProbe::sampleUtilization);
         this.evcacheMemcachedClient.addObserver(connectionObserver);
 
         this.decodingTranscoder = new EVCacheSerializingTranscoder(Integer.MAX_VALUE);
@@ -1342,6 +1352,11 @@ public class EVCacheClient {
         if(shutdown) return true;
 
         shutdown = true;
+        try {
+            PolledMeter.remove(EVCacheMetricsFactory.getInstance().getRegistry(), loopCpuUtilizationId);
+        } catch(Throwable t) {
+            log.warn("Exception while removing loop CPU utilization meter", t);
+        }
         try {
             evcacheMemcachedClient.shutdown(timeout, unit);
         } catch(Throwable t) {
