@@ -53,15 +53,21 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
     private final Collection<Operation> ops;
     private final CountDownLatch latch;
     private final long start;
+    private final long operationAttachedNs;
     private final EVCacheClient client;
     private AtomicReferenceArray<SingleOperationState> operationStates;
 
     public EVCacheBulkGetFuture(Map<String, Future<T>> m, Collection<Operation> getOps, CountDownLatch l, ExecutorService service, EVCacheClient client) {
+        this(m, getOps, l, service, client, System.nanoTime());
+    }
+
+    public EVCacheBulkGetFuture(Map<String, Future<T>> m, Collection<Operation> getOps, CountDownLatch l, ExecutorService service, EVCacheClient client, long operationAttachedNs) {
         super(m, getOps, l, service);
         rvMap = m;
         ops = getOps;
         latch = l;
         this.start = System.currentTimeMillis();
+        this.operationAttachedNs = operationAttachedNs;
         this.client = client;
         this.operationStates = null;
     }
@@ -345,6 +351,7 @@ public class EVCacheBulkGetFuture<T> extends BulkGetFuture<T> {
 
     public void signalSingleOpComplete(int sequenceNo, GetOperation op) {
         this.operationStates.set(sequenceNo, new SingleOperationState(op));
+        client.recordLoopEnqueueToWriteLatency(op, operationAttachedNs);
     }
 
     public boolean cancel(boolean ign) {

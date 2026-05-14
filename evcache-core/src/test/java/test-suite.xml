@@ -4,6 +4,8 @@
     <classes>
       <class name="com.netflix.evcache.pool.NodeLocatorLookupTest" />
       <class name="com.netflix.evcache.pool.EVCacheLoopProbeTest" />
+      <class name="com.netflix.evcache.operation.EVCacheOperationFutureLatencyTest" />
+      <class name="com.netflix.evcache.operation.EVCacheBulkGetFutureLatencyTest" />
     </classes>
   </test>
   <test name="MockTests">

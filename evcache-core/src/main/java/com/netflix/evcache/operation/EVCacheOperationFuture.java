@@ -74,6 +74,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     private final CountDownLatch latch;
     private final AtomicReference<T> objRef;
     private Operation op;
+    private long operationAttachedNs;
     private final String key;
     private final long start;
     private final EVCacheClient client;
@@ -93,6 +94,7 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
 
     public void setOperation(Operation to) {
         this.op = to;
+        this.operationAttachedNs = System.nanoTime();
         super.setOperation(to);
     }
 
@@ -380,7 +382,11 @@ public class EVCacheOperationFuture<T> extends OperationFuture<T> {
     }
 
     public void signalComplete() {
-        super.signalComplete();
+        try {
+            client.recordLoopEnqueueToWriteLatency(op, operationAttachedNs);
+        } finally {
+            super.signalComplete();
+        }
     }
 
     /**

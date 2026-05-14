@@ -285,6 +285,7 @@ public final class EVCacheMetricsFactory {
     public static final String INTERNAL_EXECUTOR_SCHEDULED          = "internal.evc.client.scheduledExecutor";
     public static final String INTERNAL_POOL_INIT_ERROR             = "internal.evc.client.init.error";
     public static final String INTERNAL_LOOP_CPU_WALL_TIME_RATIO    = "internal.evc.client.loop.cpuWallTimeRatio";
+    public static final String INTERNAL_LOOP_ENQUEUE_TO_WRITE_LATENCY = "internal.evc.client.loop.enqueueToWriteLatency";
 
     public static final String INTERNAL_NUM_CHUNK_SIZE              = "internal.evc.client.chunking.numOfChunks";
     public static final String INTERNAL_CHUNK_DATA_SIZE             = "internal.evc.client.chunking.dataSize";

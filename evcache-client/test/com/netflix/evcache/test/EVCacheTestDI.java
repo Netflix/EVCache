@@ -21,6 +21,7 @@ import com.netflix.evcache.util.KeyHasher;
 import com.netflix.spectator.api.Gauge;
 import com.netflix.spectator.api.Id;
 import com.netflix.spectator.api.Registry;
+import com.netflix.spectator.api.Timer;
 import com.netflix.spectator.api.patterns.PolledMeter;
 import java.util.HashMap;
 import java.util.List;
@@ -109,6 +110,31 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
             }
         }
         assertTrue(nonZero, "expected loop cpuWallTimeRatio meter to report a non-zero value");
+    }
+
+    @Test(dependsOnMethods = { "testLoopCpuUtilizationMetricRegistered" })
+    public void testLoopEnqueueToWriteLatencyMetricRecords() throws Exception {
+        final Registry registry = EVCacheMetricsFactory.getInstance().getRegistry();
+        final Map<ServerGroup, List<EVCacheClient>> clientsByServerGroup = manager.getEVCacheClientPool(appName).getAllInstancesByServerGroup();
+        assertFalse(clientsByServerGroup.isEmpty(), "expected EVCache clients for " + appName);
+
+        boolean recorded = false;
+        for (int attempt = 0; attempt < 10 && !recorded; attempt++) {
+            get(attempt, evCache);
+            Thread.sleep(50);
+            for (List<EVCacheClient> clients : clientsByServerGroup.values()) {
+                for (EVCacheClient client : clients) {
+                    final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_LOOP_ENQUEUE_TO_WRITE_LATENCY, client.getTagList());
+                    final Timer timer = registry.timer(id);
+                    if (timer.count() > 0L) {
+                        recorded = true;
+                        break;
+                    }
+                }
+                if (recorded) break;
+            }
+        }
+        assertTrue(recorded, "expected enqueueToWriteLatency timer to record at least one sample");
     }
 
     @Test(dependsOnMethods = { "testEVCache" })
