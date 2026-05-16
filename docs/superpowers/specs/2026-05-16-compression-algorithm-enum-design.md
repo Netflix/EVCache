@@ -26,11 +26,12 @@ public static final int DEFAULT_ZSTD_COMPRESSION_LEVEL = 3;
 ```
 Level 3 is zstd's own default — good speed/ratio balance for a cache write path. Level 9 (VHS's choice) is 10x slower to compress for only ~10% better ratio, appropriate for at-rest storage but not a latency-sensitive cache.
 
-**New field:**
+**New fields:**
 ```java
 private final CompressionAlgorithm compressionAlgorithm;
+private final int zstdLevel;
 ```
-Defaults to `GZIP` in existing constructors — no behavioral change for current callers.
+Both default in existing constructors (`GZIP`, `DEFAULT_ZSTD_COMPRESSION_LEVEL`) — no behavioral change for current callers.
 
 **New constructors:**
 ```java
