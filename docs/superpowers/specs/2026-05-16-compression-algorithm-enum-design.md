@@ -53,7 +53,7 @@ public EVCacheSerializingTranscoder(int max, CompressionAlgorithm algo, int zstd
 |---|---|
 | `0x1F 0x8B` | gzip |
 | `0x28 0xB5 0x2F 0xFD` (little-endian int) | zstd |
-| neither | return data as-is (backward compat for unrecognized data) |
+| neither | return data as-is (backward compat) |
 
 Zstd decompression uses a fast path when the frame carries a content-size header (`Zstd.decompressedSize() > 0`), falling back to `ZstdInputStream` stream-decode otherwise.
 
@@ -112,7 +112,6 @@ Same library used by `viewing_history_service/CompressionUtils.java`.
 
 ## Out of Scope
 
-- zlib detection (no existing zlib-compressed data in EVCache)
 - Gzip level FP (Java default level 6 is the established behavior; easy to add later)
 - Updating `ChunkTranscoder` (separate concern)
 
