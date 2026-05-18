@@ -238,7 +238,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     }
 
     private boolean isZstdCompressed(byte[] data) {
-        if (data.length < 4) return false;
+        if (data == null || data.length < 4) return false;
         int magic = ByteBuffer.wrap(data, 0, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
         return magic == ZSTD_MAGIC;
     }
