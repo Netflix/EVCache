@@ -74,8 +74,6 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     public static final int DEFAULT_ZSTD_COMPRESSION_LEVEL = 3;
 
     private static final int ZSTD_MAGIC = 0xFD2FB528;
-    private static final byte GZIP_MAGIC_0 = (byte) 0x1f;
-    private static final byte GZIP_MAGIC_1 = (byte) 0x8b;
 
     private final TranscoderUtils tu = new TranscoderUtils(true);
     private Timer timer;
@@ -237,10 +235,6 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         if (in == null || in.length == 0) return in;
         if (isZstdCompressed(in)) return decompressZstd(in);
         return super.decompress(in);
-    }
-
-    private boolean isGzipCompressed(byte[] data) {
-        return data.length >= 2 && data[0] == GZIP_MAGIC_0 && data[1] == GZIP_MAGIC_1;
     }
 
     private boolean isZstdCompressed(byte[] data) {
