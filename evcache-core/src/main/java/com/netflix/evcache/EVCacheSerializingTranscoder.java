@@ -236,8 +236,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     protected byte[] decompress(byte[] in) {
         if (in == null || in.length == 0) return in;
         if (isZstdCompressed(in)) return decompressZstd(in);
-        if (isGzipCompressed(in)) return super.decompress(in);
-        return in;
+        return super.decompress(in);
     }
 
     private boolean isGzipCompressed(byte[] data) {
