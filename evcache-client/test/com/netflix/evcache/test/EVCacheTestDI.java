@@ -118,10 +118,17 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         final Map<ServerGroup, List<EVCacheClient>> clientsByServerGroup = manager.getEVCacheClientPool(appName).getAllInstancesByServerGroup();
         assertFalse(clientsByServerGroup.isEmpty(), "expected EVCache clients for " + appName);
 
+        // recordLoopEnqueueToWriteLatency is invoked from EVCacheOperationFuture.signalComplete,
+        // which runs on the spymemcached IO loop *after* OperationFuture's latch is decremented.
+        // That means evCache.get() can return before the metric has been recorded. Issue gets
+        // and poll the timer until one sample shows up, with a generous total budget so slow
+        // CI hosts can't lose the race.
+        final long deadlineNs = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         boolean recorded = false;
-        for (int attempt = 0; attempt < 10 && !recorded; attempt++) {
-            get(attempt, evCache);
-            Thread.sleep(50);
+        int attempt = 0;
+        while (!recorded && System.nanoTime() < deadlineNs) {
+            get(attempt++, evCache);
+            Thread.sleep(100);
             for (List<EVCacheClient> clients : clientsByServerGroup.values()) {
                 for (EVCacheClient client : clients) {
                     final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_LOOP_ENQUEUE_TO_WRITE_LATENCY, client.getTagList());

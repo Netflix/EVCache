@@ -1705,21 +1705,19 @@ public class EVCacheClient {
      * Record per-operation in-process latency from when an EVCache future attached
      * a spymemcached {@link net.spy.memcached.ops.Operation} (immediately before
      * enqueue into the memcached connection) to when the loop thread finished
-     * writing the operation to the socket.
+     * writing the operation to the socket (may be queued at socket).
      *
-     * <p>This is the lagging knee-detector that complements the phase 1 loop CPU
-     * utilization gauge. It is no-throw on purpose so a bad measurement cannot
-     * break an operation completion callback.
+     * Use this to identify if the evcache IO thread is getting busy enough that it
+     * is impacting transaction latency. This does not completely capture the socket
+     * to network packet time as there may still be queueing on the socket and NIC.
      */
     public void recordLoopEnqueueToWriteLatency(net.spy.memcached.ops.Operation op, long operationAttachedNs) {
         if (op == null || operationAttachedNs <= 0L) return;
-        try {
-            final long wc = op.getWriteCompleteTimestamp();
-            if (wc <= 0L || wc < operationAttachedNs) return;
-            loopEnqueueToWriteLatency.record(wc - operationAttachedNs, TimeUnit.NANOSECONDS);
-        } catch (Throwable t) {
-            if (log.isDebugEnabled()) log.debug("recordLoopEnqueueToWriteLatency failed", t);
-        }
+
+        final long writeComplete = op.getWriteCompleteTimestamp();
+        if (writeComplete <= 0L || writeComplete < operationAttachedNs) return;
+
+        loopEnqueueToWriteLatency.record(writeComplete - operationAttachedNs, TimeUnit.NANOSECONDS);
     }
 
 
