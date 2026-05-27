@@ -449,13 +449,12 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
 
         // async bulk get
         for (int op : new int[]{0, 1}) {
-            Map<String, Movie> results = new HashMap<>();
+            Map<String, Movie> results;
             if (op == 0) {
                 CompletableFuture<Map<String, Movie>> future = evCache.getAsyncBulk(kv.keySet().toArray(new String[0]));
                 results = future.get(10000, TimeUnit.MILLISECONDS);
-            // } else {
-                // TODO: getBulk api is known to be broken for un-hashed keys not decoding correctly when request contains both hashed and unhashed keys
-                // results = evCache.getBulk(kv.keySet().toArray(new String[0]));
+            } else {
+                results = evCache.getBulk(kv.keySet().toArray(new String[0]));
             }
 
             for (Map.Entry<String, Movie> result : results.entrySet()) {

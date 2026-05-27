@@ -999,6 +999,35 @@ public class EVCacheClient {
     }
 
     /**
+     * Sync sibling of {@link #getAsyncBulk(Collection, Set, Transcoder, EVCacheTranscoder, String, boolean, BiPredicate)}.
+     * Routes through the same mixed-key-aware {@link EVCacheMemcachedClient#asyncGetBulk} entry point and blocks on
+     * {@code .getSome(...)} so hashed and plain keys in one request are each decoded with the correct transcoder
+     * (two-step for hashed, one-step for plain). Does not support chunking; chunked apps must keep using
+     * {@link #getBulk(Collection, Transcoder, boolean, boolean)}.
+     */
+    public <T> Map<String, T> getBulk(Collection<String> plainKeys, Set<String> hashedKeys,
+                                      Transcoder<T> valueTranscoder, EVCacheTranscoder evcacheValueTranscoder,
+                                      String appName, boolean shouldLog, BiPredicate<String, String> collisionChecker,
+                                      boolean _throwException, boolean hasZF) throws Exception {
+        try {
+            if (valueTranscoder == null) valueTranscoder = (Transcoder<T>) getTranscoder();
+            final BiPredicate<MemcachedNode, String> validator = (node, key) -> {
+                NodeValidationResult result = validateNodeForRead(node, Call.BULK, 2 * maxReadQueueSize.get());
+                if (result != NodeValidationResult.OK) {
+                    return false;
+                }
+                return true;
+            };
+            return evcacheMemcachedClient
+                    .asyncGetBulk(plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, validator, appName, shouldLog, collisionChecker)
+                    .getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+        } catch (Exception e) {
+            if (_throwException) throw e;
+            return Collections.<String, T> emptyMap();
+        }
+    }
+
+    /**
      * @Deprecated This method does NOT support a mix of plain and hashed keys in {@code keys}. All keys are
      * decoded exactly using the given transcoder (note that hashed keys require two step decoding).
      * For supporting a mix of hashed and plain keys in the {@code keys} collection,
