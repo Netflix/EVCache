@@ -27,7 +27,6 @@ import com.github.luben.zstd.ZstdInputStream;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
-import com.netflix.spectator.api.Timer;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.BaseSerializingTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
@@ -39,11 +38,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -76,7 +73,6 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     private static final int ZSTD_MAGIC = 0xFD2FB528;
 
     private final TranscoderUtils tu = new TranscoderUtils(true);
-    private Timer timer;
     private CompressionAlgorithm compressionAlgorithm = CompressionAlgorithm.GZIP;
     private int zstdLevel = DEFAULT_ZSTD_COMPRESSION_LEVEL;
 
@@ -211,8 +207,8 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
                         o.getClass().getName(), originalLength, compressed.length);
             }
 
-            long compression_ratio = Math.round((double) compressed.length / originalLength * 100);
-            updateTimerWithCompressionRatio(compression_ratio);
+            long ratioPerCent = Math.round((double) compressed.length / originalLength * 100);
+            recordCompressionRatio(ratioPerCent);
         }
         return new CachedData(flags, b, getMaxSize());
     }
@@ -277,14 +273,12 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         return out.toByteArray();
     }
 
-    private void updateTimerWithCompressionRatio(long ratio_percentage) {
-        if(timer == null) {
-            final List<Tag> tagList = new ArrayList<Tag>(1);
-            tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, compressionAlgorithm.name().toLowerCase()));
-            timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList, Duration.ofMillis(100));
-        }
-
-        timer.record(ratio_percentage, TimeUnit.MILLISECONDS);
+    private void recordCompressionRatio(long ratioPerCent) {
+        final List<Tag> tagList = new ArrayList<Tag>(1);
+        tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, compressionAlgorithm.name().toLowerCase()));
+        EVCacheMetricsFactory.getInstance()
+                .getDistributionSummary(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList)
+                .record(ratioPerCent);
     }
 
 }
