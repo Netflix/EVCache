@@ -1973,14 +1973,6 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             final Set<String> plainKeys = keyMapDto.getPlainKeysMap().keySet();
             final Set<String> hashedKeys = keyMapDto.getHashedKeysMap().keySet();
 
-            // Preserve chunking behavior for plain-only requests: route through the existing single-transcoder
-            // path, which is the only one that honors enableChunking. Chunked apps do not use hashed keys.
-            if (hashedKeys.isEmpty()) {
-                if (tc == null && _transcoder != null) tc = (Transcoder<T>) _transcoder;
-                final Map<String, T> objMap = client.getBulk(plainKeys, tc, throwException, hasZF);
-                return buildKeyValueResult(objMap, keyMapDto);
-            }
-
             final BiPredicate<String, String> collisionChecker = (hashedKey, decodedKey) -> {
                 final EVCacheKey evcKey = keyMapDto.getHashedKeysMap().get(hashedKey);
                 if (evcKey.getCanonicalKey(client.isDuetClient()).equals(decodedKey)) {
