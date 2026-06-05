@@ -593,7 +593,7 @@ public class EVCacheClient {
         return valueTranscoder.decode(raw);
     }
 
-    private <T> Map<String, T> assembleChunks(Collection<String> plainKeys, Set<String> hashedKeys, Transcoder<T> valueTranscoder, EVCacheTranscoder evcacheValueTranscoder, BiPredicate<String, String> collisionChecker, boolean hasZF) {
+    private <T> Map<String, T> assembleChunks(Collection<String> plainKeys, Set<String> hashedKeys, Transcoder<T> valueTranscoder, EVCacheTranscoder evcacheValueTranscoder, BiPredicate<String, String> collisionChecker, boolean hasZF) throws Exception {
         final Set<String> keyList = new HashSet<>();
         if (plainKeys != null) keyList.addAll(plainKeys);
         if (hashedKeys != null) keyList.addAll(hashedKeys);
@@ -611,7 +611,10 @@ public class EVCacheClient {
             for (String key : keyList) {
                 if (metadataMap.containsKey(key)) {
                     CachedData val = metadataMap.remove(key);
-                    returnMap.put(key, decodeForKey(key, val, plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, collisionChecker, hasZF));
+                    final T decoded = decodeForKey(key, val, plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, collisionChecker, hasZF);
+                    if (decoded != null) {
+                        returnMap.put(key, decoded);
+                    }
                 }
             }
 
@@ -680,7 +683,10 @@ public class EVCacheClient {
                 final boolean checksumPass = checkCRCChecksum(data, ci, hasZF);
                 if (data != null && checksumPass) {
                     final CachedData cd = new CachedData(ci.getFlags(), data, Integer.MAX_VALUE);
-                    returnMap.put(ci.getKey(), decodeForKey(ci.getKey(), cd, plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, collisionChecker, hasZF));
+                    final T decoded = decodeForKey(ci.getKey(), cd, plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, collisionChecker, hasZF);
+                    if (decoded != null) {
+                        returnMap.put(ci.getKey(), decoded);
+                    }
                 } else {
                     returnMap.put(ci.getKey(), null);
                 }
@@ -688,15 +694,15 @@ public class EVCacheClient {
             return returnMap;
         } catch (Exception e) {
             log.error(e.getMessage(), e);
+            throw e;
         }
-        return null;
     }
 
     /**
      * Plain-only chunk assembly. Delegates to the mixed-key variant with an empty hashed-key set, so every key is
      * decoded in a single step (identical to the legacy single-transcoder behavior).
      */
-    private <T> Map<String, T> assembleChunks(Collection<String> keyList, Transcoder<T> tc, boolean hasZF) {
+    private <T> Map<String, T> assembleChunks(Collection<String> keyList, Transcoder<T> tc, boolean hasZF) throws Exception {
         return assembleChunks(keyList, Collections.<String>emptySet(), tc, null, null, hasZF);
     }
 
@@ -1054,7 +1060,8 @@ public class EVCacheClient {
         try {
             if (valueTranscoder == null) valueTranscoder = (Transcoder<T>) getTranscoder();
             if (enableChunking.get()) {
-                return assembleChunks(plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, collisionChecker, hasZF);
+                final Map<String, T> chunked = assembleChunks(plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, collisionChecker, hasZF);
+                return chunked == null ? Collections.<String, T>emptyMap() : chunked;
             }
             final BiPredicate<MemcachedNode, String> validator = (node, key) -> {
                 NodeValidationResult result = validateNodeForRead(node, Call.BULK, 2 * maxReadQueueSize.get());
