@@ -587,6 +587,11 @@ public class EVCacheClient {
                 if (!collision) {
                     return valueTranscoder.decode(new CachedData(val.getFlags(), val.getValue(), valueTranscoder.getMaxSize()));
                 }
+            } else if (log.isDebugEnabled()) {
+                // Mirrors the non-chunked path in EVCacheMemcachedClient.asyncGetBulk: decoding a hashed key did not yield
+                // an EVCacheValue (e.g. a hashed/raw key collision). The key is dropped from the result below.
+                log.debug("APP " + appName + ", applying envelopeTranscoder to hashed key " + key
+                        + " did not yield an EVCacheValue (possible collision); dropping from result");
             }
             return null;
         }
@@ -699,8 +704,8 @@ public class EVCacheClient {
     }
 
     /**
-     * Plain-only chunk assembly. Delegates to the mixed-key variant with an empty hashed-key set, so every key is
-     * decoded in a single step (identical to the legacy single-transcoder behavior).
+     * Plain-only chunk assembly. Delegates to the mixed-key variant with an empty hashed-key set, so every key takes the
+     * single-step decode path (no envelope unwrapping).
      */
     private <T> Map<String, T> assembleChunks(Collection<String> keyList, Transcoder<T> tc, boolean hasZF) throws Exception {
         return assembleChunks(keyList, Collections.<String>emptySet(), tc, null, null, hasZF);

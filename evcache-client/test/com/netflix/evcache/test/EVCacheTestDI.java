@@ -261,9 +261,9 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
     }
 
     private void refreshEVCache() {
-        // Close the previous DI container before building a new one. setupEnv() creates a fresh
-        // LifecycleInjector (Eureka client, Spectator registry, connection pools) on every call; without
-        // closing the old one its background threads keep it alive and it leaks, eventually exhausting the heap.
+        // Close the previous DI container before building a new one. setupEnv() builds a fresh LifecycleInjector on
+        // every call; without closing the old ones they accumulate across refreshes and the suite slows to a crawl,
+        // to the point it cannot finish.
         if (lifecycleManager != null) {
             try {
                 lifecycleManager.close();
@@ -348,21 +348,22 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         propertiesToSet.put(appName + ".chunk.data", "true");
         refreshEVCache();
         assertTrue(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".chunk.data", Boolean.class).orElse(false).get());
-        doChunkingTests(false);
+        doChunkingTests();
 
-        // chunking + hashing together: the value is wrapped in an EVCacheValue envelope and then chunked under the
-        // hashed key. This exercises the mixed-key, chunk-aware getBulk (two-step decode after chunk reassembly).
-        propertiesToSet.put(appName + ".hash.key", "true");
+        // chunking + auto-hashing together: with auto.hash.keys, short keys stay plain while keys whose canonical form
+        // exceeds max.key.length are hashed. A single getBulk over both exercises the mixed-key, chunk-aware path: plain
+        // keys decode in one step, hashed keys are EVCacheValue-wrapped and decode in two steps, all after reassembly.
+        propertiesToSet.put(appName + ".auto.hash.keys", "true");
         refreshEVCache();
-        assertTrue(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElse(false).get());
-        doChunkingTests(true);
-        propertiesToSet.remove(appName + ".hash.key");
+        assertTrue(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".auto.hash.keys", Boolean.class).orElse(false).get());
+        doMixedKeyChunkingTests();
+        propertiesToSet.remove(appName + ".auto.hash.keys");
 
         propertiesToSet.remove(appName + ".chunk.data");
         refreshEVCache();
     }
 
-    private void doChunkingTests(boolean hashingEnabled) throws Exception {
+    private void doChunkingTests() throws Exception {
         final EVCacheClient client = manager.getEVCacheClientPool(appName).getEVCacheClientForRead();
 
         // single large value -> chunked set/get
@@ -371,14 +372,8 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         EVCacheLatch latch = evCache.set(largeKey, largeValue, EVCacheLatch.Policy.ALL);
         latch.await(10000, TimeUnit.MILLISECONDS);
 
-        // verify the value was actually chunked (guards against it being too small / compressed below chunk.size).
-        // For hashed keys the stored key is the hash key, so we only introspect the chunk layout for plain keys.
-        if (!hashingEnabled) {
-            final Map<String, ?> chunks = client.getAllChunks("cid:" + largeKey);
-            assertNotNull(chunks, "large value should exist in cache");
-            assertFalse(chunks.containsKey("cid:" + largeKey),
-                    "value should have been chunked, but was stored as a single key (too small / compressed below chunk.size)");
-        }
+        // verify the value was actually chunked (guards against it being too small / compressed below chunk.size)
+        assertChunked(client, "cid:" + largeKey);
 
         assertEquals(evCache.get(largeKey), largeValue, "chunked single get did not return the written value");
 
@@ -408,6 +403,74 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
                 f.get();
             }
         }
+    }
+
+    // Exercises chunking together with a real mixed-key bulk request. Requires auto.hash.keys=true: short keys whose
+    // canonical form ("cid:"+key) stays within max.key.length remain plain, while long keys that exceed it are hashed.
+    // Each group has a large (chunked) and a small (stored directly, below chunk.size) value, so the single getBulk
+    // drives all four combinations: plain/hashed x chunked/non-chunked. Plain decodes in one step, hashed in two.
+    private void doMixedKeyChunkingTests() throws Exception {
+        final EVCacheClient client = manager.getEVCacheClientPool(appName).getEVCacheClientForRead();
+
+        final Map<String, String> kv = new HashMap<>();
+
+        // short keys: canonical form stays under max.key.length (default 200) -> remain plain
+        final String plainChunkedKey = "chunked_plain_" + System.nanoTime();
+        kv.put(plainChunkedKey, buildLargeValue(3000));
+        final String plainNonChunkedKey = "nonchunked_plain_" + System.nanoTime();
+        kv.put(plainNonChunkedKey, UUID.randomUUID().toString());
+
+        // long keys: canonical form exceeds max.key.length -> auto-hashed (buildLargeValue(220) guarantees > 200)
+        final String hashedChunkedKey = "chunked_hashed_" + buildLargeValue(220);
+        kv.put(hashedChunkedKey, buildLargeValue(3000));
+        final String hashedNonChunkedKey = "nonchunked_hashed_" + buildLargeValue(220);
+        kv.put(hashedNonChunkedKey, UUID.randomUUID().toString());
+
+        for (Map.Entry<String, String> entry : kv.entrySet()) {
+            evCache.set(entry.getKey(), entry.getValue(), EVCacheLatch.Policy.ALL).await(10000, TimeUnit.MILLISECONDS);
+        }
+
+        // structural proof of the storage layout on the plain path (stored verbatim, no hashing, so introspectable):
+        // the large value is split into chunks, the small value is stored under a single key. The hashed equivalents use
+        // the same value sizes and their correct round-trip below confirms the hashed write/reassembly path.
+        assertChunked(client, "cid:" + plainChunkedKey);
+        assertNotChunked(client, "cid:" + plainNonChunkedKey);
+
+        // mixed-key, chunk-aware getBulk: plain keys decode in one step, hashed keys in two steps; chunked values are
+        // reassembled first, non-chunked values are decoded directly.
+        final Map<String, String> results = evCache.getBulk(kv.keySet().toArray(new String[0]));
+        assertNotNull(results);
+        assertEquals(results.size(), kv.size(), "mixed-key chunked getBulk returned wrong number of entries");
+        for (Map.Entry<String, String> entry : kv.entrySet()) {
+            assertEquals(results.get(entry.getKey()), entry.getValue(), "mixed-key chunked getBulk failed for key " + entry.getKey());
+        }
+
+        // single get round-trip for hashed (two-step decode) keys, both chunked and non-chunked
+        assertEquals(evCache.get(hashedChunkedKey), kv.get(hashedChunkedKey), "chunked single get of hashed key failed");
+        assertEquals(evCache.get(hashedNonChunkedKey), kv.get(hashedNonChunkedKey), "non-chunked single get of hashed key failed");
+
+        // cleanup
+        for (String key : kv.keySet()) {
+            for (Future<Boolean> f : evCache.delete(key)) {
+                f.get();
+            }
+        }
+    }
+
+    // getAllChunks returns the chunk keys (<storageKey>_01, _02, ...) when the value was chunked, or a single entry
+    // keyed by storageKey itself when stored unchunked. So absence of storageKey in the returned map proves chunking.
+    private void assertChunked(EVCacheClient client, String storageKey) throws Exception {
+        final Map<String, ?> chunks = client.getAllChunks(storageKey);
+        assertNotNull(chunks, "large value should exist in cache for key " + storageKey);
+        assertFalse(chunks.containsKey(storageKey),
+                "value should have been chunked, but was stored as a single key (too small / compressed below chunk.size): " + storageKey);
+    }
+
+    // Inverse of assertChunked: a non-chunked value is returned as a single entry keyed by storageKey itself.
+    private void assertNotChunked(EVCacheClient client, String storageKey) throws Exception {
+        final Map<String, ?> chunks = client.getAllChunks(storageKey);
+        assertNotNull(chunks, "small value should exist in cache for key " + storageKey);
+        assertTrue(chunks.containsKey(storageKey), "value should have been stored as a single (non-chunked) key: " + storageKey);
     }
 
     // Builds an incompressible value (random UUIDs) so its encoded size stays above the chunk size and actually

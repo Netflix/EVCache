@@ -1989,7 +1989,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
             final Transcoder<T> valueTranscoder = (tc == null) ? ((_transcoder == null) ? (Transcoder<T>) client.getTranscoder() : (Transcoder<T>) _transcoder) : tc;
             if (log.isDebugEnabled() && shouldLog())
-                log.debug("fetching bulk data with set of keys containing hashed key(s) {} ", evcacheKeys);
+                log.debug("fetching bulk data for APP " + _appName + " with " + plainKeys.size() + " plain and "
+                        + hashedKeys.size() + " hashed key(s) : {}", evcacheKeys);
 
             final Map<String, T> objMap = client.getBulk(plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, _appName, shouldLog(), collisionChecker, throwException, hasZF);
             return buildKeyValueResult(objMap, keyMapDto);
