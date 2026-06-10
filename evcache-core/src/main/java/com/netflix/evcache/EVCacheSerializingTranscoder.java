@@ -22,24 +22,25 @@
 
 package com.netflix.evcache;
 
+import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdInputStream;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
-import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
-import com.netflix.spectator.api.Timer;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.BaseSerializingTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.transcoders.TranscoderUtils;
-import net.spy.memcached.util.StringUtils;
 
-import java.time.Duration;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -65,8 +66,15 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
 
     static final String COMPRESSION = "COMPRESSION_METRIC";
 
+    public enum CompressionAlgorithm { GZIP, ZSTD }
+
+    public static final int DEFAULT_ZSTD_COMPRESSION_LEVEL = 3;
+
+    private static final int ZSTD_MAGIC = 0xFD2FB528;
+
     private final TranscoderUtils tu = new TranscoderUtils(true);
-    private Timer timer;
+    private CompressionAlgorithm compressionAlgorithm = CompressionAlgorithm.GZIP;
+    private int zstdLevel = DEFAULT_ZSTD_COMPRESSION_LEVEL;
 
     /**
      * Get a serializing transcoder with the default max data size.
@@ -80,6 +88,14 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
      */
     public EVCacheSerializingTranscoder(int max) {
         super(max);
+    }
+
+    public void setCompressionAlgorithm(CompressionAlgorithm algo) {
+        this.compressionAlgorithm = algo;
+    }
+
+    public void setCompressionLevel(int level) {
+        this.zstdLevel = level;
     }
 
     @Override
@@ -179,31 +195,90 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         }
         assert b != null;
         if (b.length > compressionThreshold) {
+            int originalLength = b.length;
             byte[] compressed = compress(b);
-            if (compressed.length < b.length) {
+            if (compressed.length < originalLength) {
                 getLogger().trace("Compressed %s from %d to %d",
-                        o.getClass().getName(), b.length, compressed.length);
+                        o.getClass().getName(), originalLength, compressed.length);
                 b = compressed;
                 flags |= COMPRESSED;
             } else {
                 getLogger().debug("Compression increased the size of %s from %d to %d",
-                        o.getClass().getName(), b.length, compressed.length);
+                        o.getClass().getName(), originalLength, compressed.length);
             }
 
-            long compression_ratio = Math.round((double) compressed.length / b.length * 100);
-            updateTimerWithCompressionRatio(compression_ratio);
+            long ratioPerCent = Math.round((double) compressed.length / originalLength * 100);
+            recordCompressionRatio(ratioPerCent);
         }
         return new CachedData(flags, b, getMaxSize());
     }
 
-    private void updateTimerWithCompressionRatio(long ratio_percentage) {
-        if(timer == null) {
-            final List<Tag> tagList = new ArrayList<Tag>(1);
-            tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, "gzip"));
-            timer = EVCacheMetricsFactory.getInstance().getPercentileTimer(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList, Duration.ofMillis(100));
-        };
+    @Override
+    protected byte[] compress(byte[] in) {
+        if (in == null) throw new NullPointerException("Can't compress null");
+        switch (compressionAlgorithm) {
+            case ZSTD:
+                return Zstd.compress(in, zstdLevel);
+            case GZIP:
+                return super.compress(in);
+            default:
+                throw new IllegalArgumentException("Unsupported compression algorithm: " + compressionAlgorithm);
+        }
+    }
 
-        timer.record(ratio_percentage, TimeUnit.MILLISECONDS);
+    @Override
+    protected byte[] decompress(byte[] in) {
+        if (in == null || in.length == 0) return in;
+        if (isZstdCompressed(in)) return decompressZstd(in);
+        return super.decompress(in);
+    }
+
+    private boolean isZstdCompressed(byte[] data) {
+        if (data == null || data.length < 4) return false;
+        int magic = ByteBuffer.wrap(data, 0, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
+        return magic == ZSTD_MAGIC;
+    }
+
+    private byte[] decompressZstd(byte[] in) {
+        long originalSize = Zstd.decompressedSize(in);
+        if (originalSize > Integer.MAX_VALUE) {
+            getLogger().warn("Zstd decompressed size exceeds int range: " + originalSize);
+            return null;
+        }
+        if (originalSize > 0) {
+            // Fast path: frame carries a content-size header (compress() above always does).
+            return Zstd.decompress(in, (int) originalSize);
+        }
+        // Slow path: declared size is 0, unknown (-1), or invalid (-2) — stream-decode and let
+        // ZstdInputStream surface any frame errors.
+        ZstdInputStream zis = null;
+        try {
+             zis = new ZstdInputStream(new ByteArrayInputStream(in));
+            return readAll(zis);
+        } catch (IOException e) {
+            getLogger().error("Error reading Zstd input stream", e);
+            return null;
+        } finally {
+            try { if (zis != null) zis.close(); } catch (IOException ignored) {}
+        }
+    }
+
+    private static byte[] readAll(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = in.read(buf)) != -1) {
+            out.write(buf, 0, n);
+        }
+        return out.toByteArray();
+    }
+
+    private void recordCompressionRatio(long ratioPerCent) {
+        final List<Tag> tagList = new ArrayList<Tag>(1);
+        tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, compressionAlgorithm.name().toLowerCase()));
+        EVCacheMetricsFactory.getInstance()
+                .getDistributionSummary(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList)
+                .record(ratioPerCent);
     }
 
 }

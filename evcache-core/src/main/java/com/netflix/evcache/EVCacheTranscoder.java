@@ -1,5 +1,6 @@
 package com.netflix.evcache;
 
+import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.CachedData;
@@ -17,16 +18,15 @@ public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
     public EVCacheTranscoder(int max, int compressionThreshold) {
         super(max);
         setCompressionThreshold(compressionThreshold);
-    }
-
-    @Override
-    public boolean asyncDecode(CachedData d) {
-        return super.asyncDecode(d);
-    }
-
-    @Override
-    public Object decode(CachedData d) {
-        return super.decode(d);
+        PropertyRepository config = EVCacheConfig.getInstance().getPropertyRepository();
+        CompressionAlgorithm algo = CompressionAlgorithm.valueOf(
+            config.get("default.evcache.compression.algorithm", String.class)
+                .orElse("GZIP").get().toUpperCase());
+        setCompressionAlgorithm(algo);
+        if (algo == CompressionAlgorithm.ZSTD) {
+            setCompressionLevel(config.get("default.evcache.compression.zstd.level", Integer.class)
+                .orElse(DEFAULT_ZSTD_COMPRESSION_LEVEL).get());
+        }
     }
 
     @Override
