@@ -29,8 +29,6 @@ import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
 import net.spy.memcached.CachedData;
-import net.spy.memcached.compat.log.LoggerFactory;
-import net.spy.memcached.compat.log.Logger;
 import net.spy.memcached.transcoders.BaseSerializingTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.transcoders.TranscoderUtils;
@@ -45,6 +43,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Transcoder that serializes and compresses objects.
@@ -233,10 +233,10 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         switch (compressionAlgorithm) {
             case ZSTD:
                 int zstdLevel = zstdLevelProperty.orElse(DEFAULT_ZSTD_COMPRESSION_LEVEL).get();
-                logger.info("algorithm: " + compressionAlgorithm + ", level: " + zstdLevel + ", appName: " + appName);
+                logger.debug("algorithm: " + compressionAlgorithm + ", level: " + zstdLevel + ", appName: " + appName);
                 return Zstd.compress(in, zstdLevel);
             case GZIP:
-                logger.info("algorithm: " + compressionAlgorithm + ", appName:" + appName);
+                logger.debug("algorithm: " + compressionAlgorithm + ", appName:" + appName);
                 return super.compress(in);
             default:
                 throw new IllegalArgumentException("Unsupported compression algorithm: " + compressionAlgorithm);
