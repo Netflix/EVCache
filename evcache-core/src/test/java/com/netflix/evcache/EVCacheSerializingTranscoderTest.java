@@ -11,6 +11,17 @@ import static org.testng.Assert.*;
 
 public class EVCacheSerializingTranscoderTest {
 
+    private EVCacheSerializingTranscoder buildTranscoder(String algo, Integer level) {
+        DefaultSettableConfig config = new DefaultSettableConfig();
+        config.setProperty("test.algo", algo);
+        if (level != null) config.setProperty("test.level", level);
+        PropertyRepository repo = new DefaultPropertyFactory(config);
+        EVCacheSerializingTranscoder t = new EVCacheSerializingTranscoder(CachedData.MAX_SIZE);
+        t.setCompressionAlgorithmProperty(repo.get("test.algo", String.class));
+        t.setCompressionLevelProperty(repo.get("test.level", Integer.class));
+        return t;
+    }
+
     @Test
     public void testEnumValues() {
         assertEquals(EVCacheSerializingTranscoder.CompressionAlgorithm.valueOf("GZIP"),
@@ -25,35 +36,32 @@ public class EVCacheSerializingTranscoderTest {
     }
 
     @Test
-    public void testDefaultConstructorUsesGzip() {
-        EVCacheSerializingTranscoder t = new EVCacheSerializingTranscoder();
+    public void testGzipDefaultProducesGzipMagicBytes() {
+        EVCacheSerializingTranscoder t = buildTranscoder("GZIP", null);
         t.setCompressionThreshold(0);
         CachedData encoded = t.encode("hello world hello world hello world hello world hello world");
         assertTrue((encoded.getFlags() & EVCacheSerializingTranscoder.COMPRESSED) != 0,
                 "COMPRESSED flag must be set");
         byte[] data = encoded.getData();
-        assertEquals(data[0], (byte) 0x1f, "Default constructor must use gzip");
-        assertEquals(data[1], (byte) 0x8b, "Default constructor must use gzip");
+        assertEquals(data[0], (byte) 0x1f, "GZIP property must produce gzip magic byte 0");
+        assertEquals(data[1], (byte) 0x8b, "GZIP property must produce gzip magic byte 1");
     }
 
     @Test
-    public void testSetCompressionAlgorithmProducesZstd() {
-        EVCacheSerializingTranscoder t = new EVCacheSerializingTranscoder(CachedData.MAX_SIZE);
-        t.setCompressionAlgorithm(EVCacheSerializingTranscoder.CompressionAlgorithm.ZSTD);
+    public void testZstdPropertyProducesZstdMagicBytes() {
+        EVCacheSerializingTranscoder t = buildTranscoder("ZSTD", null);
         t.setCompressionThreshold(0);
         CachedData encoded = t.encode("hello world hello world hello world hello world hello world");
         assertTrue((encoded.getFlags() & EVCacheSerializingTranscoder.COMPRESSED) != 0,
                 "COMPRESSED flag must be set");
         byte[] data = encoded.getData();
-        assertEquals(data[0], (byte) 0x28, "setCompressionAlgorithm(ZSTD) must produce zstd magic byte 0");
-        assertEquals(data[1], (byte) 0xB5, "setCompressionAlgorithm(ZSTD) must produce zstd magic byte 1");
+        assertEquals(data[0], (byte) 0x28, "ZSTD property must produce zstd magic byte 0");
+        assertEquals(data[1], (byte) 0xB5, "ZSTD property must produce zstd magic byte 1");
     }
 
     @Test
-    public void testSetCompressionLevelRoundTrip() {
-        EVCacheSerializingTranscoder t = new EVCacheSerializingTranscoder(CachedData.MAX_SIZE);
-        t.setCompressionAlgorithm(EVCacheSerializingTranscoder.CompressionAlgorithm.ZSTD);
-        t.setCompressionLevel(5);
+    public void testCustomZstdLevelRoundTrip() {
+        EVCacheSerializingTranscoder t = buildTranscoder("ZSTD", 5);
         t.setCompressionThreshold(1);
         String original = "hello world hello world hello world hello world hello world";
         CachedData encoded = t.encode(original);
@@ -63,7 +71,7 @@ public class EVCacheSerializingTranscoderTest {
 
     @Test
     public void testGzipEncodeSetsGzipMagicBytes() {
-        EVCacheSerializingTranscoder t = new EVCacheSerializingTranscoder(CachedData.MAX_SIZE);
+        EVCacheSerializingTranscoder t = buildTranscoder("GZIP", null);
         t.setCompressionThreshold(0);
         CachedData encoded = t.encode("hello world hello world hello world hello world hello world");
         assertTrue((encoded.getFlags() & EVCacheSerializingTranscoder.COMPRESSED) != 0,
@@ -75,8 +83,7 @@ public class EVCacheSerializingTranscoderTest {
 
     @Test
     public void testZstdEncodeSetsZstdMagicBytes() {
-        EVCacheSerializingTranscoder t = new EVCacheSerializingTranscoder(CachedData.MAX_SIZE);
-        t.setCompressionAlgorithm(EVCacheSerializingTranscoder.CompressionAlgorithm.ZSTD);
+        EVCacheSerializingTranscoder t = buildTranscoder("ZSTD", null);
         t.setCompressionThreshold(0);
         CachedData encoded = t.encode("hello world hello world hello world hello world hello world");
         assertTrue((encoded.getFlags() & EVCacheSerializingTranscoder.COMPRESSED) != 0,
@@ -91,7 +98,7 @@ public class EVCacheSerializingTranscoderTest {
 
     @Test
     public void testGzipRoundTrip() {
-        EVCacheSerializingTranscoder transcoder = new EVCacheSerializingTranscoder(CachedData.MAX_SIZE);
+        EVCacheSerializingTranscoder transcoder = buildTranscoder("GZIP", null);
         transcoder.setCompressionThreshold(1);
         String original = "hello world hello world hello world hello world hello world";
         CachedData encoded = transcoder.encode(original);
@@ -101,8 +108,7 @@ public class EVCacheSerializingTranscoderTest {
 
     @Test
     public void testZstdRoundTrip() {
-        EVCacheSerializingTranscoder transcoder = new EVCacheSerializingTranscoder(CachedData.MAX_SIZE);
-        transcoder.setCompressionAlgorithm(EVCacheSerializingTranscoder.CompressionAlgorithm.ZSTD);
+        EVCacheSerializingTranscoder transcoder = buildTranscoder("ZSTD", null);
         transcoder.setCompressionThreshold(1);
         String original = "hello world hello world hello world hello world hello world";
         CachedData encoded = transcoder.encode(original);
@@ -113,10 +119,9 @@ public class EVCacheSerializingTranscoderTest {
     @Test
     public void testGzipTranscoderDecodesZstdData() {
         // zstd transcoder writes, gzip transcoder reads → cross-decode via magic-byte detection
-        EVCacheSerializingTranscoder writer = new EVCacheSerializingTranscoder(CachedData.MAX_SIZE);
-        writer.setCompressionAlgorithm(EVCacheSerializingTranscoder.CompressionAlgorithm.ZSTD);
+        EVCacheSerializingTranscoder writer = buildTranscoder("ZSTD", null);
         writer.setCompressionThreshold(1);
-        EVCacheSerializingTranscoder reader = new EVCacheSerializingTranscoder(CachedData.MAX_SIZE);
+        EVCacheSerializingTranscoder reader = buildTranscoder("GZIP", null);
 
         String original = "hello world hello world hello world hello world hello world";
         CachedData encoded = writer.encode(original);
@@ -127,10 +132,9 @@ public class EVCacheSerializingTranscoderTest {
     @Test
     public void testZstdTranscoderDecodesGzipData() {
         // gzip transcoder writes, zstd transcoder reads → cross-decode via magic-byte detection
-        EVCacheSerializingTranscoder writer = new EVCacheSerializingTranscoder(CachedData.MAX_SIZE);
+        EVCacheSerializingTranscoder writer = buildTranscoder("GZIP", null);
         writer.setCompressionThreshold(1);
-        EVCacheSerializingTranscoder reader = new EVCacheSerializingTranscoder(CachedData.MAX_SIZE);
-        reader.setCompressionAlgorithm(EVCacheSerializingTranscoder.CompressionAlgorithm.ZSTD);
+        EVCacheSerializingTranscoder reader = buildTranscoder("ZSTD", null);
 
         String original = "hello world hello world hello world hello world hello world";
         CachedData encoded = writer.encode(original);
@@ -140,8 +144,7 @@ public class EVCacheSerializingTranscoderTest {
 
     @Test
     public void testEVCacheTranscoderDefaultsToGzip() {
-        EVCacheTranscoder transcoder = new EVCacheTranscoder();
-        transcoder.setCompressionThreshold(0);
+        EVCacheTranscoder transcoder = new EVCacheTranscoder(CachedData.MAX_SIZE, 0);
         String original = "hello world hello world hello world hello world hello world";
         CachedData encoded = transcoder.encode(original);
         assertTrue((encoded.getFlags() & EVCacheSerializingTranscoder.COMPRESSED) != 0,
@@ -154,14 +157,22 @@ public class EVCacheSerializingTranscoderTest {
     }
 
     @Test
-    public void testEVCacheTranscoderExplicitAlgorithm() {
-        EVCacheTranscoder transcoder = new EVCacheTranscoder(CachedData.MAX_SIZE, 1);
-        transcoder.setCompressionAlgorithm(EVCacheSerializingTranscoder.CompressionAlgorithm.ZSTD);
-        transcoder.setCompressionLevel(EVCacheSerializingTranscoder.DEFAULT_ZSTD_COMPRESSION_LEVEL);
-        String original = "hello world hello world hello world hello world hello world";
-        CachedData encoded = transcoder.encode(original);
-        String decoded = (String) transcoder.decode(encoded);
-        assertEquals(decoded, original);
+    public void testEVCacheTranscoderExplicitZstdAlgorithm() {
+        DefaultSettableConfig testConfig = new DefaultSettableConfig();
+        testConfig.setProperty("default.evcache.compression.algo", "ZSTD");
+        testConfig.setProperty("default.evcache.compression.zstd.level",
+                EVCacheSerializingTranscoder.DEFAULT_ZSTD_COMPRESSION_LEVEL);
+        PropertyRepository savedRepo = EVCacheConfig.getInstance().getPropertyRepository();
+        EVCacheConfig.setPropertyRepository(new DefaultPropertyFactory(testConfig));
+        try {
+            EVCacheTranscoder transcoder = new EVCacheTranscoder(CachedData.MAX_SIZE, 1);
+            String original = "hello world hello world hello world hello world hello world";
+            CachedData encoded = transcoder.encode(original);
+            String decoded = (String) transcoder.decode(encoded);
+            assertEquals(decoded, original);
+        } finally {
+            EVCacheConfig.setPropertyRepository(savedRepo);
+        }
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
@@ -172,7 +183,7 @@ public class EVCacheSerializingTranscoderTest {
     @Test
     public void testFPAlgorithmGzip() {
         DefaultSettableConfig testConfig = new DefaultSettableConfig();
-        testConfig.setProperty("default.evcache.compression.algorithm", "GZIP");
+        testConfig.setProperty("default.evcache.compression.algo", "GZIP");
         PropertyRepository savedRepo = EVCacheConfig.getInstance().getPropertyRepository();
         EVCacheConfig.setPropertyRepository(new DefaultPropertyFactory(testConfig));
         try {
@@ -191,7 +202,7 @@ public class EVCacheSerializingTranscoderTest {
     @Test
     public void testFPAlgorithmZstd() {
         DefaultSettableConfig testConfig = new DefaultSettableConfig();
-        testConfig.setProperty("default.evcache.compression.algorithm", "ZSTD");
+        testConfig.setProperty("default.evcache.compression.algo", "ZSTD");
         PropertyRepository savedRepo = EVCacheConfig.getInstance().getPropertyRepository();
         EVCacheConfig.setPropertyRepository(new DefaultPropertyFactory(testConfig));
         try {
@@ -210,7 +221,7 @@ public class EVCacheSerializingTranscoderTest {
     @Test
     public void testFPZstdLevel() {
         DefaultSettableConfig testConfig = new DefaultSettableConfig();
-        testConfig.setProperty("default.evcache.compression.algorithm", "ZSTD");
+        testConfig.setProperty("default.evcache.compression.algo", "ZSTD");
         testConfig.setProperty("default.evcache.compression.zstd.level", 1);
         PropertyRepository savedRepo = EVCacheConfig.getInstance().getPropertyRepository();
         EVCacheConfig.setPropertyRepository(new DefaultPropertyFactory(testConfig));

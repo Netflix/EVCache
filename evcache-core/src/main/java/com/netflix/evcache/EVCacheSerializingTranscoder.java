@@ -24,10 +24,13 @@ package com.netflix.evcache;
 
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStream;
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
 import net.spy.memcached.CachedData;
+import net.spy.memcached.compat.log.LoggerFactory;
+import net.spy.memcached.compat.log.Logger;
 import net.spy.memcached.transcoders.BaseSerializingTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.transcoders.TranscoderUtils;
@@ -48,6 +51,7 @@ import java.util.List;
  */
 public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder implements
         Transcoder<Object> {
+    Logger logger = LoggerFactory.getLogger(EVCacheSerializingTranscoder.class);
 
     // General flags
     static final int SERIALIZED = 1;
@@ -64,8 +68,6 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     static final int SPECIAL_DOUBLE = (7 << 8);
     static final int SPECIAL_BYTEARRAY = (8 << 8);
 
-    static final String COMPRESSION = "COMPRESSION_METRIC";
-
     public enum CompressionAlgorithm { GZIP, ZSTD }
 
     public static final int DEFAULT_ZSTD_COMPRESSION_LEVEL = 3;
@@ -73,8 +75,8 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     private static final int ZSTD_MAGIC = 0xFD2FB528;
 
     private final TranscoderUtils tu = new TranscoderUtils(true);
-    private CompressionAlgorithm compressionAlgorithm = CompressionAlgorithm.GZIP;
-    private int zstdLevel = DEFAULT_ZSTD_COMPRESSION_LEVEL;
+    private Property<String> compressionAlgorithmProperty;
+    private Property<Integer> zstdLevelProperty;
 
     /**
      * Get a serializing transcoder with the default max data size.
@@ -90,12 +92,12 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         super(max);
     }
 
-    public void setCompressionAlgorithm(CompressionAlgorithm algo) {
-        this.compressionAlgorithm = algo;
+    public void setCompressionAlgorithmProperty(Property<String> algorithmProperty) {
+        this.compressionAlgorithmProperty = algorithmProperty;
     }
 
-    public void setCompressionLevel(int level) {
-        this.zstdLevel = level;
+    public void setCompressionLevelProperty(Property<Integer> levelProperty) {
+        this.zstdLevelProperty = levelProperty;
     }
 
     @Override
@@ -216,10 +218,16 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     @Override
     protected byte[] compress(byte[] in) {
         if (in == null) throw new NullPointerException("Can't compress null");
+
+        CompressionAlgorithm compressionAlgorithm = resolveCompressionAlgorithm();
+
         switch (compressionAlgorithm) {
             case ZSTD:
+                int zstdLevel = zstdLevelProperty.orElse(DEFAULT_ZSTD_COMPRESSION_LEVEL).get();
+                logger.error("!!!!!!!!!! algoritthm: " + compressionAlgorithm + ", level: " + zstdLevel);
                 return Zstd.compress(in, zstdLevel);
             case GZIP:
+                logger.error("!!!!!!!!!! algoritthm: " + compressionAlgorithm);
                 return super.compress(in);
             default:
                 throw new IllegalArgumentException("Unsupported compression algorithm: " + compressionAlgorithm);
@@ -275,10 +283,14 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
 
     private void recordCompressionRatio(long ratioPerCent) {
         final List<Tag> tagList = new ArrayList<Tag>(1);
-        tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, compressionAlgorithm.name().toLowerCase()));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, resolveCompressionAlgorithm().name().toLowerCase()));
         EVCacheMetricsFactory.getInstance()
                 .getDistributionSummary(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList)
                 .record(ratioPerCent);
     }
 
+    private CompressionAlgorithm resolveCompressionAlgorithm() {
+        return CompressionAlgorithm.valueOf(
+                compressionAlgorithmProperty.orElse(CompressionAlgorithm.GZIP.name()).get().toUpperCase());
+    }
 }
