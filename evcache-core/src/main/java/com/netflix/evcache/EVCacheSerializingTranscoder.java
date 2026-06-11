@@ -77,6 +77,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     private final TranscoderUtils tu = new TranscoderUtils(true);
     private Property<String> compressionAlgorithmProperty;
     private Property<Integer> zstdLevelProperty;
+    protected final String appName;
 
     /**
      * Get a serializing transcoder with the default max data size.
@@ -89,7 +90,15 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
      * Get a serializing transcoder that specifies the max data size.
      */
     public EVCacheSerializingTranscoder(int max) {
+        this(null, max);
+    }
+
+    /**
+     * Get a serializing transcoder that specifies the owning app name and the max data size.
+     */
+    public EVCacheSerializingTranscoder(String appName, int max) {
         super(max);
+        this.appName = appName;
     }
 
     public void setCompressionAlgorithmProperty(Property<String> algorithmProperty) {
@@ -224,10 +233,10 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         switch (compressionAlgorithm) {
             case ZSTD:
                 int zstdLevel = zstdLevelProperty.orElse(DEFAULT_ZSTD_COMPRESSION_LEVEL).get();
-                logger.error("!!!!!!!!!! algoritthm: " + compressionAlgorithm + ", level: " + zstdLevel);
+                logger.error("!!!!!!!!!! algoritthm: " + compressionAlgorithm + ", level: " + zstdLevel + ", appName: " + appName);
                 return Zstd.compress(in, zstdLevel);
             case GZIP:
-                logger.error("!!!!!!!!!! algoritthm: " + compressionAlgorithm);
+                logger.error("!!!!!!!!!! algoritthm: " + compressionAlgorithm + ", appName:" + appName);
                 return super.compress(in);
             default:
                 throw new IllegalArgumentException("Unsupported compression algorithm: " + compressionAlgorithm);
@@ -282,8 +291,11 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     }
 
     private void recordCompressionRatio(long ratioPerCent) {
-        final List<Tag> tagList = new ArrayList<Tag>(1);
+        final List<Tag> tagList = new ArrayList<Tag>(2);
         tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, resolveCompressionAlgorithm().name().toLowerCase()));
+        if (appName != null && !appName.isEmpty()) {
+            tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+        }
         EVCacheMetricsFactory.getInstance()
                 .getDistributionSummary(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList)
                 .record(ratioPerCent);

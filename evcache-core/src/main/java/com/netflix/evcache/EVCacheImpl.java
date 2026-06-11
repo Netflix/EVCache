@@ -164,7 +164,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         this.maxHashLength = propertyRepository.get(appName + ".max.hash.length", Integer.class).orElse(-1);
         this.encoderBase = propertyRepository.get(appName + ".hash.encoder", String.class).orElse("base64");
         this.autoHashKeys = propertyRepository.get(_appName + ".auto.hash.keys", Boolean.class).orElseGet("evcache.auto.hash.keys").orElse(false);
-        this.evcacheValueTranscoder = new EVCacheTranscoder();
+        this.evcacheValueTranscoder = new EVCacheTranscoder(_appName);
         evcacheValueTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
 
         // default max key length is 200, instead of using what is defined in MemcachedClientIF.MAX_KEY_LENGTH (250). This is to accommodate

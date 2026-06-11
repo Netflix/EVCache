@@ -109,7 +109,7 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public Transcoder<Object> getDefaultTranscoder() {
-        return new EVCacheTranscoder();
+        return new EVCacheTranscoder(appName);
     }
 
     public FailureMode getFailureMode() {

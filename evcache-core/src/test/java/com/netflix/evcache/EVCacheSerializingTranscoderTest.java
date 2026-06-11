@@ -3,7 +3,14 @@ package com.netflix.evcache;
 import com.netflix.archaius.DefaultPropertyFactory;
 import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.archaius.config.DefaultSettableConfig;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.util.EVCacheConfig;
+import com.netflix.spectator.api.DefaultRegistry;
+import com.netflix.spectator.api.Id;
+import com.netflix.spectator.api.Meter;
+import com.netflix.spectator.api.Registry;
+import com.netflix.spectator.api.Spectator;
+import com.netflix.spectator.api.Tag;
 import net.spy.memcached.CachedData;
 import org.testng.annotations.Test;
 
@@ -144,7 +151,7 @@ public class EVCacheSerializingTranscoderTest {
 
     @Test
     public void testEVCacheTranscoderDefaultsToGzip() {
-        EVCacheTranscoder transcoder = new EVCacheTranscoder(CachedData.MAX_SIZE, 0);
+        EVCacheTranscoder transcoder = new EVCacheTranscoder((String) null, CachedData.MAX_SIZE, 0);
         String original = "hello world hello world hello world hello world hello world";
         CachedData encoded = transcoder.encode(original);
         assertTrue((encoded.getFlags() & EVCacheSerializingTranscoder.COMPRESSED) != 0,
@@ -159,13 +166,13 @@ public class EVCacheSerializingTranscoderTest {
     @Test
     public void testEVCacheTranscoderExplicitZstdAlgorithm() {
         DefaultSettableConfig testConfig = new DefaultSettableConfig();
-        testConfig.setProperty("default.evcache.compression.algo", "ZSTD");
-        testConfig.setProperty("default.evcache.compression.zstd.level",
+        testConfig.setProperty("evcacheclient.compression.algo", "ZSTD");
+        testConfig.setProperty("evcacheclient.compression.zstd.level",
                 EVCacheSerializingTranscoder.DEFAULT_ZSTD_COMPRESSION_LEVEL);
         PropertyRepository savedRepo = EVCacheConfig.getInstance().getPropertyRepository();
         EVCacheConfig.setPropertyRepository(new DefaultPropertyFactory(testConfig));
         try {
-            EVCacheTranscoder transcoder = new EVCacheTranscoder(CachedData.MAX_SIZE, 1);
+            EVCacheTranscoder transcoder = new EVCacheTranscoder((String) null, CachedData.MAX_SIZE, 1);
             String original = "hello world hello world hello world hello world hello world";
             CachedData encoded = transcoder.encode(original);
             String decoded = (String) transcoder.decode(encoded);
@@ -173,6 +180,119 @@ public class EVCacheSerializingTranscoderTest {
         } finally {
             EVCacheConfig.setPropertyRepository(savedRepo);
         }
+    }
+
+    @Test
+    public void testAppNamePrefixedAlgoOverridesDefault() {
+        DefaultSettableConfig testConfig = new DefaultSettableConfig();
+        testConfig.setProperty("evcacheclient.compression.algo", "GZIP");
+        testConfig.setProperty("EVCACHE_VH_ARCHIVE.evcacheclient.compression.algo", "ZSTD");
+        PropertyRepository savedRepo = EVCacheConfig.getInstance().getPropertyRepository();
+        EVCacheConfig.setPropertyRepository(new DefaultPropertyFactory(testConfig));
+        try {
+            EVCacheTranscoder transcoder = new EVCacheTranscoder("EVCACHE_VH_ARCHIVE", CachedData.MAX_SIZE, 1);
+            CachedData encoded = transcoder.encode("hello world hello world hello world hello world hello world");
+            byte[] data = encoded.getData();
+            assertEquals(data[0], (byte) 0x28, "app-specific ZSTD override must win over default GZIP");
+            assertEquals(data[1], (byte) 0xB5, "app-specific ZSTD override must win over default GZIP");
+        } finally {
+            EVCacheConfig.setPropertyRepository(savedRepo);
+        }
+    }
+
+    @Test
+    public void testAppNameFallsBackToDefaultAlgoWhenNoOverride() {
+        DefaultSettableConfig testConfig = new DefaultSettableConfig();
+        testConfig.setProperty("evcacheclient.compression.algo", "ZSTD");
+        PropertyRepository savedRepo = EVCacheConfig.getInstance().getPropertyRepository();
+        EVCacheConfig.setPropertyRepository(new DefaultPropertyFactory(testConfig));
+        try {
+            EVCacheTranscoder transcoder = new EVCacheTranscoder("EVCACHE_NO_OVERRIDE", CachedData.MAX_SIZE, 1);
+            CachedData encoded = transcoder.encode("hello world hello world hello world hello world hello world");
+            byte[] data = encoded.getData();
+            assertEquals(data[0], (byte) 0x28, "must fall back to default ZSTD when no app-specific override exists");
+            assertEquals(data[1], (byte) 0xB5, "must fall back to default ZSTD when no app-specific override exists");
+        } finally {
+            EVCacheConfig.setPropertyRepository(savedRepo);
+        }
+    }
+
+    @Test
+    public void testAppNamePrefixedZstdLevelRoundTrip() {
+        DefaultSettableConfig testConfig = new DefaultSettableConfig();
+        testConfig.setProperty("evcacheclient.compression.algo", "ZSTD");
+        testConfig.setProperty("evcacheclient.compression.zstd.level", 1);
+        testConfig.setProperty("EVCACHE_VH_ARCHIVE.evcacheclient.compression.zstd.level", 5);
+        PropertyRepository savedRepo = EVCacheConfig.getInstance().getPropertyRepository();
+        EVCacheConfig.setPropertyRepository(new DefaultPropertyFactory(testConfig));
+        try {
+            EVCacheTranscoder transcoder = new EVCacheTranscoder("EVCACHE_VH_ARCHIVE", CachedData.MAX_SIZE, 1);
+            String original = "hello world hello world hello world hello world hello world";
+            CachedData encoded = transcoder.encode(original);
+            String decoded = (String) transcoder.decode(encoded);
+            assertEquals(decoded, original, "app-specific zstd level override round-trip must succeed");
+        } finally {
+            EVCacheConfig.setPropertyRepository(savedRepo);
+        }
+    }
+
+    @Test
+    public void testCompressionRatioMetricTaggedWithAppName() {
+        final String appName = "EVCACHE_RATIO_TEST";
+        Registry registry = new DefaultRegistry();
+        Spectator.globalRegistry().add(registry);
+        try {
+            DefaultSettableConfig config = new DefaultSettableConfig();
+            config.setProperty("test.algo", "GZIP");
+            PropertyRepository repo = new DefaultPropertyFactory(config);
+            EVCacheSerializingTranscoder t = new EVCacheSerializingTranscoder(appName, CachedData.MAX_SIZE);
+            t.setCompressionAlgorithmProperty(repo.get("test.algo", String.class));
+            t.setCompressionLevelProperty(repo.get("test.level", Integer.class));
+            t.setCompressionThreshold(0);
+            t.encode("hello world hello world hello world hello world hello world");
+
+            assertTrue(hasCompressionRatioCacheTag(registry, appName),
+                    "compression ratio metric must carry the " + EVCacheMetricsFactory.CACHE + " tag with the app name");
+        } finally {
+            Spectator.globalRegistry().remove(registry);
+        }
+    }
+
+    @Test
+    public void testCompressionRatioMetricNotTaggedWhenNoAppName() {
+        Registry registry = new DefaultRegistry();
+        Spectator.globalRegistry().add(registry);
+        try {
+            EVCacheSerializingTranscoder t = buildTranscoder("GZIP", null);
+            t.setCompressionThreshold(0);
+            t.encode("hello world hello world hello world hello world hello world");
+
+            for (Meter meter : registry) {
+                Id id = meter.id();
+                if (EVCacheMetricsFactory.COMPRESSION_RATIO.equals(id.name())) {
+                    for (Tag tag : id.tags()) {
+                        assertNotEquals(tag.key(), EVCacheMetricsFactory.CACHE,
+                                "no app name tag must be added when app name is absent");
+                    }
+                }
+            }
+        } finally {
+            Spectator.globalRegistry().remove(registry);
+        }
+    }
+
+    private boolean hasCompressionRatioCacheTag(Registry registry, String appName) {
+        for (Meter meter : registry) {
+            Id id = meter.id();
+            if (EVCacheMetricsFactory.COMPRESSION_RATIO.equals(id.name())) {
+                for (Tag tag : id.tags()) {
+                    if (EVCacheMetricsFactory.CACHE.equals(tag.key()) && appName.equals(tag.value())) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
@@ -183,11 +303,11 @@ public class EVCacheSerializingTranscoderTest {
     @Test
     public void testFPAlgorithmGzip() {
         DefaultSettableConfig testConfig = new DefaultSettableConfig();
-        testConfig.setProperty("default.evcache.compression.algo", "GZIP");
+        testConfig.setProperty("evcacheclient.compression.algo", "GZIP");
         PropertyRepository savedRepo = EVCacheConfig.getInstance().getPropertyRepository();
         EVCacheConfig.setPropertyRepository(new DefaultPropertyFactory(testConfig));
         try {
-            EVCacheTranscoder transcoder = new EVCacheTranscoder(CachedData.MAX_SIZE, 1);
+            EVCacheTranscoder transcoder = new EVCacheTranscoder((String) null, CachedData.MAX_SIZE, 1);
             CachedData encoded = transcoder.encode("hello world hello world hello world hello world hello world");
             assertTrue((encoded.getFlags() & EVCacheSerializingTranscoder.COMPRESSED) != 0,
                     "COMPRESSED flag must be set");
@@ -202,11 +322,11 @@ public class EVCacheSerializingTranscoderTest {
     @Test
     public void testFPAlgorithmZstd() {
         DefaultSettableConfig testConfig = new DefaultSettableConfig();
-        testConfig.setProperty("default.evcache.compression.algo", "ZSTD");
+        testConfig.setProperty("evcacheclient.compression.algo", "ZSTD");
         PropertyRepository savedRepo = EVCacheConfig.getInstance().getPropertyRepository();
         EVCacheConfig.setPropertyRepository(new DefaultPropertyFactory(testConfig));
         try {
-            EVCacheTranscoder transcoder = new EVCacheTranscoder(CachedData.MAX_SIZE, 1);
+            EVCacheTranscoder transcoder = new EVCacheTranscoder((String) null, CachedData.MAX_SIZE, 1);
             CachedData encoded = transcoder.encode("hello world hello world hello world hello world hello world");
             assertTrue((encoded.getFlags() & EVCacheSerializingTranscoder.COMPRESSED) != 0,
                     "COMPRESSED flag must be set");
@@ -221,12 +341,12 @@ public class EVCacheSerializingTranscoderTest {
     @Test
     public void testFPZstdLevel() {
         DefaultSettableConfig testConfig = new DefaultSettableConfig();
-        testConfig.setProperty("default.evcache.compression.algo", "ZSTD");
-        testConfig.setProperty("default.evcache.compression.zstd.level", 1);
+        testConfig.setProperty("evcacheclient.compression.algo", "ZSTD");
+        testConfig.setProperty("evcacheclient.compression.zstd.level", 1);
         PropertyRepository savedRepo = EVCacheConfig.getInstance().getPropertyRepository();
         EVCacheConfig.setPropertyRepository(new DefaultPropertyFactory(testConfig));
         try {
-            EVCacheTranscoder transcoder = new EVCacheTranscoder(CachedData.MAX_SIZE, 1);
+            EVCacheTranscoder transcoder = new EVCacheTranscoder((String) null, CachedData.MAX_SIZE, 1);
             String original = "hello world hello world hello world hello world hello world";
             CachedData encoded = transcoder.encode(original);
             String decoded = (String) transcoder.decode(encoded);
