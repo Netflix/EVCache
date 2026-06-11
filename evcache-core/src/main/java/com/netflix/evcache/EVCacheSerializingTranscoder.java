@@ -233,10 +233,10 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         switch (compressionAlgorithm) {
             case ZSTD:
                 int zstdLevel = zstdLevelProperty.orElse(DEFAULT_ZSTD_COMPRESSION_LEVEL).get();
-                logger.error("!!!!!!!!!! algoritthm: " + compressionAlgorithm + ", level: " + zstdLevel + ", appName: " + appName);
+                logger.info("algorithm: " + compressionAlgorithm + ", level: " + zstdLevel + ", appName: " + appName);
                 return Zstd.compress(in, zstdLevel);
             case GZIP:
-                logger.error("!!!!!!!!!! algoritthm: " + compressionAlgorithm + ", appName:" + appName);
+                logger.info("algorithm: " + compressionAlgorithm + ", appName:" + appName);
                 return super.compress(in);
             default:
                 throw new IllegalArgumentException("Unsupported compression algorithm: " + compressionAlgorithm);
