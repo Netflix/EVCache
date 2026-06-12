@@ -257,7 +257,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     }
 
     private byte[] decompressZstd(byte[] in) {
-        long originalSize = Zstd.decompressedSize(in);
+        long originalSize = Zstd.getFrameContentSize(in);
         if (originalSize > Integer.MAX_VALUE) {
             getLogger().warn("Zstd decompressed size exceeds int range: " + originalSize);
             return null;
