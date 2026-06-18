@@ -43,7 +43,7 @@ dependencies {
         api group:"joda-time",                    name:"joda-time",                        version:"latest.release"
         api group:"javax.annotation",             name:"javax.annotation-api",             version:"latest.release"
         api group:"com.github.fzakaria",          name:"ascii85",                          version:"latest.release"
-        api group:"com.github.luben",             name:"zstd-jni",                         version:"latest.release"
+        api group:"com.github.luben",             name:"zstd-jni",                         version:"1.5.7-11"
 
         testImplementation group:"org.testng",               name:"testng",                           version:"7.5"
         testImplementation group:"com.beust",                name:"jcommander",                       version:"1.72"

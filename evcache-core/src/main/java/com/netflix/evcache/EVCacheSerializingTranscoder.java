@@ -51,7 +51,7 @@ import org.slf4j.LoggerFactory;
  */
 public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder implements
         Transcoder<Object> {
-    Logger logger = LoggerFactory.getLogger(EVCacheSerializingTranscoder.class);
+    private static final Logger logger = LoggerFactory.getLogger(EVCacheSerializingTranscoder.class);
 
     // General flags
     static final int SERIALIZED = 1;
@@ -217,9 +217,6 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
                 getLogger().debug("Compression increased the size of %s from %d to %d",
                         o.getClass().getName(), originalLength, compressed.length);
             }
-
-            long ratioPerCent = Math.round((double) compressed.length / originalLength * 100);
-            recordCompressionRatio(ratioPerCent);
         }
         return new CachedData(flags, b, getMaxSize());
     }
@@ -228,19 +225,31 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     protected byte[] compress(byte[] in) {
         if (in == null) throw new NullPointerException("Can't compress null");
 
-        CompressionAlgorithm compressionAlgorithm = resolveCompressionAlgorithm();
+        CompressionAlgorithm compressionAlgorithm = compressionAlgorithmProperty == null ? CompressionAlgorithm.GZIP
+                : CompressionAlgorithm.valueOf(compressionAlgorithmProperty.orElse(CompressionAlgorithm.GZIP.name()).get().toUpperCase());
 
+        byte[] compressed;
         switch (compressionAlgorithm) {
             case ZSTD:
-                int zstdLevel = zstdLevelProperty.orElse(DEFAULT_ZSTD_COMPRESSION_LEVEL).get();
-                logger.debug("algorithm: " + compressionAlgorithm + ", level: " + zstdLevel + ", appName: " + appName);
-                return Zstd.compress(in, zstdLevel);
+                int zstdLevel = zstdLevelProperty == null ? DEFAULT_ZSTD_COMPRESSION_LEVEL
+                        : zstdLevelProperty.orElse(DEFAULT_ZSTD_COMPRESSION_LEVEL).get();
+                logger.debug("algorithm: {}, level: {}, appName: {}", compressionAlgorithm, zstdLevel, appName);
+                compressed = Zstd.compress(in, zstdLevel);
+                break;
             case GZIP:
-                logger.debug("algorithm: " + compressionAlgorithm + ", appName:" + appName);
-                return super.compress(in);
+                logger.debug("algorithm: {}, appName: {}", compressionAlgorithm, appName);
+                compressed = super.compress(in);
+                break;
             default:
                 throw new IllegalArgumentException("Unsupported compression algorithm: " + compressionAlgorithm);
         }
+
+        if (compressed != null) {
+            long ratioPerCent = Math.round((double) compressed.length / in.length * 100.0);
+            recordCompressionRatio(ratioPerCent, compressionAlgorithm);
+        }
+
+        return compressed;
     }
 
     @Override
@@ -259,8 +268,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     private byte[] decompressZstd(byte[] in) {
         long originalSize = Zstd.getFrameContentSize(in);
         if (originalSize > Integer.MAX_VALUE) {
-            getLogger().warn("Zstd decompressed size exceeds int range: " + originalSize);
-            return null;
+            throw new RuntimeException("Zstd decompressed size exceeds int range: " + originalSize);
         }
         if (originalSize > 0) {
             // Fast path: frame carries a content-size header (compress() above always does).
@@ -290,19 +298,14 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         return out.toByteArray();
     }
 
-    private void recordCompressionRatio(long ratioPerCent) {
+    private void recordCompressionRatio(long ratioPerCent, CompressionAlgorithm compressionAlgorithm) {
         final List<Tag> tagList = new ArrayList<Tag>(2);
-        tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, resolveCompressionAlgorithm().name().toLowerCase()));
+        tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, compressionAlgorithm.name().toLowerCase()));
         if (appName != null && !appName.isEmpty()) {
             tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
         }
         EVCacheMetricsFactory.getInstance()
                 .getDistributionSummary(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList)
                 .record(ratioPerCent);
-    }
-
-    private CompressionAlgorithm resolveCompressionAlgorithm() {
-        return CompressionAlgorithm.valueOf(
-                compressionAlgorithmProperty.orElse(CompressionAlgorithm.GZIP.name()).get().toUpperCase());
     }
 }
