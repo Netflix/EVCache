@@ -77,6 +77,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheImpl.class);
 
+    private static final int ENVELOPE_COMPRESSION_DISABLED = Integer.MAX_VALUE;
+
     private final Clock clock;
     private final String _appName;
     private final String _cacheName;
@@ -164,8 +166,12 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         this.maxHashLength = propertyRepository.get(appName + ".max.hash.length", Integer.class).orElse(-1);
         this.encoderBase = propertyRepository.get(appName + ".hash.encoder", String.class).orElse("base64");
         this.autoHashKeys = propertyRepository.get(_appName + ".auto.hash.keys", Boolean.class).orElseGet("evcache.auto.hash.keys").orElse(false);
-        this.evcacheValueTranscoder = new EVCacheTranscoder();
-        evcacheValueTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
+        // Whether the EVCacheValue envelope (hashed keys) is written using the compact binary format
+        // instead of native Java serialization.
+        final boolean useBinarySerialization = propertyRepository.get(_appName + ".envelope.binary.serialization.enabled", Boolean.class)
+                .orElseGet("evcache.envelope.binary.serialization.enabled").orElse(false).get();
+        final int maxValueSize = propertyRepository.get("default.evcache.max.data.size", Integer.class).orElse(20 * 1024 * 1024).get();
+        this.evcacheValueTranscoder = new EVCacheTranscoder(maxValueSize, ENVELOPE_COMPRESSION_DISABLED, useBinarySerialization);
 
         // default max key length is 200, instead of using what is defined in MemcachedClientIF.MAX_KEY_LENGTH (250). This is to accommodate
         // auto key prepend with appname for duet feature.
