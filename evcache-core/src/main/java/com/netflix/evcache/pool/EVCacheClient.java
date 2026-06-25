@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -568,7 +569,39 @@ public class EVCacheClient {
         return ci;
     }
 
-    private <T> Map<String, T> assembleChunks(Collection<String> keyList, Transcoder<T> tc, boolean hasZF) {
+    private <T> T decodeForKey(String key, CachedData raw, Collection<String> plainKeys, Set<String> hashedKeys, Transcoder<T> valueTranscoder, EVCacheTranscoder evcacheValueTranscoder, BiPredicate<String, String> collisionChecker, boolean hasZF) {
+        if (raw == null) return null;
+        // hashed keys require 2 step decoding, first using envelopeTranscoder then using valueTranscoder
+        if (hashedKeys != null && hashedKeys.contains(key)) {
+            if (evcacheValueTranscoder == null) throw new IllegalStateException("Both transcoders required for 2-step decode, failed on key " + key
+                            + " of bulk get for plain keys [" + plainKeys + "] and hashed keys [" + hashedKeys + "]");
+            Object obj;
+            try {
+                obj = evcacheValueTranscoder.decode(raw);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to decode key " + key + " using envelopeTranscoder " + evcacheValueTranscoder.getClass().getName(), e);
+            }
+            if (obj instanceof EVCacheValue) {
+                final EVCacheValue val = (EVCacheValue) obj;
+                boolean collision = collisionChecker.test(key, val.getKey());
+                if (!collision) {
+                    return valueTranscoder.decode(new CachedData(val.getFlags(), val.getValue(), valueTranscoder.getMaxSize()));
+                }
+            } else if (log.isDebugEnabled()) {
+                // Mirrors the non-chunked path in EVCacheMemcachedClient.asyncGetBulk: decoding a hashed key did not yield
+                // an EVCacheValue (e.g. a hashed/raw key collision). The key is dropped from the result below.
+                log.debug("APP " + appName + ", applying envelopeTranscoder to hashed key " + key
+                        + " did not yield an EVCacheValue (possible collision); dropping from result");
+            }
+            return null;
+        }
+        return valueTranscoder.decode(raw);
+    }
+
+    private <T> Map<String, T> assembleChunks(Collection<String> plainKeys, Set<String> hashedKeys, Transcoder<T> valueTranscoder, EVCacheTranscoder evcacheValueTranscoder, BiPredicate<String, String> collisionChecker, boolean hasZF) throws Exception {
+        final Set<String> keyList = new HashSet<>();
+        if (plainKeys != null) keyList.addAll(plainKeys);
+        if (hashedKeys != null) keyList.addAll(hashedKeys);
         final List<String> firstKeys = new ArrayList<>();
         for (String key : keyList) {
             firstKeys.add(key);
@@ -583,7 +616,10 @@ public class EVCacheClient {
             for (String key : keyList) {
                 if (metadataMap.containsKey(key)) {
                     CachedData val = metadataMap.remove(key);
-                    returnMap.put(key, tc.decode(val));
+                    final T decoded = decodeForKey(key, val, plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, collisionChecker, hasZF);
+                    if (decoded != null) {
+                        returnMap.put(key, decoded);
+                    }
                 }
             }
 
@@ -652,7 +688,10 @@ public class EVCacheClient {
                 final boolean checksumPass = checkCRCChecksum(data, ci, hasZF);
                 if (data != null && checksumPass) {
                     final CachedData cd = new CachedData(ci.getFlags(), data, Integer.MAX_VALUE);
-                    returnMap.put(ci.getKey(), tc.decode(cd));
+                    final T decoded = decodeForKey(ci.getKey(), cd, plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, collisionChecker, hasZF);
+                    if (decoded != null) {
+                        returnMap.put(ci.getKey(), decoded);
+                    }
                 } else {
                     returnMap.put(ci.getKey(), null);
                 }
@@ -660,8 +699,16 @@ public class EVCacheClient {
             return returnMap;
         } catch (Exception e) {
             log.error(e.getMessage(), e);
+            throw e;
         }
-        return null;
+    }
+
+    /**
+     * Plain-only chunk assembly. Delegates to the mixed-key variant with an empty hashed-key set, so every key takes the
+     * single-step decode path (no envelope unwrapping).
+     */
+    private <T> Map<String, T> assembleChunks(Collection<String> keyList, Transcoder<T> tc, boolean hasZF) throws Exception {
+        return assembleChunks(keyList, Collections.<String>emptySet(), tc, null, null, hasZF);
     }
 
     private <T> Single<Map<String, T>> assembleChunks(Collection<String> keyList, Transcoder<T> tc, boolean hasZF, Scheduler scheduler) {
@@ -973,6 +1020,12 @@ public class EVCacheClient {
         }
     }
 
+    /**
+     * @deprecated Does not support a mix of plain and hashed keys. Use
+     * {@link #getBulk(Collection, Set, Transcoder, EVCacheTranscoder, String, boolean, BiPredicate, boolean, boolean)},
+     * which handles plain and hashed keys (and chunking) in a single request.
+     */
+    @Deprecated
     public <T> Map<String, T> getBulk(Collection<String> canonicalKeys, Transcoder<T> tc, boolean _throwException,
             boolean hasZF) throws Exception {
         final Map<String, T> returnVal;
@@ -996,6 +1049,39 @@ public class EVCacheClient {
             return Collections.<String, T> emptyMap();
         }
         return returnVal;
+    }
+
+    /**
+     * Bulk get supporting a mix of plain and hashed keys in a single request. When chunking is enabled, routes through
+     * {@link #assembleChunks(Collection, Set, Transcoder, EVCacheTranscoder, BiPredicate, boolean)} which reassembles
+     * chunks and then decodes each key with the correct transcoder; otherwise routes through the single round-trip
+     * mixed-key-aware {@link EVCacheMemcachedClient#asyncGetBulk}. Either way hashed keys are decoded in two steps
+     * (envelope then value) and plain keys in one step.
+     */
+    public <T> Map<String, T> getBulk(Collection<String> plainKeys, Set<String> hashedKeys,
+                                      Transcoder<T> valueTranscoder, EVCacheTranscoder evcacheValueTranscoder,
+                                      String appName, boolean shouldLog, BiPredicate<String, String> collisionChecker,
+                                      boolean _throwException, boolean hasZF) throws Exception {
+        try {
+            if (valueTranscoder == null) valueTranscoder = (Transcoder<T>) getTranscoder();
+            if (enableChunking.get()) {
+                final Map<String, T> chunked = assembleChunks(plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, collisionChecker, hasZF);
+                return chunked == null ? Collections.<String, T>emptyMap() : chunked;
+            }
+            final BiPredicate<MemcachedNode, String> validator = (node, key) -> {
+                NodeValidationResult result = validateNodeForRead(node, Call.BULK, 2 * maxReadQueueSize.get());
+                if (result != NodeValidationResult.OK) {
+                    return false;
+                }
+                return true;
+            };
+            return evcacheMemcachedClient
+                    .asyncGetBulk(plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, validator, appName, shouldLog, collisionChecker)
+                    .getSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS, _throwException, hasZF);
+        } catch (Exception e) {
+            if (_throwException) throw e;
+            return Collections.<String, T> emptyMap();
+        }
     }
 
     /**
