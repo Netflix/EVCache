@@ -23,6 +23,7 @@ import com.netflix.spectator.api.Counter;
 import com.netflix.spectator.api.Id;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spectator.api.Tag;
+import com.netflix.spectator.api.Timer;
 import com.netflix.spectator.api.patterns.PolledMeter;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -32,6 +33,7 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -106,6 +108,7 @@ public class EVCacheClient {
     private List<Tag> tags;
     private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
     private final Id loopCpuWallTimeRatioId;
+    private final Timer loopEnqueueToWriteLatency;
     private final Property<String> hashingAlgo;
     protected final Counter operationsCounter;
     private final boolean isDuetClient;
@@ -155,6 +158,9 @@ public class EVCacheClient {
         PolledMeter.using(registry)
                 .withId(loopCpuWallTimeRatioId)
                 .monitorValue(this.evcacheMemcachedClient.getLoopProbe(), EVCacheLoopProbe::sampleCpuWallTimeRatio);
+        this.loopEnqueueToWriteLatency = EVCacheMetricsFactory.getInstance()
+                .getPercentileTimer(EVCacheMetricsFactory.INTERNAL_LOOP_ENQUEUE_TO_WRITE_LATENCY,
+                        this.tags, Duration.ofMillis(100));
         this.evcacheMemcachedClient.addObserver(connectionObserver);
 
         this.decodingTranscoder = new EVCacheSerializingTranscoder(Integer.MAX_VALUE);
@@ -1693,6 +1699,25 @@ public class EVCacheClient {
 
     public Counter getOperationCounter() {
         return operationsCounter;
+    }
+
+    /**
+     * Record per-operation in-process latency from when an EVCache future attached
+     * a spymemcached {@link net.spy.memcached.ops.Operation} (immediately before
+     * enqueue into the memcached connection) to when the loop thread finished
+     * writing the operation to the socket (may be queued at socket).
+     *
+     * Use this to identify if the evcache IO thread is getting busy enough that it
+     * is impacting transaction latency. This does not completely capture the socket
+     * to network packet time as there may still be queueing on the socket and NIC.
+     */
+    public void recordLoopEnqueueToWriteLatency(net.spy.memcached.ops.Operation op, long operationAttachedNs) {
+        if (op == null || operationAttachedNs <= 0L) return;
+
+        final long writeComplete = op.getWriteCompleteTimestamp();
+        if (writeComplete <= 0L || writeComplete < operationAttachedNs) return;
+
+        loopEnqueueToWriteLatency.record(writeComplete - operationAttachedNs, TimeUnit.NANOSECONDS);
     }
 
 

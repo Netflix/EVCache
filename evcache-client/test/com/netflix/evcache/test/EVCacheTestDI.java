@@ -21,6 +21,7 @@ import com.netflix.evcache.util.KeyHasher;
 import com.netflix.spectator.api.Gauge;
 import com.netflix.spectator.api.Id;
 import com.netflix.spectator.api.Registry;
+import com.netflix.spectator.api.Timer;
 import com.netflix.spectator.api.patterns.PolledMeter;
 import java.util.HashMap;
 import java.util.List;
@@ -109,6 +110,38 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
             }
         }
         assertTrue(nonZero, "expected loop cpuWallTimeRatio meter to report a non-zero value");
+    }
+
+    @Test(dependsOnMethods = { "testLoopCpuUtilizationMetricRegistered" })
+    public void testLoopEnqueueToWriteLatencyMetricRecords() throws Exception {
+        final Registry registry = EVCacheMetricsFactory.getInstance().getRegistry();
+        final Map<ServerGroup, List<EVCacheClient>> clientsByServerGroup = manager.getEVCacheClientPool(appName).getAllInstancesByServerGroup();
+        assertFalse(clientsByServerGroup.isEmpty(), "expected EVCache clients for " + appName);
+
+        // recordLoopEnqueueToWriteLatency is invoked from EVCacheOperationFuture.signalComplete,
+        // which runs on the spymemcached IO loop *after* OperationFuture's latch is decremented.
+        // That means evCache.get() can return before the metric has been recorded. Issue gets
+        // and poll the timer until one sample shows up, with a generous total budget so slow
+        // CI hosts can't lose the race.
+        final long deadlineNs = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        boolean recorded = false;
+        int attempt = 0;
+        while (!recorded && System.nanoTime() < deadlineNs) {
+            get(attempt++, evCache);
+            Thread.sleep(100);
+            for (List<EVCacheClient> clients : clientsByServerGroup.values()) {
+                for (EVCacheClient client : clients) {
+                    final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_LOOP_ENQUEUE_TO_WRITE_LATENCY, client.getTagList());
+                    final Timer timer = registry.timer(id);
+                    if (timer.count() > 0L) {
+                        recorded = true;
+                        break;
+                    }
+                }
+                if (recorded) break;
+            }
+        }
+        assertTrue(recorded, "expected enqueueToWriteLatency timer to record at least one sample");
     }
 
     @Test(dependsOnMethods = { "testEVCache" })

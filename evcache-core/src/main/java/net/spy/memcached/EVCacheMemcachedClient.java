@@ -389,7 +389,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         int initialLatchCount = chunks.isEmpty() ? 0 : 1;
         final CountDownLatch latch = new CountDownLatch(initialLatchCount);
         final Collection<Operation> ops = new ArrayList<Operation>(chunks.size());
-        final EVCacheBulkGetFuture<T> rv = new EVCacheBulkGetFuture<T>(m, ops, latch, executorService, client);
+        final EVCacheBulkGetFuture<T> rv = new EVCacheBulkGetFuture<T>(m, ops, latch, executorService, client, System.nanoTime());
         rv.setExpectedCount(chunks.size());
 
         final DistributionSummary dataSizeDS = getDataSizeDistributionSummary(
