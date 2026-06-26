@@ -105,7 +105,7 @@ public class EVCacheClient {
     private final Property<Boolean> ignoreTouch;
     private List<Tag> tags;
     private final Map<String, Counter> counterMap = new ConcurrentHashMap<String, Counter>();
-    private final Id loopCpuUtilizationId;
+    private final Id loopCpuWallTimeRatioId;
     private final Property<String> hashingAlgo;
     protected final Counter operationsCounter;
     private final boolean isDuetClient;
@@ -147,14 +147,14 @@ public class EVCacheClient {
         this.ignoreTouch = EVCacheConfig.getInstance().getPropertyRepository().get(appName + "." + this.serverGroup.getName() + ".ignore.touch", Boolean.class).orElseGet(appName + ".ignore.touch").orElse(false);
 
         this.connectionFactory = pool.getEVCacheClientPoolManager().getConnectionFactoryProvider().getConnectionFactory(this);
-        loopCpuUtilizationId = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_LOOP_CPU_UTILIZATION, this.tags);
+        loopCpuWallTimeRatioId = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_LOOP_CPU_WALL_TIME_RATIO, this.tags);
         this.connectionObserver = new EVCacheConnectionObserver(this);
         this.ignoreInactiveNodes = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".ignore.inactive.nodes", Boolean.class).orElse(true);
 
         this.evcacheMemcachedClient = new EVCacheMemcachedClient(connectionFactory, memcachedNodesInZone, readTimeout, this);
         PolledMeter.using(registry)
-                .withId(loopCpuUtilizationId)
-                .monitorValue(this.evcacheMemcachedClient.getLoopProbe(), EVCacheLoopProbe::sampleUtilization);
+                .withId(loopCpuWallTimeRatioId)
+                .monitorValue(this.evcacheMemcachedClient.getLoopProbe(), EVCacheLoopProbe::sampleCpuWallTimeRatio);
         this.evcacheMemcachedClient.addObserver(connectionObserver);
 
         this.decodingTranscoder = new EVCacheSerializingTranscoder(Integer.MAX_VALUE);
@@ -1353,9 +1353,9 @@ public class EVCacheClient {
 
         shutdown = true;
         try {
-            PolledMeter.remove(EVCacheMetricsFactory.getInstance().getRegistry(), loopCpuUtilizationId);
+            PolledMeter.remove(EVCacheMetricsFactory.getInstance().getRegistry(), loopCpuWallTimeRatioId);
         } catch(Throwable t) {
-            log.warn("Exception while removing loop CPU utilization meter", t);
+            log.warn("Exception while removing loop cpuWallTimeRatio meter", t);
         }
         try {
             evcacheMemcachedClient.shutdown(timeout, unit);

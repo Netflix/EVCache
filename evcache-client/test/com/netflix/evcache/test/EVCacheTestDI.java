@@ -82,7 +82,7 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
     }
 
     @Test(dependsOnMethods = { "testGet" })
-    public void testLoopCpuUtilizationMetricRegistered() throws Exception {
+    public void testLoopCpuWallTimeRatioMetricRegistered() throws Exception {
         final Registry registry = EVCacheMetricsFactory.getInstance().getRegistry();
         final Map<ServerGroup, List<EVCacheClient>> clientsByServerGroup = manager.getEVCacheClientPool(appName).getAllInstancesByServerGroup();
         assertFalse(clientsByServerGroup.isEmpty(), "expected EVCache clients for " + appName);
@@ -90,8 +90,8 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         PolledMeter.update(registry);
         for (List<EVCacheClient> clients : clientsByServerGroup.values()) {
             for (EVCacheClient client : clients) {
-                final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_LOOP_CPU_UTILIZATION, client.getTagList());
-                assertTrue(registry.state().containsKey(id), "expected loop CPU utilization meter for client " + client);
+                final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_LOOP_CPU_WALL_TIME_RATIO, client.getTagList());
+                assertTrue(registry.state().containsKey(id), "expected loop cpuWallTimeRatio meter for client " + client);
             }
         }
 
@@ -102,13 +102,13 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
             PolledMeter.update(registry);
             for (List<EVCacheClient> clients : clientsByServerGroup.values()) {
                 for (EVCacheClient client : clients) {
-                    final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_LOOP_CPU_UTILIZATION, client.getTagList());
+                    final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_LOOP_CPU_WALL_TIME_RATIO, client.getTagList());
                     final Gauge gauge = registry.gauge(id);
                     nonZero |= gauge.value() > 0.0;
                 }
             }
         }
-        assertTrue(nonZero, "expected loop CPU utilization meter to report a non-zero value");
+        assertTrue(nonZero, "expected loop cpuWallTimeRatio meter to report a non-zero value");
     }
 
     @Test(dependsOnMethods = { "testEVCache" })

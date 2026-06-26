@@ -25,20 +25,20 @@ public class EVCacheLoopProbeTest {
 
         probe.tick();
 
-        assertTrue(Double.isNaN(probe.sampleUtilization()));
+        assertTrue(Double.isNaN(probe.sampleCpuWallTimeRatio()));
     }
 
     @Test
-    public void reportsCpuUtilizationForCurrentThread() throws Exception {
+    public void reportsCpuWallTimeRatioForCurrentThread() throws Exception {
         assumeThreadCpuTimeAvailable();
         EVCacheLoopProbe probe = new EVCacheLoopProbe();
 
         probe.tick();
-        assertTrue(Double.isNaN(probe.sampleUtilization()));
+        assertTrue(Double.isNaN(probe.sampleCpuWallTimeRatio()));
 
-        double utilization = samplePositiveUtilization(probe);
-        assertTrue(utilization > 0.0, "expected positive utilization, got " + utilization);
-        assertTrue(utilization <= 1.05, "expected utilization to be clamped, got " + utilization);
+        double ratio = samplePositiveRatio(probe);
+        assertTrue(ratio > 0.0, "expected positive ratio, got " + ratio);
+        assertTrue(ratio <= 1.05, "expected ratio to be clamped, got " + ratio);
     }
 
     @Test
@@ -47,57 +47,57 @@ public class EVCacheLoopProbeTest {
         EVCacheLoopProbe probe = new EVCacheLoopProbe();
 
         probe.tick();
-        assertTrue(Double.isNaN(probe.sampleUtilization()));
+        assertTrue(Double.isNaN(probe.sampleCpuWallTimeRatio()));
 
-        assertEquals(probe.sampleUtilization(), 0.0);
+        assertEquals(probe.sampleCpuWallTimeRatio(), 0.0);
     }
 
     @Test
-    public void polledMeterPublishesProbeUtilization() throws Exception {
+    public void polledMeterPublishesProbeRatio() throws Exception {
         assumeThreadCpuTimeAvailable();
         Registry registry = new DefaultRegistry();
-        Id id = registry.createId(EVCacheMetricsFactory.INTERNAL_LOOP_CPU_UTILIZATION, "evc.connection.id", "0", "ipc.server.asg", "test");
+        Id id = registry.createId(EVCacheMetricsFactory.INTERNAL_LOOP_CPU_WALL_TIME_RATIO, "evc.connection.id", "0", "ipc.server.asg", "test");
         EVCacheLoopProbe probe = new EVCacheLoopProbe();
 
         try {
             PolledMeter.using(registry)
                     .withId(id)
-                    .monitorValue(probe, EVCacheLoopProbe::sampleUtilization);
+                    .monitorValue(probe, EVCacheLoopProbe::sampleCpuWallTimeRatio);
 
             probe.tick();
             PolledMeter.update(registry);
             Gauge gauge = registry.gauge(id);
             assertTrue(Double.isNaN(gauge.value()));
 
-            double value = pollPositiveUtilization(registry, probe, gauge);
-            assertTrue(value > 0.0, "expected polled meter to publish positive utilization, got " + value);
-            assertTrue(value <= 1.05, "expected utilization to be clamped, got " + value);
+            double value = pollPositiveRatio(registry, probe, gauge);
+            assertTrue(value > 0.0, "expected polled meter to publish positive ratio, got " + value);
+            assertTrue(value <= 1.05, "expected ratio to be clamped, got " + value);
         } finally {
             PolledMeter.remove(registry, id);
         }
     }
 
-    private static double samplePositiveUtilization(EVCacheLoopProbe probe) throws Exception {
-        double utilization = 0.0;
-        for (int i = 0; i < 10 && utilization <= 0.0; i++) {
+    private static double samplePositiveRatio(EVCacheLoopProbe probe) throws Exception {
+        double ratio = 0.0;
+        for (int i = 0; i < 10 && ratio <= 0.0; i++) {
             Thread.sleep(1_100);
             busySpinForAtLeastMillis(50);
             probe.tick();
-            utilization = probe.sampleUtilization();
+            ratio = probe.sampleCpuWallTimeRatio();
         }
-        return utilization;
+        return ratio;
     }
 
-    private static double pollPositiveUtilization(Registry registry, EVCacheLoopProbe probe, Gauge gauge) throws Exception {
-        double utilization = 0.0;
-        for (int i = 0; i < 10 && utilization <= 0.0; i++) {
+    private static double pollPositiveRatio(Registry registry, EVCacheLoopProbe probe, Gauge gauge) throws Exception {
+        double ratio = 0.0;
+        for (int i = 0; i < 10 && ratio <= 0.0; i++) {
             Thread.sleep(1_100);
             busySpinForAtLeastMillis(50);
             probe.tick();
             PolledMeter.update(registry);
-            utilization = gauge.value();
+            ratio = gauge.value();
         }
-        return utilization;
+        return ratio;
     }
 
     private static void assumeThreadCpuTimeAvailable() {
