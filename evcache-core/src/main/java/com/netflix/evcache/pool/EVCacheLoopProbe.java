@@ -9,12 +9,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Publishes event-loop CPU utilization from the loop thread itself.
+ * Publishes the loop thread's CPU-time to wall-time ratio from the loop thread itself.
  *
  * <p>The loop thread periodically publishes an immutable {@code long[]} snapshot
  * containing {@code {threadCpuNs, wallNs}}. Spectator's polling thread reads the
  * latest snapshot and computes the delta ratio without performing cross-thread
  * ThreadMXBean lookups.</p>
+ *
+ * <p>The reported value is {@code dCpu/dWall} in [0, 1.05]: the fraction of wall
+ * time the loop thread was on a CPU. Time parked in {@code selector.select()}
+ * is correctly excluded, but time the thread was runnable-but-descheduled
+ * (CPU contention) is also excluded, so this metric is a lower bound on true
+ * loop demand under CPU pressure.</p>
  */
 public final class EVCacheLoopProbe {
     private static final Logger log = LoggerFactory.getLogger(EVCacheLoopProbe.class);
@@ -39,7 +45,7 @@ public final class EVCacheLoopProbe {
     public EVCacheLoopProbe() {
         this.cpuTimeAvailable = isCurrentThreadCpuTimeAvailable();
         if (!cpuTimeAvailable) {
-            log.warn("Thread CPU time is not available; EVCache loop CPU utilization will report NaN");
+            log.warn("Thread CPU time is not available; EVCache loop cpuWallTimeRatio will report NaN");
         }
     }
 
@@ -56,7 +62,7 @@ public final class EVCacheLoopProbe {
             if (!tickFailureLogged) {
                 tickFailureLogged = true;
                 try {
-                    log.warn("EVCache loop CPU utilization probe failed; suppressing future probe errors", t);
+                    log.warn("EVCache loop cpuWallTimeRatio probe failed; suppressing future probe errors", t);
                 } catch (Throwable ignored) {
                     // Keep the event loop alive even if logging fails.
                 }
@@ -75,7 +81,7 @@ public final class EVCacheLoopProbe {
         if (cpuNs < 0L) {
             if (!negativeCpuTimeLogged) {
                 negativeCpuTimeLogged = true;
-                log.warn("Thread CPU time returned a negative value; skipping EVCache loop CPU utilization publish");
+                log.warn("Thread CPU time returned a negative value; skipping EVCache loop cpuWallTimeRatio publish");
             }
             return;
         }
@@ -84,9 +90,9 @@ public final class EVCacheLoopProbe {
     }
 
     /**
-     * Return loop-thread CPU utilization over the interval since the previous poll.
+     * Return loop-thread cpu-time / wall-time ratio over the interval since the previous poll.
      */
-    public double sampleUtilization() {
+    public double sampleCpuWallTimeRatio() {
         if (!cpuTimeAvailable) return Double.NaN;
 
         final long[] s = snapshot.get();
@@ -105,21 +111,21 @@ public final class EVCacheLoopProbe {
         prevCpuNs = cpuNs;
         prevWallNs = wallNs;
 
-        double utilization = (double) dCpu / (double) dWall;
-        if (utilization < 0.0) return 0.0;
+        double ratio = (double) dCpu / (double) dWall;
+        if (ratio < 0.0) return 0.0;
 
-        if (utilization > 1.0) {
+        if (ratio > 1.0) {
             aboveOneSamples++;
             if (aboveOneSamples >= CPU_UTILIZATION_WARNING_THRESHOLD && !aboveOneLogged) {
                 aboveOneLogged = true;
-                log.warn("EVCache loop CPU utilization exceeded 1.0 for {} consecutive samples; latest value={}",
-                        CPU_UTILIZATION_WARNING_THRESHOLD, utilization);
+                log.warn("EVCache loop cpuWallTimeRatio exceeded 1.0 for {} consecutive samples; latest value={}",
+                        CPU_UTILIZATION_WARNING_THRESHOLD, ratio);
             }
         } else {
             aboveOneSamples = 0;
         }
 
-        return Math.min(utilization, 1.05);
+        return Math.min(ratio, 1.05);
     }
 
     private static boolean isCurrentThreadCpuTimeAvailable() {
