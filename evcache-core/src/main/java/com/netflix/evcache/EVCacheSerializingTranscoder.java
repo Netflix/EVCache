@@ -27,6 +27,7 @@ import com.github.luben.zstd.ZstdInputStream;
 import com.netflix.archaius.api.Property;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.spectator.api.BasicTag;
+import com.netflix.spectator.api.DistributionSummary;
 import com.netflix.spectator.api.Tag;
 import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.BaseSerializingTranscoder;
@@ -41,6 +42,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.EnumMap;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -78,6 +80,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     private Property<String> compressionAlgorithmProperty;
     private Property<Integer> zstdLevelProperty;
     protected final String appName;
+    private final EnumMap<CompressionAlgorithm, DistributionSummary> compressionRatioSummaries;
 
     /**
      * Get a serializing transcoder with the default max data size.
@@ -99,6 +102,20 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     public EVCacheSerializingTranscoder(String appName, int max) {
         super(max);
         this.appName = appName;
+        this.compressionRatioSummaries = buildCompressionRatioSummaries(appName);
+    }
+
+    private static EnumMap<CompressionAlgorithm, DistributionSummary> buildCompressionRatioSummaries(String appName) {
+        EnumMap<CompressionAlgorithm, DistributionSummary> summaries = new EnumMap<>(CompressionAlgorithm.class);
+        for (CompressionAlgorithm algo : CompressionAlgorithm.values()) {
+            List<Tag> tagList = new ArrayList<>(2);
+            tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, algo.name().toLowerCase()));
+            if (appName != null && !appName.isEmpty()) {
+                tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+            }
+            summaries.put(algo, EVCacheMetricsFactory.getInstance().getDistributionSummary(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList));
+        }
+        return summaries;
     }
 
     public void setCompressionAlgorithmProperty(Property<String> algorithmProperty) {
@@ -276,6 +293,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         }
         // Slow path: declared size is 0, unknown (-1), or invalid (-2) — stream-decode and let
         // ZstdInputStream surface any frame errors.
+        logger.warn("Zstd frame missing content-size header (getFrameContentSize={}); falling back to stream decode. appName={}", originalSize, appName);
         ZstdInputStream zis = null;
         try {
              zis = new ZstdInputStream(new ByteArrayInputStream(in));
@@ -299,13 +317,9 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     }
 
     private void recordCompressionRatio(long ratioPerCent, CompressionAlgorithm compressionAlgorithm) {
-        final List<Tag> tagList = new ArrayList<Tag>(2);
-        tagList.add(new BasicTag(EVCacheMetricsFactory.COMPRESSION_TYPE, compressionAlgorithm.name().toLowerCase()));
-        if (appName != null && !appName.isEmpty()) {
-            tagList.add(new BasicTag(EVCacheMetricsFactory.CACHE, appName));
+        DistributionSummary summary = compressionRatioSummaries.get(compressionAlgorithm);
+        if (summary != null) {
+            summary.record(ratioPerCent);
         }
-        EVCacheMetricsFactory.getInstance()
-                .getDistributionSummary(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList)
-                .record(ratioPerCent);
     }
 }

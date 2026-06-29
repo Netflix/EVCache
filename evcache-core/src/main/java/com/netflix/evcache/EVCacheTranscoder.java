@@ -56,8 +56,8 @@ public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
     }
 
     /**
-     * Resolves a property preferring the appName-prefixed key (e.g. {@code EVCACHE_VH_ARCHIVE.default.evcache.compression.algo})
-     * and falling back to the global {@code default.evcache.*} key when no app-specific override exists.
+     * Resolves a property preferring the appName-prefixed key and falling back to the global {@code evcache.*} key when
+     * no app-specific override exists.
      */
     private <T> Property<T> getProperty(PropertyRepository config, String key, Class<T> type) {
         if (appName == null || appName.isEmpty()) {

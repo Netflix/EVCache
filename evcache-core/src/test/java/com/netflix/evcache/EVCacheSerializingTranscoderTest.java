@@ -186,11 +186,11 @@ public class EVCacheSerializingTranscoderTest {
     public void testAppNamePrefixedAlgoOverridesDefault() {
         DefaultSettableConfig testConfig = new DefaultSettableConfig();
         testConfig.setProperty("evcacheclient.compression.algo", "GZIP");
-        testConfig.setProperty("EVCACHE_VH_ARCHIVE.evcacheclient.compression.algo", "ZSTD");
+        testConfig.setProperty("EVCACHE_TEST.evcacheclient.compression.algo", "ZSTD");
         PropertyRepository savedRepo = EVCacheConfig.getInstance().getPropertyRepository();
         EVCacheConfig.setPropertyRepository(new DefaultPropertyFactory(testConfig));
         try {
-            EVCacheTranscoder transcoder = new EVCacheTranscoder("EVCACHE_VH_ARCHIVE", CachedData.MAX_SIZE, 1);
+            EVCacheTranscoder transcoder = new EVCacheTranscoder("EVCACHE_TEST", CachedData.MAX_SIZE, 1);
             CachedData encoded = transcoder.encode("hello world hello world hello world hello world hello world");
             byte[] data = encoded.getData();
             assertEquals(data[0], (byte) 0x28, "app-specific ZSTD override must win over default GZIP");
@@ -222,11 +222,11 @@ public class EVCacheSerializingTranscoderTest {
         DefaultSettableConfig testConfig = new DefaultSettableConfig();
         testConfig.setProperty("evcacheclient.compression.algo", "ZSTD");
         testConfig.setProperty("evcacheclient.compression.zstd.level", 1);
-        testConfig.setProperty("EVCACHE_VH_ARCHIVE.evcacheclient.compression.zstd.level", 5);
+        testConfig.setProperty("EVCACHE_TEST.evcacheclient.compression.zstd.level", 5);
         PropertyRepository savedRepo = EVCacheConfig.getInstance().getPropertyRepository();
         EVCacheConfig.setPropertyRepository(new DefaultPropertyFactory(testConfig));
         try {
-            EVCacheTranscoder transcoder = new EVCacheTranscoder("EVCACHE_VH_ARCHIVE", CachedData.MAX_SIZE, 1);
+            EVCacheTranscoder transcoder = new EVCacheTranscoder("EVCACHE_TEST", CachedData.MAX_SIZE, 1);
             String original = "hello world hello world hello world hello world hello world";
             CachedData encoded = transcoder.encode(original);
             String decoded = (String) transcoder.decode(encoded);
