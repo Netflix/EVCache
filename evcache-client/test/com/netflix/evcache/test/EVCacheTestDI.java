@@ -261,6 +261,16 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
     }
 
     private void refreshEVCache() {
+        // Close the previous DI container before building a new one. setupEnv() builds a fresh LifecycleInjector on
+        // every call; without closing the old ones they accumulate across refreshes and the suite slows to a crawl,
+        // to the point it cannot finish.
+        if (lifecycleManager != null) {
+            try {
+                lifecycleManager.close();
+            } catch (Exception e) {
+                log.warn("Failed to close previous lifecycle manager during refresh", e);
+            }
+        }
         setupEnv();
         testEVCache();
     }
@@ -278,6 +288,7 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         refreshEVCache();
         assertTrue(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".hash.key", Boolean.class).orElse(false).get());
         doFunctionalTests(true);
+        testBulkHashed();
         propertiesToSet.remove(appName + ".hash.key");
 
         // hashing at app level due to auto hashing as a consequence of a large key
@@ -331,6 +342,147 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         refreshEVCache();
     }
 
+    @Test(dependsOnMethods = { "functionalTestsWithAppLevelAndASGLevelHashingScenarios" })
+    public void testChunkingScenarios() throws Exception {
+        // chunking only (no hashing): large values are split into chunks and reassembled on read
+        propertiesToSet.put(appName + ".chunk.data", "true");
+        refreshEVCache();
+        assertTrue(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".chunk.data", Boolean.class).orElse(false).get());
+        doChunkingTests();
+
+        // chunking + auto-hashing together: with auto.hash.keys, short keys stay plain while keys whose canonical form
+        // exceeds max.key.length are hashed. A single getBulk over both exercises the mixed-key, chunk-aware path: plain
+        // keys decode in one step, hashed keys are EVCacheValue-wrapped and decode in two steps, all after reassembly.
+        propertiesToSet.put(appName + ".auto.hash.keys", "true");
+        refreshEVCache();
+        assertTrue(manager.getEVCacheConfig().getPropertyRepository().get(appName + ".auto.hash.keys", Boolean.class).orElse(false).get());
+        doMixedKeyChunkingTests();
+        propertiesToSet.remove(appName + ".auto.hash.keys");
+
+        propertiesToSet.remove(appName + ".chunk.data");
+        refreshEVCache();
+    }
+
+    private void doChunkingTests() throws Exception {
+        final EVCacheClient client = manager.getEVCacheClientPool(appName).getEVCacheClientForRead();
+
+        // single large value -> chunked set/get
+        final String largeKey = "chunk_large_" + System.nanoTime();
+        final String largeValue = buildLargeValue(4000);
+        EVCacheLatch latch = evCache.set(largeKey, largeValue, EVCacheLatch.Policy.ALL);
+        latch.await(10000, TimeUnit.MILLISECONDS);
+
+        // verify the value was actually chunked (guards against it being too small / compressed below chunk.size)
+        assertChunked(client, "cid:" + largeKey);
+
+        assertEquals(evCache.get(largeKey), largeValue, "chunked single get did not return the written value");
+
+        // bulk get of multiple chunked values (sync getBulk; async bulk does not support chunking)
+        final int count = 3;
+        final Map<String, String> kv = new HashMap<>(count);
+        for (int i = 0; i < count; i++) {
+            final String key = "chunk_bulk_" + i + "_" + System.nanoTime();
+            final String value = buildLargeValue(3000 + i);
+            kv.put(key, value);
+            EVCacheLatch l = evCache.set(key, value, EVCacheLatch.Policy.ALL);
+            l.await(10000, TimeUnit.MILLISECONDS);
+        }
+        final Map<String, String> results = evCache.getBulk(kv.keySet().toArray(new String[0]));
+        assertNotNull(results);
+        assertEquals(results.size(), kv.size(), "chunked getBulk returned wrong number of entries");
+        for (Map.Entry<String, String> entry : kv.entrySet()) {
+            assertEquals(results.get(entry.getKey()), entry.getValue(), "chunked getBulk failed for key " + entry.getKey());
+        }
+
+        // cleanup
+        for (Future<Boolean> f : evCache.delete(largeKey)) {
+            f.get();
+        }
+        for (String key : kv.keySet()) {
+            for (Future<Boolean> f : evCache.delete(key)) {
+                f.get();
+            }
+        }
+    }
+
+    // Exercises chunking together with a real mixed-key bulk request. Requires auto.hash.keys=true: short keys whose
+    // canonical form ("cid:"+key) stays within max.key.length remain plain, while long keys that exceed it are hashed.
+    // Each group has a large (chunked) and a small (stored directly, below chunk.size) value, so the single getBulk
+    // drives all four combinations: plain/hashed x chunked/non-chunked. Plain decodes in one step, hashed in two.
+    private void doMixedKeyChunkingTests() throws Exception {
+        final EVCacheClient client = manager.getEVCacheClientPool(appName).getEVCacheClientForRead();
+
+        final Map<String, String> kv = new HashMap<>();
+
+        // short keys: canonical form stays under max.key.length (default 200) -> remain plain
+        final String plainChunkedKey = "chunked_plain_" + System.nanoTime();
+        kv.put(plainChunkedKey, buildLargeValue(3000));
+        final String plainNonChunkedKey = "nonchunked_plain_" + System.nanoTime();
+        kv.put(plainNonChunkedKey, UUID.randomUUID().toString());
+
+        // long keys: canonical form exceeds max.key.length -> auto-hashed (buildLargeValue(220) guarantees > 200)
+        final String hashedChunkedKey = "chunked_hashed_" + buildLargeValue(220);
+        kv.put(hashedChunkedKey, buildLargeValue(3000));
+        final String hashedNonChunkedKey = "nonchunked_hashed_" + buildLargeValue(220);
+        kv.put(hashedNonChunkedKey, UUID.randomUUID().toString());
+
+        for (Map.Entry<String, String> entry : kv.entrySet()) {
+            evCache.set(entry.getKey(), entry.getValue(), EVCacheLatch.Policy.ALL).await(10000, TimeUnit.MILLISECONDS);
+        }
+
+        // structural proof of the storage layout on the plain path (stored verbatim, no hashing, so introspectable):
+        // the large value is split into chunks, the small value is stored under a single key. The hashed equivalents use
+        // the same value sizes and their correct round-trip below confirms the hashed write/reassembly path.
+        assertChunked(client, "cid:" + plainChunkedKey);
+        assertNotChunked(client, "cid:" + plainNonChunkedKey);
+
+        // mixed-key, chunk-aware getBulk: plain keys decode in one step, hashed keys in two steps; chunked values are
+        // reassembled first, non-chunked values are decoded directly.
+        final Map<String, String> results = evCache.getBulk(kv.keySet().toArray(new String[0]));
+        assertNotNull(results);
+        assertEquals(results.size(), kv.size(), "mixed-key chunked getBulk returned wrong number of entries");
+        for (Map.Entry<String, String> entry : kv.entrySet()) {
+            assertEquals(results.get(entry.getKey()), entry.getValue(), "mixed-key chunked getBulk failed for key " + entry.getKey());
+        }
+
+        // single get round-trip for hashed (two-step decode) keys, both chunked and non-chunked
+        assertEquals(evCache.get(hashedChunkedKey), kv.get(hashedChunkedKey), "chunked single get of hashed key failed");
+        assertEquals(evCache.get(hashedNonChunkedKey), kv.get(hashedNonChunkedKey), "non-chunked single get of hashed key failed");
+
+        // cleanup
+        for (String key : kv.keySet()) {
+            for (Future<Boolean> f : evCache.delete(key)) {
+                f.get();
+            }
+        }
+    }
+
+    // getAllChunks returns the chunk keys (<storageKey>_01, _02, ...) when the value was chunked, or a single entry
+    // keyed by storageKey itself when stored unchunked. So absence of storageKey in the returned map proves chunking.
+    private void assertChunked(EVCacheClient client, String storageKey) throws Exception {
+        final Map<String, ?> chunks = client.getAllChunks(storageKey);
+        assertNotNull(chunks, "large value should exist in cache for key " + storageKey);
+        assertFalse(chunks.containsKey(storageKey),
+                "value should have been chunked, but was stored as a single key (too small / compressed below chunk.size): " + storageKey);
+    }
+
+    // Inverse of assertChunked: a non-chunked value is returned as a single entry keyed by storageKey itself.
+    private void assertNotChunked(EVCacheClient client, String storageKey) throws Exception {
+        final Map<String, ?> chunks = client.getAllChunks(storageKey);
+        assertNotNull(chunks, "small value should exist in cache for key " + storageKey);
+        assertTrue(chunks.containsKey(storageKey), "value should have been stored as a single (non-chunked) key: " + storageKey);
+    }
+
+    // Builds an incompressible value (random UUIDs) so its encoded size stays above the chunk size and actually
+    // triggers chunking. A repeating/low-entropy value would be compressed below chunk.size and never chunk.
+    private String buildLargeValue(int approxBytes) {
+        final StringBuilder sb = new StringBuilder(approxBytes + 36);
+        while (sb.length() < approxBytes) {
+            sb.append(UUID.randomUUID().toString());
+        }
+        return sb.toString();
+    }
+
     private void testWithLargeKey() throws Exception {
         StringBuilder sb = new StringBuilder();
         for (int i= 0; i < 100; i++) {
@@ -354,11 +506,43 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
         }
     }
 
-    private void testWithMixedKeys() throws Exception {
+    private void testBulkHashed() throws Exception {
+        final int count = 3;
+        Map<String, String> kv = new HashMap<>(count);
+        for (int i = 0; i < count; i++) {
+            String key = "bulkhashed_" + i;
+            String value = "val_bulkhashed_" + i;
+            kv.put(key, value);
+            EVCacheLatch latch = evCache.set(key, value, EVCacheLatch.Policy.ALL);
+            latch.await(10000, TimeUnit.MILLISECONDS);
+        }
 
-        EVCache[] evcacheInstance = new EVCache[2];
-        evcacheInstance[0] = getNewBuilder().setAppName(appName).setCachePrefix("cid").enableRetry().build();
-        evcacheInstance[1] = this.evCache;
+        Map<String, String> results = evCache.getBulk(kv.keySet().toArray(new String[0]));
+        assertNotNull(results);
+        assertEquals(results.size(), kv.size());
+        for (Map.Entry<String, String> entry : kv.entrySet()) {
+            assertEquals(results.get(entry.getKey()), entry.getValue(),
+                    "getBulk with all hashed keys failed for key " + entry.getKey());
+        }
+
+        CompletableFuture<Map<String, String>> future = evCache.getAsyncBulk(kv.keySet().toArray(new String[0]));
+        results = future.get(10000, TimeUnit.MILLISECONDS);
+        assertNotNull(results);
+        assertEquals(results.size(), kv.size());
+        for (Map.Entry<String, String> entry : kv.entrySet()) {
+            assertEquals(results.get(entry.getKey()), entry.getValue(),
+                    "getAsyncBulk with all hashed keys failed for key " + entry.getKey());
+        }
+
+        for (String key : kv.keySet()) {
+            Future<Boolean>[] deleteFutures = evCache.delete(key);
+            for (Future<Boolean> deleteFuture : deleteFutures) {
+                deleteFuture.get();
+            }
+        }
+    }
+
+    private void testWithMixedKeys() throws Exception {
 
         Map<String, String> kv = new HashMap<>(6);
         String oneLargeKey = null;
@@ -449,17 +633,17 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
 
         // async bulk get
         for (int op : new int[]{0, 1}) {
-            Map<String, Movie> results = new HashMap<>();
+            Map<String, Movie> results;
             if (op == 0) {
                 CompletableFuture<Map<String, Movie>> future = evCache.getAsyncBulk(kv.keySet().toArray(new String[0]));
                 results = future.get(10000, TimeUnit.MILLISECONDS);
-            // } else {
-                // TODO: getBulk api is known to be broken for un-hashed keys not decoding correctly when request contains both hashed and unhashed keys
-                // results = evCache.getBulk(kv.keySet().toArray(new String[0]));
+            } else {
+                results = evCache.getBulk(kv.keySet().toArray(new String[0]));
             }
 
+            assertEquals(results.size(), kv.size());
             for (Map.Entry<String, Movie> result : results.entrySet()) {
-                assertEquals(results.size(), kv.size());
+                
                 assertEquals(result.getValue(), kv.get(result.getKey()), "Did not get the written value back with op " + (op == 0 ? "getAsyncBulk" : "getBulk"));
             }
         }
