@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import com.netflix.evcache.config.EVCacheTranscoderProperties;
 import org.testng.annotations.Test;
 
 import com.netflix.evcache.EVCacheTranscoder;
@@ -34,7 +35,11 @@ public class EVCacheValueSerdeTest {
 
     /** Binary-enabled transcoder, compression disabled, so encoded bytes start with our magic. */
     private static EVCacheTranscoder binaryTranscoder() {
-        return new EVCacheTranscoder(20 * 1024 * 1024, Integer.MAX_VALUE, true);
+        com.netflix.archaius.config.DefaultSettableConfig cfg = new com.netflix.archaius.config.DefaultSettableConfig();
+        cfg.setProperty("testApp.binary.serialization.enabled", "true");
+        return new EVCacheTranscoder(20 * 1024 * 1024, Integer.MAX_VALUE,
+                new EVCacheTranscoderProperties("testApp",
+                        com.netflix.archaius.DefaultPropertyFactory.from(cfg)));
     }
 
     /** Default transcoder (binary OFF, falls through to native Java serialization). */

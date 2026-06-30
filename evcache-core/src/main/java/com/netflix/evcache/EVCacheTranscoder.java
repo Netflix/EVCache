@@ -1,5 +1,6 @@
 package com.netflix.evcache;
 
+import com.netflix.evcache.config.EVCacheTranscoderProperties;
 import com.netflix.evcache.pool.EVCacheValue;
 import com.netflix.evcache.pool.EVCacheValueSerde;
 import com.netflix.evcache.util.EVCacheConfig;
@@ -8,7 +9,7 @@ import net.spy.memcached.CachedData;
 
 public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
 
-    private final boolean useBinarySerialization;
+    private final EVCacheTranscoderProperties properties;
 
     public EVCacheTranscoder() {
         this(EVCacheConfig.getInstance().getPropertyRepository().get("default.evcache.max.data.size", Integer.class).orElse(20 * 1024 * 1024).get());
@@ -19,13 +20,15 @@ public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
     }
 
     public EVCacheTranscoder(int max, int compressionThreshold) {
-        this(max, compressionThreshold, false);
+        this(max, compressionThreshold, new EVCacheTranscoderProperties(null, EVCacheConfig.getInstance().getPropertyRepository()));
     }
 
-    public EVCacheTranscoder(int max, int compressionThreshold, boolean useBinarySerialization) {
+    public EVCacheTranscoder(int max, int compressionThreshold, EVCacheTranscoderProperties properties) {
         super(max);
-        setCompressionThreshold(compressionThreshold);
-        this.useBinarySerialization = useBinarySerialization;
+        this.properties = properties;
+        this.setCompressionThreshold(
+                compressionThreshold
+        );
     }
 
     @Override
@@ -46,7 +49,7 @@ public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
 
     @Override
     protected byte[] serialize(Object o) {
-        if (useBinarySerialization && o instanceof EVCacheValue) {
+        if (this.properties.isBinarySerializationEnabled() && o instanceof EVCacheValue) {
             return EVCacheValueSerde.serialize((EVCacheValue) o);
         }
         return super.serialize(o);
