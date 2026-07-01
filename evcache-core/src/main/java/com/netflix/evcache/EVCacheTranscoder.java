@@ -49,9 +49,9 @@ public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
     public EVCacheTranscoder(String appName, PropertyRepository config, int max, int compressionThreshold) {
         super(appName, max);
         setCompressionThreshold(compressionThreshold);
-        Property<String> algoProperty = getProperty(config, "evcacheclient.compression.algo", String.class);
+        Property<String> algoProperty = getProperty(config, "default.evcacheclient.compression.algo", String.class);
         setCompressionAlgorithmProperty(algoProperty);
-        Property<Integer> zstdLevelProperty = getProperty(config, "evcacheclient.compression.zstd.level", Integer.class);
+        Property<Integer> zstdLevelProperty = getProperty(config, "default.evcacheclient.compression.zstd.level", Integer.class);
         setCompressionLevelProperty(zstdLevelProperty);
     }
 
@@ -61,7 +61,7 @@ public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
      */
     private <T> Property<T> getProperty(PropertyRepository config, String key, Class<T> type) {
         if (appName == null || appName.isEmpty()) {
-            return config.get(key, type);
+            return config.get("default." + key, type);
         }
         return config.get(appName + "." + key, type).orElseGet(key);
     }
