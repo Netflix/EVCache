@@ -14,8 +14,6 @@ import static com.netflix.evcache.config.EVCacheTranscoderProperties.Key.MAX_DAT
 
 public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
 
-    private final EVCacheTranscoderProperties properties;
-
     /**
      * @param properties the transcoder property bundle.
      *                   {@link EVCacheTranscoderProperties.Key#MAX_DATA_SIZE_BYTES} and
@@ -49,8 +47,7 @@ public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
     }
 
     private EVCacheTranscoder(int max, int compressionThreshold, EVCacheTranscoderProperties properties) {
-        super(max);
-        this.properties = properties;
+        super(properties, max);
         setCompressionThreshold(compressionThreshold);
     }
 
