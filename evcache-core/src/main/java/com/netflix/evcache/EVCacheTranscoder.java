@@ -6,13 +6,19 @@ import com.netflix.evcache.pool.EVCacheValueSerde;
 import com.netflix.evcache.util.EVCacheConfig;
 
 import net.spy.memcached.CachedData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.netflix.evcache.config.EVCacheTranscoderProperties.DEFAULT_COMPRESSION_THRESHOLD_BYTES;
+import static com.netflix.evcache.config.EVCacheTranscoderProperties.DEFAULT_LOG_PUT_ENABLED;
 import static com.netflix.evcache.config.EVCacheTranscoderProperties.DEFAULT_MAX_DATA_SIZE_BYTES;
 import static com.netflix.evcache.config.EVCacheTranscoderProperties.Key.COMPRESSION_THRESHOLD_BYTES;
+import static com.netflix.evcache.config.EVCacheTranscoderProperties.Key.LOG_PUT_ENABLED;
 import static com.netflix.evcache.config.EVCacheTranscoderProperties.Key.MAX_DATA_SIZE_BYTES;
 
 public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
+
+    private static final Logger log = LoggerFactory.getLogger(EVCacheTranscoder.class);
 
     /**
      * @param properties the transcoder property bundle.
@@ -63,6 +69,10 @@ public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
 
     @Override
     public CachedData encode(Object o) {
+        if (this.properties.getProperty(LOG_PUT_ENABLED, Boolean.class, DEFAULT_LOG_PUT_ENABLED)) {
+            log.info("EVCacheTranscoder.encode LOG_PUT_ENABLED=true type={} value={}",
+                    o == null ? "null" : o.getClass().getName(), o);
+        }
         if (o != null && o instanceof CachedData) return (CachedData) o;
         return super.encode(o);
     }

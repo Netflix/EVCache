@@ -27,11 +27,13 @@ public final class EVCacheTranscoderProperties {
     public static final boolean DEFAULT_BINARY_SERIALIZATION_ENABLED = false;
     public static final int DEFAULT_MAX_DATA_SIZE_BYTES = 20 * 1024 * 1024;
     public static final int DEFAULT_COMPRESSION_THRESHOLD_BYTES = 120;
+    public static final boolean DEFAULT_LOG_PUT_ENABLED = false;
 
     public enum Key {
         BINARY_SERIALIZATION_ENABLED("binary.serialization.enabled", "default.evcache.binary.serialization.enabled"),
         MAX_DATA_SIZE_BYTES("max.data.size", "default.evcache.max.data.size"),
-        COMPRESSION_THRESHOLD_BYTES("compression.threshold", "default.evcache.compression.threshold");
+        COMPRESSION_THRESHOLD_BYTES("compression.threshold", "default.evcache.compression.threshold"),
+        LOG_PUT_ENABLED("log.put.enabled", "default.evcache.log.put.enabled");
 
         final String appKeySuffix;
         final String globalKey;
