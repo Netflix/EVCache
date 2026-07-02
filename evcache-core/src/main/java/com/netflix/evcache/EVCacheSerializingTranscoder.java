@@ -24,8 +24,10 @@ package com.netflix.evcache;
 
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStream;
-import com.netflix.archaius.api.Property;
+import com.netflix.evcache.config.EVCacheTranscoderProperties;
+import com.netflix.evcache.config.EVCacheTranscoderProperties.CompressionAlgorithm;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.DistributionSummary;
 import com.netflix.spectator.api.Tag;
@@ -70,16 +72,12 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     static final int SPECIAL_DOUBLE = (7 << 8);
     static final int SPECIAL_BYTEARRAY = (8 << 8);
 
-    public enum CompressionAlgorithm { GZIP, ZSTD }
-
-    public static final int DEFAULT_ZSTD_COMPRESSION_LEVEL = 3;
-
     private static final int ZSTD_MAGIC = 0xFD2FB528;
 
     private final TranscoderUtils tu = new TranscoderUtils(true);
-    private Property<String> compressionAlgorithmProperty;
-    private Property<Integer> zstdLevelProperty;
-    protected final String appName;
+
+    protected final EVCacheTranscoderProperties properties;
+
     private final EnumMap<CompressionAlgorithm, DistributionSummary> compressionRatioSummaries;
 
     /**
@@ -90,19 +88,26 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     }
 
     /**
-     * Get a serializing transcoder that specifies the max data size.
+     * Get a serializing transcoder that specifies the max data size. Builds a default
+     * {@link EVCacheTranscoderProperties} bundle from {@link EVCacheConfig#getInstance()} —
+     * subclasses/callers that want per-app resolution should use
+     * {@link #EVCacheSerializingTranscoder(EVCacheTranscoderProperties, int)}.
      */
     public EVCacheSerializingTranscoder(int max) {
-        this(null, max);
+        this(new EVCacheTranscoderProperties(null, EVCacheConfig.getInstance().getPropertyRepository()), max);
     }
 
     /**
-     * Get a serializing transcoder that specifies the owning app name and the max data size.
+     * Get a serializing transcoder with the supplied transcoder-property bundle. The bundle is
+     * exposed to subclasses via {@link #properties} so downstream transcoders can consult the
+     * same three-level (per-app → global → static default) resolution chain. Compression
+     * algorithm and zstd level are resolved dynamically on every {@code compress()} call via
+     * the {@link Property} handles below, so live FP updates propagate without JVM restart.
      */
-    public EVCacheSerializingTranscoder(String appName, int max) {
+    public EVCacheSerializingTranscoder(EVCacheTranscoderProperties properties, int max) {
         super(max);
-        this.appName = appName;
-        this.compressionRatioSummaries = buildCompressionRatioSummaries(appName);
+        this.properties = properties;
+        this.compressionRatioSummaries = buildCompressionRatioSummaries(properties.getAppName());
     }
 
     private static EnumMap<CompressionAlgorithm, DistributionSummary> buildCompressionRatioSummaries(String appName) {
@@ -116,14 +121,6 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
             summaries.put(algo, EVCacheMetricsFactory.getInstance().getDistributionSummary(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList));
         }
         return summaries;
-    }
-
-    public void setCompressionAlgorithmProperty(Property<String> algorithmProperty) {
-        this.compressionAlgorithmProperty = algorithmProperty;
-    }
-
-    public void setCompressionLevelProperty(Property<Integer> levelProperty) {
-        this.zstdLevelProperty = levelProperty;
     }
 
     @Override
@@ -242,19 +239,17 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     protected byte[] compress(byte[] in) {
         if (in == null) throw new NullPointerException("Can't compress null");
 
-        CompressionAlgorithm compressionAlgorithm = compressionAlgorithmProperty == null ? CompressionAlgorithm.GZIP
-                : CompressionAlgorithm.valueOf(compressionAlgorithmProperty.orElse(CompressionAlgorithm.GZIP.name()).get().toUpperCase());
+        CompressionAlgorithm compressionAlgorithm = properties.getCompressionAlgorithmProperty().get();
 
         byte[] compressed;
         switch (compressionAlgorithm) {
             case ZSTD:
-                int zstdLevel = zstdLevelProperty == null ? DEFAULT_ZSTD_COMPRESSION_LEVEL
-                        : zstdLevelProperty.orElse(DEFAULT_ZSTD_COMPRESSION_LEVEL).get();
-                logger.debug("algorithm: {}, level: {}, appName: {}", compressionAlgorithm, zstdLevel, appName);
+                int zstdLevel = properties.getZstdCompressionLevelProperty().get();
+                logger.debug("algorithm: {}, level: {}, appName: {}", compressionAlgorithm, zstdLevel, properties.getAppName());
                 compressed = Zstd.compress(in, zstdLevel);
                 break;
             case GZIP:
-                logger.debug("algorithm: {}, appName: {}", compressionAlgorithm, appName);
+                logger.debug("algorithm: {}, appName: {}", compressionAlgorithm, properties.getAppName());
                 compressed = super.compress(in);
                 break;
             default:
@@ -293,7 +288,8 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         }
         // Slow path: declared size is 0, unknown (-1), or invalid (-2) — stream-decode and let
         // ZstdInputStream surface any frame errors.
-        logger.warn("Zstd frame missing content-size header (getFrameContentSize={}); falling back to stream decode. appName={}", originalSize, appName);
+        logger.warn("Zstd frame missing content-size header (getFrameContentSize={}); falling back to stream decode. appName={}",
+                originalSize, properties.getAppName());
         ZstdInputStream zis = null;
         try {
              zis = new ZstdInputStream(new ByteArrayInputStream(in));

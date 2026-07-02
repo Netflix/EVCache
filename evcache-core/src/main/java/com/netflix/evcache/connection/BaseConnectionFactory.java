@@ -109,8 +109,8 @@ public class BaseConnectionFactory extends BinaryConnectionFactory {
     }
 
     public Transcoder<Object> getDefaultTranscoder() {
-        return new EVCacheTranscoder(appName,
-                client.getPool().getEVCacheClientPoolManager().getEVCacheConfig().getPropertyRepository());
+        return new EVCacheTranscoder(new com.netflix.evcache.config.EVCacheTranscoderProperties(appName,
+                client.getPool().getEVCacheClientPoolManager().getEVCacheConfig().getPropertyRepository()));
     }
 
     public FailureMode getFailureMode() {

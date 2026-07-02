@@ -3,6 +3,8 @@
   <test name="UnitTests">
     <classes>
       <class name="com.netflix.evcache.pool.NodeLocatorLookupTest" />
+      <class name="com.netflix.evcache.pool.EVCacheValueSerdeTest" />
+      <class name="com.netflix.evcache.config.EVCacheTranscoderPropertiesTest" />
     </classes>
   </test>
   <test name="MockTests">
