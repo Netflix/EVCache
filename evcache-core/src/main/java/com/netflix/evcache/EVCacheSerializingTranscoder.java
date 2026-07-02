@@ -22,8 +22,10 @@
 
 package com.netflix.evcache;
 
+import com.netflix.evcache.config.EVCacheTranscoderProperties;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
 import com.netflix.spectator.api.Timer;
@@ -68,6 +70,8 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     private final TranscoderUtils tu = new TranscoderUtils(true);
     private Timer timer;
 
+    protected final EVCacheTranscoderProperties properties;
+
     /**
      * Get a serializing transcoder with the default max data size.
      */
@@ -76,10 +80,23 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     }
 
     /**
-     * Get a serializing transcoder that specifies the max data size.
+     * Get a serializing transcoder that specifies the max data size. Builds a default
+     * {@link EVCacheTranscoderProperties} bundle from
+     * {@link EVCacheConfig#getInstance()} — subclasses/callers that want per-app
+     * resolution should use {@link #EVCacheSerializingTranscoder(EVCacheTranscoderProperties, int)}.
      */
     public EVCacheSerializingTranscoder(int max) {
+        this(new EVCacheTranscoderProperties(null, EVCacheConfig.getInstance().getPropertyRepository()), max);
+    }
+
+    /**
+     * Get a serializing transcoder with the supplied transcoder-property bundle. The bundle is
+     * exposed to subclasses via {@link #properties} so downstream transcoders can consult the
+     * same three-level (per-app → global → static default) resolution chain.
+     */
+    public EVCacheSerializingTranscoder(EVCacheTranscoderProperties properties, int max) {
         super(max);
+        this.properties = properties;
     }
 
     @Override
