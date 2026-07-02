@@ -24,8 +24,10 @@ package com.netflix.evcache;
 
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStream;
-import com.netflix.archaius.api.Property;
+import com.netflix.evcache.config.EVCacheTranscoderProperties;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.DistributionSummary;
 import com.netflix.spectator.api.Tag;
@@ -82,6 +84,8 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     protected final String appName;
     private final EnumMap<CompressionAlgorithm, DistributionSummary> compressionRatioSummaries;
 
+    protected final EVCacheTranscoderProperties properties;
+
     /**
      * Get a serializing transcoder with the default max data size.
      */
@@ -90,18 +94,23 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     }
 
     /**
-     * Get a serializing transcoder that specifies the max data size.
+     * Get a serializing transcoder that specifies the max data size. Builds a default
+     * {@link EVCacheTranscoderProperties} bundle from
+     * {@link EVCacheConfig#getInstance()} — subclasses/callers that want per-app
+     * resolution should use {@link #EVCacheSerializingTranscoder(EVCacheTranscoderProperties, int)}.
      */
     public EVCacheSerializingTranscoder(int max) {
-        this(null, max);
+        this(new EVCacheTranscoderProperties(null, EVCacheConfig.getInstance().getPropertyRepository()), max);
     }
 
     /**
-     * Get a serializing transcoder that specifies the owning app name and the max data size.
+     * Get a serializing transcoder with the supplied transcoder-property bundle. The bundle is
+     * exposed to subclasses via {@link #properties} so downstream transcoders can consult the
+     * same three-level (per-app → global → static default) resolution chain.
      */
-    public EVCacheSerializingTranscoder(String appName, int max) {
+    public EVCacheSerializingTranscoder(EVCacheTranscoderProperties properties, int max) {
         super(max);
-        this.appName = appName;
+        this.properties = properties;
         this.compressionRatioSummaries = buildCompressionRatioSummaries(appName);
     }
 
@@ -116,14 +125,6 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
             summaries.put(algo, EVCacheMetricsFactory.getInstance().getDistributionSummary(EVCacheMetricsFactory.COMPRESSION_RATIO, tagList));
         }
         return summaries;
-    }
-
-    public void setCompressionAlgorithmProperty(Property<String> algorithmProperty) {
-        this.compressionAlgorithmProperty = algorithmProperty;
-    }
-
-    public void setCompressionLevelProperty(Property<Integer> levelProperty) {
-        this.zstdLevelProperty = levelProperty;
     }
 
     @Override

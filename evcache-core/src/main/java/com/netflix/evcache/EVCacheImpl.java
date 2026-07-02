@@ -6,6 +6,7 @@ import com.netflix.archaius.api.Property;
 import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.evcache.EVCacheInMemoryCache.DataNotFoundException;
 import com.netflix.evcache.EVCacheLatch.Policy;
+import com.netflix.evcache.config.EVCacheTranscoderProperties;
 import com.netflix.evcache.dto.KeyMapDto;
 import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.event.EVCacheEventListener;
@@ -76,6 +77,7 @@ import rx.Single;
 public class EVCacheImpl implements EVCache, EVCacheImplMBean {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheImpl.class);
+    private static final int COMPRESSION_THRESHOLD_BYTES = Integer.MAX_VALUE;
 
     private final Clock clock;
     private final String _appName;
@@ -164,9 +166,9 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         this.maxHashLength = propertyRepository.get(appName + ".max.hash.length", Integer.class).orElse(-1);
         this.encoderBase = propertyRepository.get(appName + ".hash.encoder", String.class).orElse("base64");
         this.autoHashKeys = propertyRepository.get(_appName + ".auto.hash.keys", Boolean.class).orElseGet("evcache.auto.hash.keys").orElse(false);
-        this.evcacheValueTranscoder = new EVCacheTranscoder(_appName, propertyRepository);
-        evcacheValueTranscoder.setCompressionThreshold(Integer.MAX_VALUE);
-
+        final EVCacheTranscoderProperties evCacheTranscoderProperties = new EVCacheTranscoderProperties(_appName, propertyRepository);
+        this.evcacheValueTranscoder = new EVCacheTranscoder(evCacheTranscoderProperties);
+        evcacheValueTranscoder.setCompressionThreshold(COMPRESSION_THRESHOLD_BYTES);
         // default max key length is 200, instead of using what is defined in MemcachedClientIF.MAX_KEY_LENGTH (250). This is to accommodate
         // auto key prepend with appname for duet feature.
         this.maxKeyLength = propertyRepository.get(_appName + ".max.key.length", Integer.class).orElseGet("evcache.max.key.length").orElse(200);
