@@ -24,9 +24,10 @@ package com.netflix.evcache;
 
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStream;
+import com.netflix.archaius.api.Property;
 import com.netflix.evcache.config.EVCacheTranscoderProperties;
+import com.netflix.evcache.config.EVCacheTranscoderProperties.CompressionAlgorithm;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
-import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.DistributionSummary;
@@ -72,19 +73,16 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     static final int SPECIAL_DOUBLE = (7 << 8);
     static final int SPECIAL_BYTEARRAY = (8 << 8);
 
-    public enum CompressionAlgorithm { GZIP, ZSTD }
-
     public static final int DEFAULT_ZSTD_COMPRESSION_LEVEL = 3;
 
     private static final int ZSTD_MAGIC = 0xFD2FB528;
 
     private final TranscoderUtils tu = new TranscoderUtils(true);
-    private Property<String> compressionAlgorithmProperty;
-    private Property<Integer> zstdLevelProperty;
     protected final String appName;
-    private final EnumMap<CompressionAlgorithm, DistributionSummary> compressionRatioSummaries;
+    private Property<EVCacheTranscoderProperties.CompressionAlgorithm> compressionAlgorithmProperty;
+    private Property<Integer> zstdLevelProperty;
 
-    protected final EVCacheTranscoderProperties properties;
+    private final EnumMap<CompressionAlgorithm, DistributionSummary> compressionRatioSummaries;
 
     /**
      * Get a serializing transcoder with the default max data size.
@@ -100,7 +98,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
      * resolution should use {@link #EVCacheSerializingTranscoder(EVCacheTranscoderProperties, int)}.
      */
     public EVCacheSerializingTranscoder(int max) {
-        this(new EVCacheTranscoderProperties(null, EVCacheConfig.getInstance().getPropertyRepository()), max);
+        this(max, new EVCacheTranscoderProperties(null, EVCacheConfig.getInstance().getPropertyRepository()));
     }
 
     /**
@@ -108,9 +106,11 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
      * exposed to subclasses via {@link #properties} so downstream transcoders can consult the
      * same three-level (per-app → global → static default) resolution chain.
      */
-    public EVCacheSerializingTranscoder(EVCacheTranscoderProperties properties, int max) {
+    public EVCacheSerializingTranscoder(int max, EVCacheTranscoderProperties properties) {
         super(max);
-        this.properties = properties;
+        this.appName = properties.getAppName();
+        this.compressionAlgorithmProperty = properties.getCompressionAlgorithmProperty();
+        this.zstdLevelProperty = properties.getZstdCompressionLevelProperty();
         this.compressionRatioSummaries = buildCompressionRatioSummaries(appName);
     }
 
@@ -243,14 +243,11 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     protected byte[] compress(byte[] in) {
         if (in == null) throw new NullPointerException("Can't compress null");
 
-        CompressionAlgorithm compressionAlgorithm = compressionAlgorithmProperty == null ? CompressionAlgorithm.GZIP
-                : CompressionAlgorithm.valueOf(compressionAlgorithmProperty.orElse(CompressionAlgorithm.GZIP.name()).get().toUpperCase());
-
+        CompressionAlgorithm compressionAlgorithm = compressionAlgorithmProperty.get();
         byte[] compressed;
         switch (compressionAlgorithm) {
             case ZSTD:
-                int zstdLevel = zstdLevelProperty == null ? DEFAULT_ZSTD_COMPRESSION_LEVEL
-                        : zstdLevelProperty.orElse(DEFAULT_ZSTD_COMPRESSION_LEVEL).get();
+                int zstdLevel = zstdLevelProperty.get();
                 logger.debug("algorithm: {}, level: {}, appName: {}", compressionAlgorithm, zstdLevel, appName);
                 compressed = Zstd.compress(in, zstdLevel);
                 break;

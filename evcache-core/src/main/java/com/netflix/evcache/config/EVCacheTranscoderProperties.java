@@ -3,7 +3,8 @@ package com.netflix.evcache.config;
 import com.netflix.archaius.api.Property;
 import com.netflix.archaius.api.PropertyRepository;
 
-import static com.netflix.evcache.config.EVCacheTranscoderProperties.Key.BINARY_SERIALIZATION_ENABLED;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Properties related to {@link com.netflix.evcache.EVCacheTranscoder}
@@ -24,14 +25,22 @@ import static com.netflix.evcache.config.EVCacheTranscoderProperties.Key.BINARY_
  */
 public final class EVCacheTranscoderProperties {
 
+    private static final Logger logger = LoggerFactory.getLogger(EVCacheTranscoderProperties.class);
+
     public static final boolean DEFAULT_BINARY_SERIALIZATION_ENABLED = false;
     public static final int DEFAULT_MAX_DATA_SIZE_BYTES = 20 * 1024 * 1024;
     public static final int DEFAULT_COMPRESSION_THRESHOLD_BYTES = 120;
+    public static final CompressionAlgorithm DEFAULT_COMPRESSION_ALGORITHM = CompressionAlgorithm.GZIP;
+    public static final int DEFAULT_COMPRESSION_ZSTD_LEVEL = 3;
+
+    public enum CompressionAlgorithm { GZIP, ZSTD }
 
     public enum Key {
         BINARY_SERIALIZATION_ENABLED("binary.serialization.enabled", "default.evcache.binary.serialization.enabled"),
         MAX_DATA_SIZE_BYTES("max.data.size", "default.evcache.max.data.size"),
-        COMPRESSION_THRESHOLD_BYTES("compression.threshold", "default.evcache.compression.threshold");
+        COMPRESSION_THRESHOLD_BYTES("compression.threshold", "default.evcache.compression.threshold"),
+        COMPRESSION_ALGORITHM("compression.algorithm", "default.evcache.compression.algorithm"),
+        COMPRESSION_ZSTD_LEVEL("compression.zstd.level", "default.evcache.compression.zstd.level");
 
         final String appKeySuffix;
         final String globalKey;
@@ -43,9 +52,12 @@ public final class EVCacheTranscoderProperties {
     }
 
     private final String appName;
-    private final PropertyRepository propertyRepository;
 
     private final boolean binarySerializationEnabled;
+    private final int maxDataSizeBytes;
+    private final int compressionThresholdBytes;
+    private final Property<CompressionAlgorithm> compressionAlgorithmProperty;
+    private final Property<Integer> zstdCompressionLevelProperty;
 
     /**
      * Construct the bundle and snapshot every property via the three-level resolution chain.
@@ -61,24 +73,66 @@ public final class EVCacheTranscoderProperties {
      */
     public EVCacheTranscoderProperties(String appName, PropertyRepository propertyRepository) {
         this.appName = appName;
-        this.propertyRepository = propertyRepository;
+
         this.binarySerializationEnabled = getProperty(appName, propertyRepository,
-                BINARY_SERIALIZATION_ENABLED, Boolean.class, DEFAULT_BINARY_SERIALIZATION_ENABLED).get();
+                Key.BINARY_SERIALIZATION_ENABLED, Boolean.class, DEFAULT_BINARY_SERIALIZATION_ENABLED).get();
+        this.maxDataSizeBytes = getProperty(appName, propertyRepository, Key.MAX_DATA_SIZE_BYTES, Integer.class, DEFAULT_MAX_DATA_SIZE_BYTES).get();
+        this.compressionThresholdBytes = getProperty(appName, propertyRepository, Key.COMPRESSION_THRESHOLD_BYTES, Integer.class, DEFAULT_COMPRESSION_THRESHOLD_BYTES).get();
+        this.compressionAlgorithmProperty = getProperty(appName, propertyRepository,
+                Key.COMPRESSION_ALGORITHM, String.class, DEFAULT_COMPRESSION_ALGORITHM.name())
+                .map(EVCacheTranscoderProperties::parseCompressionAlgorithm);
+        this.zstdCompressionLevelProperty = getProperty(appName, propertyRepository,
+                Key.COMPRESSION_ZSTD_LEVEL, Integer.class, DEFAULT_COMPRESSION_ZSTD_LEVEL);
+    }
+
+    public String getAppName() {
+        return appName;
     }
 
     public boolean isBinarySerializationEnabled() {
         return binarySerializationEnabled;
     }
 
+    public int getMaxDataSizeBytes() {
+        return maxDataSizeBytes;
+    }
+
+    public int getCompressionThresholdBytes() {
+        return compressionThresholdBytes;
+    }
+
     /**
-     * Resolve the Archaius {@link Property} handle for the given key. Callers should hold the
-     * handle (as a final field, typically) and invoke {@link Property#get()} when they need the
-     * current value; every {@code .get()} re-reads through the same per-app → global → static-default
-     * chain, so live FP updates propagate without re-resolving. Returning the handle rather than
-     * the resolved value makes it obvious that this is a dynamic property, not a static snapshot.
+     * Live-updating {@link Property} handle for the transcoder compression algorithm. Calling
+     * {@code .get()} returns the current {@link CompressionAlgorithm} value; underlying storage
+     * is a String property (case-insensitive) so ops can set the FP as {@code "gzip"} or
+     * {@code "ZSTD"} interchangeably. Handle is resolved once at bundle construction and
+     * shared across callers — {@code .get()} on it always observes the latest FP value.
      */
-    public <T> Property<T> getProperty(Key key, Class<T> type, T defaultValue) {
-        return getProperty(appName, propertyRepository, key, type, defaultValue);
+    public Property<CompressionAlgorithm> getCompressionAlgorithmProperty() {
+        return compressionAlgorithmProperty;
+    }
+
+    /**
+     * Live-updating {@link Property} handle for the zstd compression level. Resolved once at
+     * bundle construction.
+     */
+    public Property<Integer> getZstdCompressionLevelProperty() {
+        return zstdCompressionLevelProperty;
+    }
+
+    /**
+     * Parse an FP algorithm string (case-insensitive) into a {@link CompressionAlgorithm}. An
+     * unrecognized value falls back to {@link #DEFAULT_COMPRESSION_ALGORITHM} rather than
+     * propagating a {@code null} (which would NPE the compression switch at encode time) — a
+     * typo'd fast property degrades to the default instead of taking down writes.
+     */
+    private static CompressionAlgorithm parseCompressionAlgorithm(String value) {
+        try {
+            return CompressionAlgorithm.valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            logger.warn("Unrecognized compression algorithm '{}'; falling back to {}", value, DEFAULT_COMPRESSION_ALGORITHM);
+            return DEFAULT_COMPRESSION_ALGORITHM;
+        }
     }
 
     private static <T> Property<T> getProperty(String appName, PropertyRepository propertyRepository,
