@@ -8,8 +8,6 @@ import net.spy.memcached.CachedData;
 
 public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
 
-    private boolean isBinarySerializationEnabled;
-
     public EVCacheTranscoder() {
         this(new EVCacheTranscoderProperties(null, EVCacheConfig.getInstance().getPropertyRepository()));
     }
@@ -41,7 +39,6 @@ public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
 
     private EVCacheTranscoder(int max, int compressionThreshold, EVCacheTranscoderProperties properties) {
         super(max, properties);
-        isBinarySerializationEnabled = properties.isBinarySerializationEnabled();
         setCompressionThreshold(compressionThreshold);
     }
 
@@ -53,7 +50,7 @@ public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
 
     @Override
     protected byte[] serialize(Object o) {
-        if (isBinarySerializationEnabled && o instanceof EVCacheValue) {
+        if (transcoderProperties.isBinarySerializationEnabled() && o instanceof EVCacheValue) {
             return EVCacheValueSerde.serialize((EVCacheValue) o);
         }
         return super.serialize(o);
@@ -66,5 +63,4 @@ public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
         }
         return super.deserialize(in);
     }
-
 }

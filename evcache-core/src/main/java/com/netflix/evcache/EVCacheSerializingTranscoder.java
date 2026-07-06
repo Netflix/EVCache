@@ -24,7 +24,6 @@ package com.netflix.evcache;
 
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStream;
-import com.netflix.archaius.api.Property;
 import com.netflix.evcache.config.EVCacheTranscoderProperties;
 import com.netflix.evcache.config.EVCacheTranscoderProperties.CompressionAlgorithm;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
@@ -48,15 +47,11 @@ import java.util.Date;
 import java.util.EnumMap;
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * Transcoder that serializes and compresses objects.
  */
 public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder implements
         Transcoder<Object> {
-    private static final Logger logger = LoggerFactory.getLogger(EVCacheSerializingTranscoder.class);
 
     // General flags
     static final int SERIALIZED = 1;
@@ -79,8 +74,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
 
     private final TranscoderUtils tu = new TranscoderUtils(true);
     protected final String appName;
-    private Property<EVCacheTranscoderProperties.CompressionAlgorithm> compressionAlgorithmProperty;
-    private Property<Integer> zstdLevelProperty;
+    protected EVCacheTranscoderProperties transcoderProperties;
 
     private final EnumMap<CompressionAlgorithm, DistributionSummary> compressionRatioSummaries;
 
@@ -109,8 +103,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     public EVCacheSerializingTranscoder(int max, EVCacheTranscoderProperties properties) {
         super(max);
         this.appName = properties.getAppName();
-        this.compressionAlgorithmProperty = properties.getCompressionAlgorithmProperty();
-        this.zstdLevelProperty = properties.getZstdCompressionLevelProperty();
+        this.transcoderProperties = properties;
         this.compressionRatioSummaries = buildCompressionRatioSummaries(appName);
     }
 
@@ -243,16 +236,16 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     protected byte[] compress(byte[] in) {
         if (in == null) throw new NullPointerException("Can't compress null");
 
-        CompressionAlgorithm compressionAlgorithm = compressionAlgorithmProperty.get();
+        CompressionAlgorithm compressionAlgorithm = transcoderProperties.getCompressionAlgorithmProperty().get();
         byte[] compressed;
         switch (compressionAlgorithm) {
             case ZSTD:
-                int zstdLevel = zstdLevelProperty.get();
-                logger.debug("algorithm: {}, level: {}, appName: {}", compressionAlgorithm, zstdLevel, appName);
+                int zstdLevel = transcoderProperties.getZstdCompressionLevelProperty().get();
+                getLogger().debug("algorithm: {}, level: {}, appName: {}", compressionAlgorithm, zstdLevel, appName);
                 compressed = Zstd.compress(in, zstdLevel);
                 break;
             case GZIP:
-                logger.debug("algorithm: {}, appName: {}", compressionAlgorithm, appName);
+                getLogger().debug("algorithm: {}, appName: {}", compressionAlgorithm, appName);
                 compressed = super.compress(in);
                 break;
             default:
@@ -291,7 +284,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         }
         // Slow path: declared size is 0, unknown (-1), or invalid (-2) — stream-decode and let
         // ZstdInputStream surface any frame errors.
-        logger.warn("Zstd frame missing content-size header (getFrameContentSize={}); falling back to stream decode. appName={}", originalSize, appName);
+        getLogger().warn("Zstd frame missing content-size header (getFrameContentSize={}); falling back to stream decode. appName={}", originalSize, appName);
         ZstdInputStream zis = null;
         try {
              zis = new ZstdInputStream(new ByteArrayInputStream(in));

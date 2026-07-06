@@ -2,9 +2,7 @@ package com.netflix.evcache.config;
 
 import com.netflix.archaius.api.Property;
 import com.netflix.archaius.api.PropertyRepository;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import net.spy.memcached.compat.SpyObject;
 
 /**
  * Properties related to {@link com.netflix.evcache.EVCacheTranscoder}
@@ -20,12 +18,11 @@ import org.slf4j.LoggerFactory;
  *
  * <p>
  *   Static properties should be cached as a field for fast access.
- *   Dynamic properties get be accessed {@link #getProperty(Key, Class, Object)}
+ *   Dynamic properties are resolved through
+ *   {@link #getProperty(String, PropertyRepository, Key, Class, Object)}.
  *
  */
-public final class EVCacheTranscoderProperties {
-
-    private static final Logger logger = LoggerFactory.getLogger(EVCacheTranscoderProperties.class);
+public final class EVCacheTranscoderProperties extends SpyObject {
 
     public static final boolean DEFAULT_BINARY_SERIALIZATION_ENABLED = false;
     public static final int DEFAULT_MAX_DATA_SIZE_BYTES = 20 * 1024 * 1024;
@@ -80,7 +77,7 @@ public final class EVCacheTranscoderProperties {
         this.compressionThresholdBytes = getProperty(appName, propertyRepository, Key.COMPRESSION_THRESHOLD_BYTES, Integer.class, DEFAULT_COMPRESSION_THRESHOLD_BYTES).get();
         this.compressionAlgorithmProperty = getProperty(appName, propertyRepository,
                 Key.COMPRESSION_ALGORITHM, String.class, DEFAULT_COMPRESSION_ALGORITHM.name())
-                .map(EVCacheTranscoderProperties::parseCompressionAlgorithm);
+                .map(this::parseCompressionAlgorithm);
         this.zstdCompressionLevelProperty = getProperty(appName, propertyRepository,
                 Key.COMPRESSION_ZSTD_LEVEL, Integer.class, DEFAULT_COMPRESSION_ZSTD_LEVEL);
     }
@@ -126,11 +123,11 @@ public final class EVCacheTranscoderProperties {
      * propagating a {@code null} (which would NPE the compression switch at encode time) — a
      * typo'd fast property degrades to the default instead of taking down writes.
      */
-    private static CompressionAlgorithm parseCompressionAlgorithm(String value) {
+    private CompressionAlgorithm parseCompressionAlgorithm(String value) {
         try {
             return CompressionAlgorithm.valueOf(value.toUpperCase());
         } catch (IllegalArgumentException | NullPointerException e) {
-            logger.warn("Unrecognized compression algorithm '{}'; falling back to {}", value, DEFAULT_COMPRESSION_ALGORITHM);
+            getLogger().warn("Unrecognized compression algorithm '{}'; falling back to {}", value, DEFAULT_COMPRESSION_ALGORITHM);
             return DEFAULT_COMPRESSION_ALGORITHM;
         }
     }
