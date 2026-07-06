@@ -241,11 +241,11 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         switch (compressionAlgorithm) {
             case ZSTD:
                 int zstdLevel = transcoderProperties.getZstdCompressionLevelProperty().get();
-                getLogger().debug("algorithm: {}, level: {}, appName: {}", compressionAlgorithm, zstdLevel, appName);
+                getLogger().debug("algorithm: %s, level: %d, appName: %s", compressionAlgorithm, zstdLevel, appName);
                 compressed = Zstd.compress(in, zstdLevel);
                 break;
             case GZIP:
-                getLogger().debug("algorithm: {}, appName: {}", compressionAlgorithm, appName);
+                getLogger().debug("algorithm: %s, appName: %s", compressionAlgorithm, appName);
                 compressed = super.compress(in);
                 break;
             default:

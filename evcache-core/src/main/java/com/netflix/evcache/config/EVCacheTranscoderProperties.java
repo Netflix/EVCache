@@ -127,7 +127,7 @@ public final class EVCacheTranscoderProperties extends SpyObject {
         try {
             return CompressionAlgorithm.valueOf(value.toUpperCase());
         } catch (IllegalArgumentException | NullPointerException e) {
-            getLogger().warn("Unrecognized compression algorithm '{}'; falling back to {}", value, DEFAULT_COMPRESSION_ALGORITHM);
+            getLogger().warn("Unrecognized compression algorithm '%s'; falling back to %s", value, DEFAULT_COMPRESSION_ALGORITHM);
             return DEFAULT_COMPRESSION_ALGORITHM;
         }
     }
