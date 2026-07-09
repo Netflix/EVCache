@@ -1,7 +1,5 @@
 package com.netflix.evcache.config;
 
-import static com.netflix.evcache.config.EVCacheTranscoderProperties.Key.COMPRESSION_THRESHOLD_BYTES;
-import static com.netflix.evcache.config.EVCacheTranscoderProperties.Key.MAX_DATA_SIZE_BYTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.netflix.archaius.DefaultPropertyFactory;
@@ -83,7 +81,7 @@ public class EVCacheTranscoderPropertiesTest {
         cfg.setProperty(MAX_DATA_SIZE_PER_APP_KEY, "12345");
 
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(cfg));
-        assertThat(props.getProperty(MAX_DATA_SIZE_BYTES, Integer.class, 999).get()).isEqualTo(12345);
+        assertThat(props.getMaxDataSizeBytes()).isEqualTo(12345);
     }
 
     @Test
@@ -92,13 +90,13 @@ public class EVCacheTranscoderPropertiesTest {
         cfg.setProperty(MAX_DATA_SIZE_GLOBAL_KEY, "12345");
 
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(cfg));
-        assertThat(props.getProperty(MAX_DATA_SIZE_BYTES, Integer.class, 999).get()).isEqualTo(12345);
+        assertThat(props.getMaxDataSizeBytes()).isEqualTo(12345);
     }
 
     @Test
     public void maxDataSize_staticDefaultWhenBothUnset() {
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(new DefaultSettableConfig()));
-        assertThat(props.getProperty(MAX_DATA_SIZE_BYTES, Integer.class, 999).get()).isEqualTo(999);
+        assertThat(props.getMaxDataSizeBytes()).isEqualTo(EVCacheTranscoderProperties.DEFAULT_MAX_DATA_SIZE_BYTES);
     }
 
     @Test
@@ -108,7 +106,7 @@ public class EVCacheTranscoderPropertiesTest {
         cfg.setProperty(MAX_DATA_SIZE_GLOBAL_KEY, "222");
 
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(cfg));
-        assertThat(props.getProperty(MAX_DATA_SIZE_BYTES, Integer.class, 999).get()).isEqualTo(111);
+        assertThat(props.getMaxDataSizeBytes()).isEqualTo(111);
     }
 
     @Test
@@ -117,7 +115,7 @@ public class EVCacheTranscoderPropertiesTest {
         cfg.setProperty(MAX_DATA_SIZE_GLOBAL_KEY, "12345");
 
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(null, repo(cfg));
-        assertThat(props.getProperty(MAX_DATA_SIZE_BYTES, Integer.class, 999).get()).isEqualTo(12345);
+        assertThat(props.getMaxDataSizeBytes()).isEqualTo(12345);
     }
 
     // ---- COMPRESSION_THRESHOLD ----
@@ -128,7 +126,7 @@ public class EVCacheTranscoderPropertiesTest {
         cfg.setProperty(COMPRESSION_PER_APP_KEY, "512");
 
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(cfg));
-        assertThat(props.getProperty(COMPRESSION_THRESHOLD_BYTES, Integer.class, 999).get()).isEqualTo(512);
+        assertThat(props.getCompressionThresholdBytes()).isEqualTo(512);
     }
 
     @Test
@@ -137,13 +135,13 @@ public class EVCacheTranscoderPropertiesTest {
         cfg.setProperty(COMPRESSION_GLOBAL_KEY, "512");
 
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(cfg));
-        assertThat(props.getProperty(COMPRESSION_THRESHOLD_BYTES, Integer.class, 999).get()).isEqualTo(512);
+        assertThat(props.getCompressionThresholdBytes()).isEqualTo(512);
     }
 
     @Test
     public void compressionThreshold_staticDefaultWhenBothUnset() {
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(new DefaultSettableConfig()));
-        assertThat(props.getProperty(COMPRESSION_THRESHOLD_BYTES, Integer.class, 999).get()).isEqualTo(999);
+        assertThat(props.getCompressionThresholdBytes()).isEqualTo(EVCacheTranscoderProperties.DEFAULT_COMPRESSION_THRESHOLD_BYTES);
     }
 
     @Test
@@ -153,7 +151,7 @@ public class EVCacheTranscoderPropertiesTest {
         cfg.setProperty(COMPRESSION_GLOBAL_KEY, "222");
 
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(cfg));
-        assertThat(props.getProperty(COMPRESSION_THRESHOLD_BYTES, Integer.class, 999).get()).isEqualTo(111);
+        assertThat(props.getCompressionThresholdBytes()).isEqualTo(111);
     }
 
     @Test
@@ -162,6 +160,20 @@ public class EVCacheTranscoderPropertiesTest {
         cfg.setProperty(COMPRESSION_GLOBAL_KEY, "512");
 
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(null, repo(cfg));
-        assertThat(props.getProperty(COMPRESSION_THRESHOLD_BYTES, Integer.class, 999).get()).isEqualTo(512);
+        assertThat(props.getCompressionThresholdBytes()).isEqualTo(512);
+    }
+
+    // ---- appName ----
+
+    @Test
+    public void appName_isExposedForSubclassLookups() {
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(new DefaultSettableConfig()));
+        assertThat(props.getAppName()).isEqualTo(APP);
+    }
+
+    @Test
+    public void appName_nullPropagates() {
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(null, repo(new DefaultSettableConfig()));
+        assertThat(props.getAppName()).isNull();
     }
 }

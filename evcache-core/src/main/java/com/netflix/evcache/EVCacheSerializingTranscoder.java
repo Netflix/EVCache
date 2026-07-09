@@ -24,7 +24,8 @@ package com.netflix.evcache;
 
 import com.netflix.evcache.config.EVCacheTranscoderProperties;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
-import com.netflix.evcache.pool.ServerGroup;
+import com.netflix.evcache.pool.EVCacheValue;
+import com.netflix.evcache.pool.EVCacheValueSerde;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Tag;
@@ -33,14 +34,11 @@ import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.BaseSerializingTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.transcoders.TranscoderUtils;
-import net.spy.memcached.util.StringUtils;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 
@@ -70,7 +68,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
     private final TranscoderUtils tu = new TranscoderUtils(true);
     private Timer timer;
 
-    protected final EVCacheTranscoderProperties properties;
+    protected final EVCacheTranscoderProperties transcoderProperties;
 
     /**
      * Get a serializing transcoder with the default max data size.
@@ -83,20 +81,20 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
      * Get a serializing transcoder that specifies the max data size. Builds a default
      * {@link EVCacheTranscoderProperties} bundle from
      * {@link EVCacheConfig#getInstance()} — subclasses/callers that want per-app
-     * resolution should use {@link #EVCacheSerializingTranscoder(EVCacheTranscoderProperties, int)}.
+     * resolution should use {@link #EVCacheSerializingTranscoder(int, EVCacheTranscoderProperties)}.
      */
     public EVCacheSerializingTranscoder(int max) {
-        this(new EVCacheTranscoderProperties(null, EVCacheConfig.getInstance().getPropertyRepository()), max);
+        this(max, new EVCacheTranscoderProperties(null, EVCacheConfig.getInstance().getPropertyRepository()));
     }
 
     /**
      * Get a serializing transcoder with the supplied transcoder-property bundle. The bundle is
-     * exposed to subclasses via {@link #properties} so downstream transcoders can consult the
-     * same three-level (per-app → global → static default) resolution chain.
+     * exposed to subclasses via {@link #transcoderProperties} so downstream transcoders can consult
+     * the same three-level (per-app → global → static default) resolution chain.
      */
-    public EVCacheSerializingTranscoder(EVCacheTranscoderProperties properties, int max) {
+    public EVCacheSerializingTranscoder(int max, EVCacheTranscoderProperties properties) {
         super(max);
-        this.properties = properties;
+        this.transcoderProperties = properties;
     }
 
     @Override
@@ -211,6 +209,22 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
             updateTimerWithCompressionRatio(compression_ratio);
         }
         return new CachedData(flags, b, getMaxSize());
+    }
+
+    @Override
+    protected byte[] serialize(Object o) {
+        if (transcoderProperties.isBinarySerializationEnabled() && o instanceof EVCacheValue) {
+            return EVCacheValueSerde.serialize((EVCacheValue) o);
+        }
+        return super.serialize(o);
+    }
+
+    @Override
+    protected Object deserialize(byte[] in) {
+        if (EVCacheValueSerde.isBinaryFormat(in)) {
+            return EVCacheValueSerde.deserialize(in);
+        }
+        return super.deserialize(in);
     }
 
     private void updateTimerWithCompressionRatio(long ratio_percentage) {

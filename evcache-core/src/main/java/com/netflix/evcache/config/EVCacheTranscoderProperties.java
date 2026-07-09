@@ -3,8 +3,6 @@ package com.netflix.evcache.config;
 import com.netflix.archaius.api.Property;
 import com.netflix.archaius.api.PropertyRepository;
 
-import static com.netflix.evcache.config.EVCacheTranscoderProperties.Key.BINARY_SERIALIZATION_ENABLED;
-
 /**
  * Properties related to {@link com.netflix.evcache.EVCacheTranscoder}
  * behavior.
@@ -18,8 +16,9 @@ import static com.netflix.evcache.config.EVCacheTranscoderProperties.Key.BINARY_
  * </ol>
  *
  * <p>
- *   Static properties should be cached as a field for fast access.
- *   Dynamic properties get be accessed {@link #getProperty(Key, Class, Object)}
+ *   Static properties are snapshotted as primitive fields for fast access. Dynamic fields
+ *   are exposed as {@link Property} accessors so callers see live FP updates on every
+ *   {@code .get()}.
  *
  */
 public final class EVCacheTranscoderProperties {
@@ -43,9 +42,10 @@ public final class EVCacheTranscoderProperties {
     }
 
     private final String appName;
-    private final PropertyRepository propertyRepository;
 
     private final boolean binarySerializationEnabled;
+    private final int maxDataSizeBytes;
+    private final int compressionThresholdBytes;
 
     /**
      * Construct the bundle and snapshot every property via the three-level resolution chain.
@@ -61,24 +61,29 @@ public final class EVCacheTranscoderProperties {
      */
     public EVCacheTranscoderProperties(String appName, PropertyRepository propertyRepository) {
         this.appName = appName;
-        this.propertyRepository = propertyRepository;
+
         this.binarySerializationEnabled = getProperty(appName, propertyRepository,
-                BINARY_SERIALIZATION_ENABLED, Boolean.class, DEFAULT_BINARY_SERIALIZATION_ENABLED).get();
+                Key.BINARY_SERIALIZATION_ENABLED, Boolean.class, DEFAULT_BINARY_SERIALIZATION_ENABLED).get();
+        this.maxDataSizeBytes = getProperty(appName, propertyRepository,
+                Key.MAX_DATA_SIZE_BYTES, Integer.class, DEFAULT_MAX_DATA_SIZE_BYTES).get();
+        this.compressionThresholdBytes = getProperty(appName, propertyRepository,
+                Key.COMPRESSION_THRESHOLD_BYTES, Integer.class, DEFAULT_COMPRESSION_THRESHOLD_BYTES).get();
+    }
+
+    public String getAppName() {
+        return appName;
     }
 
     public boolean isBinarySerializationEnabled() {
         return binarySerializationEnabled;
     }
 
-    /**
-     * Resolve the Archaius {@link Property} handle for the given key. Callers should hold the
-     * handle (as a final field, typically) and invoke {@link Property#get()} when they need the
-     * current value; every {@code .get()} re-reads through the same per-app → global → static-default
-     * chain, so live FP updates propagate without re-resolving. Returning the handle rather than
-     * the resolved value makes it obvious that this is a dynamic property, not a static snapshot.
-     */
-    public <T> Property<T> getProperty(Key key, Class<T> type, T defaultValue) {
-        return getProperty(appName, propertyRepository, key, type, defaultValue);
+    public int getMaxDataSizeBytes() {
+        return maxDataSizeBytes;
+    }
+
+    public int getCompressionThresholdBytes() {
+        return compressionThresholdBytes;
     }
 
     private static <T> Property<T> getProperty(String appName, PropertyRepository propertyRepository,
