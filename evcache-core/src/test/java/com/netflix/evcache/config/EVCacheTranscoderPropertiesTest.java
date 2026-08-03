@@ -295,4 +295,18 @@ public class EVCacheTranscoderPropertiesTest {
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(null, repo(cfg));
         assertThat(props.getZstdCompressionLevelProperty().get()).isEqualTo(9);
     }
+
+    // ---- appName ----
+
+    @Test
+    public void appName_isExposedForSubclassLookups() {
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(new DefaultSettableConfig()));
+        assertThat(props.getAppName()).isEqualTo(APP);
+    }
+
+    @Test
+    public void appName_nullPropagates() {
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(null, repo(new DefaultSettableConfig()));
+        assertThat(props.getAppName()).isNull();
+    }
 }

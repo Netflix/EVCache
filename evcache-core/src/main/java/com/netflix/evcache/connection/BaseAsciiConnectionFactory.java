@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutorService;
 
 import com.netflix.archaius.api.Property;
 import com.netflix.evcache.EVCacheTranscoder;
+import com.netflix.evcache.config.EVCacheTranscoderProperties;
 import com.netflix.evcache.operation.EVCacheAsciiOperationFactory;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPool;
@@ -115,7 +116,7 @@ public class BaseAsciiConnectionFactory extends DefaultConnectionFactory {
     }
 
     public Transcoder<Object> getDefaultTranscoder() {
-        return new EVCacheTranscoder(new com.netflix.evcache.config.EVCacheTranscoderProperties(appName,
+        return new EVCacheTranscoder(new EVCacheTranscoderProperties(appName,
                 client.getPool().getEVCacheClientPoolManager().getEVCacheConfig().getPropertyRepository()));
     }
 

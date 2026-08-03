@@ -27,6 +27,8 @@ import com.github.luben.zstd.ZstdInputStream;
 import com.netflix.evcache.config.EVCacheTranscoderProperties;
 import com.netflix.evcache.config.EVCacheTranscoderProperties.CompressionAlgorithm;
 import com.netflix.evcache.metrics.EVCacheMetricsFactory;
+import com.netflix.evcache.pool.EVCacheValue;
+import com.netflix.evcache.pool.EVCacheValueSerde;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.DistributionSummary;
@@ -89,7 +91,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
      * Get a serializing transcoder that specifies the max data size. Builds a default
      * {@link EVCacheTranscoderProperties} bundle from
      * {@link EVCacheConfig#getInstance()} — subclasses/callers that want per-app
-     * resolution should use {@link #EVCacheSerializingTranscoder(EVCacheTranscoderProperties, int)}.
+     * resolution should use {@link #EVCacheSerializingTranscoder(int, EVCacheTranscoderProperties)}.
      */
     public EVCacheSerializingTranscoder(int max) {
         this(max, new EVCacheTranscoderProperties(null, EVCacheConfig.getInstance().getPropertyRepository()));
@@ -97,8 +99,8 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
 
     /**
      * Get a serializing transcoder with the supplied transcoder-property bundle. The bundle is
-     * exposed to subclasses via {@link #properties} so downstream transcoders can consult the
-     * same three-level (per-app → global → static default) resolution chain.
+     * exposed to subclasses via {@link #transcoderProperties} so downstream transcoders can consult
+     * the same three-level (per-app → global → static default) resolution chain.
      */
     public EVCacheSerializingTranscoder(int max, EVCacheTranscoderProperties properties) {
         super(max);
@@ -230,6 +232,22 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
             }
         }
         return new CachedData(flags, b, getMaxSize());
+    }
+
+    @Override
+    protected byte[] serialize(Object o) {
+        if (transcoderProperties.isBinarySerializationEnabled() && o instanceof EVCacheValue) {
+            return EVCacheValueSerde.serialize((EVCacheValue) o);
+        }
+        return super.serialize(o);
+    }
+
+    @Override
+    protected Object deserialize(byte[] in) {
+        if (EVCacheValueSerde.isBinaryFormat(in)) {
+            return EVCacheValueSerde.deserialize(in);
+        }
+        return super.deserialize(in);
     }
 
     @Override

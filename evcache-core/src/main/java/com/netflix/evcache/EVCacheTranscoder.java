@@ -1,8 +1,6 @@
 package com.netflix.evcache;
 
 import com.netflix.evcache.config.EVCacheTranscoderProperties;
-import com.netflix.evcache.pool.EVCacheValue;
-import com.netflix.evcache.pool.EVCacheValueSerde;
 import com.netflix.evcache.util.EVCacheConfig;
 import net.spy.memcached.CachedData;
 
@@ -46,21 +44,5 @@ public class EVCacheTranscoder extends EVCacheSerializingTranscoder {
     public CachedData encode(Object o) {
         if (o != null && o instanceof CachedData) return (CachedData) o;
         return super.encode(o);
-    }
-
-    @Override
-    protected byte[] serialize(Object o) {
-        if (transcoderProperties.isBinarySerializationEnabled() && o instanceof EVCacheValue) {
-            return EVCacheValueSerde.serialize((EVCacheValue) o);
-        }
-        return super.serialize(o);
-    }
-
-    @Override
-    protected Object deserialize(byte[] in) {
-        if (EVCacheValueSerde.isBinaryFormat(in)) {
-            return EVCacheValueSerde.deserialize(in);
-        }
-        return super.deserialize(in);
     }
 }

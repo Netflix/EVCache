@@ -17,9 +17,9 @@ import net.spy.memcached.compat.SpyObject;
  * </ol>
  *
  * <p>
- *   Static properties should be cached as a field for fast access.
- *   Dynamic properties are resolved through
- *   {@link #getProperty(String, PropertyRepository, Key, Class, Object)}.
+ *   Static properties are snapshotted as primitive fields for fast access. Dynamic fields
+ *   are exposed as {@link Property} accessors so callers see live FP updates on every
+ *   {@code .get()}.
  *
  */
 public final class EVCacheTranscoderProperties extends SpyObject {
@@ -73,8 +73,10 @@ public final class EVCacheTranscoderProperties extends SpyObject {
 
         this.binarySerializationEnabled = getProperty(appName, propertyRepository,
                 Key.BINARY_SERIALIZATION_ENABLED, Boolean.class, DEFAULT_BINARY_SERIALIZATION_ENABLED).get();
-        this.maxDataSizeBytes = getProperty(appName, propertyRepository, Key.MAX_DATA_SIZE_BYTES, Integer.class, DEFAULT_MAX_DATA_SIZE_BYTES).get();
-        this.compressionThresholdBytes = getProperty(appName, propertyRepository, Key.COMPRESSION_THRESHOLD_BYTES, Integer.class, DEFAULT_COMPRESSION_THRESHOLD_BYTES).get();
+        this.maxDataSizeBytes = getProperty(appName, propertyRepository,
+                Key.MAX_DATA_SIZE_BYTES, Integer.class, DEFAULT_MAX_DATA_SIZE_BYTES).get();
+        this.compressionThresholdBytes = getProperty(appName, propertyRepository,
+                Key.COMPRESSION_THRESHOLD_BYTES, Integer.class, DEFAULT_COMPRESSION_THRESHOLD_BYTES).get();
         this.compressionAlgorithmProperty = getProperty(appName, propertyRepository,
                 Key.COMPRESSION_ALGORITHM, String.class, DEFAULT_COMPRESSION_ALGORITHM.name())
                 .map(this::parseCompressionAlgorithm);
