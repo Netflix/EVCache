@@ -37,6 +37,8 @@ import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.BaseSerializingTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.transcoders.TranscoderUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -54,6 +56,8 @@ import java.util.List;
  */
 public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder implements
         Transcoder<Object> {
+
+    private static final Logger log = LoggerFactory.getLogger(EVCacheSerializingTranscoder.class);
 
     // General flags
     static final int SERIALIZED = 1;
@@ -171,7 +175,7 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
                     rv = data;
                     break;
                 default:
-                    getLogger().warn("Undecodeable with flags %x", flags);
+                    log.warn("Undecodeable with flags {}", Integer.toHexString(flags));
             }
         } else {
             rv = decodeString(data);
@@ -222,12 +226,12 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
             int originalLength = b.length;
             byte[] compressed = compress(b);
             if (compressed.length < originalLength) {
-                getLogger().trace("Compressed %s from %d to %d",
+                log.trace("Compressed {} from {} to {}",
                         o.getClass().getName(), originalLength, compressed.length);
                 b = compressed;
                 flags |= COMPRESSED;
             } else {
-                getLogger().debug("Compression increased the size of %s from %d to %d",
+                log.debug("Compression increased the size of {} from {} to {}",
                         o.getClass().getName(), originalLength, compressed.length);
             }
         }
@@ -259,11 +263,11 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         switch (compressionAlgorithm) {
             case ZSTD:
                 int zstdLevel = transcoderProperties.getZstdCompressionLevelProperty().get();
-                getLogger().debug("algorithm: %s, level: %d, appName: %s", compressionAlgorithm, zstdLevel, appName);
+                log.debug("algorithm: {}, level: {}, appName: {}", compressionAlgorithm, zstdLevel, appName);
                 compressed = Zstd.compress(in, zstdLevel);
                 break;
             case GZIP:
-                getLogger().debug("algorithm: %s, appName: %s", compressionAlgorithm, appName);
+                log.debug("algorithm: {}, appName: {}", compressionAlgorithm, appName);
                 compressed = super.compress(in);
                 break;
             default:
@@ -302,13 +306,13 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         }
         // Slow path: declared size is 0, unknown (-1), or invalid (-2) — stream-decode and let
         // ZstdInputStream surface any frame errors.
-        getLogger().warn("Zstd frame missing content-size header (getFrameContentSize={}); falling back to stream decode. appName={}", originalSize, appName);
+        log.warn("Zstd frame missing content-size header (getFrameContentSize={}); falling back to stream decode. appName={}", originalSize, appName);
         ZstdInputStream zis = null;
         try {
              zis = new ZstdInputStream(new ByteArrayInputStream(in));
             return readAll(zis);
         } catch (IOException e) {
-            getLogger().error("Error reading Zstd input stream", e);
+            log.error("Error reading Zstd input stream", e);
             return null;
         } finally {
             try { if (zis != null) zis.close(); } catch (IOException ignored) {}
