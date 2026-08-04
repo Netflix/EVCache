@@ -37,8 +37,6 @@ import net.spy.memcached.CachedData;
 import net.spy.memcached.transcoders.BaseSerializingTranscoder;
 import net.spy.memcached.transcoders.Transcoder;
 import net.spy.memcached.transcoders.TranscoderUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -50,6 +48,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.EnumMap;
 import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Transcoder that serializes and compresses objects.
@@ -226,11 +227,13 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
             int originalLength = b.length;
             byte[] compressed = compress(b);
             if (compressed.length < originalLength) {
-                log.trace("Compressed {} from {} to {}",
-                        o.getClass().getName(), originalLength, compressed.length);
+                if (log.isTraceEnabled()) {
+                    log.trace("Compressed {} from {} to {}",
+                            o.getClass().getName(), originalLength, compressed.length);
+                }
                 b = compressed;
                 flags |= COMPRESSED;
-            } else {
+            } else if (log.isDebugEnabled()) {
                 log.debug("Compression increased the size of {} from {} to {}",
                         o.getClass().getName(), originalLength, compressed.length);
             }
@@ -263,11 +266,15 @@ public class EVCacheSerializingTranscoder extends BaseSerializingTranscoder impl
         switch (compressionAlgorithm) {
             case ZSTD:
                 int zstdLevel = transcoderProperties.getZstdCompressionLevelProperty().get();
-                log.debug("algorithm: {}, level: {}, appName: {}", compressionAlgorithm, zstdLevel, appName);
+                if (log.isDebugEnabled()) {
+                    log.debug("algorithm: {}, level: {}, appName: {}", compressionAlgorithm, zstdLevel, appName);
+                }
                 compressed = Zstd.compress(in, zstdLevel);
                 break;
             case GZIP:
-                log.debug("algorithm: {}, appName: {}", compressionAlgorithm, appName);
+                if (log.isDebugEnabled()) {
+                    log.debug("algorithm: {}, appName: {}", compressionAlgorithm, appName);
+                }
                 compressed = super.compress(in);
                 break;
             default:
