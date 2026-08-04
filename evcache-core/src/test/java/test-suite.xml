@@ -12,6 +12,11 @@
       <class name="com.netflix.evcache.test.MockEVCacheTest" />
     </classes>
   </test>
+  <test name="TranscoderTests">
+    <classes>
+      <class name="com.netflix.evcache.EVCacheSerializingTranscoderTest" />
+    </classes>
+  </test>
   <!-- Uncomment this if EVCacheServer based Tests need to be run. Needs Eureka and EVCache clusters
   <test name="EurekaTests">
     <classes>

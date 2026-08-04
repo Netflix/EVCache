@@ -1,10 +1,15 @@
 package com.netflix.evcache.config;
 
+import static com.netflix.evcache.config.EVCacheTranscoderProperties.DEFAULT_COMPRESSION_ALGORITHM;
+import static com.netflix.evcache.config.EVCacheTranscoderProperties.DEFAULT_COMPRESSION_THRESHOLD_BYTES;
+import static com.netflix.evcache.config.EVCacheTranscoderProperties.DEFAULT_COMPRESSION_ZSTD_LEVEL;
+import static com.netflix.evcache.config.EVCacheTranscoderProperties.DEFAULT_MAX_DATA_SIZE_BYTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.netflix.archaius.DefaultPropertyFactory;
 import com.netflix.archaius.api.PropertyRepository;
 import com.netflix.archaius.config.DefaultSettableConfig;
+import com.netflix.evcache.config.EVCacheTranscoderProperties.CompressionAlgorithm;
 
 import org.testng.annotations.Test;
 
@@ -23,6 +28,10 @@ public class EVCacheTranscoderPropertiesTest {
     private static final String MAX_DATA_SIZE_GLOBAL_KEY = "default.evcache.max.data.size";
     private static final String COMPRESSION_PER_APP_KEY = "MYAPP.compression.threshold";
     private static final String COMPRESSION_GLOBAL_KEY = "default.evcache.compression.threshold";
+    private static final String ALGORITHM_PER_APP_KEY = "MYAPP.compression.algorithm";
+    private static final String ALGORITHM_GLOBAL_KEY = "default.evcache.compression.algorithm";
+    private static final String ZSTD_LEVEL_PER_APP_KEY = "MYAPP.compression.zstd.level";
+    private static final String ZSTD_LEVEL_GLOBAL_KEY = "default.evcache.compression.zstd.level";
 
     private static PropertyRepository repo(DefaultSettableConfig cfg) {
         return DefaultPropertyFactory.from(cfg);
@@ -96,7 +105,7 @@ public class EVCacheTranscoderPropertiesTest {
     @Test
     public void maxDataSize_staticDefaultWhenBothUnset() {
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(new DefaultSettableConfig()));
-        assertThat(props.getMaxDataSizeBytes()).isEqualTo(EVCacheTranscoderProperties.DEFAULT_MAX_DATA_SIZE_BYTES);
+        assertThat(props.getMaxDataSizeBytes()).isEqualTo(DEFAULT_MAX_DATA_SIZE_BYTES);
     }
 
     @Test
@@ -141,7 +150,7 @@ public class EVCacheTranscoderPropertiesTest {
     @Test
     public void compressionThreshold_staticDefaultWhenBothUnset() {
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(new DefaultSettableConfig()));
-        assertThat(props.getCompressionThresholdBytes()).isEqualTo(EVCacheTranscoderProperties.DEFAULT_COMPRESSION_THRESHOLD_BYTES);
+        assertThat(props.getCompressionThresholdBytes()).isEqualTo(DEFAULT_COMPRESSION_THRESHOLD_BYTES);
     }
 
     @Test
@@ -161,6 +170,130 @@ public class EVCacheTranscoderPropertiesTest {
 
         EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(null, repo(cfg));
         assertThat(props.getCompressionThresholdBytes()).isEqualTo(512);
+    }
+
+    // ---- COMPRESSION_ALGORITHM ----
+
+    @Test
+    public void compressionAlgorithm_perAppOverrideWins() {
+        DefaultSettableConfig cfg = new DefaultSettableConfig();
+        cfg.setProperty(ALGORITHM_PER_APP_KEY, "ZSTD");
+
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(cfg));
+        assertThat(props.getCompressionAlgorithmProperty().get()).isEqualTo(CompressionAlgorithm.ZSTD);
+    }
+
+    @Test
+    public void compressionAlgorithm_globalFallbackWhenPerAppUnset() {
+        DefaultSettableConfig cfg = new DefaultSettableConfig();
+        cfg.setProperty(ALGORITHM_GLOBAL_KEY, "ZSTD");
+
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(cfg));
+        assertThat(props.getCompressionAlgorithmProperty().get()).isEqualTo(CompressionAlgorithm.ZSTD);
+    }
+
+    @Test
+    public void compressionAlgorithm_staticDefaultWhenBothUnset() {
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(new DefaultSettableConfig()));
+        assertThat(props.getCompressionAlgorithmProperty().get()).isEqualTo(DEFAULT_COMPRESSION_ALGORITHM);
+    }
+
+    @Test
+    public void compressionAlgorithm_perAppBeatsGlobal() {
+        DefaultSettableConfig cfg = new DefaultSettableConfig();
+        cfg.setProperty(ALGORITHM_PER_APP_KEY, "ZSTD");
+        cfg.setProperty(ALGORITHM_GLOBAL_KEY, "GZIP");
+
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(cfg));
+        assertThat(props.getCompressionAlgorithmProperty().get()).isEqualTo(CompressionAlgorithm.ZSTD);
+    }
+
+    @Test
+    public void compressionAlgorithm_caseInsensitive() {
+        DefaultSettableConfig cfg = new DefaultSettableConfig();
+        cfg.setProperty(ALGORITHM_GLOBAL_KEY, "zstd");
+
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(null, repo(cfg));
+        assertThat(props.getCompressionAlgorithmProperty().get()).isEqualTo(CompressionAlgorithm.ZSTD);
+    }
+
+    @Test
+    public void compressionAlgorithm_unrecognizedValueFallsBackToDefault() {
+        // A typo'd/unknown FP value must degrade to the default algorithm, not resolve to null
+        // (which would NPE the compression switch at encode time).
+        DefaultSettableConfig cfg = new DefaultSettableConfig();
+        cfg.setProperty(ALGORITHM_GLOBAL_KEY, "SNAPPY");
+
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(null, repo(cfg));
+        assertThat(props.getCompressionAlgorithmProperty().get()).isEqualTo(DEFAULT_COMPRESSION_ALGORITHM);
+    }
+
+    @Test
+    public void compressionAlgorithm_handleReflectsLiveFpUpdate() {
+        // getCompressionAlgorithmProperty() returns a live handle, not a snapshot: a later FP
+        // change must be observed by a subsequent .get() without rebuilding the bundle.
+        DefaultSettableConfig cfg = new DefaultSettableConfig();
+        cfg.setProperty(ALGORITHM_GLOBAL_KEY, "GZIP");
+
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(null, repo(cfg));
+        assertThat(props.getCompressionAlgorithmProperty().get()).isEqualTo(CompressionAlgorithm.GZIP);
+
+        cfg.setProperty(ALGORITHM_GLOBAL_KEY, "ZSTD");
+        assertThat(props.getCompressionAlgorithmProperty().get()).isEqualTo(CompressionAlgorithm.ZSTD);
+    }
+
+    @Test
+    public void compressionAlgorithm_nullAppNameUsesGlobalKey() {
+        DefaultSettableConfig cfg = new DefaultSettableConfig();
+        cfg.setProperty(ALGORITHM_GLOBAL_KEY, "ZSTD");
+
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(null, repo(cfg));
+        assertThat(props.getCompressionAlgorithmProperty().get()).isEqualTo(CompressionAlgorithm.ZSTD);
+    }
+
+    // ---- COMPRESSION_ZSTD_LEVEL ----
+
+    @Test
+    public void zstdLevel_perAppOverrideWins() {
+        DefaultSettableConfig cfg = new DefaultSettableConfig();
+        cfg.setProperty(ZSTD_LEVEL_PER_APP_KEY, "9");
+
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(cfg));
+        assertThat(props.getZstdCompressionLevelProperty().get()).isEqualTo(9);
+    }
+
+    @Test
+    public void zstdLevel_globalFallbackWhenPerAppUnset() {
+        DefaultSettableConfig cfg = new DefaultSettableConfig();
+        cfg.setProperty(ZSTD_LEVEL_GLOBAL_KEY, "9");
+
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(cfg));
+        assertThat(props.getZstdCompressionLevelProperty().get()).isEqualTo(9);
+    }
+
+    @Test
+    public void zstdLevel_staticDefaultWhenBothUnset() {
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(new DefaultSettableConfig()));
+        assertThat(props.getZstdCompressionLevelProperty().get()).isEqualTo(DEFAULT_COMPRESSION_ZSTD_LEVEL);
+    }
+
+    @Test
+    public void zstdLevel_perAppBeatsGlobal() {
+        DefaultSettableConfig cfg = new DefaultSettableConfig();
+        cfg.setProperty(ZSTD_LEVEL_PER_APP_KEY, "5");
+        cfg.setProperty(ZSTD_LEVEL_GLOBAL_KEY, "1");
+
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(APP, repo(cfg));
+        assertThat(props.getZstdCompressionLevelProperty().get()).isEqualTo(5);
+    }
+
+    @Test
+    public void zstdLevel_nullAppNameUsesGlobalKey() {
+        DefaultSettableConfig cfg = new DefaultSettableConfig();
+        cfg.setProperty(ZSTD_LEVEL_GLOBAL_KEY, "9");
+
+        EVCacheTranscoderProperties props = new EVCacheTranscoderProperties(null, repo(cfg));
+        assertThat(props.getZstdCompressionLevelProperty().get()).isEqualTo(9);
     }
 
     // ---- appName ----
