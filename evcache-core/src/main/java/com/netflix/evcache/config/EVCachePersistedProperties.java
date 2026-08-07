@@ -39,7 +39,7 @@ public class EVCachePersistedProperties {
 
         final String region = System.getProperty("netflix.region", getSystemEnvValue("NETFLIX_REGION", "us-east-1"));
         final String env = System.getProperty("netflix.environment",       getSystemEnvValue("NETFLIX_ENVIRONMENT", "test"));
-        String url = System.getProperty("platformserviceurl", "http://platformservice."+region+".dyn" + env +".netflix.net:7001/platformservice/REST/v2/properties/jsonFilterprops");
+        String url = System.getProperty("platformserviceurl", String.format("http://platformservice.cluster.%s.%s.cloud.netflix.net:7001/platformservice/REST/v2/properties/jsonFilterprops", region, env));
         
         return new DefaultPersisted2ClientConfig()
                 .setEnabled(true)
