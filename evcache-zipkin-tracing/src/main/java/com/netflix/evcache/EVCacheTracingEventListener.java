@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /** Adds tracing tags for EvCache calls. */
@@ -35,7 +36,7 @@ public class EVCacheTracingEventListener implements EVCacheEventListener {
   public void onStart(EVCacheEvent e) {
     try {
       Span clientSpan =
-          this.tracer.nextSpan().kind(Span.Kind.CLIENT).name(EVCACHE_SPAN_NAME).start();
+              this.tracer.nextSpan().kind(Span.Kind.CLIENT).name(EVCACHE_SPAN_NAME).start();
 
       // Return if tracing has been disabled
       if(clientSpan.isNoop()){
@@ -104,8 +105,11 @@ public class EVCacheTracingEventListener implements EVCacheEventListener {
        * <p>As EVCache write operations are asynchronous and quorum based, we are avoiding attaching
        * clientSpan with tracer.spanInScope(...) method. Instead, we are storing the clientSpan as
        * an object in the EVCacheEvent's attributes.
+       *
+       * <p>The span is wrapped in a {@link PendingSpan} so only the first of onComplete/onError
+       * finishes it. See {@link #onFinishHelper}.
        */
-      e.setAttribute(CLIENT_SPAN_ATTRIBUTE_KEY, clientSpan);
+      e.setAttribute(CLIENT_SPAN_ATTRIBUTE_KEY, new PendingSpan(clientSpan));
     } catch (Exception exception) {
       logger.error("onStart exception", exception);
     }
@@ -138,15 +142,36 @@ public class EVCacheTracingEventListener implements EVCacheEventListener {
     return false;
   }
 
+  /**
+   * Tags and finishes the span for this event, at most once.
+   *
+   * <p>EVCacheImpl fires both onComplete and onError for one event on several paths, so without the
+   * claim below the second callback mutates a span the reporter may already be encoding:
+   *
+   * <ul>
+   *   <li>async get -- handleMissData (endEvent) then handleException (eventError), in the same
+   *       CompletableFuture.handle(...) branch
+   *   <li>async bulk get -- handleFullCacheMiss then handleException, likewise
+   *   <li>append -- endEvent, then touchData(...) inside the same try whose catch calls eventError
+   *   <li>getAndTouch -- eventError twice in a row
+   * </ul>
+   *
+   * <p>The first callback wins, so an error reported by a later one is dropped. Recovering it means
+   * not firing both callbacks in EVCacheImpl.
+   */
   private void onFinishHelper(EVCacheEvent e, Throwable t) {
     Object clientSpanObj = e.getAttribute(CLIENT_SPAN_ATTRIBUTE_KEY);
 
-    // Return if the previously saved Client Span is null
-    if (clientSpanObj == null) {
+    // Also covers null. The attribute map is string-keyed and shared, so check the type.
+    if (!(clientSpanObj instanceof PendingSpan)) {
       return;
     }
 
-    Span clientSpan = (Span) clientSpanObj;
+    // Whoever claims it finishes it; any later callback for this event gets null and is a no-op.
+    Span clientSpan = ((PendingSpan) clientSpanObj).claim();
+    if (clientSpan == null) {
+      return;
+    }
 
     try {
       if (t != null) {
@@ -175,6 +200,26 @@ public class EVCacheTracingEventListener implements EVCacheEventListener {
   private void safeTag(Span span, String key, String value) {
     if (StringUtils.isNotBlank(value)) {
       span.tag(key, value);
+    }
+  }
+
+  /**
+   * A span that can be claimed exactly once.
+   *
+   * <p>EVCacheEvent's attribute map is an unsynchronized HashMap, so the claim cannot be a
+   * remove-and-check on the map itself.
+   */
+  private static final class PendingSpan {
+
+    private final AtomicReference<Span> span;
+
+    PendingSpan(Span span) {
+      this.span = new AtomicReference<>(span);
+    }
+
+    /** Returns the span to the first caller only; null for every caller after that. */
+    Span claim() {
+      return this.span.getAndSet(null);
     }
   }
 
