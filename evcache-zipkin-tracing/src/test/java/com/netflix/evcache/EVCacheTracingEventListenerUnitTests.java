@@ -1,6 +1,9 @@
 package com.netflix.evcache;
 
 import brave.Tracing;
+import brave.handler.MutableSpan;
+import brave.handler.SpanHandler;
+import brave.propagation.TraceContext;
 import com.netflix.evcache.event.EVCacheEvent;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientPoolManager;
@@ -23,6 +26,10 @@ import static org.mockito.Mockito.*;
 public class EVCacheTracingEventListenerUnitTests {
 
   List<zipkin2.Span> reportedSpans;
+
+  /** The live MutableSpan handed to the reporter, kept by reference so later writes are visible. */
+  List<MutableSpan> handedOffSpans;
+
   EVCacheTracingEventListener tracingListener;
   EVCacheClient mockEVCacheClient;
   EVCacheEvent mockEVCacheEvent;
@@ -40,12 +47,12 @@ public class EVCacheTracingEventListenerUnitTests {
     when(mockEVCacheEvent.getAppName()).thenReturn("dummyAppName");
     when(mockEVCacheEvent.getCacheName()).thenReturn("dummyCacheName");
     when(mockEVCacheEvent.getEVCacheKeys())
-        .thenReturn(Arrays.asList(new EVCacheKey("dummyAppName", "dummyKey", "dummyCanonicalKey", null, null, null, null)));
+            .thenReturn(Arrays.asList(new EVCacheKey("dummyAppName", "dummyKey", "dummyCanonicalKey", null, null, null, null)));
     when(mockEVCacheEvent.getStatus()).thenReturn("success");
     when(mockEVCacheEvent.getDurationInMillis()).thenReturn(1L);
     when(mockEVCacheEvent.getTTL()).thenReturn(0);
     when(mockEVCacheEvent.getCachedData())
-        .thenReturn(new CachedData(1, "dummyData".getBytes(), 255));
+            .thenReturn(new CachedData(1, "dummyData".getBytes(), 255));
 
     Map<String, Object> eventAttributes = new HashMap<>();
     doAnswer(
@@ -59,8 +66,8 @@ public class EVCacheTracingEventListenerUnitTests {
                 return null;
               }
             })
-        .when(mockEVCacheEvent)
-        .setAttribute(any(), any());
+            .when(mockEVCacheEvent)
+            .setAttribute(any(), any());
 
     doAnswer(
             new Answer<Object>() {
@@ -71,14 +78,26 @@ public class EVCacheTracingEventListenerUnitTests {
                 return eventAttributes.get(key);
               }
             })
-        .when(mockEVCacheEvent)
-        .getAttribute(any());
+            .when(mockEVCacheEvent)
+            .getAttribute(any());
 
     reportedSpans = new ArrayList<>();
-    Tracing tracing = Tracing.newBuilder().spanReporter(reportedSpans::add).build();
+    handedOffSpans = new ArrayList<>();
+    Tracing tracing =
+            Tracing.newBuilder()
+                    .addSpanHandler(
+                            new SpanHandler() {
+                              @Override
+                              public boolean end(TraceContext context, MutableSpan span, Cause cause) {
+                                handedOffSpans.add(span);
+                                return true;
+                              }
+                            })
+                    .spanReporter(reportedSpans::add)
+                    .build();
 
     tracingListener =
-        new EVCacheTracingEventListener(mock(EVCacheClientPoolManager.class), tracing.tracer());
+            new EVCacheTracingEventListener(mock(EVCacheClientPoolManager.class), tracing.tracer());
   }
 
   public void verifyCommonTags(List<zipkin2.Span> spans) {
@@ -87,7 +106,7 @@ public class EVCacheTracingEventListenerUnitTests {
 
     Assert.assertEquals(span.kind(), Span.Kind.CLIENT, "Span Kind are not equal");
     Assert.assertEquals(
-        span.name(), EVCacheTracingEventListener.EVCACHE_SPAN_NAME, "Cache name are not equal");
+            span.name(), EVCacheTracingEventListener.EVCACHE_SPAN_NAME, "Cache name are not equal");
 
     Map<String, String> tags = span.tags();
     Assert.assertTrue(tags.containsKey(EVCacheTracingTags.APP_NAME), "APP_NAME tag is missing");
@@ -120,6 +139,65 @@ public class EVCacheTracingEventListenerUnitTests {
     tracingListener.onStart(mockEVCacheEvent);
     tracingListener.onError(mockEVCacheEvent, new RuntimeException("Unexpected Error"));
 
+    verifyCommonTags(reportedSpans);
+    verifyErrorTags(reportedSpans);
+  }
+
+  /**
+   * A later callback must not touch a span that has already been handed off. See
+   * EVCacheTracingEventListener#onFinishHelper for the paths that fire both.
+   *
+   * <p>Asserts on the handed-off MutableSpan, not the reported zipkin2.Span: the conversion happens
+   * at report time, so a post-finish write is invisible there.
+   */
+  @Test
+  public void testOnErrorAfterOnCompleteDoesNotMutateFinishedSpan() {
+    tracingListener.onStart(mockEVCacheEvent);
+    tracingListener.onComplete(mockEVCacheEvent);
+
+    Assert.assertEquals(handedOffSpans.size(), 1, "Expected exactly one span to be handed off");
+    MutableSpan handedOff = handedOffSpans.get(0);
+    int tagCountAtHandoff = handedOff.tagCount();
+
+    tracingListener.onError(mockEVCacheEvent, new RuntimeException("Unexpected Error"));
+
+    Assert.assertEquals(
+            handedOff.tagCount(), tagCountAtHandoff, "A tag was added after the span was handed off");
+    Assert.assertNull(
+            handedOff.tag(EVCacheTracingTags.ERROR),
+            "ERROR tag was written to a span that was already finished");
+    Assert.assertEquals(
+            handedOffSpans.size(), 1, "The span was handed off more than once");
+  }
+
+  /**
+   * The claim is order independent: whichever callback arrives first owns the span.
+   *
+   * <p>This direction adds no new tag key, so a tag count alone cannot detect a second pass. The
+   * status is changed between the callbacks to make one show up as an overwritten value.
+   */
+  @Test
+  public void testOnCompleteAfterOnErrorDoesNotMutateFinishedSpan() {
+    tracingListener.onStart(mockEVCacheEvent);
+    tracingListener.onError(mockEVCacheEvent, new RuntimeException("Unexpected Error"));
+
+    Assert.assertEquals(handedOffSpans.size(), 1, "Expected exactly one span to be handed off");
+    MutableSpan handedOff = handedOffSpans.get(0);
+    int tagCountAtHandoff = handedOff.tagCount();
+    String statusAtHandoff = handedOff.tag(EVCacheTracingTags.STATUS);
+
+    when(mockEVCacheEvent.getStatus()).thenReturn("statusWrittenAfterHandoff");
+    tracingListener.onComplete(mockEVCacheEvent);
+
+    Assert.assertEquals(
+            handedOff.tagCount(), tagCountAtHandoff, "A tag was added after the span was handed off");
+    Assert.assertEquals(
+            handedOff.tag(EVCacheTracingTags.STATUS),
+            statusAtHandoff,
+            "STATUS tag was overwritten on a span that was already finished");
+    Assert.assertEquals(handedOffSpans.size(), 1, "The span was handed off more than once");
+
+    // The first callback still recorded everything it should have.
     verifyCommonTags(reportedSpans);
     verifyErrorTags(reportedSpans);
   }
