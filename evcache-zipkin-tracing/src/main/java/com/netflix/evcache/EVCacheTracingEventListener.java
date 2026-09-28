@@ -209,17 +209,15 @@ public class EVCacheTracingEventListener implements EVCacheEventListener {
    * <p>EVCacheEvent's attribute map is an unsynchronized HashMap, so the claim cannot be a
    * remove-and-check on the map itself.
    */
-  private static final class PendingSpan {
-
-    private final AtomicReference<Span> span;
+  private static final class PendingSpan extends AtomicReference<Span> {
 
     PendingSpan(Span span) {
-      this.span = new AtomicReference<>(span);
+      super(span);
     }
 
     /** Returns the span to the first caller only; null for every caller after that. */
     Span claim() {
-      return this.span.getAndSet(null);
+      return this.getAndSet(null);
     }
   }
 
