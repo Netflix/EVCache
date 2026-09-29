@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 /**
@@ -105,13 +106,7 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
     }
 
     private EVCacheLatch addOrSet(boolean replaceItem, String key, CachedData value, int timeToLive, EVCacheLatch.Policy policy, List<String> serverGroups, List<String> destinationIps) throws EVCacheException {
-        Map<ServerGroup, List<EVCacheClient>> clientsByServerGroup = _pool.getAllInstancesByZone();
-
-        List<EVCacheClient> evCacheClients = clientsByServerGroup.entrySet().stream()
-                .filter(entry -> serverGroups.contains(entry.getKey().getName()))
-                .map(Map.Entry::getValue)
-                .flatMap(List::stream)
-                .collect(Collectors.toList());
+        List<EVCacheClient> evCacheClients = selectOneClientPerServerGroup(_pool.getAllInstancesByZone(), serverGroups);
 
         if (null != destinationIps && !destinationIps.isEmpty()) {
             // identify that evcache client whose primary node is the destination ip for the key being processed
@@ -133,6 +128,17 @@ class EVCacheInternalImpl extends EVCacheImpl implements EVCacheInternal {
             // result in "set" during fixup which can result in replacing items
             return this.add(key, value, null, timeToLive, policy, evCacheClientsArray, evCacheClientsArray.length, false);
         }
+    }
+
+    // Each server group holds poolSize clients connected to the same nodes. Writing through all of them would send the
+    // same write poolSize times, so pick one per server group, as getEVCacheClientForWrite() does for regular writes.
+    static List<EVCacheClient> selectOneClientPerServerGroup(Map<ServerGroup, List<EVCacheClient>> clientsByServerGroup, List<String> serverGroups) {
+        return clientsByServerGroup.entrySet().stream()
+                .filter(entry -> serverGroups.contains(entry.getKey().getName()))
+                .map(Map.Entry::getValue)
+                .filter(clients -> !clients.isEmpty())
+                .map(clients -> clients.get(ThreadLocalRandom.current().nextInt(clients.size())))
+                .collect(Collectors.toList());
     }
 
     public KeyHashedState isKeyHashed(String appName, String serverGroup) {
