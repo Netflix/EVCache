@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
+import com.netflix.evcache.pool.EVCacheLoopProbe;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,6 +20,7 @@ import net.spy.memcached.ops.Operation;
 
 public class EVCacheConnection extends MemcachedConnection {
     private static final Logger log = LoggerFactory.getLogger(EVCacheConnection.class);
+    private EVCacheLoopProbe probe;
     private final net.spy.memcached.compat.log.Logger spyLogger;
 
     public EVCacheConnection(String name, int bufSize, ConnectionFactory f,
@@ -26,6 +29,21 @@ public class EVCacheConnection extends MemcachedConnection {
         super(bufSize, f, a, obs, fm, opfactory);
         setName(name);
         spyLogger = super.getLogger();
+    }
+
+    @Override
+    public synchronized void start() {
+        // MemcachedConnection starts the thread from its constructor. Initialize
+        // the probe before super.start() so Thread.start() safely publishes it
+        // to run() without requiring a volatile read on the event-loop path.
+        if (probe == null) {
+            probe = new EVCacheLoopProbe();
+        }
+        super.start();
+    }
+
+    public EVCacheLoopProbe getProbe() {
+        return probe;
     }
 
     @Override
@@ -63,6 +81,8 @@ public class EVCacheConnection extends MemcachedConnection {
             } catch (Throwable e) {
                 log.error("SEVERE EVCACHE ISSUE.", e);// This ensures the thread
                                                       // doesn't die
+            } finally {
+                probe.tick();
             }
         }
         if (log.isDebugEnabled()) log.debug(toString() + " : Shutdown");

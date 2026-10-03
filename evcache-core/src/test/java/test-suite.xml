@@ -6,6 +6,7 @@
       <class name="com.netflix.evcache.EVCacheInternalImplTest" />
       <class name="com.netflix.evcache.pool.EVCacheValueSerdeTest" />
       <class name="com.netflix.evcache.config.EVCacheTranscoderPropertiesTest" />
+      <class name="com.netflix.evcache.pool.EVCacheLoopProbeTest" />
     </classes>
   </test>
   <test name="MockTests">

@@ -15,6 +15,7 @@ import com.netflix.evcache.operation.EVCacheLatchImpl;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.EVCacheClientUtil;
+import com.netflix.evcache.pool.EVCacheLoopProbe;
 import com.netflix.evcache.pool.EVCacheValue;
 import com.netflix.evcache.util.EVCacheConfig;
 import com.netflix.spectator.api.BasicTag;
@@ -121,6 +122,10 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
     public NodeLocator getNodeLocator() {
         return this.mconn.getLocator();
+    }
+
+    public EVCacheLoopProbe getLoopProbe() {
+        return ((EVCacheConnection) this.mconn).getProbe();
     }
 
     public MemcachedNode getEVCacheNode(String key) {

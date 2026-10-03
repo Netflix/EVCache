@@ -11,12 +11,17 @@ import com.netflix.evcache.EVCache;
 import com.netflix.evcache.EVCacheException;
 import com.netflix.evcache.EVCacheGetOperationListener;
 import com.netflix.evcache.EVCacheLatch;
+import com.netflix.evcache.metrics.EVCacheMetricsFactory;
 import com.netflix.evcache.operation.EVCacheOperationFuture;
 import com.netflix.evcache.pool.EVCacheClient;
 import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.test.transcoder.Movie;
 import com.netflix.evcache.test.transcoder.MovieTranscoder;
 import com.netflix.evcache.util.KeyHasher;
+import com.netflix.spectator.api.Gauge;
+import com.netflix.spectator.api.Id;
+import com.netflix.spectator.api.Registry;
+import com.netflix.spectator.api.patterns.PolledMeter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +79,36 @@ public class EVCacheTestDI extends DIBase implements EVCacheGetOperationListener
     public void testEVCache() {
         this.evCache = getNewBuilder().setAppName(appName).setCachePrefix("cid").enableRetry().build();
         assertNotNull(evCache);
+    }
+
+    @Test(dependsOnMethods = { "testGet" })
+    public void testLoopCpuWallTimeRatioMetricRegistered() throws Exception {
+        final Registry registry = EVCacheMetricsFactory.getInstance().getRegistry();
+        final Map<ServerGroup, List<EVCacheClient>> clientsByServerGroup = manager.getEVCacheClientPool(appName).getAllInstancesByServerGroup();
+        assertFalse(clientsByServerGroup.isEmpty(), "expected EVCache clients for " + appName);
+
+        PolledMeter.update(registry);
+        for (List<EVCacheClient> clients : clientsByServerGroup.values()) {
+            for (EVCacheClient client : clients) {
+                final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_LOOP_CPU_WALL_TIME_RATIO, client.getTagList());
+                assertTrue(registry.state().containsKey(id), "expected loop cpuWallTimeRatio meter for client " + client);
+            }
+        }
+
+        boolean nonZero = false;
+        for (int attempt = 0; attempt < 10 && !nonZero; attempt++) {
+            get(0, evCache);
+            Thread.sleep(1_100);
+            PolledMeter.update(registry);
+            for (List<EVCacheClient> clients : clientsByServerGroup.values()) {
+                for (EVCacheClient client : clients) {
+                    final Id id = EVCacheMetricsFactory.getInstance().getId(EVCacheMetricsFactory.INTERNAL_LOOP_CPU_WALL_TIME_RATIO, client.getTagList());
+                    final Gauge gauge = registry.gauge(id);
+                    nonZero |= gauge.value() > 0.0;
+                }
+            }
+        }
+        assertTrue(nonZero, "expected loop cpuWallTimeRatio meter to report a non-zero value");
     }
 
     @Test(dependsOnMethods = { "testEVCache" })
