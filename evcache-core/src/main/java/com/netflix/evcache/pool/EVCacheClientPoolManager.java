@@ -152,8 +152,9 @@ public class EVCacheClientPoolManager {
         if (instance == null) {
             new EVCacheClientPoolManager(new ConnectionFactoryBuilder(), new SimpleNodeListProvider(), EVCacheConfig.getInstance());
             if (!EVCacheConfig.getInstance().getPropertyRepository().get("evcache.use.simple.node.list.provider", Boolean.class).orElse(false).get()) {
-                if(log.isDebugEnabled()) log.debug("Please make sure EVCacheClientPoolManager is injected first. This is not the appropriate way to init EVCacheClientPoolManager."
-                        + " If you are using simple node list provider please set evcache.use.simple.node.list.provider property to true.", new Exception());
+                if(log.isWarnEnabled()) log.warn("Created a fallback EVCacheClientPoolManager because no manager was initialized."
+                        + " Inject EVCache.Builder or pass the injected manager to EVCache.Builder.setPoolManager(...)."
+                        + " If SimpleNodeListProvider is intentional, set evcache.use.simple.node.list.provider=true.", new Exception());
             }
         }
         return instance;
