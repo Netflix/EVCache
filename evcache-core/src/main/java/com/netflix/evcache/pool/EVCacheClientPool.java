@@ -53,6 +53,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     private final EVCacheClientPoolManager manager;
     private ServerGroupCircularIterator localServerGroupIterator = null;
     private final Property<Boolean> _zoneAffinity;
+    private final Property<Boolean> _useSecure;
     private final Property<Integer> _poolSize; // Number of MemcachedClients to each cluster
     private final Property<Integer> _readTimeout; // Timeout for readOperation
     private final Property<Integer> _bulkReadTimeout; // Timeout for readOperation
@@ -150,6 +151,13 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this._readTimeout.subscribe(callback);
         this._bulkReadTimeout = config.getPropertyRepository().get(appName + ".EVCacheClientPool.bulkReadTimeout", Integer.class).orElse(_readTimeout.get());
         this._bulkReadTimeout.subscribe(callback);
+
+        this._useSecure = config.getPropertyRepository().get(appName + ".use.secure", Boolean.class)
+                .orElseGet("evcache.use.secure").orElse(false);
+        this._useSecure.subscribe(t -> {
+            clearState();
+            refreshPool(true, true);
+        });
 
         this._sgDisabledTimeoutOnShutdown = config.getPropertyRepository().get(appName + ".EVCacheClientPool.sgDisabled.timeoutOnShutdown", Integer.class).orElseGet("EVCacheClientPool.sgDisabled.timeoutOnShutdown").orElse(5);
         this.refreshConnectionOnReadQueueFull = config.getPropertyRepository().get(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull", Boolean.class).orElseGet("EVCacheClientPool.refresh.connection.on.readQueueFull").orElse(false);
