@@ -20,10 +20,8 @@ public class EVCacheKey {
     private final String key;
     private final String canonicalKey;
     private String canonicalKeyForDuet;
-    // Note that this we cache hashed keys based on Hashing Algorithm alone, but not based on other hashing properties
-    // like max.hash.length. So changing max.hash.length alone would not necessarily trigger hash recalculation, but
-    // one would have to change the hashing algorithm in order to having hashing properties taken into account.
-    // This is to make such a hashing property change very obvious and not subtle.
+    // Hashed keys are cached by hashing algorithm, max digest bytes, max hash length and encoder, so clients
+    // (server groups) with different hashing properties each get a hash computed with their own properties.
     private final Map<String, String> hashedKeysByAlgorithm;
     private final Map<String, String> hashedKeysByAlgorithmForDuet;
     private final String encoder;
@@ -122,7 +120,7 @@ public class EVCacheKey {
             return null;
         }
 
-        final String key = hashingAlgorithm.toString()+ maxDigestBytes != null ? maxDigestBytes.toString() : "-" + maxHashLength != null ? maxHashLength.toString() : "-" + encoder != null ? encoder : "-";
+        final String key = getHashCacheKey(hashingAlgorithm, maxDigestBytes, maxHashLength, encoder);
         String val = hashedKeysByAlgorithm.get(key);
         if(val == null) {
             val = KeyHasher.getHashedKeyEncoded(getCanonicalKey(false), hashingAlgorithm, maxDigestBytes, maxHashLength, encoder);
@@ -138,7 +136,7 @@ public class EVCacheKey {
             return null;
         }
 
-        final String key = hashingAlgorithm.toString()+ maxDigestBytes != null ? maxDigestBytes.toString() : "-" + maxHashLength != null ? maxHashLength.toString() : "-" + encoder != null ? encoder : "-";
+        final String key = getHashCacheKey(hashingAlgorithm, maxDigestBytes, maxHashLength, encoder);
         String val = hashedKeysByAlgorithmForDuet.get(key);
         if(val == null) {
             val = KeyHasher.getHashedKeyEncoded(getCanonicalKeyForDuet(), hashingAlgorithm, maxDigestBytes, maxHashLength, encoder);
@@ -147,6 +145,10 @@ public class EVCacheKey {
         if (log.isDebugEnabled()) log.debug("getHashKeyForDuet : " + val);
         // TODO: Once the issue around passing hashedKey in bytes[] is figured, we will start using (nullable) shouldEncodeHashKey, and call KeyHasher.getHashedKeyInBytes() accordingly
         return val;
+    }
+
+    private static String getHashCacheKey(HashingAlgorithm hashingAlgorithm, Integer maxDigestBytes, Integer maxHashLength, String encoder) {
+        return hashingAlgorithm + ":" + maxDigestBytes + ":" + maxHashLength + ":" + encoder;
     }
 
     @Override
