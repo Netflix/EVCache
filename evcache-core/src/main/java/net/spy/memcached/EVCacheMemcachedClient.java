@@ -55,6 +55,7 @@ import net.spy.memcached.ops.OperationStatus;
 import net.spy.memcached.ops.StatusCode;
 import net.spy.memcached.ops.StoreOperation;
 import net.spy.memcached.ops.StoreType;
+import net.spy.memcached.protocol.BaseOperationImpl;
 import net.spy.memcached.protocol.ascii.ExecCmdOperation;
 import net.spy.memcached.protocol.ascii.MetaDebugOperation;
 import net.spy.memcached.protocol.ascii.MetaGetOperation;
@@ -68,7 +69,6 @@ import org.slf4j.LoggerFactory;
 public class EVCacheMemcachedClient extends MemcachedClient {
 
     private static final Logger log = LoggerFactory.getLogger(EVCacheMemcachedClient.class);
-    private static final OperationStatus MUTATE_TIMED_OUT = new OperationStatus(false, "timed out", StatusCode.TIMEDOUT);
     private final String appName;
     private final Property<Integer> readTimeout;
 
@@ -826,11 +826,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             if (!latch.await(mutateOperationTimeout.get(), TimeUnit.MILLISECONDS)) {
                 if (log.isDebugEnabled()) log.debug("Mutation operation timeout. Will return -1");
-                // the latch decides the outcome, even if a reply races in before timeOut()
                 op.timeOut();
                 MemcachedConnection.opTimedOut(op);
                 retVal = -1;
-                status = MUTATE_TIMED_OUT;
+                // the latch decides the outcome, even if a reply races in before timeOut()
+                status = BaseOperationImpl.TIMED_OUT;
             } else {
                 retVal = rv.get();
                 status = statusRef.get();
@@ -845,7 +845,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     + "; val : " + retVal + "; Elapsed Time - " + (System.currentTimeMillis() - start), e);
 
         }
-        final String host = ((status != null && status.getStatusCode().equals(StatusCode.TIMEDOUT) && op != null) ? getHostName(op.getHandlingNode().getSocketAddress()) : null);
+        final MemcachedNode handlingNode = op.getHandlingNode();
+        final String host = (status != null && status.getStatusCode() == StatusCode.TIMEDOUT && handlingNode != null) ? getHostName(handlingNode.getSocketAddress()) : null;
         getTimer(operationStr, EVCacheMetricsFactory.WRITE, status, null, host, getWriteMetricMaxValue()).record((System.currentTimeMillis() - start), TimeUnit.MILLISECONDS);
         if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug(operationStr + " Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp
                 + "; val : " + retVal + "; Elapsed Time - " + (System.currentTimeMillis() - start));

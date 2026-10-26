@@ -5,6 +5,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import java.io.Closeable;
@@ -15,11 +16,13 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -51,7 +54,10 @@ import net.spy.memcached.ops.Mutator;
 import net.spy.memcached.ops.MutatorOperation;
 import net.spy.memcached.ops.Operation;
 import net.spy.memcached.ops.OperationCallback;
+import net.spy.memcached.ops.OperationStatus;
+import net.spy.memcached.protocol.BaseOperationImpl;
 import net.spy.memcached.protocol.ascii.EVCacheAsciiNodeImpl;
+import net.spy.memcached.protocol.ascii.MetaArithmeticOperationImpl;
 
 /**
  * Runs a real {@link EVCacheMemcachedClient} (ascii protocol) against a fake memcached on 127.0.0.1 that
@@ -72,6 +78,7 @@ public class EVCacheMemcachedClientMutateTest {
     private FakeMemcached server;
     private EVCacheMemcachedClient memcachedClient;
     private EVCacheNode node;
+    private boolean unauthenticatedNodes;
 
     @BeforeClass
     public void setUpConfig() {
@@ -89,11 +96,16 @@ public class EVCacheMemcachedClientMutateTest {
         // a new app name per test keeps the (static, cached) timers of different tests apart
         appName = "MUTATETEST" + System.nanoTime();
         config.setProperty(appName + ".mutate.timeout", MUTATE_TIMEOUT_MS);
+        unauthenticatedNodes = false;
         server = new FakeMemcached(0);
         startClient(server.address(), true);
     }
 
     private void startClient(InetSocketAddress address, boolean awaitConnected) throws Exception {
+        startClient(address, awaitConnected, DefaultConnectionFactory.DEFAULT_OPERATION_TIMEOUT);
+    }
+
+    private void startClient(InetSocketAddress address, boolean awaitConnected, long operationTimeoutMs) throws Exception {
         final EVCacheClient client = mock(EVCacheClient.class);
         final EVCacheClientPool pool = mock(EVCacheClientPool.class);
         final EVCacheClientPoolManager poolManager = mock(EVCacheClientPoolManager.class);
@@ -108,7 +120,7 @@ public class EVCacheMemcachedClientMutateTest {
         when(pool.getEVCacheClientPoolManager()).thenReturn(poolManager);
 
         final List<InetSocketAddress> addrs = Collections.singletonList(address);
-        connectionFactory = new TestConnectionFactory(client);
+        connectionFactory = new TestConnectionFactory(client, operationTimeoutMs, unauthenticatedNodes);
         memcachedClient = new EVCacheMemcachedClient(connectionFactory, addrs, null, client);
         node = (EVCacheNode) memcachedClient.getEVCacheNode(KEY);
         // the node must be connected so that the op is actually written and the server sees it
@@ -149,20 +161,15 @@ public class EVCacheMemcachedClientMutateTest {
         }
         memcachedClient.shutdown(1, TimeUnit.SECONDS);
         server.close();
-        startClient(new InetSocketAddress("127.0.0.1", port), false);
+        // the node's operation timeout is far above the mutate timeout, so only op.timeOut() keeps the op off the wire
+        startClient(new InetSocketAddress("127.0.0.1", port), false, TimeUnit.SECONDS.toMillis(60));
 
         assertEquals(memcachedClient.mutate(Mutator.incr, KEY, 1, 0, 0), -1);
         assertTrue(connectionFactory.lastMutateOp().isTimedOut());
-        // the node was not connected, so opTimedOut does not count it (setContinuousTimeout counts only active nodes)
-        assertEquals(node.getContinuousTimeout(), 0);
 
-        // bring the server up on that port: once the node reconnects the IO thread drops the op instead of writing it
+        // once the node connects, a second mutate is answered; the first one must not have been written before it
         server = new FakeMemcached(port);
         awaitTrue("node reconnected", () -> node.isActive());
-        awaitTrue("timed out op dropped unsent", () -> connectionFactory.lastMutateOp().isTimedOutUnsent());
-        assertEquals(server.received(), 0);
-
-        // the connection is usable and the dropped op was the only one that never reached the server
         server.startReplying(valueReply(5));
         assertEquals(memcachedClient.mutate(Mutator.incr, KEY, 1, 0, 0), 5);
         assertEquals(server.received(), 1);
@@ -182,7 +189,7 @@ public class EVCacheMemcachedClientMutateTest {
     }
 
     @Test
-    public void serverErrorAnswerResetsTheCounterAndIsNotATimeout() throws Exception {
+    public void notFoundAnswerResetsTheCounterAndIsNotATimeout() throws Exception {
         assertEquals(memcachedClient.mutate(Mutator.incr, KEY, 1, 0, 0), -1);
         assertEquals(memcachedClient.mutate(Mutator.incr, KEY, 1, 0, 0), -1);
         assertEquals(node.getContinuousTimeout(), 2);
@@ -200,10 +207,12 @@ public class EVCacheMemcachedClientMutateTest {
         assertEquals(memcachedClient.mutate(Mutator.incr, KEY, 1, 0, 0), -1);
         assertEquals(node.getContinuousTimeout(), 2);
 
+        // a stalled canceller thread must not turn the cancel into a timeout
+        config.setProperty(appName + ".mutate.timeout", 2000L);
         // cancel the op once it is in flight, the way a reconnect or a failure mode would
         final Thread canceller = new Thread(() -> {
             try {
-                awaitTrue("mutate op", () -> connectionFactory.lastMutateOp() != null && connectionFactory.mutateOps() == 3);
+                awaitTrue("mutate op", () -> connectionFactory.mutateOps() == 3);
                 connectionFactory.lastMutateOp().cancel();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -217,6 +226,48 @@ public class EVCacheMemcachedClientMutateTest {
         assertFalse(connectionFactory.lastMutateOp().isTimedOut());
         assertEquals(node.getContinuousTimeout(), 2);
         assertNotNull(findCallTimer("cancelled", "failure"));
+    }
+
+    @Test
+    public void replyThatRacesTheTimeoutDoesNotTurnItIntoASuccess() throws Exception {
+        connectionFactory.replyBeforeTimeOut = true;
+
+        assertEquals(memcachedClient.mutate(Mutator.incr, KEY, 1, 0, 0), -1);
+        assertEquals(node.getContinuousTimeout(), 1);
+
+        final Timer timer = findCallTimer("timeout", "failure");
+        assertNotNull(timer, "no ipc.client.call timer with ipc.status=timeout, ipc.result=failure");
+        assertEquals(timer.count(), 1);
+        assertTrue(tagsOf(timer).contains(new BasicTag(EVCacheMetricsFactory.FAILED_HOST, server.address().getHostName())));
+    }
+
+    @Test
+    public void firstStatusWins() throws Exception {
+        assertEquals(memcachedClient.mutate(Mutator.incr, KEY, 1, 0, 0), -1);
+        assertEquals(memcachedClient.mutate(Mutator.incr, KEY, 1, 0, 0), -1);
+        assertEquals(node.getContinuousTimeout(), 2);
+
+        // the op reports CANCELLED right after the answer, but the answer came first
+        connectionFactory.cancelAfterStatus = true;
+        server.startReplying(valueReply(9));
+
+        memcachedClient.mutate(Mutator.incr, KEY, 1, 0, 0);
+        assertEquals(node.getContinuousTimeout(), 0);
+    }
+
+    @Test
+    public void timedOutMutateWithoutHandlingNodeStillReturns() throws Exception {
+        // an unauthenticated node defers the op without assigning it a handling node
+        memcachedClient.shutdown(1, TimeUnit.SECONDS);
+        unauthenticatedNodes = true;
+        startClient(server.address(), false);
+
+        assertEquals(memcachedClient.mutate(Mutator.incr, KEY, 1, 0, 0), -1);
+        assertNull(connectionFactory.lastMutateOp().getHandlingNode());
+
+        final Timer timer = findCallTimer("timeout", "failure");
+        assertNotNull(timer, "no ipc.client.call timer with ipc.status=timeout, ipc.result=failure");
+        assertTrue(tagsOf(timer).stream().noneMatch(t -> t.key().equals(EVCacheMetricsFactory.FAILED_HOST)));
     }
 
     @Test
@@ -265,25 +316,61 @@ public class EVCacheMemcachedClientMutateTest {
         }
     }
 
-    /** Ascii connection factory that builds the same node, connection and operation factory as BaseAsciiConnectionFactory. */
+    /**
+     * Ascii connection factory like BaseAsciiConnectionFactory, except that it skips registerMonitors() and wraps the
+     * operation factory to record the mutate ops. Per-test switches: replyBeforeTimeOut, cancelAfterStatus, unauthenticated.
+     */
     private static class TestConnectionFactory extends DefaultConnectionFactory {
         private final EVCacheClient client;
         private final long startTime = System.currentTimeMillis();
+        private final long operationTimeoutMs;
+        private final boolean unauthenticated;
         private final AtomicInteger mutateOps = new AtomicInteger();
+        // the op delivers the server's answer from timeOut(), just before it reports the timeout
+        volatile boolean replyBeforeTimeOut;
+        // the op's callback gets CANCELLED right after every status
+        volatile boolean cancelAfterStatus;
         private volatile Operation lastMutateOp;
         private final OperationFactory operationFactory = new EVCacheAsciiOperationFactory() {
             @Override
-            public MutatorOperation mutate(Mutator m, String key, long by, long def, int exp, OperationCallback cb) {
-                final MutatorOperation op = super.mutate(m, key, by, def, exp, cb);
+            public MutatorOperation mutate(Mutator m, String key, long by, long def, int exp, final OperationCallback cb) {
+                final OperationCallback callback = !cancelAfterStatus ? cb : new OperationCallback() {
+                    @Override
+                    public void receivedStatus(OperationStatus s) {
+                        cb.receivedStatus(s);
+                        cb.receivedStatus(BaseOperationImpl.CANCELLED);
+                    }
+
+                    @Override
+                    public void complete() {
+                        cb.complete();
+                    }
+                };
+                final MutatorOperation op = !replyBeforeTimeOut ? super.mutate(m, key, by, def, exp, callback)
+                        : new MetaArithmeticOperationImpl(m, key, by, def, exp, callback) {
+                            @Override
+                            public synchronized void timeOut() {
+                                handleLine("VA 2");
+                                handleLine("42");
+                                super.timeOut();
+                            }
+                        };
                 lastMutateOp = op;
                 mutateOps.incrementAndGet();
                 return op;
             }
         };
 
-        TestConnectionFactory(EVCacheClient client) {
+        TestConnectionFactory(EVCacheClient client, long operationTimeoutMs, boolean unauthenticated) {
             super();
             this.client = client;
+            this.operationTimeoutMs = operationTimeoutMs;
+            this.unauthenticated = unauthenticated;
+        }
+
+        @Override
+        public long getOperationTimeout() {
+            return operationTimeoutMs;
         }
 
         @Override
@@ -306,10 +393,15 @@ public class EVCacheMemcachedClientMutateTest {
         }
 
         @Override
-        public MemcachedNode createMemcachedNode(java.net.SocketAddress sa, SocketChannel c, int bufSize) {
+        public MemcachedNode createMemcachedNode(SocketAddress sa, SocketChannel c, int bufSize) {
             return new EVCacheAsciiNodeImpl(sa, c, bufSize, createReadOperationQueue(), createWriteOperationQueue(),
-                    new java.util.concurrent.ArrayBlockingQueue<Operation>(getOpQueueLen()), getOpQueueMaxBlockTime(),
-                    false, getOperationTimeout(), getAuthWaitTime(), this, client, startTime);
+                    new ArrayBlockingQueue<Operation>(getOpQueueLen()), getOpQueueMaxBlockTime(),
+                    false, getOperationTimeout(), getAuthWaitTime(), this, client, startTime) {
+                @Override
+                public boolean isAuthenticated() {
+                    return !unauthenticated && super.isAuthenticated();
+                }
+            };
         }
 
         @Override
