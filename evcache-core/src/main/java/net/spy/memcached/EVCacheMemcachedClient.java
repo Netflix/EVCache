@@ -55,6 +55,7 @@ import net.spy.memcached.ops.OperationStatus;
 import net.spy.memcached.ops.StatusCode;
 import net.spy.memcached.ops.StoreOperation;
 import net.spy.memcached.ops.StoreType;
+import net.spy.memcached.protocol.BaseOperationImpl;
 import net.spy.memcached.protocol.ascii.ExecCmdOperation;
 import net.spy.memcached.protocol.ascii.MetaDebugOperation;
 import net.spy.memcached.protocol.ascii.MetaGetOperation;
@@ -801,11 +802,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         final long start = System.currentTimeMillis();
         final AtomicLong rv = new AtomicLong();
         final CountDownLatch latch = new CountDownLatch(1);
-        final List<OperationStatus> statusList = new ArrayList<OperationStatus>(1);
+        final AtomicReference<OperationStatus> statusRef = new AtomicReference<OperationStatus>();
         final Operation op = opFact.mutate(m, key, by, def, exp, new OperationCallback() {
             @Override
             public void receivedStatus(OperationStatus s) {
-                statusList.add(s);
+                statusRef.compareAndSet(null, s);
                 rv.set(new Long(s.isSuccess() ? s.getMessage() : "-1"));
             }
 
@@ -816,6 +817,7 @@ public class EVCacheMemcachedClient extends MemcachedClient {
         });
         mconn.enqueueOperation(key, op);
         long retVal = def;
+        OperationStatus status = null;
         try {
             if(mutateOperationTimeout == null) {
                 mutateOperationTimeout = EVCacheConfig.getInstance().getPropertyRepository().get(appName + ".mutate.timeout", Long.class).orElse(connectionFactory.getOperationTimeout());
@@ -824,9 +826,18 @@ public class EVCacheMemcachedClient extends MemcachedClient {
 
             if (!latch.await(mutateOperationTimeout.get(), TimeUnit.MILLISECONDS)) {
                 if (log.isDebugEnabled()) log.debug("Mutation operation timeout. Will return -1");
+                op.timeOut();
+                MemcachedConnection.opTimedOut(op);
                 retVal = -1;
+                // the latch decides the outcome, even if a reply races in before timeOut()
+                status = BaseOperationImpl.TIMED_OUT;
             } else {
                 retVal = rv.get();
+                status = statusRef.get();
+                if (status != null && status.getStatusCode() != StatusCode.TIMEDOUT && status.getStatusCode() != StatusCode.CANCELLED) {
+                    // the node answered (even with an error), so reset the continuous timeout counter
+                    MemcachedConnection.opSucceeded(op);
+                }
             }
 
         } catch (Exception e) {
@@ -834,8 +845,8 @@ public class EVCacheMemcachedClient extends MemcachedClient {
                     + "; val : " + retVal + "; Elapsed Time - " + (System.currentTimeMillis() - start), e);
 
         }
-        final OperationStatus status = statusList.size() > 0 ? statusList.get(0) : null;
-        final String host = ((status != null && status.getStatusCode().equals(StatusCode.TIMEDOUT) && op != null) ? getHostName(op.getHandlingNode().getSocketAddress()) : null);
+        final MemcachedNode handlingNode = op.getHandlingNode();
+        final String host = (status != null && status.getStatusCode() == StatusCode.TIMEDOUT && handlingNode != null) ? getHostName(handlingNode.getSocketAddress()) : null;
         getTimer(operationStr, EVCacheMetricsFactory.WRITE, status, null, host, getWriteMetricMaxValue()).record((System.currentTimeMillis() - start), TimeUnit.MILLISECONDS);
         if (log.isDebugEnabled() && client.getPool().getEVCacheClientPoolManager().shouldLog(appName)) log.debug(operationStr + " Key : " + key + "; by : " + by + "; default : " + def + "; exp : " + exp
                 + "; val : " + retVal + "; Elapsed Time - " + (System.currentTimeMillis() - start));
