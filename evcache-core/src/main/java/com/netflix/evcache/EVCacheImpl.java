@@ -26,6 +26,7 @@ import com.netflix.evcache.pool.ServerGroup;
 import com.netflix.evcache.util.EVCacheBulkDataDto;
 import com.netflix.evcache.util.KeyHasher;
 import com.netflix.evcache.util.RetryCount;
+import com.netflix.evcache.util.SkippedKeyRetry;
 import com.netflix.evcache.util.Sneaky;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.Clock;
@@ -93,6 +94,7 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private final Property<Boolean> _throwExceptionFP, _zoneFallbackFP, _useInMemoryCache;
     private final Property<Boolean> _bulkZoneFallbackFP;
     private final Property<Boolean> _bulkPartialZoneFallbackFP;
+    private final Property<Boolean> _asyncBulkSkippedFallbackFP;
     private final List<Tag> tags;
     private EVCacheInMemoryCache<?> cache;
     private EVCacheClientUtil clientUtil = null;
@@ -148,6 +150,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         _zoneFallbackFP = propertyRepository.get(_metricName + ".fallback.zone", Boolean.class).orElseGet(_appName + ".fallback.zone").orElse(true);
         _bulkZoneFallbackFP = propertyRepository.get(_appName + ".bulk.fallback.zone", Boolean.class).orElse(true);
         _bulkPartialZoneFallbackFP = propertyRepository.get(_appName+ ".bulk.partial.fallback.zone", Boolean.class).orElse(true);
+        // Off by default: the async bulk path has only ever retried an empty result, so enabling this changes behavior.
+        _asyncBulkSkippedFallbackFP = propertyRepository.get(_appName + ".async.bulk.skipped.fallback.zone", Boolean.class).orElse(false);
         if(_cacheName == null) {
             _useInMemoryCache = propertyRepository.get(_appName + ".use.inmemory.cache", Boolean.class).orElseGet("evcache.use.inmemory.cache").orElse(false);
         } else {
@@ -384,6 +388,31 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             counterMap.put(name, counter);
         }
         counter.increment();
+    }
+
+    private static final String SKIPPED_FALLBACK_RETRIED_KEYS = "retriedKeys";
+    private static final String SKIPPED_FALLBACK_ATTEMPTS = "attempts";
+    private static final String SKIPPED_FALLBACK_RECOVERED_KEYS = "recoveredKeys";
+    private static final String SKIPPED_FALLBACK_FAILURES = "failures";
+    private static final String SKIPPED_FALLBACK_FULL_RETRY_FAILURES = "fullRetryFailures";
+    private static final String SKIPPED_FALLBACK_THROTTLED = "throttled";
+    private static final String SKIPPED_FALLBACK_NO_CLIENT = "noFallbackClient";
+
+    // counts what the retry of client-skipped async bulk keys did, one counter per stage
+    private void recordSkippedFallback(String stage, long amount) {
+        if (amount <= 0) return;
+        final String name = EVCacheMetricsFactory.ASYNC_BULK_SKIPPED_FALLBACK + stage;
+        Counter counter = counterMap.get(name);
+        if (counter == null) {
+            final List<Tag> tagList = new ArrayList<Tag>(tags.size() + 3);
+            tagList.addAll(tags);
+            tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TAG, Call.COMPLETABLE_FUTURE_GET_BULK.name()));
+            tagList.add(new BasicTag(EVCacheMetricsFactory.CALL_TYPE_TAG, EVCacheMetricsFactory.READ));
+            tagList.add(new BasicTag(EVCacheMetricsFactory.FALLBACK_STAGE, stage));
+            counter = EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.ASYNC_BULK_SKIPPED_FALLBACK, tagList);
+            counterMap.put(name, counter);
+        }
+        counter.increment(amount);
     }
 
     private void incrementFailure(String metric, String operation, String operationType) {
@@ -1902,6 +1931,17 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
     private <T> CompletableFuture<Map<EVCacheKey, T>> getAsyncBulkData(EVCacheClient client,
                                                                        List<EVCacheKey> evcacheKeys,
                                                                        Transcoder<T> tc) {
+        return getAsyncBulkData(client, evcacheKeys, tc, null);
+    }
+
+    /**
+     * @param skippedKeys when not null, receives the keys the client did not send because their node was inactive or
+     *                    over its read queue threshold. Thread safe set expected.
+     */
+    private <T> CompletableFuture<Map<EVCacheKey, T>> getAsyncBulkData(EVCacheClient client,
+                                                                       List<EVCacheKey> evcacheKeys,
+                                                                       Transcoder<T> tc,
+                                                                       Set<EVCacheKey> skippedKeys) {
         KeyMapDto keyMapDto = buildKeyMap(client, evcacheKeys);
         final Set<String> plainKeys = keyMapDto.getPlainKeysMap().keySet();
         final Set<String> hashedKeys = keyMapDto.getHashedKeysMap().keySet();
@@ -1928,7 +1968,13 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 log.debug("fetching bulk data with no hashed key(s) {} ", plainKeys);
             }
         }
-        return client.getAsyncBulk(plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, _appName, shouldLog(), collisionChecker)
+        final Set<String> skippedRaw = skippedKeys == null ? null : ConcurrentHashMap.newKeySet();
+        final CompletableFuture<Map<String, T>> bulk = client.getAsyncBulk(plainKeys, hashedKeys, valueTranscoder, evcacheValueTranscoder, _appName, shouldLog(), collisionChecker, skippedRaw);
+        // Keys are validated before any request is sent, so the skipped keys are known as soon as the call returns.
+        if (skippedRaw != null) {
+            SkippedKeyRetry.addSkippedKeys(skippedRaw, keyMapDto.getPlainKeysMap(), keyMapDto.getHashedKeysMap(), skippedKeys);
+        }
+        return bulk
                 .thenApply(data -> buildKeyValueResult(data, keyMapDto))
                 .exceptionally(t -> handleBulkException(t, evcacheKeys));
     }
@@ -2306,8 +2352,21 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
         final boolean hasZF = hasZoneFallbackForBulk();
         RetryCount retryCount = new RetryCount();
         boolean throwEx = !hasZF && throwExc;
-        return getAsyncBulkData(client, dto.getEvcKeys(), tc)
-                .thenCompose(data -> handleBulkRetry(data, dto.getEvcKeys(), tc, client, event, hasZF, retryCount))
+        // null unless the skipped key retry is in effect for this call, so nothing is tracked otherwise
+        final Set<EVCacheKey> skippedKeys = SkippedKeyRetry.newSkippedKeySet(hasZF, _asyncBulkSkippedFallbackFP.get());
+        final CompletableFuture<Map<EVCacheKey, T>> primary = getAsyncBulkData(client, dto.getEvcKeys(), tc, skippedKeys);
+        // The keys the client skipped are known now, so fetch them from another zone in parallel with the main call.
+        final CompletableFuture<Map<EVCacheKey, T>> recovered = startSkippedKeyFallback(client, event, dto.getEvcKeys(), tc, skippedKeys);
+        return primary
+                .thenCompose(data -> recovered == null
+                        ? handleBulkRetry(data, dto.getEvcKeys(), tc, client, event, hasZF, retryCount)
+                        : recovered.thenCompose(r -> SkippedKeyRetry.combine(data, r, hasZF,
+                                () -> handleFullRetry(client, event, SkippedKeyRetry.sentKeys(dto.getEvcKeys(), skippedKeys), tc, retryCount),
+                                n -> recordSkippedFallback(SKIPPED_FALLBACK_RECOVERED_KEYS, n),
+                                t -> {
+                                    recordSkippedFallback(SKIPPED_FALLBACK_FULL_RETRY_FAILURES, 1);
+                                    if (log.isDebugEnabled() && shouldLog()) log.debug("Full retry failed for APP " + _appName, t);
+                                })))
                 .handle((data, ex) -> {
                     if (ex != null) {
                         handleFullCacheMiss(data, event, keys, cacheOperation);
@@ -2439,6 +2498,47 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
                 .thenCompose(Function.identity());
     }
 
+    /**
+     * Starts fetching the keys the client skipped from another server group, without waiting for the main call.
+     *
+     * @return a future of what was recovered, which never fails, or null when there is nothing to do (retry not in
+     *         effect, nothing skipped, or every key skipped, which the full retry already covers)
+     */
+    private <T> CompletableFuture<Map<EVCacheKey, T>> startSkippedKeyFallback(EVCacheClient client,
+                                                                              EVCacheEvent event,
+                                                                              List<EVCacheKey> evcKeys,
+                                                                              Transcoder<T> tc,
+                                                                              Set<EVCacheKey> skippedKeys) {
+        final List<EVCacheKey> retryKeys = SkippedKeyRetry.keysToRetryEarly(evcKeys, skippedKeys);
+        return SkippedKeyRetry.fetchFromOtherZone(retryKeys,
+                // the one other zone the pool picks (one round-robin step, duet aware), whatever max.retry.count or
+                // retry.all.copies say
+                () -> _pool.getEVCacheClientForReadExclude(client.getServerGroup()),
+                // throttling is checked by shouldStop, so skip the event check in the fetch
+                (target, missingKeys) -> {
+                    if (log.isDebugEnabled() && shouldLog()) {
+                        log.debug("Fetching {} keys skipped by the client from other server group {} (client {})", missingKeys.size(), target.getServerGroupName(), target.getId());
+                    }
+                    return getAsyncBulkData(target, missingKeys, tc);
+                },
+                () -> recordSkippedFallback(SKIPPED_FALLBACK_NO_CLIENT, 1),
+                n -> recordSkippedFallback(SKIPPED_FALLBACK_RETRIED_KEYS, n),
+                // not counted in retryCount: that drives the call timer's attempt tag, which should keep meaning
+                // "a retry happened because the first try failed"
+                () -> recordSkippedFallback(SKIPPED_FALLBACK_ATTEMPTS, 1),
+                t -> {
+                    recordSkippedFallback(SKIPPED_FALLBACK_FAILURES, 1);
+                    if (log.isDebugEnabled() && shouldLog()) log.debug("Fallback for skipped keys failed for APP " + _appName, t);
+                },
+                () -> {
+                    if (event != null && shouldThrottle(event)) {
+                        recordSkippedFallback(SKIPPED_FALLBACK_THROTTLED, 1);
+                        return true;
+                    }
+                    return false;
+                });
+    }
+
     private <T> CompletableFuture<Map<EVCacheKey, T>> handleBulkRetry(Map<EVCacheKey, T> retMap,
                                                                       List<EVCacheKey> evcKeys,
                                                                       Transcoder<T> tc,
@@ -2455,8 +2555,8 @@ public class EVCacheImpl implements EVCache, EVCacheImplMBean {
             }
             return handleFullRetry(client, event, evcKeys, tc, retryCount);
         }
-        if (log.isInfoEnabled() && shouldLog()) {
-            log.debug("Async does not yet support partial retry for bulk. So completing the future or keys {}", evcKeys);
+        if (log.isDebugEnabled() && shouldLog()) {
+            log.debug("No full retry needed. So completing the future for keys {}", evcKeys);
         }
         return CompletableFuture.completedFuture(retMap);
     }

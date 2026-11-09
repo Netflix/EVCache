@@ -42,12 +42,25 @@ evcache.thread.daemon | | false | no
 <CACHE\>.<prefix\>.fallback.zone | <CACHE\>.fallback.zone | true | yes
 <CACHE\>.bulk.fallback.zone | | true | yes
 <CACHE\>.bulk.partial.fallback.zone | | true | yes
+<CACHE\>.async.bulk.skipped.fallback.zone | | false | yes
 <CACHE\>.events.using.latch | evcache.events.using.latch | true | yes
 default.evcache.max.data.size | | 20971520 | no
 default.evcache.compression.threshold | | 120 | no
 <CACHE\>.use.batch.port | evcache.use.batch.port | false | no
 <CACHE\>.ignore.hosts | | | no
 evcache.request.expiry.optout | | true | yes
+
+
+## Async bulk skipped-key fallback
+
+`<CACHE\>.async.bulk.skipped.fallback.zone` (default false, dynamic) addresses read pressure on a single node. The async bulk read skips the keys whose node is inactive or has its read queue over `<CACHE\>.max.read.queue.length` (twice that for bulk); without this property those keys just come back as misses. With it on, those keys, and only those, are fetched from one other server group in parallel with the main call and the results are merged, so a partial result costs about one round trip instead of two.
+
+* It only applies when zone fallback is on for bulk reads: the builder's `enableZoneFallback` (`enableRetry()`), `<CACHE\>.fallback.zone`, `<CACHE\>.bulk.fallback.zone` and a pool that supports fallback. `<CACHE\>.bulk.partial.fallback.zone` is not used on the async path.
+* It makes a single cross-zone call, to the zone the pool picks round-robin, whatever `<CACHE\>.max.retry.count` or `<CACHE\>.retry.all.copies` say. The call has the usual `<CACHE\>.EVCacheClientPool.bulkReadTimeout`, and the merged result waits for it.
+* If every key was skipped, or the main call returns nothing, the existing full retry runs as before; in the second case it asks for the keys the main call sent, since the skipped keys were already asked for.
+* It moves load to the other zone, and the fallback zone applies its own read queue limit to the keys it is asked for. Because the property is dynamic, switch it off to stop it immediately.
+* The fetch is not counted in the call timer's attempt tag.
+* Counter `internal.evc.client.asyncBulk.skippedFallback`, tag `evc.fallback.stage`: `retriedKeys` (keys sent to the other zone), `attempts`, `recoveredKeys`, `failures` (the fetch of the skipped keys failed with an error), `fullRetryFailures` (the full retry for the keys the main call sent failed, while the skipped keys had been recovered), `throttled`, `noFallbackClient`. A timeout or a key the other zone does not have shows up as `recoveredKeys` below `retriedKeys`, not as a failure.
 
 ## Read & Write Operations
 
