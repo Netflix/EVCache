@@ -19,6 +19,8 @@ EVCacheClientPoolManager.<CACHE\>.alias| | | yes
 <CACHE\>.EVCacheClientPool.poolSize| | 1 | yes
 <CACHE\>.EVCacheClientPool.refresh.connection.on.readQueueFull| EVCacheClientPool.refresh.connection.on.readQueueFull | false | yes
 <CACHE\>.EVCacheClientPool.refresh.connection.on.readQueueFull.size| EVCacheClientPool.refresh.connection.on.readQueueFull.size | 100 | yes
+<CACHE\>.EVCacheClientPool.reconnect.on.stalled.readQueue| EVCacheClientPool.reconnect.on.stalled.readQueue | true | yes
+<CACHE\>.EVCacheClientPool.reconnect.on.stalled.readQueue.ms| EVCacheClientPool.reconnect.on.stalled.readQueue.ms | 30000 | yes
 <CACHE\>.disable.async.refresh| | false | yes
 <CACHE\>.log.operation| | 0 | yes
 <CACHE\>.log.operation.calls| | SET,DELETE,GMISS,TMISS,BMISS_ALL,TOUCH,REPLACE | yes

@@ -9,6 +9,8 @@ import java.util.Collection;
 import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 
 import org.slf4j.Logger;
@@ -19,6 +21,8 @@ import net.spy.memcached.ops.Operation;
 public class EVCacheConnection extends MemcachedConnection {
     private static final Logger log = LoggerFactory.getLogger(EVCacheConnection.class);
     private final net.spy.memcached.compat.log.Logger spyLogger;
+    // volatile and null checked in handleIO since the super constructor starts the IO thread before this is assigned
+    private volatile Queue<MemcachedNode> nodesToReconnect = new ConcurrentLinkedQueue<MemcachedNode>();
 
     public EVCacheConnection(String name, int bufSize, ConnectionFactory f,
             List<InetSocketAddress> a, Collection<ConnectionObserver> obs,
@@ -44,6 +48,25 @@ public class EVCacheConnection extends MemcachedConnection {
                 interrupt();
             }
         }
+    }
+
+    /**
+     * Drops and reopens the connection to the node from the IO thread, since queueReconnect is not thread safe.
+     */
+    public void reconnectNode(MemcachedNode node) {
+        nodesToReconnect.offer(node);
+        selector.wakeup();
+    }
+
+    @Override
+    public void handleIO() throws IOException {
+        final Queue<MemcachedNode> nodes = nodesToReconnect;
+        if (nodes != null) {
+            for (MemcachedNode node; (node = nodes.poll()) != null;) {
+                if (node.isActive()) queueReconnect(node); // skip nodes that are already reconnecting
+            }
+        }
+        super.handleIO();
     }
 
     public void run() {

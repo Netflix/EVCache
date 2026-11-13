@@ -312,6 +312,7 @@ public final class EVCacheMetricsFactory {
     public static final String POOL_READ_Q_SIZE                     = "readQueue";
     public static final String POOL_WRITE_Q_SIZE                    = "writeQueue";
     public static final String POOL_REFRESH_QUEUE_FULL              = "refreshOnQueueFull";
+    public static final String POOL_RECONNECT_STALLED_READ_QUEUE    = "reconnectOnStalledReadQueue";
     public static final String POOL_REFRESH_ASYNC                   = "refreshAsync";
     public static final String POOL_OPERATIONS                      = "operations";
 
