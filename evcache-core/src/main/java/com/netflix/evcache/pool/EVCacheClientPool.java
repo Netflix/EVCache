@@ -42,6 +42,7 @@ import com.netflix.spectator.api.Tag;
 
 import net.spy.memcached.EVCacheNode;
 import net.spy.memcached.MemcachedNode;
+import net.spy.memcached.ops.Operation;
 
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings({ "PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS", "REC_CATCH_EXCEPTION", "MDM_THREAD_YIELD" })
 public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
@@ -61,6 +62,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     private final Property<Boolean> _retryAcrossAllReplicas;
     private long lastReconcileTime = 0;
+    private final Map<ServerGroup, Long> lastReconcileNanosByServerGroup = new ConcurrentHashMap<ServerGroup, Long>();
 
     private final Property<Integer> logOperations;
     private final Property<Set<String>> logOperationCalls;
@@ -90,6 +92,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     private final Property<Boolean> refreshConnectionOnReadQueueFull;
     private final Property<Integer> refreshConnectionOnReadQueueFullSize;
+    private final Property<Boolean> reconnectOnStalledReadQueue;
+    private final Property<Integer> stalledReadQueueTimeout;
 
     private final ThreadPoolExecutor asyncRefreshExecutor;
     private final Property<Boolean> _disableAsyncRefresh;
@@ -154,6 +158,8 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         this._sgDisabledTimeoutOnShutdown = config.getPropertyRepository().get(appName + ".EVCacheClientPool.sgDisabled.timeoutOnShutdown", Integer.class).orElseGet("EVCacheClientPool.sgDisabled.timeoutOnShutdown").orElse(5);
         this.refreshConnectionOnReadQueueFull = config.getPropertyRepository().get(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull", Boolean.class).orElseGet("EVCacheClientPool.refresh.connection.on.readQueueFull").orElse(false);
         this.refreshConnectionOnReadQueueFullSize = config.getPropertyRepository().get(appName + ".EVCacheClientPool.refresh.connection.on.readQueueFull.size", Integer.class).orElseGet("EVCacheClientPool.refresh.connection.on.readQueueFull.size").orElse(100);
+        this.reconnectOnStalledReadQueue = config.getPropertyRepository().get(appName + ".EVCacheClientPool.reconnect.on.stalled.readQueue", Boolean.class).orElseGet("EVCacheClientPool.reconnect.on.stalled.readQueue").orElse(true);
+        this.stalledReadQueueTimeout = config.getPropertyRepository().get(appName + ".EVCacheClientPool.reconnect.on.stalled.readQueue.ms", Integer.class).orElseGet("EVCacheClientPool.reconnect.on.stalled.readQueue.ms").orElse(30000);
 
         this._opQueueMaxBlockTime = config.getPropertyRepository().get(appName + ".operation.QueueMaxBlockTime", Integer.class).orElse(10);
         this._opQueueMaxBlockTime.subscribe(callback);
@@ -708,6 +714,17 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
         // 1. if we have discovered instances in zone but not in our map then
         // return immediately
         if (clients == null) return true;
+        // Each server group reconciles on its own timer, so one server group's reconcile does not postpone the others
+        final long currentTime = System.currentTimeMillis();
+        final long nowNanos = System.nanoTime();
+        final Long lastServerGroupReconcileNanos = lastReconcileNanosByServerGroup.get(serverGroup);
+        final boolean reconcile = lastServerGroupReconcileNanos == null
+                || nowNanos - lastServerGroupReconcileNanos.longValue() > TimeUnit.MILLISECONDS.toNanos(reconcileInterval.get().longValue());
+        if (reconcile) {
+            lastReconcileNanosByServerGroup.put(serverGroup, Long.valueOf(nowNanos));
+            lastReconcileTime = currentTime;
+        }
+        getConfigGauge(EVCacheMetricsFactory.POOL_RECONCILE, serverGroup).set(Long.valueOf(reconcile ? 1 : 0));
         // 2. Do a quick check based on count (active, inactive and discovered)
         for (int i = 0; i < clients.size(); i++) {
             final int size = clients.size();
@@ -723,35 +740,29 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup
                     + "\n\tActive Count : " + activeServerCount + "\n\tInactive Count : "
                     + inActiveServerCount + "\n\tDiscovery Count : " + sizeInDiscovery + "\n\tsizeInHashing : " + sizeInHashing);
-            final long currentTime = System.currentTimeMillis();
-            boolean reconcile = false;
-            if (currentTime - lastReconcileTime > reconcileInterval.get()) {
-                reconcile = true;
-                lastReconcileTime = currentTime;
-                getConfigGauge(EVCacheMetricsFactory.POOL_RECONCILE, serverGroup).set(Long.valueOf(1));
-            } else {
-                getConfigGauge(EVCacheMetricsFactory.POOL_RECONCILE, serverGroup).set(Long.valueOf(0));
+
+            // 1. If a host is in discovery and we don't have an active or
+            // inActive connection to it then we will have to refresh our
+            // list. Typical case is we have replaced an existing node or
+            // expanded the cluster. This runs on every refresh because the
+            // counts below match when a replaced node's connection still
+            // looks active (e.g. half open after the node died).
+            for (InetSocketAddress instance : discoveredHostsInServerGroup) {
+                if (!connectionObserver.getActiveServers().containsKey(instance) && !connectionObserver.getInActiveServers().containsKey(instance)) {
+                    if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
+                            + "; instance : " + instance
+                            + " not found and will shutdown the client and init it again.");
+                    getConfigGauge(EVCacheMetricsFactory.POOL_CHANGED, serverGroup).set(Long.valueOf(1));
+                    return true;
+                }
             }
+
             final boolean hashingSizeDiff = (sizeInHashing != sizeInDiscovery && sizeInHashing != activeServerCount);
             if (reconcile || activeServerCount != sizeInDiscovery || inActiveServerCount > 0 || hashingSizeDiff) {
                 if (log.isDebugEnabled()) log.debug("\n\t" + _appName + " & " + serverGroup
                         + " experienced an issue.\n\tActive Server Count : " + activeServerCount);
                 if (log.isDebugEnabled()) log.debug("\n\tInActive Server Count : " + inActiveServerCount
                         + "\n\tDiscovered Instances : " + sizeInDiscovery);
-
-                // 1. If a host is in discovery and we don't have an active or
-                // inActive connection to it then we will have to refresh our
-                // list. Typical case is we have replaced an existing node or
-                // expanded the cluster.
-                for (InetSocketAddress instance : discoveredHostsInServerGroup) {
-                    if (!connectionObserver.getActiveServers().containsKey(instance) && !connectionObserver.getInActiveServers().containsKey(instance)) {
-                        if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup
-                                + "; instance : " + instance
-                                + " not found and will shutdown the client and init it again.");
-                        getConfigGauge(EVCacheMetricsFactory.POOL_CHANGED, serverGroup).set(Long.valueOf(1));
-                        return true;
-                    }
-                }
 
                 // 2. If a host is not in discovery and is
                 // inActive for more than 15 mins then we will have to refresh our
@@ -994,6 +1005,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 final ServerGroup serverGroup = serverGroupEntry.getKey();
                 memcachedReadInstancesByServerGroup.remove(serverGroup);
                 memcachedWriteInstancesByServerGroup.remove(serverGroup);
+                lastReconcileNanosByServerGroup.remove(serverGroup);
                 for (EVCacheClient client : instancesInAServerGroup) {
                     if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup + " has no active servers. Cleaning up this ServerGroup.");
                     client.shutdown(0, TimeUnit.SECONDS);
@@ -1085,6 +1097,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                             final int id = client.getId();
                             if (log.isDebugEnabled()) log.debug("AppName :" + _appName + "; ServerGroup : " + serverGroup + "; intit : client.getId() : " + id);
                             lastReconcileTime = System.currentTimeMillis();
+                            lastReconcileNanosByServerGroup.put(serverGroup, Long.valueOf(System.nanoTime()));
                         } catch (Exception e) {
                             incrementFailure(EVCacheMetricsFactory.INTERNAL_POOL_INIT_ERROR, config.getServerGroup());
                             log.error("Unable to create EVCacheClient for app - " + _appName + " and Server Group - " + serverGroup.getName(), e);
@@ -1147,18 +1160,26 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
     }
 
     private void updateQueueStats() {
+        final boolean refreshOnReadQueueFull = refreshConnectionOnReadQueueFull.get();
+        final boolean reconnectOnStall = reconnectOnStalledReadQueue.get() && stalledReadQueueTimeout.get().intValue() > 0;
+        final long stalledNanos = TimeUnit.MILLISECONDS.toNanos(stalledReadQueueTimeout.get().longValue());
         for (ServerGroup serverGroup : memcachedInstancesByServerGroup.keySet()) {
             List<EVCacheClient> clients = memcachedInstancesByServerGroup.get(serverGroup);
             for(EVCacheClient client : clients) {
                 getStatsGauge(EVCacheMetricsFactory.POOL_WRITE_Q_SIZE, client).set(Long.valueOf(client.getWriteQueueLength()));
                 getStatsGauge(EVCacheMetricsFactory.POOL_READ_Q_SIZE, client).set(Long.valueOf(client.getReadQueueLength()));
-                if(refreshConnectionOnReadQueueFull.get()) {
+                if(refreshOnReadQueueFull || reconnectOnStall) {
                     final Collection<MemcachedNode> allNodes = client.getNodeLocator().getAll();
                     for (MemcachedNode node : allNodes) {
                         if (node instanceof EVCacheNode) {
                             final EVCacheNode evcNode = ((EVCacheNode) node);
-                            if(evcNode.getReadQueueSize() >= refreshConnectionOnReadQueueFullSize.get().intValue()) {
+                            if(refreshOnReadQueueFull && evcNode.getReadQueueSize() >= refreshConnectionOnReadQueueFullSize.get().intValue()) {
                                 EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.POOL_REFRESH_QUEUE_FULL, evcNode.getTags()).increment();
+                                client.getEVCacheMemcachedClient().reconnectNode(evcNode);
+                            } else if (reconnectOnStall && isReadQueueStalled(evcNode, stalledNanos, System.nanoTime())) {
+                                if (log.isWarnEnabled()) log.warn("AppName :" + _appName + "; ServerGroup : " + serverGroup + "; Node : " + evcNode
+                                        + " has not replied for " + stalledReadQueueTimeout.get() + " msec. Will reconnect it.");
+                                EVCacheMetricsFactory.getInstance().getCounter(EVCacheMetricsFactory.POOL_RECONNECT_STALLED_READ_QUEUE, evcNode.getTags()).increment();
                                 client.getEVCacheMemcachedClient().reconnectNode(evcNode);
                             }
                         }
@@ -1166,6 +1187,19 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
                 }
             }
         }
+    }
+
+    /**
+     * True if the node looks connected but has not replied to its oldest sent operation within stalledNanos. A node that
+     * died without closing its sockets (e.g. host failure) leaves a half open connection that would otherwise look active
+     * until the kernel gives up retransmitting (~15 mins on Linux), while reads fail with read queue full.
+     */
+    static boolean isReadQueueStalled(EVCacheNode node, long stalledNanos, long nowNanos) {
+        if (!node.isActive()) return false;
+        final Operation op = node.getCurrentReadOp();
+        if (op == null) return false;
+        final long writeCompleteNanos = op.getWriteCompleteTimestamp(); // 0 until the op is fully written
+        return writeCompleteNanos != 0 && nowNanos - writeCompleteNanos > stalledNanos;
     }
 
     public void pingServers(Boolean bootTimeCheck) {
@@ -1267,6 +1301,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
             final List<EVCacheClient> clients = memcachedInstancesByServerGroup.remove(serverGroup);
             memcachedReadInstancesByServerGroup.remove(serverGroup);
             memcachedWriteInstancesByServerGroup.remove(serverGroup);
+            lastReconcileNanosByServerGroup.remove(serverGroup);
             setupAllEVCacheWriteClientsArray();
             for (EVCacheClient client : clients) {
                 if (log.isDebugEnabled()) log.debug("\n\tApp : " + _appName + "\n\tServerGroup : " + serverGroup

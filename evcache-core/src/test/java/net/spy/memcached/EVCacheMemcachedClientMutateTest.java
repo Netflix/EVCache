@@ -176,6 +176,20 @@ public class EVCacheMemcachedClientMutateTest {
     }
 
     @Test
+    public void unansweredOpStaysAtTheHeadOfTheReadQueueUntilTheNodeIsReconnected() throws Exception {
+        assertEquals(memcachedClient.mutate(Mutator.incr, KEY, 1, 0, 0), -1);
+        // EVCacheClientPool's stalled read queue check relies on this: the unanswered op stays at the head, fully written
+        final Operation unanswered = node.getCurrentReadOp();
+        assertNotNull(unanswered);
+        assertTrue(unanswered.getWriteCompleteTimestamp() != 0);
+        assertTrue(node.isActive());
+
+        ((EVCacheConnection) memcachedClient.mconn).reconnectNode(node);
+        awaitTrue("unanswered op dropped", () -> node.getCurrentReadOp() == null);
+        awaitTrue("node reconnected", () -> node.isActive() && server.sockets.size() == 2);
+    }
+
+    @Test
     public void everyTimedOutMutateIsCountedAndAnAnswerResetsTheCounter() throws Exception {
         for (int i = 1; i <= 3; i++) {
             assertEquals(memcachedClient.mutate(Mutator.incr, KEY, 1, 0, 0), -1);

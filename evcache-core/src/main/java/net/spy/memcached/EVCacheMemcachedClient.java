@@ -863,7 +863,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
             tagList.add(new BasicTag(EVCacheMetricsFactory.FAILED_HOST, evcNode.getHostName()));
             EVCacheMetricsFactory.getInstance().increment(EVCacheMetricsFactory.CONFIG, tagList);
             evcNode.setConnectTime(System.currentTimeMillis());
-            mconn.queueReconnect(evcNode);
+            if (mconn instanceof EVCacheConnection) {
+                ((EVCacheConnection) mconn).reconnectNode(evcNode);
+            } else {
+                mconn.queueReconnect(evcNode);
+            }
         }
     }
 

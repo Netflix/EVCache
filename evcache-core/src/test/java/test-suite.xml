@@ -7,6 +7,7 @@
       <class name="com.netflix.evcache.pool.EVCacheValueSerdeTest" />
       <class name="com.netflix.evcache.config.EVCacheTranscoderPropertiesTest" />
       <class name="net.spy.memcached.EVCacheMemcachedClientMutateTest" />
+      <class name="com.netflix.evcache.pool.EVCacheClientPoolRefreshTest" />
     </classes>
   </test>
   <test name="MockTests">
