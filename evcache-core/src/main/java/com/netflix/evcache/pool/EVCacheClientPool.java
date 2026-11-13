@@ -62,7 +62,7 @@ public class EVCacheClientPool implements Runnable, EVCacheClientPoolMBean {
 
     private final Property<Boolean> _retryAcrossAllReplicas;
     private long lastReconcileTime = 0;
-    private final Map<ServerGroup, Long> lastReconcileNanosByServerGroup = new ConcurrentHashMap<ServerGroup, Long>(); // System.nanoTime()
+    private final Map<ServerGroup, Long> lastReconcileNanosByServerGroup = new ConcurrentHashMap<ServerGroup, Long>();
 
     private final Property<Integer> logOperations;
     private final Property<Set<String>> logOperationCalls;
