@@ -192,7 +192,7 @@ public class EVCacheClient {
         return this.maxHashLength.get();
     }
 
-    private enum NodeValidationResult {
+    enum NodeValidationResult {
         OK,
         INACTIVE_NODE,
         READ_QUEUE_FULL
@@ -1098,18 +1098,49 @@ public class EVCacheClient {
     public <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> plainKeys, Set<String> hashedKeys,
                                                               Transcoder<T> tc, EVCacheTranscoder evcacheValueTranscoder,
                                                               String appName, boolean shouldLog, BiPredicate<String, String> collisionChecker) {
-        final BiPredicate<MemcachedNode, String> validator = (node, key) -> {
-            NodeValidationResult result = validateNodeForRead(node, Call.COMPLETABLE_FUTURE_GET_BULK, 2 * maxReadQueueSize.get());
-            if (result != NodeValidationResult.OK) {
-                return false;
-            }
-            return true;
-        };
+        return getAsyncBulk(plainKeys, hashedKeys, tc, evcacheValueTranscoder, appName, shouldLog, collisionChecker, null);
+    }
+
+    /**
+     * Same as above, and every key that is not sent because its node is inactive or its read queue is over the
+     * threshold is added to {@code skippedKeys} (when not null). The set must be thread safe.
+     *
+     * <p><b>Contract:</b> {@code skippedKeys} is complete when this method returns. That holds because
+     * {@code EVCacheMemcachedClient.asyncGetBulk} validates every key, on the calling thread, before it returns, and
+     * the caller ({@code EVCacheImpl.getAsyncBulkData}) reads the set immediately afterwards to start the skipped-key
+     * fallback in parallel with the main call. It is enforced by {@code EVCacheMemcachedClientBulkValidatorTest}. If
+     * validation is ever changed to happen later or on another thread, that caller has to change too, or the fallback
+     * would silently do nothing.
+     */
+    public <T> CompletableFuture<Map<String, T>> getAsyncBulk(Collection<String> plainKeys, Set<String> hashedKeys,
+                                                              Transcoder<T> tc, EVCacheTranscoder evcacheValueTranscoder,
+                                                              String appName, boolean shouldLog, BiPredicate<String, String> collisionChecker,
+                                                              Set<String> skippedKeys) {
+        final BiPredicate<MemcachedNode, String> validator = skipTrackingValidator(
+                node -> validateNodeForRead(node, Call.COMPLETABLE_FUTURE_GET_BULK, 2 * maxReadQueueSize.get()), skippedKeys);
         if (tc == null) tc = (Transcoder<T>) getTranscoder();
         return evcacheMemcachedClient
                 .asyncGetBulk(plainKeys, hashedKeys, tc, evcacheValueTranscoder, validator, appName, shouldLog, collisionChecker)
                 .getAsyncSome(bulkReadTimeout.get(), TimeUnit.MILLISECONDS);
 
+    }
+
+    /**
+     * @return a validator that lets a key through when {@code check} says its node is fine, and otherwise records the
+     *         key in {@code skippedKeys} (if given) and keeps it from being sent
+     */
+    static BiPredicate<MemcachedNode, String> skipTrackingValidator(java.util.function.Function<MemcachedNode, NodeValidationResult> check,
+                                                                    Set<String> skippedKeys) {
+        return (node, key) -> admitKey(check.apply(node), key, skippedKeys);
+    }
+
+    /**
+     * @return true when the key may be sent. A key that may not be sent is added to {@code skippedKeys}, if given.
+     */
+    static boolean admitKey(NodeValidationResult result, String key, Set<String> skippedKeys) {
+        if (result == NodeValidationResult.OK) return true;
+        if (skippedKeys != null) skippedKeys.add(key);
+        return false;
     }
 
     public <T> Single<Map<String, T>> getBulk(Collection<String> canonicalKeys, final Transcoder<T> transcoder, boolean _throwException,
