@@ -341,7 +341,11 @@ public class EVCacheMemcachedClient extends MemcachedClient {
      * @param hashedKeys set of hashed keys, separately from plain keys because they require two-step decoding; may be null if no hashed keys - this is a Set for O(1) lookups
      * @param valueTranscoder transcoder for decoding the actual data payload
      * @param envelopeTranscoder transcoder for unwrapping the EVCacheValue envelope (required for hashed keys); may be null if no hashed keys
-     * @param nodeValidator predicate to validate if a node should be queried for a given key
+     * @param nodeValidator predicate to validate if a node should be queried for a given key. It is called for every
+     *                      key, on the calling thread, before this method returns. This is a contract, not an accident:
+     *                      the skipped-key fallback in {@code EVCacheImpl} reads the keys the validator rejected as soon
+     *                      as this returns. It is enforced by {@code EVCacheMemcachedClientBulkValidatorTest}; if you
+     *                      need to change it, update that caller as well.
      * @param appName application name for logging and metrics
      * @param shouldLog flag indicating whether debug logging should be performed
      * @param collisionChecker predicate that checks for hash collisions by comparing hashed key with decoded canonical key;
